@@ -24,11 +24,13 @@ use std::path::{Path, PathBuf};
 
 use crate::codegen::c::any::CInclude;
 use crate::codegen::compile_target::CompileTarget;
-use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleInfo};
+use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 use crate::commandline::CommandLineOptions;
+use crate::project_catalog::RasmProjectCatalog;
 use linked_hash_map::LinkedHashMap;
 use log::info;
 use pathdiff::diff_paths;
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::ModuleInfo;
 use rayon::prelude::*;
 use rust_embed::RustEmbed;
@@ -404,6 +406,29 @@ impl RasmProject {
         result
     }
 
+    pub fn get_catalog(
+        &self,
+        statics: &mut Statics,
+        for_tests: bool,
+        target: &CompileTarget,
+        debug: bool,
+        out: &PathBuf,
+        options: &CommandLineOptions,
+    ) -> (
+        impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        Vec<CompilationError>,
+    ) {
+        let mut catalog = RasmProjectCatalog::new();
+        let (modules, errors) =
+            self.get_all_modules(statics, for_tests, target, debug, out, options);
+
+        for (module, info) in modules {
+            catalog.add(module, info);
+        }
+
+        (catalog, errors)
+    }
+
     pub fn get_all_modules(
         &self,
         statics: &mut Statics,
@@ -478,7 +503,7 @@ impl RasmProject {
                     false
                 };
 
-                let index = EnhASTIndex::from_position(info.path.clone(), &function.position);
+                let index = EnhASTIndex::from_position(info.path(), &function.position);
 
                 if !valid {
                     errors.push(CompilationError {
@@ -520,7 +545,10 @@ impl RasmProject {
 
         return (
             module,
-            EnhModuleInfo::new(Some(PathBuf::new()), EnhASTNameSpace::global()),
+            EnhModuleInfo::new(
+                EnhModuleId::Other("::test".to_owned()),
+                EnhASTNameSpace::global(),
+            ),
         );
     }
 
@@ -537,7 +565,9 @@ impl RasmProject {
 
                 let namespace = EnhASTNameSpace::new(self.config.package.name.clone(), name);
 
-                return Some(EnhModuleInfo::new(Some(main_src_file), namespace).module_info());
+                return Some(
+                    EnhModuleInfo::new(EnhModuleId::Path(main_src_file), namespace).module_info(),
+                );
             }
         }
         None
@@ -562,7 +592,11 @@ impl RasmProject {
             let namespace = EnhASTNameSpace::new(self.config.package.name.clone(), name);
             let (module, errors) = self.module_from_file(&path);
 
-            vec![(module, errors, EnhModuleInfo::new(Some(path), namespace))]
+            vec![(
+                module,
+                errors,
+                EnhModuleInfo::new(EnhModuleId::Path(path), namespace),
+            )]
         } else {
             WalkDir::new(source_folder)
                 .into_iter()
@@ -694,7 +728,10 @@ impl RasmProject {
         Some((
             entry_module,
             module_errors,
-            EnhModuleInfo::new(Some(path.to_path_buf().canonicalize().unwrap()), namespace),
+            EnhModuleInfo::new(
+                EnhModuleId::Path(path.to_path_buf().canonicalize().unwrap()),
+                namespace,
+            ),
         ))
     }
 
@@ -867,7 +904,7 @@ impl RasmProject {
                 .into_iter()
                 .map(|it| CompilationError::from_parser_error(it, Some(main_path.to_path_buf())))
                 .collect::<Vec<_>>(),
-            EnhModuleInfo::new(Some(main_path.to_path_buf()), namespace),
+            EnhModuleInfo::new(EnhModuleId::Path(main_path.to_path_buf()), namespace),
         )
     }
 }
@@ -955,6 +992,16 @@ mod tests {
     use std::env;
     use std::path::{Path, PathBuf};
 
+    use rasm_parser::catalog::modules_catalog::ModulesCatalog;
+
+    use crate::codegen::c::options::COptions;
+    use crate::codegen::compile_target::CompileTarget;
+    use crate::codegen::enh_ast::EnhModuleId;
+    use crate::codegen::statics::Statics;
+    use crate::commandline::CommandLineOptions;
+
+    use super::RasmProject;
+
     #[test]
     fn test_canonilize() {
         let current_dir = env::current_dir().unwrap();
@@ -965,5 +1012,29 @@ mod tests {
             path.canonicalize().unwrap(),
             current_dir.join(PathBuf::from("resources/test/test1.rasm"))
         );
+    }
+
+    #[test]
+    fn test_catalog() {
+        env::set_var("RASM_STDLIB", "../../../stdlib");
+        let sut = RasmProject::new(PathBuf::from("resources/test/helloworld.rasm"));
+
+        let mut statics = Statics::new();
+        let (catalog, _errors) = sut.get_catalog(
+            &mut statics,
+            false,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &env::temp_dir().join("tmp"),
+            &CommandLineOptions::default(),
+        );
+
+        let info = catalog.info(&EnhModuleId::Path(
+            PathBuf::from("resources/test/helloworld.rasm")
+                .canonicalize()
+                .unwrap(),
+        ));
+
+        assert_eq!("helloworld_helloworld", format!("{}", info.unwrap().namespace()));
     }
 }

@@ -21,14 +21,35 @@ use rasm_parser::parser::ast::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum EnhModuleId {
+    Path(PathBuf),
+    Other(String),
+}
+
+impl Display for EnhModuleId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EnhModuleId::Path(path_buf) => write!(f, "{}", path_buf.to_string_lossy()),
+            EnhModuleId::Other(s) => f.write_str(s),
+        }
+    }
+}
+
+impl EnhModuleId {
+    pub fn none() -> Self {
+        EnhModuleId::Other(String::new())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EnhModuleInfo {
-    pub path: Option<PathBuf>,
+    pub id: EnhModuleId,
     pub namespace: EnhASTNameSpace,
 }
 
 impl EnhModuleInfo {
-    pub fn new(path: Option<PathBuf>, namespace: EnhASTNameSpace) -> Self {
-        Self { path, namespace }
+    pub fn new(id: EnhModuleId, namespace: EnhASTNameSpace) -> Self {
+        Self { id, namespace }
     }
 
     pub fn module_namespace(&self) -> ModuleNamespace {
@@ -36,7 +57,10 @@ impl EnhModuleInfo {
     }
 
     pub fn module_id(&self) -> ModuleId {
-        ModuleId(self.path.clone().unwrap().to_string_lossy().to_string())
+        match &self.id {
+            EnhModuleId::Path(path_buf) => ModuleId(path_buf.clone().to_string_lossy().to_string()),
+            EnhModuleId::Other(s) => ModuleId(s.clone()),
+        }
     }
 
     pub fn index(&self, position: ASTPosition) -> ASTIndex {
@@ -45,6 +69,13 @@ impl EnhModuleInfo {
 
     pub fn module_info(&self) -> ModuleInfo {
         ModuleInfo::new(self.module_namespace(), self.module_id())
+    }
+
+    pub fn path(&self) -> Option<PathBuf> {
+        match &self.id {
+            EnhModuleId::Path(path_buf) => Some(path_buf.clone()),
+            EnhModuleId::Other(_) => None,
+        }
     }
 }
 
@@ -1201,33 +1232,31 @@ impl EnhASTModule {
 
     pub fn from_ast(module: ASTModule, info: EnhModuleInfo) -> Self {
         Self {
-            path: info.path.clone().unwrap(),
+            path: info.path().unwrap(),
             body: module
                 .body
                 .into_iter()
-                .map(|it| EnhASTStatement::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .map(|it| EnhASTStatement::from_ast(info.path(), info.namespace.clone(), it))
                 .collect(),
             functions: module
                 .functions
                 .into_iter()
-                .map(|it| {
-                    EnhASTFunctionDef::from_ast(info.path.clone(), info.namespace.clone(), it)
-                })
+                .map(|it| EnhASTFunctionDef::from_ast(info.path(), info.namespace.clone(), it))
                 .collect(),
             enums: module
                 .enums
                 .into_iter()
-                .map(|it| EnhASTEnumDef::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .map(|it| EnhASTEnumDef::from_ast(info.path(), info.namespace.clone(), it))
                 .collect(),
             structs: module
                 .structs
                 .into_iter()
-                .map(|it| EnhASTStructDef::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .map(|it| EnhASTStructDef::from_ast(info.path(), info.namespace.clone(), it))
                 .collect(),
             types: module
                 .types
                 .into_iter()
-                .map(|it| EnhASTTypeDef::from_ast(info.path.clone(), info.namespace.clone(), it))
+                .map(|it| EnhASTTypeDef::from_ast(info.path(), info.namespace.clone(), it))
                 .collect(),
             namespace: info.namespace.clone(),
         }

@@ -28,6 +28,12 @@ pub struct ModuleInfo {
     namespace: ModuleNamespace,
 }
 
+impl Display for ModuleInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} : {}", self.module_id, self.namespace)
+    }
+}
+
 impl ModuleInfo {
     pub fn new(namespace: ModuleNamespace, module_id: ModuleId) -> Self {
         Self {

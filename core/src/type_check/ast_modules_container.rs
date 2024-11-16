@@ -446,13 +446,7 @@ mod tests {
             container.add(
                 &module,
                 ModuleNamespace(info.namespace.safe_name()),
-                ModuleId(
-                    info.path
-                        .as_ref()
-                        .map(|it| it.to_string_lossy().to_string())
-                        .unwrap_or(String::new())
-                        .to_string(),
-                ),
+                info.module_id(),
                 false, // modules fromRasmProject contains already builtin functions
             );
         }
