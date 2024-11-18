@@ -579,7 +579,7 @@ mod tests {
 
         let (modules, _errors) = project.get_all_modules(
             &mut statics,
-            false,
+            crate::project::RasmProjectRunType::Main,
             &target,
             false,
             &env::temp_dir().join("tmp"),
@@ -812,7 +812,7 @@ mod tests {
 
         let (modules, _errors) = project.get_all_modules(
             statics,
-            false,
+            crate::project::RasmProjectRunType::Main,
             target,
             false,
             &env::temp_dir().join("tmp"),

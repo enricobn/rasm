@@ -39,6 +39,13 @@ impl EnhModuleId {
     pub fn none() -> Self {
         EnhModuleId::Other(String::new())
     }
+
+    pub fn path(&self) -> Option<PathBuf> {
+        match self {
+            EnhModuleId::Path(path_buf) => Some(path_buf.clone()),
+            EnhModuleId::Other(_) => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -72,10 +79,7 @@ impl EnhModuleInfo {
     }
 
     pub fn path(&self) -> Option<PathBuf> {
-        match &self.id {
-            EnhModuleId::Path(path_buf) => Some(path_buf.clone()),
-            EnhModuleId::Other(_) => None,
-        }
+        self.id.path()
     }
 }
 
@@ -1232,7 +1236,7 @@ impl EnhASTModule {
 
     pub fn from_ast(module: ASTModule, info: EnhModuleInfo) -> Self {
         Self {
-            path: info.path().unwrap(),
+            path: info.path().unwrap_or(PathBuf::new()), // TODO I don't like it
             body: module
                 .body
                 .into_iter()

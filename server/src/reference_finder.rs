@@ -1176,7 +1176,7 @@ mod tests {
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::AsmOptions;
     use rasm_core::commandline::CommandLineOptions;
-    use rasm_core::project::RasmProject;
+    use rasm_core::project::{RasmProject, RasmProjectRunType};
     use rasm_utils::{OptionDisplay, SliceDisplay};
 
     use crate::completion_service::{CompletionItem, CompletionTrigger};
@@ -1819,7 +1819,7 @@ mod tests {
         let target = CompileTarget::Nasmi386(AsmOptions::default());
         let (modules, _errors) = project.get_all_modules(
             &mut statics,
-            false,
+            RasmProjectRunType::Main,
             &target,
             false,
             &env::temp_dir().join("tmp"),

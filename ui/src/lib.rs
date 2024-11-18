@@ -14,7 +14,7 @@ use module_view::TEXT_SCROLLABLE_ID;
 use rasm_core::{
     codegen::{compile_target::CompileTarget, statics::Statics, val_context::ValContext},
     commandline::CommandLineOptions,
-    project::RasmProject,
+    project::{RasmProject, RasmProjectRunType},
     type_check::{
         ast_modules_container::ASTModulesContainer,
         ast_type_checker::{ASTTypeChecker, ASTTypeCheckerResult},
@@ -68,7 +68,7 @@ impl UI {
 
         let (modules, _errors) = project.get_all_modules(
             &mut statics,
-            false,
+            RasmProjectRunType::All,
             &target,
             false,
             &env::temp_dir().join("tmp"),

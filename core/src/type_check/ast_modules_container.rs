@@ -428,7 +428,7 @@ mod tests {
         let mut statics = Statics::new();
         let (modules, _) = project.get_all_modules(
             &mut statics,
-            false,
+            crate::project::RasmProjectRunType::Main,
             &target,
             false,
             &env::temp_dir().join("tmp"),

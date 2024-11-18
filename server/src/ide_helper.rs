@@ -8,7 +8,7 @@ use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::ValContext;
 use rasm_core::commandline::CommandLineOptions;
 use rasm_core::errors::CompilationError;
-use rasm_core::project::RasmProject;
+use rasm_core::project::{RasmProject, RasmProjectRunType};
 use rasm_core::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
 use rasm_core::type_check::ast_type_checker::{ASTTypeCheckInfo, ASTTypeChecker};
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
@@ -365,7 +365,7 @@ pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<Com
 
     let (modules, errors) = project.get_all_modules(
         &mut statics,
-        false,
+        RasmProjectRunType::Main,
         &CompileTarget::C(COptions::default()),
         false,
         &env::temp_dir().join("tmp"),

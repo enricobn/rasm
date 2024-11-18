@@ -44,7 +44,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen, CodeGenAsm};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::{CompilationError, CompilationErrorKind};
-use crate::project::RasmProject;
+use crate::project::{RasmProject, RasmProjectRunType};
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::{
     TypedFunctionsCreator, TypedFunctionsCreatorNasmi386,
@@ -281,9 +281,15 @@ impl CompileTarget {
 
         let mut statics = Statics::new();
 
+        let run_type = if command_line_options.action == CommandLineAction::Test {
+            RasmProjectRunType::Test
+        } else {
+            RasmProjectRunType::Main
+        };
+
         let (modules, errors) = project.get_all_modules(
             &mut statics,
-            command_line_options.action == CommandLineAction::Test,
+            run_type,
             self,
             command_line_options.debug,
             &out,

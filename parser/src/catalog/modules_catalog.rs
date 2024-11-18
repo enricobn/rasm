@@ -2,7 +2,7 @@ use crate::parser::ast::ASTModule;
 
 use super::{ModuleId, ModuleInfo, ModuleNamespace};
 
-pub trait ModulesCatalog<ID, NAMESPACE> {
+pub trait ModulesCatalog<ID, NAMESPACE>: Send + Sync {
     fn module(&self, id: &ID) -> Option<&ASTModule>;
 
     fn info(&self, id: &ID) -> Option<ModuleInfo>;

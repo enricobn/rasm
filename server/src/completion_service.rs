@@ -629,7 +629,7 @@ mod tests {
     use rasm_core::codegen::statics::Statics;
     use rasm_core::codegen::AsmOptions;
     use rasm_core::commandline::CommandLineOptions;
-    use rasm_core::project::RasmProject;
+    use rasm_core::project::{RasmProject, RasmProjectRunType};
     use rasm_core::type_check::resolved_generic_types::ResolvedGenericTypes;
     use rasm_parser::parser::ast::ASTModifiers;
 
@@ -717,7 +717,7 @@ mod tests {
         let target = CompileTarget::Nasmi386(AsmOptions::default());
         let (modules, errors) = project.get_all_modules(
             &mut statics,
-            false,
+            RasmProjectRunType::Main,
             &target,
             false,
             &env::temp_dir().join("tmp"),

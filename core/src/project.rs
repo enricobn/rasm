@@ -59,6 +59,12 @@ pub struct RasmProject {
 #[folder = "../core/resources/corelib/rasm"]
 pub struct RasmCoreLibAssets;
 
+pub enum RasmProjectRunType {
+    Main,
+    Test,
+    All,
+}
+
 impl RasmProject {
     pub fn new(root: PathBuf) -> Self {
         Self {
@@ -301,7 +307,6 @@ impl RasmProject {
         statics: &mut Statics,
         target: &CompileTarget,
         debug: bool,
-        for_tests: bool,
         out: &PathBuf,
     ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
         let mut modules = Vec::new();
@@ -409,7 +414,7 @@ impl RasmProject {
     pub fn catalog(
         &self,
         statics: &mut Statics,
-        for_tests: bool,
+        run_type: RasmProjectRunType,
         target: &CompileTarget,
         debug: bool,
         out: &PathBuf,
@@ -420,7 +425,7 @@ impl RasmProject {
     ) {
         let mut catalog = RasmProjectCatalog::new();
         let (modules, errors) =
-            self.get_all_modules(statics, for_tests, target, debug, out, options);
+            self.get_all_modules(statics, run_type, target, debug, out, options);
 
         for (module, info) in modules {
             catalog.add(module, info);
@@ -432,15 +437,15 @@ impl RasmProject {
     pub fn get_all_modules(
         &self,
         statics: &mut Statics,
-        for_tests: bool,
+        run_type: RasmProjectRunType,
         target: &CompileTarget,
         debug: bool,
         out: &PathBuf,
         options: &CommandLineOptions,
     ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
-        let (mut modules, mut errors) = self.all_modules(statics, target, debug, for_tests, out);
+        let (mut modules, mut errors) = self.all_modules(statics, target, debug, out);
 
-        if for_tests {
+        if matches!(run_type, RasmProjectRunType::Test) {
             modules.iter_mut().for_each(|(it, info)| {
                 let new_body = it
                     .body
@@ -456,6 +461,9 @@ impl RasmProject {
                     .collect::<Vec<_>>();
                 it.body = new_body;
             });
+        }
+
+        if !matches!(run_type, RasmProjectRunType::Main) {
             let (test_modules, test_errors) = self.all_test_modules(statics, target, debug);
 
             let test_module = self.main_test_module(&mut errors, &test_modules, options);
@@ -1022,7 +1030,7 @@ mod tests {
         let mut statics = Statics::new();
         let (catalog, _errors) = sut.catalog(
             &mut statics,
-            false,
+            crate::project::RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
             &env::temp_dir().join("tmp"),
