@@ -22,7 +22,11 @@ pub native print(file: File, s: str) -> Option<IOError> /{
     $include(<errno.h>)
 
     errno = 0;
-    fprintf(file, "%s", $s);
+    if (file == NULL) {
+        errno = 9;
+    } else {
+        fprintf(file, "%s", $s);
+    }
 
     return $call(optIOError);
 }/
@@ -84,8 +88,11 @@ pub native println(file: File) -> Option<IOError> /{
     $include(<errno.h>)
 
     errno = 0;
-
-    fprintf(file, "\n");
+    if (file == NULL) {
+        errno = 9;
+    } else {
+        fprintf(file, "\n");
+    }
 
     return $call(optIOError);
 }/

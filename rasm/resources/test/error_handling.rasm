@@ -1,14 +1,17 @@
-let fileName = argv(1).getOrElse("No file specified");
-let file = createFile(fileName);
-let p = println(file, 'c').orElse({ println(file, "Hello");});
+argv(1).match(fn (fileName) {
+    let file = createFile(fileName);
+    let p = println(file, 'c').or(println(file, "Hello"));
 
-forEach(p, fn(v) {
-            close(file);
-            println(v);
-            exitMain(0);
-        }
-    );
+    forEach(p, fn(v) {
+                close(file);
+                println(v);
+                exitMain(0);
+            }
+        );
 
-close(file);
+    close(file);
 
-print(readFile(fileName));
+    print(readFile(fileName));
+}, {
+   panic("No file specified");
+});
