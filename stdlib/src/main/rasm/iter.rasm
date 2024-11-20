@@ -119,7 +119,7 @@ pub fn toVec<T>(iter: Iter<T>) -> Vec<T> {
 }
 
 pub fn toList<T>(iter: Iter<T>) -> List<T> {
-    iter.next.match(fn(it) {
+    iter.callNext.match(fn(it) {
         List::Full(it.value, it.next.toList);
     }, { List::Empty<T>(); });
 }
