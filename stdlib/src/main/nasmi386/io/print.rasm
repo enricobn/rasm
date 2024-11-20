@@ -257,6 +257,18 @@ pub native print(file: File, s: str) -> Option<IOError> /{
     pop     ebx
 }/
 
+// false = 0 true = any other value
+pub native print(file: File, b: bool) -> Option<IOError> /{
+    cmp     dword $b,0
+    jz      .false
+    mov     eax,"true"
+    $call(print, $file, "true")
+    jmp     .end
+.false:
+    $call(print, $file, "false")
+.end:
+}/
+
 pub native printESC() /{
     push    eax
     push    ebx

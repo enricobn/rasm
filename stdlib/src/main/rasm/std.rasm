@@ -7,11 +7,6 @@ pub struct Pair<A,B> {
     second: B
 }
 
-// TODO do it in asm
-pub fn print(file: File, b: bool) -> Option<IOError> {
-    if(b, { print(file, "true");}, {print(file, "false");});
-}
-
 pub fn with<T,O>(v: T, f: fn(T) -> O) -> O {
     f(v);
 }
