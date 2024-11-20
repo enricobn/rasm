@@ -232,10 +232,19 @@ impl BuiltinFunctions {
                 struct_def,
                 parameters,
                 return_type,
-                &property_def.name,
+                &format!("call{}", Self::uppercase_first_letter(&property_def.name)),
             ));
         }
         result
+    }
+
+    // from https://stackoverflow.com/questions/38406793/why-is-capitalizing-the-first-letter-of-a-string-so-convoluted-in-rust
+    fn uppercase_first_letter(s: &str) -> String {
+        let mut c = s.chars();
+        match c.next() {
+            None => String::new(),
+            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+        }
     }
 
     fn lambda_struct_property_signature(

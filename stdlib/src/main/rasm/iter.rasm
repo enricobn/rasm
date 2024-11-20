@@ -26,7 +26,7 @@ pub fn iter<T>(o: List<T>) -> Iter<T> {
 
 pub fn map<T,T1>(l: Iter<T>, f: fn(T) -> T1) -> Iter<T1> {
     Iter({
-        l.next.map(fn(it) { IterValue(f(it.value), it.next.map(f)); });
+        l.callNext.map(fn(it) { IterValue(f(it.value), it.next.map(f)); });
     });
 
 /*
@@ -37,19 +37,19 @@ pub fn map<T,T1>(l: Iter<T>, f: fn(T) -> T1) -> Iter<T1> {
 }
 
 pub fn forEach<T>(l: Iter<T>, f: fn(T) -> ()) {
-    l.next.match(fn(it) {f(it.value); it.next.forEach(f); }, {});
+    l.callNext.match(fn(it) {f(it.value); it.next.forEach(f); }, {});
 }
 
 pub fn anyMatch<T>(l: Iter<T>, predicate: fn(T) -> bool) -> bool {
-    l.next.match(fn(it) { if(predicate(it.value), true, { it.next.anyMatch(predicate); }); }, {false;});
+    l.callNext.match(fn(it) { if(predicate(it.value), true, { it.next.anyMatch(predicate); }); }, {false;});
 }
 
 pub fn count<T>(l: Iter<T>, predicate: fn(T) -> bool) -> i32 {
-    l.next.match(fn(it) { add(it.next.count(predicate), if(predicate(it.value), 1, 0)); }, {0;});
+    l.callNext.match(fn(it) { add(it.next.count(predicate), if(predicate(it.value), 1, 0)); }, {0;});
 }
 
 pub fn foldLeft<T,T1>(iter: Iter<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
-    iter.next.match(fn(it) {
+    iter.callNext.match(fn(it) {
         it.next.foldLeft(accum(zero, it.value), accum);
     }, {
         zero;
@@ -58,8 +58,8 @@ pub fn foldLeft<T,T1>(iter: Iter<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
 
 pub fn filter<T>(l: Iter<T>, f: fn(T) -> bool) -> Iter<T> {
     Iter({
-        l.next.match(fn(it) {
-            if(f(it.value), { Option::Some(IterValue(it.value, it.next.filter(f))); }, { it.next.filter(f).next; });
+        l.callNext.match(fn(it) {
+            if(f(it.value), { Option::Some(IterValue(it.value, it.next.filter(f))); }, { it.next.filter(f).callNext; });
         }, { Option::None(); });
     });
 
@@ -72,7 +72,7 @@ pub fn filter<T>(l: Iter<T>, f: fn(T) -> bool) -> Iter<T> {
 
 
 pub fn add<T>(i1: Iter<T>, i2: Iter<T>) -> Iter<T> {
-    i1.next.match(fn(it) {
+    i1.callNext.match(fn(it) {
         Iter({ Option::Some(IterValue(it.value, it.next.add(i2))); });
     }, {
         i2;
@@ -80,19 +80,19 @@ pub fn add<T>(i1: Iter<T>, i2: Iter<T>) -> Iter<T> {
 }
 
 pub fn flatten<T>(l: Iter<Iter<T>>) -> Iter<T> {
-    l.next.match(fn(it) {
+    l.callNext.match(fn(it) {
         // it : IterValue<Iter<T>>
 /*
         Iter({ 
             it.value.next.match(fn(i) {
                 // i : IterValue<T>
-                Option::Some(IterValue(i.value, i.next.add(it.next.flatten)));
+                Option::Some(IterValue(i.value, i.next.add(it.callNext.flatten)));
             }, { Option::None(); });    
         });
 */
 
 
-        it.value.next.match(fn(i) {
+        it.value.callNext.match(fn(i) {
             Iter({ Option::Some(IterValue(i.value, i.next.add(it.next.flatten))); });
         }, { emptyIter<T>(); });
 

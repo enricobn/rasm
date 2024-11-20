@@ -2,6 +2,6 @@ let v = vecOf(toShape(Circle(1, 1, 2)), toShape(Rect(10, 20, 5, 5)), toShape(Poi
 
 println(v);
 
-println(v.map(fn(shape) { shape.move(100, 100);}));
+println(v.map(fn(shape) { shape.callMove(100, 100);}));
 
-println(map(v, fn(shape) { shape.center.call();}));
+println(map(v, fn(shape) { shape.callCenter;}));
