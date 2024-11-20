@@ -1,5 +1,5 @@
 
-println(Option::Some(1).fmap(fn(v) { Option::Some(add("value = ", 2));}));
+println(Option::Some(1).fmap(fn(v) { Option::Some("value = 2");}));
 
 println(or(Option::None(), Option::Some(10)));
 

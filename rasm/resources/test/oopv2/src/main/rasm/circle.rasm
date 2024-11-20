@@ -14,10 +14,10 @@ pub fn move(circle: Circle, dx: i32, dy: i32) -> Shape {
 
 pub fn toString(circle: Circle) -> str {
     "Circle("
-        .add(circle.x)
-        .add(",")
-        .add(circle.y)
-        .add(",")
-        .add(circle.radius)
-        .add(")");
+        .append(circle.x)
+        .append(",")
+        .append(circle.y)
+        .append(",")
+        .append(circle.radius)
+        .append(")");
 }

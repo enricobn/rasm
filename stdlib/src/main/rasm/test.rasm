@@ -46,7 +46,7 @@ pub fn fail(assertions: Assertions, message: str) -> Assertions {
 }
 
 pub fn validate(assertions: Assertions) {
-    assertions.failed.first.match(fn(error) { panic("Assertion error: ".add(error)); }, {});
+    assertions.failed.first.match(fn(error) { panic("Assertion error: ".append(error)); }, {});
 }
 
 pub fn assertTrue(assertions: Assertions, value: bool) -> Assertions {
@@ -81,7 +81,7 @@ pub fn assertEquals<T>(assertions: Assertions, message: str, expected: T, curren
 
 pub fn assertEquals<T>(assertions: Assertions, expected: T, current: T) -> Assertions {
     if(expected.eq(current).not, {
-        assertions.fail("assertion failed, expected ".add(expected).add(" but found ").add(current));
+        assertions.fail("assertion failed, expected ".append(expected).append(" but found ").append(current));
     }, {assertions; });
 }
 
@@ -96,7 +96,7 @@ pub fn runTest(name: str, index: str, testRun: fn() -> Assertions) -> bool {
 
     runResult.failed.first.match(
         fn(error) {
-            let message = " - \033[31mFAILED\033[0m : ".add(index).add(" : ");
+            let message = " - \033[31mFAILED\033[0m : ".append(index).append(" : ");
             print(message);
             println(error);
             true;

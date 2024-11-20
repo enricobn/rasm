@@ -160,6 +160,11 @@ type check ended in 87.39312
     type check ended in 97.207711ms
 */
 
+/*
+    changed some function names in std library
+    type check ended in 68.915151ms
+*/
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)

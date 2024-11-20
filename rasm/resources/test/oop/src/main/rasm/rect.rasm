@@ -13,7 +13,7 @@ pub fn Shape(rect: Rect) -> Shape {
 
             Shape(result);
         }, {
-             add(add("Rect(", rect.x, ",", rect.y), add(add(",", rect.width, ",", rect.height), ")"));
+             "Rect(".append(rect.x).append(",").append(rect.y).append(",").append(rect.width).append(",").append(rect.height).append(")");
         }
     );
 }

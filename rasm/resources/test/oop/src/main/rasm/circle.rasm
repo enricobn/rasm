@@ -14,11 +14,11 @@ pub fn Shape(circle: Circle) -> Shape {
         }, {
           //printRef(circle);
             "Circle("
-                .add(circle.x)
-                .add(",")
-                .add(circle.y)
-                .add(",")
-                .add(circle.radius)
-                .add(")");
+                .append(circle.x)
+                .append(",")
+                .append(circle.y)
+                .append(",")
+                .append(circle.radius)
+                .append(")");
     });
 }

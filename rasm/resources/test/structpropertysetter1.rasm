@@ -11,10 +11,10 @@ println("p1 ", p1);
 
 pub fn toString(p: Point) -> str {
     "("
-    .add(p.x)
-    .add(",")
-    .add(p.y)
-    .add(")");
+    .append(p.x)
+    .append(",")
+    .append(p.y)
+    .append(")");
 }
 
 fn move(point: Point, diff: i32) -> Point {

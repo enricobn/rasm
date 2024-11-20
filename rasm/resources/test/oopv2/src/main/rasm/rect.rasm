@@ -15,9 +15,9 @@ pub fn move(rect: Rect, dx: i32, dy: i32) -> Shape {
 
 pub fn toString(rect: Rect) -> str {
     "Rect("
-        .add(rect.x)
-        .add(",").add(rect.y)
-        .add(",").add(rect.width)
-        .add(",").add(rect.height)
-    .add(")");
+        .append(rect.x)
+        .append(",").append(rect.y)
+        .append(",").append(rect.width)
+        .append(",").append(rect.height)
+    .append(")");
 }

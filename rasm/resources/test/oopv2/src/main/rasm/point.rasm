@@ -12,5 +12,5 @@ pub fn move(point: Point, dx: i32, dy: i32) -> Shape {
 }
 
 pub fn toString(p: Point) -> str {
-    "Point(".add(p.x).add(",").add(p.y).add(")");
+    "Point(".append(p.x).append(",").append(p.y).append(")");
 }

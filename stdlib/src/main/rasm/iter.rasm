@@ -23,7 +23,6 @@ pub fn iter<T>(o: List<T>) -> Iter<T> {
     });
 }
 
-
 pub fn map<T,T1>(l: Iter<T>, f: fn(T) -> T1) -> Iter<T1> {
     Iter({
         l.callNext.map(fn(it) { IterValue(f(it.value), it.next.map(f)); });

@@ -4,7 +4,7 @@ pub struct Point {
 }
 
 pub fn toString(p: Point) -> str {
-    "Point(".add(p.x).add(",").add(p.y).add(")");
+    "Point(".append(p.x).append(",").append(p.y).append(")");
 }
 
 pub fn Shape(point: Point) -> Shape {

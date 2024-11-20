@@ -38,7 +38,7 @@ pub fn print(c: Compare) {
 }
 
 pub fn toString(error: IOError) -> str {
-    add("IOError(", error.message, ")");
+    "IOError(".append(error.message).append(")");
 }
 
 pub fn panic(message: str) {
