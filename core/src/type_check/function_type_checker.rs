@@ -378,6 +378,7 @@ impl<'a> FunctionTypeChecker<'a> {
                 */
 
                 if functions.len() > 1 {
+                    /*
                     print!(
                         "found more than one function for {} : {} -> ",
                         call.function_name, call.index
@@ -386,6 +387,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     for fun in functions.iter() {
                         println!("  function {fun}");
                     }
+                    */
 
                     errors.push(TypeCheckError::new(
                         call.index.clone(),
