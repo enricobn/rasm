@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::fmt::{self, Formatter};
 use std::hash::Hash;
@@ -99,6 +99,23 @@ impl<'a, K: fmt::Display + 'a, V: fmt::Display + 'a> fmt::Display for HashMapDis
                 write!(f, ", {k} -> {v}")?;
             } else {
                 write!(f, "{k} -> {v}")?;
+            }
+            first = false;
+        }
+        Ok(())
+    }
+}
+
+pub struct HashSetDisplay<'a, T: 'a>(pub &'a HashSet<T>);
+
+impl<'a, T: fmt::Display + 'a> fmt::Display for HashSetDisplay<'a, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut first = true;
+        for item in self.0 {
+            if !first {
+                write!(f, ", {}", item)?;
+            } else {
+                write!(f, "{}", item)?;
             }
             first = false;
         }
