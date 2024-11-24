@@ -83,7 +83,7 @@ impl EnhModuleInfo {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct EnhASTNameSpace {
     lib: String,
     path: String,
@@ -585,6 +585,17 @@ impl EnhASTType {
     }
 
     pub fn fix_namespaces(&self, enhanced_module: &EnhancedASTModule) -> Self {
+        self.fix_namespaces_with(&|ast_type| {
+            enhanced_module
+                .get_type_def(ast_type)
+                .map(|it| it.namespace().clone())
+        })
+    }
+
+    pub fn fix_namespaces_with(
+        &self,
+        namespace_provider: &dyn Fn(&EnhASTType) -> Option<EnhASTNameSpace>,
+    ) -> Self {
         match self {
             EnhASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
                 EnhBuiltinTypeKind::Bool => self.clone(),
@@ -598,9 +609,9 @@ impl EnhASTType {
                 } => EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                     parameters: parameters
                         .iter()
-                        .map(|it| it.fix_namespaces(enhanced_module))
+                        .map(|it| it.fix_namespaces_with(namespace_provider))
                         .collect(),
-                    return_type: Box::new(return_type.fix_namespaces(enhanced_module)),
+                    return_type: Box::new(return_type.fix_namespaces_with(namespace_provider)),
                 }),
             },
             EnhASTType::Generic(_, _) => self.clone(),
@@ -610,13 +621,13 @@ impl EnhASTType {
                 param_types,
                 index,
             } => {
-                if let Some(type_def) = enhanced_module.get_type_def(self) {
+                if let Some(namespace) = namespace_provider(self) {
                     EnhASTType::Custom {
-                        namespace: type_def.namespace().clone(),
+                        namespace,
                         name: name.clone(),
                         param_types: param_types
                             .iter()
-                            .map(|it| it.fix_namespaces(enhanced_module))
+                            .map(|it| it.fix_namespaces_with(namespace_provider))
                             .collect(),
                         index: index.clone(),
                     }

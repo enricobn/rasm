@@ -5,7 +5,6 @@ use std::path::PathBuf;
 
 use lazy_static::lazy_static;
 use linked_hash_map::LinkedHashMap;
-use log::debug;
 use rasm_utils::debug_i;
 use regex::Regex;
 
@@ -458,19 +457,15 @@ impl TextMacroEvaluator {
                     })
                     .collect::<Vec<_>>();
 
-                if let Some(namespace) = type_def_provider.get_real_namespace(ast_type) {
-                    let ast_type_to_resolve = EnhASTType::Custom {
-                        namespace,
-                        name: name.clone(),
-                        param_types: resolved_types,
-                        index: EnhASTIndex::none(),
-                    };
-                    type_def_provider.get_ast_typed_type_from_ast_type(&ast_type_to_resolve)
-                } else {
-                    // TODO error?
-                    debug!("cannot find real namespace for {ast_type}");
-                    None
+                let ast_type_to_resolve = EnhASTType::Custom {
+                    namespace: ast_type.namespace().clone(),
+                    name: name.clone(),
+                    param_types: resolved_types,
+                    index: EnhASTIndex::none(),
                 }
+                .fix_namespaces_with(&|ast_type| type_def_provider.get_real_namespace(ast_type));
+
+                type_def_provider.get_ast_typed_type_from_ast_type(&ast_type_to_resolve)
             }
         } else {
             None

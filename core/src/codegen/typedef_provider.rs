@@ -15,8 +15,8 @@
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use itertools::Itertools;
-use rasm_utils::find_one;
+use log::debug;
+use rasm_utils::{find_one, SliceDisplay};
 use std::iter::zip;
 
 use crate::codegen::enh_ast::{EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
@@ -50,8 +50,7 @@ pub trait TypeDefProvider {
                         .unwrap_or(false)
                         && (it.modifiers.public || &it.namespace == ast_type.namespace())
                 })
-                .map(|it| it.ast_type.namespace().clone())
-                .dedup()
+                .map(|it| it.namespace().clone())
                 .collect::<Vec<_>>();
 
             let structs = self
@@ -63,8 +62,7 @@ pub trait TypeDefProvider {
                         .unwrap_or(false)
                         && (it.modifiers.public || &it.namespace == ast_type.namespace())
                 })
-                .map(|it| it.ast_type.namespace().clone())
-                .dedup()
+                .map(|it| it.namespace().clone())
                 .collect::<Vec<_>>();
 
             let types = self
@@ -76,8 +74,7 @@ pub trait TypeDefProvider {
                         .unwrap_or(false)
                         && (it.modifiers.public || &it.namespace == ast_type.namespace())
                 })
-                .map(|it| it.ast_type.namespace().clone())
-                .dedup()
+                .map(|it| it.namespace().clone())
                 .collect::<Vec<_>>();
 
             let mut all = Vec::new();
@@ -85,9 +82,13 @@ pub trait TypeDefProvider {
             all.extend(structs);
             all.extend(types);
 
+            all.sort();
+            all.dedup();
+
             if all.len() == 1 {
                 all.first().cloned()
             } else {
+                debug!("Not found custom type {name} {}", SliceDisplay(&all));
                 None
             }
         } else {
@@ -346,6 +347,7 @@ pub trait TypeDefProvider {
         ast_type: &EnhASTType,
         param_types: &Vec<EnhASTType>,
     ) -> bool {
+        let found = &format!("{ast_type}") == "Vec<Option<IOError>>";
         if let EnhASTType::Custom {
             namespace: _,
             name: _,
@@ -353,12 +355,31 @@ pub trait TypeDefProvider {
             index: _,
         } = custom_typed_type_def.ast_type()
         {
+            let found2 = &format!("{}", custom_typed_type_def.ast_type()) == "Vec<Option<IOError>>";
+
             if custom_typed_type_def.ast_type() == ast_type {
-                zip(it_pt.iter(), param_types.iter()).all(|(a, b)| a == b)
+                let result = zip(it_pt.iter(), param_types.iter()).all(|(a, b)| a == b);
+                if found && found2 && !result {
+                    println!(
+                        "Not found {:?} {:?}",
+                        ast_type,
+                        custom_typed_type_def.ast_type()
+                    );
+                }
+                result
             } else {
+                if found && found2 {
+                    println!("Not found 1");
+                    println!("{:?}", ast_type);
+                    println!("{:?}", custom_typed_type_def.ast_type());
+                    panic!();
+                }
                 false
             }
         } else {
+            if found {
+                println!("Not found 2");
+            }
             false
         }
     }
