@@ -770,7 +770,7 @@ impl RasmProject {
 
                                 if !path_from_relative_to_root.exists() {
                                     panic!(
-                                        "Cannot find path ot dependency {dependency} in project {}",
+                                        "Cannot find path of dependency {dependency} in project {}",
                                         self.config.package.name
                                     );
                                 }
