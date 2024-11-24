@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
+use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::{debug_i, dedent, indent};
 
@@ -42,10 +43,12 @@ impl ResolvedGenericTypes {
     pub fn extend(&mut self, other: Self) -> Result<(), String> {
         for (key, new_type) in other.map.into_iter() {
             if let Some(prev_type) = self.get(&key) {
-                if &new_type != prev_type && new_type.is_generic() && !prev_type.is_generic() {
-                    return Err(format!(
-                        "Already resolved generic {key}, prev {prev_type}, new {new_type}"
-                    ));
+                if &new_type != prev_type {
+                    if !prev_type.is_generic() {
+                        return Err(format!(
+                            "Already resolved generic {key}, prev {prev_type}, new {new_type}"
+                        ));
+                    }
                 }
             }
             self.map.insert(key, new_type);
@@ -81,6 +84,14 @@ impl ASTTypeCheckError {
         let mut result = self.clone();
         result.inner.push(ASTTypeCheckError::new(index, message));
         result
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    pub fn index(&self) -> &ASTIndex {
+        &self.index
     }
 }
 
@@ -381,6 +392,10 @@ impl<'a> ASTTypeChecker<'a> {
         }
 
         return_type
+    }
+
+    pub fn container(&self) -> &ASTModulesContainer {
+        &self.modules_container
     }
 
     fn add_expr(
@@ -752,9 +767,17 @@ impl<'a> ASTTypeChecker<'a> {
                 }
                 */
 
+                let functions_msg = functions
+                    .iter()
+                    .map(|it| format!("  function {}", it.signature))
+                    .join("\n");
+
                 self.errors.push(ASTTypeCheckError::new(
                     index.clone(),
-                    format!("found more than one function for {}", call.function_name),
+                    format!(
+                        "found more than one function for {}\n{functions_msg}",
+                        call.function_name
+                    ),
                 ));
 
                 self.result.insert(
@@ -1273,7 +1296,9 @@ mod tests {
         },
         commandline::CommandLineOptions,
         project::RasmProject,
-        type_check::ast_modules_container::ASTModulesContainer,
+        type_check::{
+            ast_modules_container::ASTModulesContainer, test_utils::project_and_container,
+        },
     };
     use rasm_parser::{
         catalog::ASTIndex,
@@ -1633,42 +1658,12 @@ mod tests {
     where
         F: Fn(&ASTModule, ASTTypeChecker, EnhModuleInfo) -> ASTTypeCheckerResult,
     {
-        env::set_var("RASM_STDLIB", "../../../stdlib");
-
         let target = CompileTarget::C(COptions::default());
         let (project, modules_container) = project_and_container(&target, &project_path);
         let function_type_checker = ASTTypeChecker::new(&modules_container);
 
         let (module, _, info) = project.get_module(Path::new(file), &target).unwrap();
 
-        println!("module:");
-        module.print();
-
         (f(&module, function_type_checker, info.clone()), info)
-    }
-
-    fn project_and_container(
-        target: &CompileTarget,
-        project_path: &str,
-    ) -> (RasmProject, ASTModulesContainer) {
-        let project = RasmProject::new(PathBuf::from(project_path));
-
-        let mut statics = Statics::new();
-        let (modules, _errors) = project.get_all_modules(
-            &mut statics,
-            crate::project::RasmProjectRunType::Main,
-            &target,
-            false,
-            &env::temp_dir().join("tmp"),
-            &CommandLineOptions::default(),
-        );
-
-        let mut container = ASTModulesContainer::new();
-
-        for (module, info) in modules.iter() {
-            container.add(module, info.module_namespace(), info.module_id(), false);
-        }
-
-        (project, container)
     }
 }
