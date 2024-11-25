@@ -81,11 +81,11 @@ impl ASTParameterDependencies {
     }
 }
 
-pub struct ASTFunctionDependencies {
+pub struct ASTFunctionsDependencies {
     parameters: HashMap<String, ASTParameterDependencies>,
 }
 
-impl ASTFunctionDependencies {
+impl ASTFunctionsDependencies {
     fn new() -> Self {
         Self {
             parameters: HashMap::new(),
@@ -132,11 +132,11 @@ pub fn function_dependencies(
     module_namespace: &ModuleNamespace,
     module_id: &ModuleId,
     ast_type_check: &ASTTypeChecker,
-) -> ASTFunctionDependencies {
+) -> ASTFunctionsDependencies {
     debug_i!("function_dependencies {function}");
     indent!();
 
-    let mut result = ASTFunctionDependencies::new();
+    let mut result = ASTFunctionsDependencies::new();
 
     let function_calls = function_calls(function);
 
@@ -268,7 +268,7 @@ mod tests {
         },
     };
 
-    use super::ASTFunctionDependencies;
+    use super::ASTFunctionsDependencies;
 
     #[test]
     pub fn test() {
@@ -315,7 +315,7 @@ mod tests {
         format!("{}", OptionDisplay(&deps.get(param_name)))
     }
 
-    fn get_first_function_dependencies(file_path: &str) -> ASTFunctionDependencies {
+    fn get_first_function_dependencies(file_path: &str) -> ASTFunctionsDependencies {
         let target = CompileTarget::C(COptions::default());
         let (project, container) = project_and_container(&target, file_path);
 
