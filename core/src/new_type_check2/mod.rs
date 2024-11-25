@@ -2088,7 +2088,7 @@ mod tests {
     }
 
     fn file_to_project(test_file: &str) -> RasmProject {
-        init();
+        init_log();
         env::set_var("RASM_STDLIB", "../../../stdlib");
 
         let current_path = env::current_dir().unwrap();
@@ -2109,13 +2109,13 @@ mod tests {
     }
 
     fn dir_to_project(test_folder: &str) -> RasmProject {
-        init();
+        init_log();
         let file_name = PathBuf::from(test_folder);
 
         RasmProject::new(file_name)
     }
 
-    fn init() {
+    pub fn init_log() {
         Builder::from_default_env()
             .format(|buf, record| {
                 writeln!(

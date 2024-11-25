@@ -10,7 +10,9 @@ use rasm_core::commandline::CommandLineOptions;
 use rasm_core::errors::CompilationError;
 use rasm_core::project::{RasmProject, RasmProjectRunType};
 use rasm_core::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
-use rasm_core::type_check::ast_type_checker::{ASTTypeCheckInfo, ASTTypeChecker};
+use rasm_core::type_check::ast_type_checker::{
+    ASTTypeCheckError, ASTTypeCheckInfo, ASTTypeChecker,
+};
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::parser::ast::{ASTModule, ASTPosition, ASTType, BuiltinTypeKind};
@@ -289,7 +291,9 @@ impl<'a> IDEHelperBuilder<'a> {
             }
         }
 
-        IDEHelper::new(modules_container, selectable_items)
+        let errors = function_type_checker.errors;
+
+        IDEHelper::new(modules_container, selectable_items, errors)
     }
 
     fn add_par_selectable(
@@ -382,16 +386,19 @@ pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<Com
 pub struct IDEHelper {
     modules_container: ASTModulesContainer,
     selectable_items: Vec<IDESelectableItem>,
+    errors: Vec<ASTTypeCheckError>,
 }
 
 impl IDEHelper {
     fn new(
         modules_container: ASTModulesContainer,
         selectable_items: Vec<IDESelectableItem>,
+        errors: Vec<ASTTypeCheckError>,
     ) -> Self {
         Self {
             modules_container,
             selectable_items,
+            errors,
         }
     }
 
@@ -517,6 +524,14 @@ impl IDEHelper {
         for item in self.selectable_items.iter() {
             println!("{item}");
         }
+    }
+
+    pub fn errors(&self) -> &Vec<ASTTypeCheckError> {
+        &self.errors
+    }
+
+    pub fn container(&self) -> &ASTModulesContainer {
+        &self.modules_container
     }
 
     fn dot_completion(
@@ -764,17 +779,18 @@ impl IDEHelper {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::env;
+    use std::iter::zip;
     use std::path::{Path, PathBuf};
 
     use rasm_core::codegen::c::options::COptions;
     use rasm_core::codegen::compile_target::CompileTarget;
-    use rasm_core::codegen::statics::Statics;
-    use rasm_core::commandline::CommandLineOptions;
+    use rasm_core::errors::CompilationError;
     use rasm_core::project::RasmProject;
     use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
     use rasm_parser::lexer::Lexer;
-    use rasm_parser::parser::ast::{ASTPosition, ASTType};
+    use rasm_parser::parser::ast::{ASTFunctionSignature, ASTPosition, ASTType, BuiltinTypeKind};
     use rasm_parser::parser::Parser;
     use rasm_utils::{OptionDisplay, SliceDisplay};
 
@@ -927,7 +943,7 @@ mod tests {
             13,
         );
 
-        println!("values {}", SliceDisplay(&values));
+        // println!("values {}", SliceDisplay(&values));
 
         assert_eq!(1, values.len());
 
@@ -1292,6 +1308,86 @@ mod tests {
         assert_eq!(vec!["f1".to_owned()], result.unwrap());
     }
 
+    #[test]
+    fn test_disambiguate_functions() {
+        let (project, helper) = get_helper("resources/test/disambiguate_functions.rasm");
+
+        let mut items = helper.find(&get_index(&project, "disambiguate_functions.rasm", 2, 6));
+
+        assert_eq!(1, items.len());
+
+        let item = items.remove(0);
+
+        println!("{item}");
+
+        if item.target.is_none() {
+            println!("{}", SliceDisplay(&helper.errors()));
+            panic!("Expected a target.")
+        }
+    }
+
+    #[test]
+    fn duplicated_signatures_in_breakout() {
+        let (_project, helper) = get_helper("../rasm/resources/examples/breakout");
+
+        let container = helper.container();
+
+        let signatures_by_name_and_len =
+            container
+                .signatures()
+                .iter()
+                .fold(HashMap::new(), |mut accum, it| {
+                    let entry = accum.entry((
+                        it.signature.name.clone(),
+                        it.signature.parameters_types.len(),
+                    ));
+                    let vec = entry.or_insert(Vec::new());
+                    vec.push(it.signature.clone());
+                    accum
+                });
+
+        for ((name, len), signatures) in signatures_by_name_and_len.into_iter() {
+            for signature in signatures.iter() {
+                let same_signatures = signatures
+                    .clone()
+                    .into_iter()
+                    .filter(|it| {
+                        same_signature(it, signature)
+                            && (it.modifiers.public || signature.modifiers.public)
+                    })
+                    .collect::<Vec<_>>();
+                if same_signatures.len() > 1 {
+                    let mut message = format!("same signature for {name}, {len}\n");
+                    for s in same_signatures.iter() {
+                        message += &format!("     {s}\n");
+                    }
+                    panic!("{message}");
+                }
+            }
+        }
+    }
+
+    fn same_signature(s1: &ASTFunctionSignature, s2: &ASTFunctionSignature) -> bool {
+        if s1.parameters_types.len() != s2.parameters_types.len() {
+            return false;
+        }
+        zip(s1.parameters_types.iter(), s2.parameters_types.iter()).all(|(t1, t2)| {
+            (t1.is_strictly_generic() && not_a_lambda(t2))
+                || (t2.is_strictly_generic() && not_a_lambda(t1))
+                || t1 == t2
+        })
+    }
+
+    fn not_a_lambda(t: &ASTType) -> bool {
+        !matches!(
+            t,
+            ASTType::Builtin(BuiltinTypeKind::Lambda {
+                parameters: _,
+                return_type: _
+            })
+        )
+    }
+
     fn stdlib_project() -> RasmProject {
         RasmProject::new(Path::new("../stdlib").to_path_buf())
     }
@@ -1408,13 +1504,20 @@ mod tests {
     }
 
     fn get_helper(project_path: &str) -> (RasmProject, IDEHelper) {
+        let (project, helper, _errors) = get_helper_with_errors(project_path);
+        (project, helper)
+    }
+
+    fn get_helper_with_errors(
+        project_path: &str,
+    ) -> (RasmProject, IDEHelper, Vec<CompilationError>) {
         env::set_var("RASM_STDLIB", "../../../stdlib");
 
         let file_name = Path::new(project_path);
         let project = RasmProject::new(file_name.to_path_buf());
 
-        let (helper, _errors) = get_ide_helper_from_project(&project);
-        (project, helper)
+        let (helper, errors) = get_ide_helper_from_project(&project);
+        (project, helper, errors)
     }
 
     fn get_completion_values(

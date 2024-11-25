@@ -1,0 +1,3 @@
+fn aFun<T>(v: T) {
+    println(v);
+}

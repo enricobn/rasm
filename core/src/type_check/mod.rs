@@ -1,8 +1,17 @@
+use std::env;
+
+use ast_modules_container::ASTModulesContainer;
+use ast_type_checker::ASTTypeChecker;
 use type_check_error::TypeCheckError;
 
+use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::EnhASTIndex;
 use crate::codegen::enh_ast::{EnhASTType, EnhBuiltinTypeKind};
+use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, TextMacro};
+use crate::codegen::val_context::ValContext;
+use crate::commandline::CommandLineOptions;
+use crate::project::{RasmProject, RasmProjectRunType};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use rasm_utils::{debug_i, dedent, indent};
 
@@ -15,6 +24,9 @@ pub mod typed_ast;
 pub mod ast_modules_container;
 pub mod ast_type_checker;
 pub mod function_type_checker;
+pub mod functions_dependencies;
+#[cfg(test)]
+pub mod test_utils;
 pub mod traverse_typed_ast;
 pub mod used_functions;
 pub mod verify;
@@ -294,6 +306,53 @@ pub fn substitute(
     result
 }
 
+pub fn ast_type_checker_from_project<'a>(
+    project: &RasmProject,
+    run_type: RasmProjectRunType,
+    target: &CompileTarget,
+    modules_container: &'a ASTModulesContainer,
+) -> ASTTypeChecker<'a> {
+    let mut statics = Statics::new();
+
+    let (modules, errors) = project.get_all_modules(
+        &mut statics,
+        run_type,
+        target,
+        false,
+        &env::temp_dir().join("tmp"),
+        &CommandLineOptions::default(),
+    );
+
+    let mut function_type_checker = ASTTypeChecker::new(modules_container);
+
+    let mut static_val_context = ValContext::new(None);
+
+    for (module, info) in modules {
+        //module_info_to_enh_info.insert(info.module_info(), info.clone());
+        let mut val_context = ValContext::new(None);
+
+        function_type_checker.add_body(
+            &mut val_context,
+            &mut static_val_context,
+            &module.body,
+            None,
+            &info.module_namespace(),
+            &info.module_id(),
+        );
+
+        for function in module.functions.iter() {
+            function_type_checker.add_function(
+                &function,
+                &static_val_context,
+                &info.module_namespace(),
+                &info.module_id(),
+            );
+        }
+    }
+
+    function_type_checker
+}
+
 fn substitute_types(
     types: &[EnhASTType],
     resolved_param_types: &ResolvedGenericTypes,
@@ -325,7 +384,7 @@ mod tests {
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
 
-    fn init() {
+    pub fn init_log() {
         let _ = env_logger::builder().is_test(true).try_init();
     }
 

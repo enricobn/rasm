@@ -3,11 +3,11 @@ use std::{collections::HashMap, fmt::Display, iter::zip};
 use rasm_utils::OptionDisplay;
 
 use rasm_parser::{
-    catalog::{ModuleId, ModuleInfo, ModuleNamespace},
+    catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
     parser::{
         ast::{
-            ASTEnumDef, ASTFunctionSignature, ASTModule, ASTPosition, ASTStructDef, ASTType,
-            ASTTypeDef, BuiltinTypeKind,
+            ASTEnumDef, ASTFunctionDef, ASTFunctionSignature, ASTModule, ASTPosition, ASTStructDef,
+            ASTType, ASTTypeDef, BuiltinTypeKind,
         },
         builtin_functions::BuiltinFunctions,
     },
@@ -41,6 +41,12 @@ pub struct ASTModulesContainer {
     enum_defs: HashMap<String, Vec<(ModuleInfo, ASTEnumDef)>>,
     type_defs: HashMap<String, Vec<(ModuleInfo, ASTTypeDef)>>,
     signatures: HashMap<String, Vec<ASTFunctionSignatureEntry>>,
+    functions_by_index: HashMap<ASTIndex, ASTFunctionDef>,
+}
+
+pub enum ASTFunctionType<'a> {
+    Standard(&'a ASTFunctionDef),
+    Builtin,
 }
 
 impl ASTModulesContainer {
@@ -50,6 +56,7 @@ impl ASTModulesContainer {
             enum_defs: HashMap::new(),
             type_defs: HashMap::new(),
             signatures: HashMap::new(),
+            functions_by_index: HashMap::new(),
         }
     }
 
@@ -137,6 +144,22 @@ impl ASTModulesContainer {
                 module_id.clone(),
                 function.position.clone(),
             ));
+            let index = ASTIndex::new(
+                namespace.clone(),
+                module_id.clone(),
+                function.position.clone(),
+            );
+            self.functions_by_index.insert(index, function.clone());
+        }
+    }
+
+    pub fn function(&self, index: &ASTIndex) -> Option<ASTFunctionType> {
+        if index.position() == &ASTPosition::none() {
+            Some(ASTFunctionType::Builtin)
+        } else {
+            self.functions_by_index
+                .get(index)
+                .map(|it| ASTFunctionType::Standard(it))
         }
     }
 

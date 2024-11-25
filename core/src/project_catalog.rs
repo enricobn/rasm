@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 use rasm_parser::{
     catalog::{modules_catalog::ModulesCatalog, ModuleId, ModuleInfo, ModuleNamespace},
