@@ -10,7 +10,7 @@ use rasm_parser::{
         ASTStatement, ASTType,
     },
 };
-use rasm_utils::{debug_i, dedent, indent, HashMapDisplay, SliceDisplay};
+use rasm_utils::{debug_i, dedent, indent, HashMapDisplay, OptionDisplay, SliceDisplay};
 
 use super::{
     ast_modules_container::ASTFunctionType,
@@ -81,6 +81,7 @@ impl ASTParameterDependencies {
     }
 }
 
+#[derive(Clone)]
 pub struct ASTFunctionsDependencies {
     parameters: HashMap<String, ASTParameterDependencies>,
 }
@@ -133,12 +134,27 @@ pub fn function_dependencies(
     module_id: &ModuleId,
     ast_type_check: &ASTTypeChecker,
 ) -> ASTFunctionsDependencies {
-    debug_i!("function_dependencies {function}");
-    indent!();
+    let mut already_checked = HashMap::new();
+    function_dependencies_inner(
+        function,
+        module_namespace,
+        module_id,
+        ast_type_check,
+        &mut already_checked,
+    )
+}
 
+fn function_dependencies_inner(
+    function: &ASTFunctionDef,
+    module_namespace: &ModuleNamespace,
+    module_id: &ModuleId,
+    ast_type_check: &ASTTypeChecker,
+    already_checked: &mut HashMap<ASTIndex, ASTFunctionsDependencies>,
+) -> ASTFunctionsDependencies {
     let mut result = ASTFunctionsDependencies::new();
 
-    let function_calls = function_calls(function);
+    debug_i!("function_dependencies {function}");
+    indent!();
 
     let parameters_with_generic_type = function
         .parameters
@@ -146,8 +162,38 @@ pub fn function_dependencies(
         .filter(|it| it.ast_type.is_generic())
         .collect::<Vec<_>>();
 
+    let index = ASTIndex::new(
+        module_namespace.clone(),
+        module_id.clone(),
+        function.position.clone(),
+    );
+
+    if let Some(r) = already_checked.get(&index) {
+        debug_i!("Already resolved");
+        dedent!();
+        return r.clone();
+    }
+
     for parameter in parameters_with_generic_type.iter() {
-        for call in function_calls.iter() {
+        result.or(parameter, ASTParameterDependencies::Any);
+    }
+
+    already_checked.insert(index.clone(), result.clone());
+
+    result = ASTFunctionsDependencies::new();
+
+    let mut calls = Vec::new();
+
+    function_calls(
+        &mut calls,
+        function,
+        module_namespace,
+        module_id,
+        ast_type_check,
+    );
+
+    for parameter in parameters_with_generic_type.iter() {
+        for call in calls.iter() {
             if let Some((i, _)) = call.parameters.iter().enumerate().find(|(_, it)| {
                 if let ASTExpression::ValueRef(name, _) = it {
                     name == &parameter.name
@@ -157,31 +203,33 @@ pub fn function_dependencies(
             }) {
                 debug_i!("parameter {}", parameter.name);
                 indent!();
-                if let Some(r) = ast_type_check.result.get(&ASTIndex::new(
+                if let Some(call_type_check_entry) = ast_type_check.result.get(&ASTIndex::new(
                     module_namespace.clone(),
                     module_id.clone(),
                     call.position.clone(),
                 )) {
                     let mut types = ASTParameterDependencies::None;
-                    match r.info() {
+                    match call_type_check_entry.info() {
                         ASTTypeCheckInfo::Call(_, vec) => {
                             for (signature, index) in vec.iter() {
                                 debug_i!("call to {signature}");
                                 indent!();
-                                let t = signature.parameters_types.get(i).unwrap();
-                                if t.is_generic() {
+                                let signature_parameter_type =
+                                    signature.parameters_types.get(i).unwrap();
+                                if signature_parameter_type.is_generic() {
                                     match ast_type_check.container().function(index).unwrap() {
-                                        ASTFunctionType::Standard(function) => {
-                                            let deps = function_dependencies(
-                                                function,
+                                        ASTFunctionType::Standard(inner_function) => {
+                                            let deps = function_dependencies_inner(
+                                                inner_function,
                                                 index.module_namespace(),
                                                 index.module_id(),
                                                 ast_type_check,
+                                                already_checked,
                                             );
 
-                                            if let Some(inner_types) =
-                                                deps.get(&function.parameters.get(i).unwrap().name)
-                                            {
+                                            if let Some(inner_types) = deps.get(
+                                                &inner_function.parameters.get(i).unwrap().name,
+                                            ) {
                                                 types = types.or(inner_types);
                                             }
                                         }
@@ -189,7 +237,7 @@ pub fn function_dependencies(
                                     }
                                 } else {
                                     let mut hs = HashSet::new();
-                                    hs.insert(t.clone());
+                                    hs.insert(signature_parameter_type.clone());
                                     types = types.or(&ASTParameterDependencies::Precise(hs))
                                 }
                                 dedent!();
@@ -206,50 +254,83 @@ pub fn function_dependencies(
 
     dedent!();
 
+    already_checked.insert(index, result.clone());
+
     result
 }
 
-fn function_calls(function: &ASTFunctionDef) -> Vec<&ASTFunctionCall> {
-    let mut result = Vec::new();
-
+fn function_calls<'a>(
+    calls: &mut Vec<&'a ASTFunctionCall>,
+    function: &'a ASTFunctionDef,
+    module_namespace: &ModuleNamespace,
+    module_id: &ModuleId,
+    ast_type_check: &ASTTypeChecker,
+) {
     match &function.body {
         ASTFunctionBody::RASMBody(body) => {
-            result.append(&mut statements(body));
+            statements(calls, body, module_namespace, module_id, ast_type_check);
         }
         ASTFunctionBody::NativeBody(_) => {} // TODO
     }
-
-    result
 }
 
-fn statements(statements: &Vec<ASTStatement>) -> Vec<&ASTFunctionCall> {
-    let mut result = Vec::new();
-
+fn statements<'a>(
+    calls: &mut Vec<&'a ASTFunctionCall>,
+    statements: &'a Vec<ASTStatement>,
+    module_namespace: &ModuleNamespace,
+    module_id: &ModuleId,
+    ast_type_check: &ASTTypeChecker,
+) {
     for statement in statements.iter() {
         match statement {
-            ASTStatement::Expression(expr) => result.append(&mut expr_calls(expr)),
+            ASTStatement::Expression(expr) => {
+                expr_calls(calls, expr, module_namespace, module_id, ast_type_check)
+            }
             ASTStatement::LetStatement(_, expr, _, astposition) => {
-                result.append(&mut expr_calls(expr))
+                expr_calls(calls, expr, module_namespace, module_id, ast_type_check)
             }
         }
     }
-
-    result
 }
 
-fn expr_calls(expr: &ASTExpression) -> Vec<&ASTFunctionCall> {
+fn expr_calls<'a>(
+    calls: &mut Vec<&'a ASTFunctionCall>,
+    expr: &'a ASTExpression,
+    module_namespace: &ModuleNamespace,
+    module_id: &ModuleId,
+    ast_type_check: &ASTTypeChecker,
+) {
     match &expr {
         ASTExpression::ASTFunctionCallExpression(call) => {
-            let mut result = vec![call];
+            calls.push(call);
 
-            for expr in call.parameters.iter() {
-                result.append(&mut expr_calls(expr));
+            if call.function_name == "callNext" {
+                println!("found callNext");
             }
 
-            result
+            for expr in call.parameters.iter() {
+                expr_calls(calls, expr, module_namespace, module_id, ast_type_check);
+            }
         }
-        ASTExpression::Lambda(lambda_def) => Vec::new(), // TODO
-        _ => Vec::new(),
+        ASTExpression::Lambda(lambda_def) => {
+            // TODO
+            let t = ast_type_check.result.get(&ASTIndex::new(
+                module_namespace.clone(),
+                module_id.clone(),
+                lambda_def.position.clone(),
+            ));
+
+            println!("type of lambda {}", OptionDisplay(&t));
+
+            statements(
+                calls,
+                &lambda_def.body,
+                module_namespace,
+                module_id,
+                ast_type_check,
+            );
+        } // TODO
+        _ => {}
     }
 }
 
