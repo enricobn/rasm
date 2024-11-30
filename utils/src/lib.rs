@@ -106,6 +106,28 @@ impl<'a, K: fmt::Display + 'a, V: fmt::Display + 'a> fmt::Display for HashMapDis
     }
 }
 
+pub struct LinkedHashMapDisplay<'a, K: 'a, V: 'a>(pub &'a LinkedHashMap<K, V>)
+where
+    K: Hash + Eq;
+
+impl<'a, K: fmt::Display + 'a, V: fmt::Display + 'a> fmt::Display for LinkedHashMapDisplay<'a, K, V>
+where
+    K: Hash + Eq,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut first = true;
+        for (k, v) in self.0 {
+            if !first {
+                write!(f, ", {k} -> {v}")?;
+            } else {
+                write!(f, "{k} -> {v}")?;
+            }
+            first = false;
+        }
+        Ok(())
+    }
+}
+
 pub struct HashSetDisplay<'a, T: 'a>(pub &'a HashSet<T>);
 
 impl<'a, T: fmt::Display + 'a> fmt::Display for HashSetDisplay<'a, T> {

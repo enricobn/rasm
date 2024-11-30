@@ -74,11 +74,12 @@ impl ASTModulesContainer {
                         .signatures
                         .entry(signature.name.clone())
                         .or_insert(Vec::new());
+                    let f = format!("{signature}");
                     signatures.push(ASTFunctionSignatureEntry::new(
                         signature.fix_generics(&namespace.0),
                         namespace.clone(),
                         module_id.clone(),
-                        ASTPosition::none(), // TODO I don't have the position of the signature
+                        ASTPosition::builtin(&enum_def.position, f),
                     ));
                 }
             }
@@ -89,11 +90,12 @@ impl ASTModulesContainer {
                         .signatures
                         .entry(signature.name.clone())
                         .or_insert(Vec::new());
+                    let f = format!("{signature}");
                     signatures.push(ASTFunctionSignatureEntry::new(
                         signature.fix_generics(&namespace.0),
                         namespace.clone(),
                         module_id.clone(),
-                        ASTPosition::none(), // TODO I don't have the position of the signature
+                        ASTPosition::builtin(&struct_def.position, f),
                     ));
                 }
             }
@@ -149,18 +151,26 @@ impl ASTModulesContainer {
                 module_id.clone(),
                 function.position.clone(),
             );
-            self.functions_by_index.insert(index, function.clone());
+
+            self.functions_by_index
+                .insert(index, function.clone())
+                .iter()
+                .for_each(|f| {
+                    panic!(
+                        "{f} : {} {}\n{function} : {} {}",
+                        f.position,
+                        OptionDisplay(&f.position.builtin),
+                        function.position,
+                        OptionDisplay(&function.position.builtin)
+                    )
+                });
         }
     }
 
     pub fn function(&self, index: &ASTIndex) -> Option<ASTFunctionType> {
-        if index.position() == &ASTPosition::none() {
-            Some(ASTFunctionType::Builtin)
-        } else {
-            self.functions_by_index
-                .get(index)
-                .map(|it| ASTFunctionType::Standard(it))
-        }
+        self.functions_by_index
+            .get(index)
+            .map(|it| ASTFunctionType::Standard(it))
     }
 
     /*

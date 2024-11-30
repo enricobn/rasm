@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Display};
 
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
-use rasm_utils::{debug_i, dedent, indent};
+use rasm_utils::{debug_i, dedent, indent, LinkedHashMapDisplay};
 
 use crate::codegen::val_context::ValContext;
 
@@ -17,11 +17,17 @@ use rasm_parser::{
 use super::ast_modules_container::{ASTFunctionSignatureEntry, ASTModulesContainer, ASTTypeFilter};
 
 #[derive(Debug, Clone, PartialEq)]
-struct ResolvedGenericTypes {
+pub struct ASTResolvedGenericTypes {
     map: LinkedHashMap<String, ASTType>,
 }
 
-impl ResolvedGenericTypes {
+impl Display for ASTResolvedGenericTypes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", LinkedHashMapDisplay(&self.map))
+    }
+}
+
+impl ASTResolvedGenericTypes {
     pub fn new() -> Self {
         Self {
             map: LinkedHashMap::new(),
@@ -859,7 +865,7 @@ impl<'a> ASTTypeChecker<'a> {
             call.position.clone(),
         );
 
-        let mut resolved_generic_types = ResolvedGenericTypes::new();
+        let mut resolved_generic_types = ASTResolvedGenericTypes::new();
 
         for (i, parameter) in function_signature.parameters_types.iter().enumerate() {
             if parameter.is_generic() {
@@ -1003,7 +1009,7 @@ impl<'a> ASTTypeChecker<'a> {
         index: &ASTIndex,
         generic_type: &ASTType,
         effective_filter: &ASTTypeFilter,
-        resolved_generic_types: &mut ResolvedGenericTypes,
+        resolved_generic_types: &mut ASTResolvedGenericTypes,
     ) -> Vec<ASTTypeCheckError> {
         let mut errors = Vec::new();
         if let ASTTypeFilter::Exact(effective_type, _t_module_id) = effective_filter {
@@ -1023,11 +1029,11 @@ impl<'a> ASTTypeChecker<'a> {
         errors
     }
 
-    fn resolve_generic_types_from_effective_type(
+    pub fn resolve_generic_types_from_effective_type(
         generic_type: &ASTType,
         effective_type: &ASTType,
-    ) -> Result<ResolvedGenericTypes, ASTTypeCheckError> {
-        let mut result = ResolvedGenericTypes::new();
+    ) -> Result<ASTResolvedGenericTypes, ASTTypeCheckError> {
+        let mut result = ASTResolvedGenericTypes::new();
         if generic_type == effective_type || !generic_type.is_generic() {
             return Ok(result);
         }
@@ -1168,9 +1174,9 @@ impl<'a> ASTTypeChecker<'a> {
         ASTTypeCheckError::new(ASTIndex::none(), message)
     }
 
-    fn substitute(
+    pub fn substitute(
         ast_type: &ASTType,
-        resolved_param_types: &ResolvedGenericTypes,
+        resolved_param_types: &ASTResolvedGenericTypes,
     ) -> Option<ASTType> {
         if !ast_type.is_generic() {
             return None;
@@ -1256,7 +1262,7 @@ impl<'a> ASTTypeChecker<'a> {
 
     fn substitute_types(
         types: &[ASTType],
-        resolved_param_types: &ResolvedGenericTypes,
+        resolved_param_types: &ASTResolvedGenericTypes,
     ) -> Option<Vec<ASTType>> {
         let mut something_substituted = false;
         let new_types = types

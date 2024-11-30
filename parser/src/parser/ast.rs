@@ -10,21 +10,40 @@ use itertools::Itertools;
 pub struct ASTPosition {
     pub row: usize,
     pub column: usize,
+    /// used to identify builtin functions and disambiguate the ones related to the same type/property
+    pub builtin: Option<String>,
 }
 
 impl ASTPosition {
     pub fn new(row: usize, column: usize) -> Self {
-        Self { row, column }
+        Self {
+            row,
+            column,
+            builtin: None,
+        }
+    }
+
+    pub fn builtin(position: &ASTPosition, id: String) -> Self {
+        Self {
+            row: position.row,
+            column: position.column,
+            builtin: Some(id),
+        }
     }
 
     pub fn none() -> Self {
-        Self { row: 0, column: 0 }
+        Self {
+            row: 0,
+            column: 0,
+            builtin: None,
+        }
     }
 
     pub fn mv_left(&self, len: usize) -> Self {
         Self {
             row: self.row,
             column: self.column - len,
+            builtin: self.builtin.clone(),
         }
     }
 
@@ -32,6 +51,7 @@ impl ASTPosition {
         Self {
             row: self.row,
             column: self.column + len,
+            builtin: self.builtin.clone(),
         }
     }
 }
