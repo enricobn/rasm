@@ -86,7 +86,7 @@ impl UI {
             modules_container.add(&module, info.module_namespace(), info.module_id(), false);
         }
 
-        let mut ast_type_checker = ASTTypeChecker::new(&modules_container);
+        let mut ast_type_checker = ASTTypeChecker::new();
 
         for (body, info) in bodies {
             let mut val_context = ValContext::new(None);
@@ -97,6 +97,7 @@ impl UI {
                 None,
                 &info.module_namespace(),
                 &info.module_id(),
+                &modules_container,
             );
         }
 
@@ -240,7 +241,7 @@ impl UI {
         let mut start = Instant::now();
         let type_checker_result =
             if let Some((module, errors, info)) = project.get_module(&Path::new(path), target) {
-                let mut ast_type_checker = ASTTypeChecker::new(modules_container);
+                let mut ast_type_checker = ASTTypeChecker::new();
                 let mut val_context = ValContext::new(None);
 
                 start = Instant::now();
@@ -261,6 +262,7 @@ impl UI {
                     None,
                     &info.module_namespace(),
                     &info.module_id(),
+                    modules_container,
                 );
 
                 for function in module.functions {
@@ -270,6 +272,7 @@ impl UI {
                         static_val_context,
                         &info.module_namespace(),
                         &info.module_id(),
+                        modules_container,
                     );
                     println!(
                         "function {} takes {:?}",

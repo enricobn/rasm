@@ -225,24 +225,14 @@ impl ASTTypeCheckerResult {
     }
 }
 
-pub struct ASTTypeChecker<'a> {
-    modules_container: &'a ASTModulesContainer,
+pub struct ASTTypeChecker {
     pub result: ASTTypeCheckerResult,
     pub errors: Vec<ASTTypeCheckError>,
 }
 
-impl<'a> ASTTypeChecker<'a> {
-    pub fn new(modules_container: &'a ASTModulesContainer) -> Self {
+impl ASTTypeChecker {
+    pub fn new() -> Self {
         Self {
-            modules_container,
-            result: ASTTypeCheckerResult::new(),
-            errors: Vec::new(),
-        }
-    }
-
-    pub fn new_inner(modules_container: &'a ASTModulesContainer) -> Self {
-        Self {
-            modules_container,
             result: ASTTypeCheckerResult::new(),
             errors: Vec::new(),
         }
@@ -254,6 +244,7 @@ impl<'a> ASTTypeChecker<'a> {
         static_val_context: &ValContext,
         module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
+        modules_container: &ASTModulesContainer,
     ) {
         let mut val_context = ValContext::new(None);
 
@@ -294,6 +285,7 @@ impl<'a> ASTTypeChecker<'a> {
                     Some(&function.return_type),
                     module_namespace,
                     module_id,
+                    modules_container,
                 );
             }
             ASTFunctionBody::NativeBody(_body) => {}
@@ -308,6 +300,7 @@ impl<'a> ASTTypeChecker<'a> {
         expected_last_statement_type: Option<&ASTType>,
         module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
+        modules_container: &ASTModulesContainer,
     ) -> Option<ASTTypeCheckEntry> {
         let mut return_type = None;
         /*
@@ -330,6 +323,7 @@ impl<'a> ASTTypeChecker<'a> {
                                     Some(*elst),
                                     module_namespace,
                                     module_id,
+                                    modules_container,
                                 )
                             } else {
                                 self.add_expr(
@@ -339,6 +333,7 @@ impl<'a> ASTTypeChecker<'a> {
                                     None,
                                     module_namespace,
                                     module_id,
+                                    modules_container,
                                 )
                             };
 
@@ -356,14 +351,31 @@ impl<'a> ASTTypeChecker<'a> {
                                 None,
                                 module_namespace,
                                 module_id,
+                                modules_container,
                             );
                         }
                     } else {
-                        self.add_expr(e, val_context, statics, None, module_namespace, module_id);
+                        self.add_expr(
+                            e,
+                            val_context,
+                            statics,
+                            None,
+                            module_namespace,
+                            module_id,
+                            modules_container,
+                        );
                     }
                 }
                 ASTStatement::LetStatement(key, e, is_const, index) => {
-                    self.add_expr(e, val_context, statics, None, module_namespace, module_id);
+                    self.add_expr(
+                        e,
+                        val_context,
+                        statics,
+                        None,
+                        module_namespace,
+                        module_id,
+                        modules_container,
+                    );
 
                     let e_index =
                         ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
@@ -400,10 +412,6 @@ impl<'a> ASTTypeChecker<'a> {
         return_type
     }
 
-    pub fn container(&self) -> &ASTModulesContainer {
-        &self.modules_container
-    }
-
     fn add_expr(
         &mut self,
         expr: &ASTExpression,
@@ -412,6 +420,7 @@ impl<'a> ASTTypeChecker<'a> {
         expected_expression_type: Option<&ASTType>,
         module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
+        modules_container: &ASTModulesContainer,
     ) {
         let index = ASTIndex::new(module_namespace.clone(), module_id.clone(), expr.position());
 
@@ -429,6 +438,7 @@ impl<'a> ASTTypeChecker<'a> {
                     expected_expression_type,
                     module_namespace,
                     module_id,
+                    modules_container,
                 );
             }
             ASTExpression::ValueRef(name, _) => {
@@ -532,6 +542,7 @@ impl<'a> ASTTypeChecker<'a> {
                     expected_last_statement_type_and_paramters.map(|it| it.0),
                     module_namespace,
                     module_id,
+                    modules_container,
                 );
 
                 if let Some(ASTTypeFilter::Exact(brt, _position)) =
@@ -614,6 +625,7 @@ impl<'a> ASTTypeChecker<'a> {
         expected_expression_type: Option<&ASTType>,
         module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
+        modules_container: &ASTModulesContainer,
     ) {
         let index = ASTIndex::new(
             module_namespace.clone(),
@@ -633,7 +645,7 @@ impl<'a> ASTTypeChecker<'a> {
         );
         */
 
-        let mut inner = ASTTypeChecker::new(&self.modules_container);
+        let mut inner = ASTTypeChecker::new();
 
         for e in &call.parameters {
             let e_index = ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
@@ -651,7 +663,15 @@ impl<'a> ASTTypeChecker<'a> {
                     )),
                 );
             } else {
-                self.add_expr(e, val_context, statics, None, module_namespace, module_id);
+                self.add_expr(
+                    e,
+                    val_context,
+                    statics,
+                    None,
+                    module_namespace,
+                    module_id,
+                    modules_container,
+                );
             }
         }
 
@@ -722,12 +742,13 @@ impl<'a> ASTTypeChecker<'a> {
                 module_namespace,
                 module_id,
                 true,
+                modules_container,
             );
 
             return;
         }
 
-        let mut functions = self.modules_container.find_call_vec(
+        let mut functions = modules_container.find_call_vec(
             &call.function_name,
             &parameter_types_filters,
             expected_expression_type,
@@ -841,6 +862,7 @@ impl<'a> ASTTypeChecker<'a> {
                     module_namespace,
                     module_id,
                     false,
+                    modules_container,
                 );
             }
         }
@@ -857,6 +879,7 @@ impl<'a> ASTTypeChecker<'a> {
         call_module_namespace: &ModuleNamespace,
         call_module_id: &ModuleId,
         is_lambda: bool,
+        modules_container: &ASTModulesContainer,
     ) {
         let function_signature = &function_signature_entry.signature;
         let index = ASTIndex::new(
@@ -904,6 +927,7 @@ impl<'a> ASTTypeChecker<'a> {
                     Some(&ast_type),
                     call_module_namespace,
                     call_module_id,
+                    modules_container,
                 );
 
                 if let Some(ref calculated_type_filter) =
@@ -1341,7 +1365,7 @@ mod tests {
 
         let (module, _errors, info) = project.get_module(path, &target).unwrap();
 
-        let mut function_type_checker = ASTTypeChecker::new(&container);
+        let mut function_type_checker = ASTTypeChecker::new();
 
         for function in module.functions.into_iter() {
             function_type_checker.add_function(
@@ -1349,6 +1373,7 @@ mod tests {
                 &mut statics,
                 &info.module_namespace(),
                 &info.module_id(),
+                &container,
             );
         }
     }
@@ -1594,7 +1619,7 @@ mod tests {
 
         let mut static_val_context = ValContext::new(None);
 
-        let mut function_type_checker = ASTTypeChecker::new(&container);
+        let mut function_type_checker = ASTTypeChecker::new();
 
         for (module, info) in modules {
             let mut val_context = ValContext::new(None);
@@ -1606,6 +1631,7 @@ mod tests {
                 None,
                 &info.module_namespace(),
                 &info.module_id(),
+                &container,
             );
 
             for function in module.functions.into_iter() {
@@ -1614,6 +1640,7 @@ mod tests {
                     &static_val_context,
                     &info.module_namespace(),
                     &info.module_id(),
+                    &container,
                 );
             }
         }
@@ -1622,7 +1649,7 @@ mod tests {
     }
 
     fn check_body(file: &str) -> (ASTTypeCheckerResult, EnhModuleInfo) {
-        apply_to_functions_checker(file, file, |module, mut ftc, info| {
+        apply_to_functions_checker(file, file, |module, mut ftc, info, cont| {
             let mut val_context = ValContext::new(None);
             let mut static_val_context = ValContext::new(None);
             ftc.add_body(
@@ -1632,13 +1659,14 @@ mod tests {
                 None,
                 &info.module_namespace(),
                 &info.module_id(),
+                &cont,
             );
             ftc.result
         })
     }
 
     fn check_function(file: &str, function_name: &str) -> (ASTTypeCheckerResult, EnhModuleInfo) {
-        apply_to_functions_checker(file, file, |module, mut ftc, info| {
+        apply_to_functions_checker(file, file, |module, mut ftc, info, cont| {
             let function = module
                 .functions
                 .iter()
@@ -1651,6 +1679,7 @@ mod tests {
                 &mut static_val_context,
                 &info.module_namespace(),
                 &info.module_id(),
+                &cont,
             );
             ftc.result
         })
@@ -1662,14 +1691,27 @@ mod tests {
         f: F,
     ) -> (ASTTypeCheckerResult, EnhModuleInfo)
     where
-        F: Fn(&ASTModule, ASTTypeChecker, EnhModuleInfo) -> ASTTypeCheckerResult,
+        F: Fn(
+            &ASTModule,
+            ASTTypeChecker,
+            EnhModuleInfo,
+            ASTModulesContainer,
+        ) -> ASTTypeCheckerResult,
     {
         let target = CompileTarget::C(COptions::default());
         let (project, modules_container) = project_and_container(&target, &project_path);
-        let function_type_checker = ASTTypeChecker::new(&modules_container);
+        let function_type_checker = ASTTypeChecker::new();
 
         let (module, _, info) = project.get_module(Path::new(file), &target).unwrap();
 
-        (f(&module, function_type_checker, info.clone()), info)
+        (
+            f(
+                &module,
+                function_type_checker,
+                info.clone(),
+                modules_container,
+            ),
+            info,
+        )
     }
 }

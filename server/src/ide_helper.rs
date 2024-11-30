@@ -173,7 +173,7 @@ impl<'a> IDEHelperBuilder<'a> {
 
         let mut static_val_context = ValContext::new(None);
 
-        let mut function_type_checker = ASTTypeChecker::new(&modules_container);
+        let mut function_type_checker = ASTTypeChecker::new();
         let mut selectable_items = Vec::new();
 
         for (id, (module, namespace, _add_builtin)) in self.entries.iter() {
@@ -187,12 +187,19 @@ impl<'a> IDEHelperBuilder<'a> {
                 None,
                 &namespace,
                 &id,
+                &modules_container,
             );
 
             let info = ModuleInfo::new(namespace.clone(), id.clone());
 
             for function in module.functions.iter() {
-                function_type_checker.add_function(&function, &static_val_context, &namespace, &id);
+                function_type_checker.add_function(
+                    &function,
+                    &static_val_context,
+                    &namespace,
+                    &id,
+                    &modules_container,
+                );
 
                 let start = ASTIndex::new(namespace.clone(), id.clone(), function.position.clone());
 

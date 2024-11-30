@@ -15,7 +15,7 @@ use rasm_utils::{debug_i, dedent, indent, HashMapDisplay, OptionDisplay, SliceDi
 use crate::type_check::ast_modules_container::ASTTypeFilter;
 
 use super::{
-    ast_modules_container::ASTFunctionType,
+    ast_modules_container::{ASTFunctionType, ASTModulesContainer},
     ast_type_checker::{ASTTypeCheckInfo, ASTTypeChecker},
 };
 
@@ -147,6 +147,7 @@ pub fn function_dependencies(
     module_namespace: &ModuleNamespace,
     module_id: &ModuleId,
     ast_type_check: &ASTTypeChecker,
+    modules_container: &ASTModulesContainer,
 ) -> ASTFunctionsDependencies {
     let mut already_checked = HashMap::new();
     function_dependencies_inner(
@@ -155,6 +156,7 @@ pub fn function_dependencies(
         module_id,
         ast_type_check,
         &mut already_checked,
+        modules_container,
     )
 }
 
@@ -164,6 +166,7 @@ fn function_dependencies_inner(
     module_id: &ModuleId,
     ast_type_check: &ASTTypeChecker,
     already_checked: &mut HashMap<ASTIndex, ASTFunctionsDependencies>,
+    modules_container: &ASTModulesContainer,
 ) -> ASTFunctionsDependencies {
     debug_i!("function_dependencies {function}");
     indent!();
@@ -237,7 +240,7 @@ fn function_dependencies_inner(
                                     debug_i!("call to function {signature} : {index}");
                                     indent!();
 
-                                    match ast_type_check.container().function(index).unwrap() {
+                                    match modules_container.function(index).unwrap() {
                                         ASTFunctionType::Standard(inner_function) => {
                                             let deps = function_dependencies_inner(
                                                 inner_function,
@@ -245,6 +248,7 @@ fn function_dependencies_inner(
                                                 index.module_id(),
                                                 ast_type_check,
                                                 already_checked,
+                                                modules_container,
                                             );
 
                                             let inner_function_par =
@@ -332,6 +336,7 @@ fn function_dependencies_inner_2(
     module_id: &ModuleId,
     ast_type_check: &ASTTypeChecker,
     already_checked: &mut HashMap<ASTIndex, ASTFunctionsDependencies>,
+    modules_container: &ASTModulesContainer,
 ) -> ASTFunctionsDependencies {
     let mut result = ASTFunctionsDependencies::new();
 
@@ -417,10 +422,7 @@ fn function_dependencies_inner_2(
                                                         }
                                                     }
 
-                                                    match ast_type_check
-                                                        .container()
-                                                        .function(index)
-                                                        .unwrap()
+                                                    match modules_container.function(index).unwrap()
                                                     {
                                                         ASTFunctionType::Standard(
                                                             inner_function,
@@ -431,6 +433,7 @@ fn function_dependencies_inner_2(
                                                                 index.module_id(),
                                                                 ast_type_check,
                                                                 already_checked,
+                                                                modules_container,
                                                             );
 
                                                             if let Some(par_dependencies) = deps
@@ -676,7 +679,7 @@ mod tests {
     use rasm_utils::OptionDisplay;
 
     use crate::{
-        codegen::{c::options::COptions, compile_target::CompileTarget, val_context::ValContext},
+        codegen::{c::options::COptions, compile_target::CompileTarget},
         project::RasmProjectRunType,
         type_check::{
             ast_type_checker_from_project, functions_dependencies::function_dependencies,
@@ -747,6 +750,7 @@ mod tests {
             &info.module_namespace(),
             &info.module_id(),
             &type_checker,
+            &container,
         )
     }
 }

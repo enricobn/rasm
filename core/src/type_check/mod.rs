@@ -306,12 +306,12 @@ pub fn substitute(
     result
 }
 
-pub fn ast_type_checker_from_project<'a>(
+pub fn ast_type_checker_from_project(
     project: &RasmProject,
     run_type: RasmProjectRunType,
     target: &CompileTarget,
-    modules_container: &'a ASTModulesContainer,
-) -> ASTTypeChecker<'a> {
+    modules_container: &ASTModulesContainer,
+) -> ASTTypeChecker {
     let mut statics = Statics::new();
 
     let (modules, errors) = project.get_all_modules(
@@ -323,7 +323,7 @@ pub fn ast_type_checker_from_project<'a>(
         &CommandLineOptions::default(),
     );
 
-    let mut function_type_checker = ASTTypeChecker::new(modules_container);
+    let mut function_type_checker = ASTTypeChecker::new();
 
     let mut static_val_context = ValContext::new(None);
 
@@ -338,6 +338,7 @@ pub fn ast_type_checker_from_project<'a>(
             None,
             &info.module_namespace(),
             &info.module_id(),
+            modules_container,
         );
 
         for function in module.functions.iter() {
@@ -346,6 +347,7 @@ pub fn ast_type_checker_from_project<'a>(
                 &static_val_context,
                 &info.module_namespace(),
                 &info.module_id(),
+                modules_container,
             );
         }
     }
