@@ -3,7 +3,7 @@ use std::{env, path::PathBuf};
 use crate::{
     codegen::{compile_target::CompileTarget, statics::Statics},
     commandline::CommandLineOptions,
-    project::RasmProject,
+    project::{RasmProject, RasmProjectRunType},
 };
 
 use super::ast_modules_container::ASTModulesContainer;
@@ -29,7 +29,7 @@ pub fn project_and_container(
     let mut statics = Statics::new();
     let (modules, _errors) = project.get_all_modules(
         &mut statics,
-        crate::project::RasmProjectRunType::Main,
+        &RasmProjectRunType::Main,
         &target,
         false,
         &env::temp_dir().join("tmp"),

@@ -410,11 +410,11 @@ mod tests {
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
         commandline::CommandLineOptions,
-        project::RasmProject,
+        project::{RasmProject, RasmProjectRunType},
         type_check::ast_modules_container::ModuleNamespace,
     };
 
-    use super::{ASTModulesContainer, ASTTypeFilter, ModuleId, ModuleInfo};
+    use super::{ASTModulesContainer, ASTTypeFilter, ModuleInfo};
 
     #[test]
     pub fn test_add() {
@@ -461,7 +461,7 @@ mod tests {
         let mut statics = Statics::new();
         let (modules, _) = project.get_all_modules(
             &mut statics,
-            crate::project::RasmProjectRunType::Main,
+            &RasmProjectRunType::Main,
             &target,
             false,
             &env::temp_dir().join("tmp"),

@@ -343,6 +343,7 @@ impl RasmProject {
                 .collect::<Vec<_>>(),
         );
 
+        // TODO generalize it or better move it to CompileTarget
         if matches!(target, CompileTarget::C(..)) {
             self.get_all_dependencies().iter().for_each(|dependency| {
                 if let Some(native_source_folder) =
@@ -414,7 +415,7 @@ impl RasmProject {
     pub fn catalog(
         &self,
         statics: &mut Statics,
-        run_type: RasmProjectRunType,
+        run_type: &RasmProjectRunType,
         target: &CompileTarget,
         debug: bool,
         out: &PathBuf,
@@ -437,7 +438,7 @@ impl RasmProject {
     pub fn get_all_modules(
         &self,
         statics: &mut Statics,
-        run_type: RasmProjectRunType,
+        run_type: &RasmProjectRunType,
         target: &CompileTarget,
         debug: bool,
         out: &PathBuf,
@@ -1007,6 +1008,7 @@ mod tests {
     use crate::codegen::enh_ast::EnhModuleId;
     use crate::codegen::statics::Statics;
     use crate::commandline::CommandLineOptions;
+    use crate::project::RasmProjectRunType;
 
     use super::RasmProject;
 
@@ -1030,7 +1032,7 @@ mod tests {
         let mut statics = Statics::new();
         let (catalog, _errors) = sut.catalog(
             &mut statics,
-            crate::project::RasmProjectRunType::Main,
+            &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
             &env::temp_dir().join("tmp"),

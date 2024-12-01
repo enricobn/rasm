@@ -96,7 +96,7 @@ impl ServerState {
 
         let (modules, _errors) = project.get_all_modules(
             &mut statics,
-            RasmProjectRunType::Main,
+            &RasmProjectRunType::Main,
             &target,
             false,
             &env::temp_dir().join("tmp"),

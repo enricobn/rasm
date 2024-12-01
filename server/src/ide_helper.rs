@@ -376,7 +376,7 @@ pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<Com
 
     let (modules, errors) = project.get_all_modules(
         &mut statics,
-        RasmProjectRunType::Main,
+        &RasmProjectRunType::Main,
         &CompileTarget::C(COptions::default()),
         false,
         &env::temp_dir().join("tmp"),

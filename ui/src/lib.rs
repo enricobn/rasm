@@ -68,7 +68,7 @@ impl UI {
 
         let (modules, _errors) = project.get_all_modules(
             &mut statics,
-            RasmProjectRunType::All,
+            &RasmProjectRunType::All,
             &target,
             false,
             &env::temp_dir().join("tmp"),

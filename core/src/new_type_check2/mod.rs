@@ -1729,7 +1729,7 @@ mod tests {
     use crate::codegen::AsmOptions;
     use crate::commandline::CommandLineOptions;
     use crate::new_type_check2::TypeCheck;
-    use crate::project::RasmProject;
+    use crate::project::{RasmProject, RasmProjectRunType};
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
     use crate::type_check::typed_ast::convert_to_typed_module;
@@ -2058,7 +2058,7 @@ mod tests {
 
         let (modules, _errors) = project.get_all_modules(
             &mut statics,
-            crate::project::RasmProjectRunType::Main,
+            &RasmProjectRunType::Main,
             &target,
             false,
             &env::temp_dir().join("tmp"),

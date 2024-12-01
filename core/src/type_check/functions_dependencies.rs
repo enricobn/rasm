@@ -743,7 +743,7 @@ mod tests {
         let function = module.functions.first().unwrap();
 
         let type_checker =
-            ast_type_checker_from_project(&project, RasmProjectRunType::Main, &target, &container);
+            ast_type_checker_from_project(&project, &RasmProjectRunType::Main, &target, &container);
 
         function_dependencies(
             function,

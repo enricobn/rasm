@@ -49,6 +49,7 @@ use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreat
 use crate::transformations::typed_functions_creator::{
     TypedFunctionsCreator, TypedFunctionsCreatorNasmi386,
 };
+use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, DefaultFunction, DefaultFunctionCall,
 };
@@ -289,7 +290,7 @@ impl CompileTarget {
 
         let (modules, errors) = project.get_all_modules(
             &mut statics,
-            run_type,
+            &run_type,
             self,
             command_line_options.debug,
             &out,
@@ -301,6 +302,12 @@ impl CompileTarget {
                 eprintln!("{error}");
             }
             panic!()
+        }
+
+        let mut modules_container = ASTModulesContainer::new();
+
+        for (module, info) in modules.iter() {
+            modules_container.add(module, info.module_namespace(), info.module_id(), false);
         }
 
         let (enhanced_ast_module, errors) = EnhancedASTModule::from_ast(

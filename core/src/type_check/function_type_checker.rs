@@ -565,7 +565,7 @@ mod tests {
             statics::Statics,
         },
         commandline::CommandLineOptions,
-        project::RasmProject,
+        project::{RasmProject, RasmProjectRunType},
         type_check::function_type_checker::FunctionTypeChecker,
     };
 
@@ -581,7 +581,7 @@ mod tests {
 
         let (modules, _errors) = project.get_all_modules(
             &mut statics,
-            crate::project::RasmProjectRunType::Main,
+            &RasmProjectRunType::Main,
             &target,
             false,
             &env::temp_dir().join("tmp"),
@@ -814,7 +814,7 @@ mod tests {
 
         let (modules, _errors) = project.get_all_modules(
             statics,
-            crate::project::RasmProjectRunType::Main,
+            &RasmProjectRunType::Main,
             target,
             false,
             &env::temp_dir().join("tmp"),

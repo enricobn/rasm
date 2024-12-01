@@ -717,7 +717,7 @@ mod tests {
         let target = CompileTarget::Nasmi386(AsmOptions::default());
         let (modules, errors) = project.get_all_modules(
             &mut statics,
-            RasmProjectRunType::Main,
+            &RasmProjectRunType::Main,
             &target,
             false,
             &env::temp_dir().join("tmp"),
