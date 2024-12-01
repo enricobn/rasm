@@ -223,26 +223,30 @@ fn function_dependencies_inner(
         );
         let mut call_result = ASTFunctionsDependencies::new();
         if let Some(call_type_check_entry) = ast_type_check.result.get(&call_index) {
-            for (call_expr_i, call_expr) in call.parameters.iter().enumerate() {
-                debug_i!("evaluating expr {call_expr}");
-                indent!();
-                let call_expr_index = ASTIndex::new(
-                    module_namespace.clone(),
-                    module_id.clone(),
-                    call_expr.position().clone(),
-                );
-                if let Some(call_expr_entry) = ast_type_check.result.get(&call_expr_index) {
-                    if let Some(ASTTypeFilter::Exact(call_expr_type, call_expr_info)) =
-                        call_expr_entry.filter()
-                    {
-                        match call_type_check_entry.info() {
-                            ASTTypeCheckInfo::Call(_, vec) => {
-                                for (inner_signature, inner_signature_index) in vec.iter() {
-                                    debug_i!("call to function {inner_signature} : {inner_signature_index}");
-                                    indent!();
+            match call_type_check_entry.info() {
+                ASTTypeCheckInfo::Call(_, vec) => {
+                    for (inner_signature, inner_signature_index) in vec.iter() {
+                        debug_i!("call to function {inner_signature} : {inner_signature_index}");
+                        indent!();
 
-                                    if let Some(inner_function) =
-                                        modules_container.function(inner_signature_index)
+                        if let Some(inner_function) =
+                            modules_container.function(inner_signature_index)
+                        {
+                            for (call_expr_i, call_expr) in call.parameters.iter().enumerate() {
+                                debug_i!("evaluating expr {call_expr}");
+                                indent!();
+                                let call_expr_index = ASTIndex::new(
+                                    module_namespace.clone(),
+                                    module_id.clone(),
+                                    call_expr.position().clone(),
+                                );
+                                if let Some(call_expr_entry) =
+                                    ast_type_check.result.get(&call_expr_index)
+                                {
+                                    if let Some(ASTTypeFilter::Exact(
+                                        call_expr_type,
+                                        call_expr_info,
+                                    )) = call_expr_entry.filter()
                                     {
                                         call_expr_dependencies(
                                             inner_function,
@@ -257,17 +261,16 @@ fn function_dependencies_inner(
                                             &mut call_result,
                                         );
                                     }
-
-                                    dedent!();
+                                } else {
+                                    debug_i!("cannot find entry in type check");
                                 }
+                                dedent!();
                             }
-                            _ => {}
                         }
+                        dedent!();
                     }
-                } else {
-                    debug_i!("cannot find entry in type check");
                 }
-                dedent!();
+                _ => {}
             }
         } else {
             debug_i!("cannot find entry in type check");
