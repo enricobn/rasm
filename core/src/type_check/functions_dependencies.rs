@@ -15,7 +15,7 @@ use rasm_utils::{debug_i, dedent, indent, HashMapDisplay, OptionDisplay, SliceDi
 use crate::type_check::ast_modules_container::ASTTypeFilter;
 
 use super::{
-    ast_modules_container::{ASTFunctionType, ASTModulesContainer},
+    ast_modules_container::ASTModulesContainer,
     ast_type_checker::{ASTTypeCheckInfo, ASTTypeChecker},
 };
 
@@ -216,12 +216,13 @@ fn function_dependencies_inner(
     for call in calls.iter() {
         debug_i!("call {call}");
         indent!();
-        let mut call_result = ASTFunctionsDependencies::new();
-        if let Some(call_type_check_entry) = ast_type_check.result.get(&ASTIndex::new(
+        let call_index = ASTIndex::new(
             module_namespace.clone(),
             module_id.clone(),
             call.position.clone(),
-        )) {
+        );
+        let mut call_result = ASTFunctionsDependencies::new();
+        if let Some(call_type_check_entry) = ast_type_check.result.get(&call_index) {
             for (call_expr_i, call_expr) in call.parameters.iter().enumerate() {
                 debug_i!("evaluating expr {call_expr}");
                 indent!();
@@ -240,37 +241,37 @@ fn function_dependencies_inner(
                                     debug_i!("call to function {signature} : {index}");
                                     indent!();
 
-                                    match modules_container.function(index).unwrap() {
-                                        ASTFunctionType::Standard(inner_function) => {
-                                            let deps = function_dependencies_inner(
-                                                inner_function,
-                                                index.module_namespace(),
-                                                index.module_id(),
-                                                ast_type_check,
-                                                already_checked,
-                                                modules_container,
-                                            );
+                                    if let Some(inner_function) = modules_container.function(index)
+                                    {
+                                        let deps = function_dependencies_inner(
+                                            inner_function,
+                                            index.module_namespace(),
+                                            index.module_id(),
+                                            ast_type_check,
+                                            already_checked,
+                                            modules_container,
+                                        );
 
-                                            let inner_function_par =
-                                                inner_function.parameters.get(call_expr_i).unwrap();
-                                            if let Some(par_dependencies) =
-                                                deps.get(&inner_function_par.name)
-                                            {
-                                                match par_dependencies {
-                                                    ASTParameterDependencies::Any => {
-                                                        /*call_result.or(
-                                                            &inner_function_par,
-                                                            ASTParameterDependencies::Any,
-                                                        );
-                                                        */
-                                                    }
-                                                    ASTParameterDependencies::None => {}
-                                                    ASTParameterDependencies::Precise(
-                                                        ref found_types,
-                                                    ) => {
-                                                        for ft in found_types.iter() {
-                                                            debug_i!("found_type {ft}");
-                                                            match ASTTypeChecker::resolve_generic_types_from_effective_type(&call_expr_type, ft) {
+                                        let inner_function_par =
+                                            inner_function.parameters.get(call_expr_i).unwrap();
+                                        if let Some(par_dependencies) =
+                                            deps.get(&inner_function_par.name)
+                                        {
+                                            match par_dependencies {
+                                                ASTParameterDependencies::Any => {
+                                                    /*call_result.or(
+                                                        &inner_function_par,
+                                                        ASTParameterDependencies::Any,
+                                                    );
+                                                    */
+                                                }
+                                                ASTParameterDependencies::None => {}
+                                                ASTParameterDependencies::Precise(
+                                                    ref found_types,
+                                                ) => {
+                                                    for ft in found_types.iter() {
+                                                        debug_i!("found_type {ft}");
+                                                        match ASTTypeChecker::resolve_generic_types_from_effective_type(&call_expr_type, ft) {
                                                                 Ok(rgt) => {
                                                                     for par in function.parameters.iter() {
                                                                         let par_type = par.ast_type.fix_generics(&format!("{}_{}", module_namespace.0, function.name));
@@ -291,14 +292,12 @@ fn function_dependencies_inner(
                                                                     debug_i!("Error resolving generic type from effective type: {e}");
                                                                 }
                                                             }
-                                                        }
                                                     }
                                                 }
-                                            } else {
-                                                // TODO
                                             }
+                                        } else {
+                                            // TODO
                                         }
-                                        _ => {}
                                     }
 
                                     dedent!();
@@ -422,39 +421,33 @@ fn function_dependencies_inner_2(
                                                         }
                                                     }
 
-                                                    match modules_container.function(index).unwrap()
+                                                    if let Some(inner_function) =
+                                                        modules_container.function(index)
                                                     {
-                                                        ASTFunctionType::Standard(
+                                                        let deps = function_dependencies_inner(
                                                             inner_function,
-                                                        ) => {
-                                                            let deps = function_dependencies_inner(
-                                                                inner_function,
-                                                                index.module_namespace(),
-                                                                index.module_id(),
-                                                                ast_type_check,
-                                                                already_checked,
-                                                                modules_container,
-                                                            );
+                                                            index.module_namespace(),
+                                                            index.module_id(),
+                                                            ast_type_check,
+                                                            already_checked,
+                                                            modules_container,
+                                                        );
 
-                                                            if let Some(par_dependencies) = deps
-                                                                .get(
-                                                                    &inner_function
-                                                                        .parameters
-                                                                        .get(i)
-                                                                        .unwrap()
-                                                                        .name,
-                                                                )
-                                                            {
-                                                                if let ASTParameterDependencies::Precise(ref found_types) = par_dependencies {
+                                                        if let Some(par_dependencies) = deps.get(
+                                                            &inner_function
+                                                                .parameters
+                                                                .get(i)
+                                                                .unwrap()
+                                                                .name,
+                                                        ) {
+                                                            if let ASTParameterDependencies::Precise(ref found_types) = par_dependencies {
                                                                     for ft in found_types.iter() {
                                                                         debug_i!("found_type {ft}");
                                                                     }
                                                                 }
-                                                            } else {
-                                                                // TODO
-                                                            }
+                                                        } else {
+                                                            // TODO
                                                         }
-                                                        _ => {}
                                                     }
                                                     dedent!();
                                                 } else {

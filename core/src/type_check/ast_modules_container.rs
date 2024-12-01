@@ -44,11 +44,6 @@ pub struct ASTModulesContainer {
     functions_by_index: HashMap<ASTIndex, ASTFunctionDef>,
 }
 
-pub enum ASTFunctionType<'a> {
-    Standard(&'a ASTFunctionDef),
-    Builtin,
-}
-
 impl ASTModulesContainer {
     pub fn new() -> Self {
         Self {
@@ -167,10 +162,8 @@ impl ASTModulesContainer {
         }
     }
 
-    pub fn function(&self, index: &ASTIndex) -> Option<ASTFunctionType> {
-        self.functions_by_index
-            .get(index)
-            .map(|it| ASTFunctionType::Standard(it))
+    pub fn function(&self, index: &ASTIndex) -> Option<&ASTFunctionDef> {
+        self.functions_by_index.get(index)
     }
 
     /*
