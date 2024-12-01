@@ -237,67 +237,25 @@ fn function_dependencies_inner(
                     {
                         match call_type_check_entry.info() {
                             ASTTypeCheckInfo::Call(_, vec) => {
-                                for (signature, index) in vec.iter() {
-                                    debug_i!("call to function {signature} : {index}");
+                                for (inner_signature, inner_signature_index) in vec.iter() {
+                                    debug_i!("call to function {inner_signature} : {inner_signature_index}");
                                     indent!();
 
-                                    if let Some(inner_function) = modules_container.function(index)
+                                    if let Some(inner_function) =
+                                        modules_container.function(inner_signature_index)
                                     {
-                                        let deps = function_dependencies_inner(
+                                        call_expr_dependencies(
                                             inner_function,
-                                            index.module_namespace(),
-                                            index.module_id(),
+                                            inner_signature_index,
                                             ast_type_check,
                                             already_checked,
                                             modules_container,
+                                            call_expr_i,
+                                            call_expr_type,
+                                            function,
+                                            module_namespace,
+                                            &mut call_result,
                                         );
-
-                                        let inner_function_par =
-                                            inner_function.parameters.get(call_expr_i).unwrap();
-                                        if let Some(par_dependencies) =
-                                            deps.get(&inner_function_par.name)
-                                        {
-                                            match par_dependencies {
-                                                ASTParameterDependencies::Any => {
-                                                    /*call_result.or(
-                                                        &inner_function_par,
-                                                        ASTParameterDependencies::Any,
-                                                    );
-                                                    */
-                                                }
-                                                ASTParameterDependencies::None => {}
-                                                ASTParameterDependencies::Precise(
-                                                    ref found_types,
-                                                ) => {
-                                                    for ft in found_types.iter() {
-                                                        debug_i!("found_type {ft}");
-                                                        match ASTTypeChecker::resolve_generic_types_from_effective_type(&call_expr_type, ft) {
-                                                                Ok(rgt) => {
-                                                                    for par in function.parameters.iter() {
-                                                                        let par_type = par.ast_type.fix_generics(&format!("{}_{}", module_namespace.0, function.name));
-                                                                        if par_type.is_generic() {
-                                                                            debug_i!("resolved generic types {rgt}");
-                                                                            if let Some(t) = ASTTypeChecker::substitute(&par_type, &rgt) {
-                                                                                call_result.or(par, ASTParameterDependencies::precise(vec![t]));
-                                                                            } else {
-                                                                                debug_i!("cannot substitute {}", par.ast_type);
-                                                                                //call_result.or(par, ASTParameterDependencies::precise(vec![par.ast_type.clone()]));    
-                                                                            }
-                                                                        } else {
-                                                                            call_result.or(par, ASTParameterDependencies::precise(vec![par_type.clone()]));
-                                                                        }
-                                                                    }
-                                                                }
-                                                                Err(e) => {
-                                                                    debug_i!("Error resolving generic type from effective type: {e}");
-                                                                }
-                                                            }
-                                                    }
-                                                }
-                                            }
-                                        } else {
-                                            // TODO
-                                        }
                                     }
 
                                     dedent!();
@@ -327,6 +285,80 @@ fn function_dependencies_inner(
     debug_i!("function result {result}");
     dedent!();
     result
+}
+
+fn call_expr_dependencies(
+    inner_function: &ASTFunctionDef,
+    inner_signature_index: &ASTIndex,
+    ast_type_check: &ASTTypeChecker,
+    already_checked: &mut HashMap<ASTIndex, ASTFunctionsDependencies>,
+    modules_container: &ASTModulesContainer,
+    call_expr_i: usize,
+    call_expr_type: &ASTType,
+    function: &ASTFunctionDef,
+    module_namespace: &ModuleNamespace,
+    call_result: &mut ASTFunctionsDependencies,
+) {
+    let deps = function_dependencies_inner(
+        inner_function,
+        inner_signature_index.module_namespace(),
+        inner_signature_index.module_id(),
+        ast_type_check,
+        already_checked,
+        modules_container,
+    );
+
+    let inner_function_par = inner_function.parameters.get(call_expr_i).unwrap();
+    if let Some(par_dependencies) = deps.get(&inner_function_par.name) {
+        match par_dependencies {
+            ASTParameterDependencies::Any => {
+                /*call_result.or(
+                    &inner_function_par,
+                    ASTParameterDependencies::Any,
+                );
+                */
+            }
+            ASTParameterDependencies::None => {}
+            ASTParameterDependencies::Precise(ref found_types) => {
+                for ft in found_types.iter() {
+                    debug_i!("found_type {ft}");
+                    match ASTTypeChecker::resolve_generic_types_from_effective_type(
+                        &call_expr_type,
+                        ft,
+                    ) {
+                        Ok(rgt) => {
+                            for par in function.parameters.iter() {
+                                let par_type = par.ast_type.fix_generics(&format!(
+                                    "{}_{}",
+                                    module_namespace.0, function.name
+                                ));
+                                if par_type.is_generic() {
+                                    debug_i!("resolved generic types {rgt}");
+                                    if let Some(t) = ASTTypeChecker::substitute(&par_type, &rgt) {
+                                        call_result
+                                            .or(par, ASTParameterDependencies::precise(vec![t]));
+                                    } else {
+                                        debug_i!("cannot substitute {}", par.ast_type);
+                                        //call_result.or(par, ASTParameterDependencies::precise(vec![par.ast_type.clone()]));
+                                    }
+                                } else {
+                                    call_result.or(
+                                        par,
+                                        ASTParameterDependencies::precise(vec![par_type.clone()]),
+                                    );
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            debug_i!("Error resolving generic type from effective type: {e}");
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        // TODO
+    }
 }
 
 fn function_dependencies_inner_2(
