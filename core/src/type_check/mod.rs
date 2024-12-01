@@ -21,7 +21,6 @@ pub mod typed_ast;
 
 pub mod ast_modules_container;
 pub mod ast_type_checker;
-pub mod function_type_checker;
 pub mod functions_dependencies;
 #[cfg(test)]
 pub mod test_utils;

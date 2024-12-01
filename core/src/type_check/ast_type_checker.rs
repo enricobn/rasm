@@ -1372,7 +1372,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker1() {
-        let file = "resources/test/functions_checker1.rasm";
+        let file = "resources/test/ast_type_checker/functions_checker1.rasm";
 
         let (types_map, info) = check_body(file);
 
@@ -1399,7 +1399,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker2() {
-        let file = "resources/test/functions_checker2.rasm";
+        let file = "resources/test/ast_type_checker/functions_checker2.rasm";
 
         let (types_map, info) = check_body(file);
 
@@ -1426,7 +1426,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker3() {
-        let file = "resources/test/functions_checker3.rasm";
+        let file = "resources/test/ast_type_checker/functions_checker3.rasm";
 
         let (types_map, info) = check_body(file);
 
@@ -1453,7 +1453,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker4() {
-        let file = "resources/test/functions_checker4.rasm";
+        let file = "resources/test/ast_type_checker/functions_checker4.rasm";
 
         let (types_map, info) = check_body(file);
 
@@ -1480,7 +1480,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker5() {
-        let file = "resources/test/functions_checker5.rasm";
+        let file = "resources/test/ast_type_checker/functions_checker5.rasm";
 
         let (types_map, info) = check_body(file);
 
@@ -1501,7 +1501,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker6() {
-        let file = "resources/test/functions_checker6.rasm";
+        let file = "resources/test/ast_type_checker/functions_checker6.rasm";
 
         let (types_map, info) = check_function(file, "endsWith");
 
@@ -1522,7 +1522,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker7() {
-        let file = "resources/test/functions_checker7.rasm";
+        let file = "resources/test/ast_type_checker/functions_checker7.rasm";
 
         let (types_map, info) = check_function(file, "endsWith");
 
@@ -1557,7 +1557,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker8() {
-        let file = "resources/test/functions_checker8.rasm";
+        let file = "resources/test/ast_type_checker/functions_checker8.rasm";
 
         let (types_map, info) = check_function(file, "generic");
 
