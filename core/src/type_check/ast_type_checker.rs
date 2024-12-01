@@ -767,20 +767,14 @@ impl ASTTypeChecker {
                 format!("no functions for {}", call.function_name),
             ));
         } else {
-            /*
             if functions.len() != 1 {
-                let min_rank = functions
-                    .iter()
-                    .min_by(|f1, f2| f1.rank.cmp(&f2.rank))
-                    .unwrap()
-                    .rank;
+                let min = functions.iter().map(|it| it.rank).min().unwrap();
 
                 functions = functions
                     .into_iter()
-                    .filter(|it| it.rank == min_rank)
+                    .filter(|it| it.rank == min)
                     .collect::<Vec<_>>();
             }
-            */
 
             if functions.len() > 1 {
                 /*

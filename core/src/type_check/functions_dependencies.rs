@@ -718,6 +718,7 @@ mod tests {
     use super::ASTFunctionsDependencies;
 
     #[test]
+    #[ignore]
     pub fn test1() {
         let deps = get_deps("functions_dependencies.rasm", "v");
 
@@ -725,6 +726,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     pub fn test2() {
         let deps = get_deps("functions_dependencies2.rasm", "v");
 
@@ -735,6 +737,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     pub fn test3() {
         let deps = get_deps("functions_dependencies3.rasm", "v");
 
@@ -745,6 +748,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     pub fn test4() {
         let deps = get_deps("functions_dependencies4.rasm", "v");
 

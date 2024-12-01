@@ -1578,7 +1578,7 @@ mod tests {
 
         if let Some(SelectableItemTarget::Function(index, _, descr)) = item.target {
             assert_eq!(
-                EnhASTIndex::new(Some(file_name.canonicalize().unwrap()), 0, 0),
+                EnhASTIndex::new(Some(file_name.canonicalize().unwrap()), 10, 6),
                 index
             );
             assert!(descr.starts_with("native match"));

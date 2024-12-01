@@ -18,6 +18,7 @@ pub struct ASTFunctionSignatureEntry {
     pub namespace: ModuleNamespace,
     pub module_id: ModuleId,
     pub position: ASTPosition,
+    pub rank: usize,
 }
 
 impl ASTFunctionSignatureEntry {
@@ -27,11 +28,59 @@ impl ASTFunctionSignatureEntry {
         module_id: ModuleId,
         position: ASTPosition,
     ) -> Self {
+        let rank = Self::signature_precedence_coeff(&signature);
         Self {
             signature,
             namespace,
             module_id,
             position,
+            rank,
+        }
+    }
+
+    ///
+    /// lower means a better precedence
+    ///
+    fn signature_precedence_coeff(function: &ASTFunctionSignature) -> usize {
+        let generic_coeff: usize = function
+            .parameters_types
+            .iter()
+            .map(|it| Self::generic_type_coeff(&it))
+            .sum();
+
+        generic_coeff
+        /*            + if matches!(function.body, EnhASTFunctionBody::NativeBody(_)) {
+            0usize
+        } else {
+            1usize
+        }
+        */
+    }
+
+    ///
+    /// return a coefficient that is higher for how the type is generic
+    ///
+    pub fn generic_type_coeff(ast_type: &ASTType) -> usize {
+        Self::generic_type_coeff_internal(ast_type, usize::MAX / 100)
+    }
+
+    fn generic_type_coeff_internal(ast_type: &ASTType, coeff: usize) -> usize {
+        if ast_type.is_generic() {
+            match ast_type {
+                ASTType::Builtin(_) => 0,
+                ASTType::Generic(_, _) => coeff,
+                ASTType::Custom {
+                    name: _,
+                    param_types,
+                    position: _,
+                } => param_types
+                    .iter()
+                    .map(|it| Self::generic_type_coeff_internal(it, coeff / 100))
+                    .sum(),
+                ASTType::Unit => 0,
+            }
+        } else {
+            0
         }
     }
 }
@@ -208,6 +257,7 @@ impl ASTModulesContainer {
                 })
                 .collect::<Vec<_>>();
 
+            /*
             if result.len() > 1 {
                 // TODO return type filter
                 let functions_with_all_non_generic = result
@@ -231,9 +281,12 @@ impl ASTModulesContainer {
                 } else {
                     result
                 }
+
             } else {
                 result
             }
+            */
+            result
         } else {
             Vec::new()
         }

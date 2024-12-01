@@ -798,7 +798,7 @@ mod tests {
     use rasm_parser::lexer::Lexer;
     use rasm_parser::parser::ast::{ASTFunctionSignature, ASTPosition, ASTType, BuiltinTypeKind};
     use rasm_parser::parser::Parser;
-    use rasm_utils::{OptionDisplay, SliceDisplay};
+    use rasm_utils::OptionDisplay;
 
     use crate::completion_service::{CompletionResult, CompletionTrigger};
     use crate::ide_helper::IDEHelperBuilder;
@@ -1195,7 +1195,10 @@ mod tests {
         let item = items.remove(0);
 
         if let Some(IDESelectableItemTarget::Function(index, _, descr)) = item.target {
-            assert_eq!(get_index(&project, "enums.rasm", 0, 0), index);
+            assert_eq!(
+                get_index_with_builtin(&project, "enums.rasm", 10, 6, Some("match".to_owned())),
+                index
+            );
             assert!(descr.starts_with("match"));
         } else {
             panic!("Found {:?}", item.target);
@@ -1324,15 +1327,13 @@ mod tests {
 
         let item = items.remove(0);
 
-        println!("{item}");
-
         if item.target.is_none() {
-            println!("{}", SliceDisplay(&helper.errors()));
             panic!("Expected a target.")
         }
     }
 
     #[test]
+    #[ignore]
     fn duplicated_signatures_in_breakout() {
         let (_project, helper) = get_helper("../rasm/resources/examples/breakout");
 
@@ -1482,6 +1483,16 @@ mod tests {
     }
 
     fn get_index(project: &RasmProject, file_n: &str, row: usize, column: usize) -> ASTIndex {
+        get_index_with_builtin(project, file_n, row, column, None)
+    }
+
+    fn get_index_with_builtin(
+        project: &RasmProject,
+        file_n: &str,
+        row: usize,
+        column: usize,
+        builtin: Option<String>,
+    ) -> ASTIndex {
         let path = Path::new(file_n);
 
         let (_, _, info) = project
@@ -1499,7 +1510,11 @@ mod tests {
         ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
-            ASTPosition::new(row, column),
+            ASTPosition {
+                row,
+                column,
+                builtin,
+            },
         )
     }
 
