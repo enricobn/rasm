@@ -208,7 +208,7 @@ pub trait FunctionsCreator {
             signature,
             false,
             struct_def.modifiers.public,
-            ASTPosition::builtin(&struct_def.position, name),
+            ASTPosition::builtin(&property_def.position, name),
             parameters_names,
             parameters_positions,
             ASTFunctionBody::NativeBody(self.struct_setter_body(i, &property_def.name)),
