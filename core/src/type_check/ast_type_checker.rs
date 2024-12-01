@@ -1372,7 +1372,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker1() {
-        let file = "resources/test/ast_type_checker/functions_checker1.rasm";
+        let file = "resources/test/ast_type_checker/ast_type_checker1.rasm";
 
         let (types_map, info) = check_body(file);
 
@@ -1399,7 +1399,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker2() {
-        let file = "resources/test/ast_type_checker/functions_checker2.rasm";
+        let file = "resources/test/ast_type_checker/ast_type_checker2.rasm";
 
         let (types_map, info) = check_body(file);
 
@@ -1426,7 +1426,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker3() {
-        let file = "resources/test/ast_type_checker/functions_checker3.rasm";
+        let file = "resources/test/ast_type_checker/ast_type_checker3.rasm";
 
         let (types_map, info) = check_body(file);
 
@@ -1453,7 +1453,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker4() {
-        let file = "resources/test/ast_type_checker/functions_checker4.rasm";
+        let file = "resources/test/ast_type_checker/ast_type_checker4.rasm";
 
         let (types_map, info) = check_body(file);
 
@@ -1480,7 +1480,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker5() {
-        let file = "resources/test/ast_type_checker/functions_checker5.rasm";
+        let file = "resources/test/ast_type_checker/ast_type_checker5.rasm";
 
         let (types_map, info) = check_body(file);
 
@@ -1501,7 +1501,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker6() {
-        let file = "resources/test/ast_type_checker/functions_checker6.rasm";
+        let file = "resources/test/ast_type_checker/ast_type_checker6.rasm";
 
         let (types_map, info) = check_function(file, "endsWith");
 
@@ -1512,7 +1512,7 @@ mod tests {
         ));
 
         assert_eq!(
-            "Some(Exact(Option<functions_checker6_functions_checker6_endsWith:T>))",
+            "Some(Exact(Option<ast_type_checker6_ast_type_checker6_endsWith:T>))",
             format!(
                 "{}",
                 OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
@@ -1522,7 +1522,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker7() {
-        let file = "resources/test/ast_type_checker/functions_checker7.rasm";
+        let file = "resources/test/ast_type_checker/ast_type_checker7.rasm";
 
         let (types_map, info) = check_function(file, "endsWith");
 
@@ -1533,7 +1533,7 @@ mod tests {
         ));
 
         assert_eq!(
-            "Some(Exact(functions_checker7_functions_checker7_endsWith:T))",
+            "Some(Exact(ast_type_checker7_ast_type_checker7_endsWith:T))",
             format!(
                 "{}",
                 OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
@@ -1547,7 +1547,7 @@ mod tests {
         ));
 
         assert_eq!(
-            "Some(Exact(functions_checker7_functions_checker7_endsWith:T))",
+            "Some(Exact(ast_type_checker7_ast_type_checker7_endsWith:T))",
             format!(
                 "{}",
                 OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
@@ -1557,7 +1557,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker8() {
-        let file = "resources/test/ast_type_checker/functions_checker8.rasm";
+        let file = "resources/test/ast_type_checker/ast_type_checker8.rasm";
 
         let (types_map, info) = check_function(file, "generic");
 
@@ -1568,7 +1568,7 @@ mod tests {
         ));
 
         assert_eq!(
-            "Some(Exact(functions_checker8_functions_checker8_generic:T))",
+            "Some(Exact(ast_type_checker8_ast_type_checker8_generic:T))",
             format!(
                 "{}",
                 OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
