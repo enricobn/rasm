@@ -2061,7 +2061,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &target,
             false,
-            &env::temp_dir().join("tmp"),
             &CommandLineOptions::default(),
         );
 

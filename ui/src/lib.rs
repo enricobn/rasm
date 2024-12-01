@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, path::Path, time::Instant};
+use std::{collections::HashMap, path::Path, time::Instant};
 
 use iced::{
     widget::{
@@ -71,7 +71,6 @@ impl UI {
             &RasmProjectRunType::All,
             &target,
             false,
-            &env::temp_dir().join("tmp"),
             &CommandLineOptions::default(),
         );
 

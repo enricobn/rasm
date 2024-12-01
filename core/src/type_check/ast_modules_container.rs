@@ -396,7 +396,7 @@ impl ASTTypeFilter {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, path::PathBuf};
+    use std::path::PathBuf;
 
     use rasm_parser::parser::ast::{ASTPosition, ASTType, BuiltinTypeKind};
 
@@ -457,7 +457,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &target,
             false,
-            &env::temp_dir().join("tmp"),
             &CommandLineOptions::default(),
         );
 

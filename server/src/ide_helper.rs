@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::{env, io};
+use std::io;
 
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::CompileTarget;
@@ -379,7 +379,6 @@ pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<Com
         &RasmProjectRunType::Main,
         &CompileTarget::C(COptions::default()),
         false,
-        &env::temp_dir().join("tmp"),
         &CommandLineOptions::default(),
     );
 

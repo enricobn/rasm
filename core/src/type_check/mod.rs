@@ -1,5 +1,3 @@
-use std::env;
-
 use ast_modules_container::ASTModulesContainer;
 use ast_type_checker::ASTTypeChecker;
 use type_check_error::TypeCheckError;
@@ -319,7 +317,6 @@ pub fn ast_type_checker_from_project(
         run_type,
         target,
         false,
-        &env::temp_dir().join("tmp"),
         &CommandLineOptions::default(),
     );
 

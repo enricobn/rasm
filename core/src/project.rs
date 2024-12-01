@@ -22,7 +22,6 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use crate::codegen::c::any::CInclude;
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 use crate::commandline::CommandLineOptions;
@@ -307,7 +306,6 @@ impl RasmProject {
         statics: &mut Statics,
         target: &CompileTarget,
         debug: bool,
-        out: &PathBuf,
     ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
@@ -342,37 +340,6 @@ impl RasmProject {
                 })
                 .collect::<Vec<_>>(),
         );
-
-        // TODO generalize it or better move it to CompileTarget
-        if matches!(target, CompileTarget::C(..)) {
-            self.get_all_dependencies().iter().for_each(|dependency| {
-                if let Some(native_source_folder) =
-                    dependency.main_native_source_folder(target.folder())
-                {
-                    if native_source_folder.exists() {
-                        WalkDir::new(native_source_folder)
-                            .into_iter()
-                            .filter_map(Result::ok)
-                            .filter(|it| it.file_name().to_string_lossy().ends_with(".h"))
-                            .for_each(|it| {
-                                CInclude::add_to_statics(
-                                    statics,
-                                    format!("\"{}\"", it.clone().file_name().to_string_lossy()),
-                                );
-
-                                let dest = out
-                                    .parent()
-                                    .unwrap()
-                                    .join(Path::new(it.file_name().to_string_lossy().as_ref()));
-
-                                info!("including file {}", it.path().to_string_lossy());
-
-                                fs::copy(it.clone().into_path(), dest).unwrap();
-                            });
-                    }
-                }
-            });
-        }
 
         pairs
             .into_iter()
@@ -418,15 +385,13 @@ impl RasmProject {
         run_type: &RasmProjectRunType,
         target: &CompileTarget,
         debug: bool,
-        out: &PathBuf,
         options: &CommandLineOptions,
     ) -> (
         impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
         Vec<CompilationError>,
     ) {
         let mut catalog = RasmProjectCatalog::new();
-        let (modules, errors) =
-            self.get_all_modules(statics, run_type, target, debug, out, options);
+        let (modules, errors) = self.get_all_modules(statics, run_type, target, debug, options);
 
         for (module, info) in modules {
             catalog.add(module, info);
@@ -441,10 +406,9 @@ impl RasmProject {
         run_type: &RasmProjectRunType,
         target: &CompileTarget,
         debug: bool,
-        out: &PathBuf,
         options: &CommandLineOptions,
     ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
-        let (mut modules, mut errors) = self.all_modules(statics, target, debug, out);
+        let (mut modules, mut errors) = self.all_modules(statics, target, debug);
 
         if matches!(run_type, RasmProjectRunType::Test) {
             modules.iter_mut().for_each(|(it, info)| {
@@ -1035,7 +999,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &env::temp_dir().join("tmp"),
             &CommandLineOptions::default(),
         );
 

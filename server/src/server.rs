@@ -16,7 +16,6 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::net::SocketAddr;
@@ -99,7 +98,6 @@ impl ServerState {
             &RasmProjectRunType::Main,
             &target,
             false,
-            &env::temp_dir().join("tmp"),
             &CommandLineOptions::default(),
         );
 

@@ -32,7 +32,6 @@ pub fn project_and_container(
         &RasmProjectRunType::Main,
         &target,
         false,
-        &env::temp_dir().join("tmp"),
         &CommandLineOptions::default(),
     );
 

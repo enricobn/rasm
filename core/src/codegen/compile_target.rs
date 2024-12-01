@@ -24,6 +24,7 @@ use std::io::Write;
 use std::path::Path;
 use std::process::{exit, Command, Stdio};
 use std::time::Instant;
+use walkdir::WalkDir;
 
 use rust_embed::{EmbeddedFile, RustEmbed};
 use toml::Value;
@@ -293,7 +294,6 @@ impl CompileTarget {
             &run_type,
             self,
             command_line_options.debug,
-            &out,
             &command_line_options,
         );
 
@@ -378,6 +378,39 @@ impl CompileTarget {
                 let parent_path = out_path.parent().unwrap();
 
                 let mut source_files_to_include = Vec::new();
+
+                project
+                    .get_all_dependencies()
+                    .iter()
+                    .for_each(|dependency| {
+                        if let Some(native_source_folder) =
+                            dependency.main_native_source_folder(self.folder())
+                        {
+                            if native_source_folder.exists() {
+                                WalkDir::new(native_source_folder)
+                                    .into_iter()
+                                    .filter_map(Result::ok)
+                                    .filter(|it| it.file_name().to_string_lossy().ends_with(".h"))
+                                    .for_each(|it| {
+                                        CInclude::add_to_statics(
+                                            &mut statics,
+                                            format!(
+                                                "\"{}\"",
+                                                it.clone().file_name().to_string_lossy()
+                                            ),
+                                        );
+
+                                        let dest = parent_path.to_path_buf().join(Path::new(
+                                            it.file_name().to_string_lossy().as_ref(),
+                                        ));
+
+                                        info!("including file {}", it.path().to_string_lossy());
+
+                                        fs::copy(it.clone().into_path(), dest).unwrap();
+                                    });
+                            }
+                        }
+                    });
 
                 CLibAssets::iter()
                     .filter(|it| it.ends_with(".c") || it.ends_with(".h"))

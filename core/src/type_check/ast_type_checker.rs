@@ -1312,7 +1312,6 @@ impl ASTTypeChecker {
 #[cfg(test)]
 mod tests {
     use std::{
-        env,
         path::{Path, PathBuf},
         time::Instant,
     };
@@ -1349,7 +1348,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &target,
             false,
-            &env::temp_dir().join("tmp"),
             &CommandLineOptions::default(),
         );
 
@@ -1602,7 +1600,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &target,
             false,
-            &env::temp_dir().join("tmp"),
             &CommandLineOptions::default(),
         );
 
