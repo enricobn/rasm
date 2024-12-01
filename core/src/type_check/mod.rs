@@ -324,7 +324,7 @@ pub fn ast_type_checker_from_project(
 
     let mut static_val_context = ValContext::new(None);
 
-    for (module, info) in modules {
+    for (module, info) in modules.iter() {
         //module_info_to_enh_info.insert(info.module_info(), info.clone());
         let mut val_context = ValContext::new(None);
 
@@ -337,7 +337,9 @@ pub fn ast_type_checker_from_project(
             &info.module_id(),
             modules_container,
         );
+    }
 
+    for (module, info) in modules.iter() {
         for function in module.functions.iter() {
             ast_type_checker.add_function(
                 &function,

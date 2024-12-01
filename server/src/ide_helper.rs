@@ -189,7 +189,9 @@ impl<'a> IDEHelperBuilder<'a> {
                 &id,
                 &modules_container,
             );
+        }
 
+        for (id, (module, namespace, _add_builtin)) in self.entries.iter() {
             let info = ModuleInfo::new(namespace.clone(), id.clone());
 
             for function in module.functions.iter() {
