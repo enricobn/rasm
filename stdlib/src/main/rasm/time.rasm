@@ -16,7 +16,7 @@ pub fn elapsedTime(actual: TimeVal, previous: TimeVal) -> i32 {
 }
 
 pub fn toString(timeVal: TimeVal) -> str {
-    "sec=".add(timeVal.sec).add(" nano=").add(timeVal.nano);
+    "sec=".append(timeVal.sec).add(" nano=").append(timeVal.nano);
 }
 
 pub fn less(t1: TimeVal, t2: TimeVal) -> bool {

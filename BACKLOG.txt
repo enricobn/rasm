@@ -5,8 +5,8 @@ Doing
 
 Major
 -----
-- consts are not reliable: if a const is defined with a function call, that uses a const that is defined after, then
-  it will compile, but it will crash at runtime!!!
+- rename const to "pub let", but are not reliable: if a const is defined with a function call, that uses a const that is defined after, 
+  then it will compile, but it will crash at runtime!!!
 - "Universal Polymorphism" can create an infinite recursion, for example:
   we declare a function like
     add<T>(o1: str, o2: T) -> str {
@@ -25,7 +25,6 @@ Major
 - sometimes are added structs / enum / functions that are not used. It can be verified compiling with c target the test/enum.rasm
 - rename EnhancedASTModule: it is the untyped container for all the modules in the project
 - move all asm code to backend
-- rename const to "let global" or "global let" or "let static" or "static let"
 - List library
 - SDL library
 - install library
@@ -41,19 +40,19 @@ Major
     // This is a valid code
     println(10);
     ...
-    - check for unused parameters, let and static let
+    - check for unused parameters, let and static let, it should be an error
 - it would be better if we cannot use .someFunction without parenthesis, if the function does not return anything
 - visibility
   - private
   - readonly
     - structs
-        - cannot call constructor
-        - cannot call setters
+        - cannot call constructor from another namespace
+        - cannot call setters from another namespace
   - opaque
     - structs
-      - cannot call constructor
-      - cannot call setters
-      - cannot call getters
+      - cannot call constructor from another namespace
+      - cannot call setters from another namespace
+      - cannot call getters from another namespace
 - optimize
   - can a recursive function's lambda space be reused?
 - native
@@ -66,7 +65,7 @@ MINOR
 - Vec
   - vecFilter and vecFoldL dereference
   - vecFilter shrink (add a shrink function that shrinks allocated memory)
-- allocator
+- asm allocator
   - check for size >= allocated and use shrink
   - try to pack consecutive free "slots"
 - TextMacro:

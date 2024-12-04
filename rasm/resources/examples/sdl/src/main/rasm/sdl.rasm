@@ -26,7 +26,7 @@ pub enum KeyState {
 }
 
 pub fn print(state: KeyState) {
-    run(state, { print("Down");}, { print("Up");});
+    match(state, { print("Down");}, { print("Up");});
 }
 
 pub struct KeyEvent {
@@ -35,8 +35,8 @@ pub struct KeyEvent {
 }
 
 pub fn print(event: KeyEvent) {
-    let key = KeyEvent::key(event);
-    let state = KeyEvent::state(event);
+    let key = key(event);
+    let state = state(event);
     print("key=");
     print(key);
     print(" state=");
