@@ -391,6 +391,13 @@ pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<Com
     (builder.build(), errors)
 }
 
+#[derive(PartialEq, Eq)]
+enum CharAtResult {
+    Char(char),
+    EndOfLine,
+    Outside,
+}
+
 pub struct IDEHelper {
     modules_container: ASTModulesContainer,
     selectable_items: Vec<IDESelectableItem>,
@@ -436,28 +443,32 @@ impl IDEHelper {
                 let mut prefix = String::new();
                 let mut index = index.clone();
                 let mut completion_type = None;
+
                 loop {
-                    if let Some(c) = Self::char_at_index(&lines, &index) {
-                        if c == '.' {
-                            // it could be a number
-                            completion_type =
-                                self.dot_completion(&lines, &index, Some(prefix), module_info);
-                            break;
-                        } else if c.is_whitespace() {
-                        } else if c == '{' || c == ';' || c == '=' {
-                            // prefix could be a number
-                            completion_type = Some(IDECompletionType::Identifier(prefix));
-                            break;
-                        } else if c.is_alphanumeric() {
-                            prefix.insert(0, c);
-                        } else {
-                            break;
+                    match Self::char_at_index(&lines, &index) {
+                        CharAtResult::Char(c) => {
+                            if c == '.' {
+                                // it could be a number
+                                completion_type =
+                                    self.dot_completion(&lines, &index, Some(prefix), module_info);
+                                break;
+                            } else if c.is_whitespace() {
+                            } else if c == '{' || c == ';' || c == '=' {
+                                // prefix could be a number
+                                completion_type = Some(IDECompletionType::Identifier(prefix));
+                                break;
+                            } else if c.is_alphanumeric() {
+                                prefix.insert(0, c);
+                            } else {
+                                break;
+                            }
                         }
-                    } else {
-                        return Ok(CompletionResult::NotFound(
-                            "Cannot find a completable expression.".to_string(),
-                        ));
+                        CharAtResult::EndOfLine => {}
+                        CharAtResult::Outside => {
+                            return Ok(CompletionResult::NotFound("Out of bounds".to_owned()));
+                        }
                     }
+
                     if let Some(i) = Self::move_left(&lines, &index) {
                         index = i.clone();
                     } else {
@@ -556,7 +567,7 @@ impl IDEHelper {
         };
         if let Some(index) = Self::find_last_char_excluding(&lines, &index, &|c| !c.is_whitespace())
             .and_then(|it| {
-                if Self::char_at_index(lines, &it) == Some('"') {
+                if Self::char_at_index(lines, &it) == CharAtResult::Char('"') {
                     Self::move_left(lines, &it)
                 } else {
                     Self::find_last_char_excluding(&lines, &it, &|c| c.is_alphabetic())
@@ -637,22 +648,39 @@ impl IDEHelper {
     ) -> Option<ASTPosition> {
         let mut result = index.clone();
         loop {
-            let c = Self::char_at_index(&lines, &result)?;
-            if find(c) {
-                return Some(result);
-            } else if c == ')' {
-                result = Self::find_open_bracket(&lines, &Self::move_left(&lines, &result)?)?;
-                return Self::move_left(&lines, &result);
+            match Self::char_at_index(&lines, &result) {
+                CharAtResult::Char(c) => {
+                    if find(c) {
+                        return Some(result);
+                    } else if c == ')' {
+                        result =
+                            Self::find_open_bracket(&lines, &Self::move_left(&lines, &result)?)?;
+                        return Self::move_left(&lines, &result);
+                    }
+                    result = Self::move_left(lines, &result)?;
+                }
+                CharAtResult::EndOfLine => {
+                    return None;
+                }
+                CharAtResult::Outside => {
+                    return None;
+                }
             }
-            result = Self::move_left(lines, &result)?;
         }
     }
 
-    fn char_at_index(lines: &Vec<&str>, index: &ASTPosition) -> Option<char> {
-        lines.get(index.row - 1).and_then(|line| {
-            line.get((index.column - 1)..index.column)
-                .and_then(|chars| chars.chars().next())
-        })
+    fn char_at_index(lines: &Vec<&str>, index: &ASTPosition) -> CharAtResult {
+        if let Some(line) = lines.get(index.row - 1) {
+            if index.column == line.len() + 1 {
+                CharAtResult::EndOfLine
+            } else if let Some(c) = line.chars().nth(index.column - 1) {
+                CharAtResult::Char(c)
+            } else {
+                CharAtResult::Outside
+            }
+        } else {
+            CharAtResult::Outside
+        }
     }
 
     fn move_left(lines: &Vec<&str>, index: &ASTPosition) -> Option<ASTPosition> {
@@ -673,18 +701,20 @@ impl IDEHelper {
         let mut result = index.clone();
         let mut count = 0;
         loop {
-            let c = Self::char_at_index(lines, &result)?;
-            if c == ')' {
-                count += 1;
-            } else if c == '(' {
-                if count == 0 {
-                    break;
-                } else {
-                    count -= 1;
+            if let CharAtResult::Char(c) = Self::char_at_index(lines, &result) {
+                if c == ')' {
+                    count += 1;
+                } else if c == '(' {
+                    if count == 0 {
+                        break;
+                    } else {
+                        count -= 1;
+                    }
                 }
+                result = Self::move_left(lines, &result)?;
+            } else {
+                return None;
             }
-
-            result = Self::move_left(lines, &result)?;
         }
 
         Some(result)
@@ -1314,6 +1344,21 @@ mod tests {
             2,
             10,
             CompletionTrigger::Character('.'),
+        );
+
+        assert_eq!(vec!["f1".to_owned()], result.unwrap());
+    }
+
+    #[test]
+    fn incomplete_source_completion_invoked() {
+        let result = get_completion_values_from_str(
+            "let s = \"\";\n\
+            let a = s.\n\
+        fn f1(s: str) {\n\
+        }",
+            2,
+            11,
+            CompletionTrigger::Invoked,
         );
 
         assert_eq!(vec!["f1".to_owned()], result.unwrap());
