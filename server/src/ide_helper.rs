@@ -91,6 +91,7 @@ pub enum IDESelectableItemTarget {
     Ref(ASTIndex, Option<ASTType>),
     Function(ASTIndex, ASTType, String),
     Type(Option<ASTIndex>, ASTType),
+    Itself(ASTType), // used for let or parameters
 }
 
 impl Display for IDESelectableItemTarget {
@@ -102,6 +103,9 @@ impl Display for IDESelectableItemTarget {
             }
             IDESelectableItemTarget::Type(index, t) => {
                 format!("Type({}, {t})", OptionDisplay(index))
+            }
+            IDESelectableItemTarget::Itself(t) => {
+                format!("Itself({t}")
             }
         };
 
@@ -115,6 +119,7 @@ impl IDESelectableItemTarget {
             IDESelectableItemTarget::Ref(index, _) => Some(index.clone()),
             IDESelectableItemTarget::Function(index, _, _) => Some(index.clone()),
             IDESelectableItemTarget::Type(index, _) => index.clone(),
+            IDESelectableItemTarget::Itself(_) => None,
         }
     }
 
@@ -123,6 +128,7 @@ impl IDESelectableItemTarget {
             IDESelectableItemTarget::Ref(_, t) => t.clone(),
             IDESelectableItemTarget::Function(_, t, _) => Some(t.clone()),
             IDESelectableItemTarget::Type(_, t) => Some(t.clone()),
+            IDESelectableItemTarget::Itself(t) => Some(t.clone()),
         }
     }
 }
@@ -173,14 +179,14 @@ impl<'a> IDEHelperBuilder<'a> {
 
         let mut static_val_context = ValContext::new(None);
 
-        let mut function_type_checker = ASTTypeChecker::new();
+        let mut type_checker = ASTTypeChecker::new();
         let mut selectable_items = Vec::new();
 
         for (id, (module, namespace, _add_builtin)) in self.entries.iter() {
             //module_info_to_enh_info.insert(info.module_info(), info.clone());
             let mut val_context = ValContext::new(None);
 
-            function_type_checker.add_body(
+            type_checker.add_body(
                 &mut val_context,
                 &mut static_val_context,
                 &module.body,
@@ -195,7 +201,7 @@ impl<'a> IDEHelperBuilder<'a> {
             let info = ModuleInfo::new(namespace.clone(), id.clone());
 
             for function in module.functions.iter() {
-                function_type_checker.add_function(
+                type_checker.add_function(
                     &function,
                     &static_val_context,
                     &namespace,
@@ -220,7 +226,7 @@ impl<'a> IDEHelperBuilder<'a> {
             }
         }
 
-        for (index, entry) in function_type_checker.result.map.iter() {
+        for (index, entry) in type_checker.result.map.iter() {
             let ast_type = entry.filter().clone().and_then(|it| {
                 if let ASTTypeFilter::Exact(exact, _id) = it {
                     Some(exact)
@@ -265,9 +271,11 @@ impl<'a> IDEHelperBuilder<'a> {
                         ast_type.clone(),
                     )),
                 )),
-                ASTTypeCheckInfo::Let(name, _is_const) => {
-                    Some(IDESelectableItem::new(index.clone(), name.len(), None))
-                }
+                ASTTypeCheckInfo::Let(name, _is_const) => Some(IDESelectableItem::new(
+                    index.clone(),
+                    name.len(),
+                    ast_type.map(|it| IDESelectableItemTarget::Itself(it)),
+                )),
                 ASTTypeCheckInfo::Value(len) => {
                     if let Some(ref t) = ast_type {
                         if !matches!(
@@ -289,9 +297,11 @@ impl<'a> IDEHelperBuilder<'a> {
                         None
                     }
                 }
-                ASTTypeCheckInfo::Param(name) => {
-                    Some(IDESelectableItem::new(index.clone(), name.len(), None))
-                }
+                ASTTypeCheckInfo::Param(name) => Some(IDESelectableItem::new(
+                    index.clone(),
+                    name.len(),
+                    ast_type.map(|it| IDESelectableItemTarget::Itself(it)),
+                )),
                 ASTTypeCheckInfo::Lambda => None,
             };
 
@@ -300,7 +310,7 @@ impl<'a> IDEHelperBuilder<'a> {
             }
         }
 
-        let errors = function_type_checker.errors;
+        let errors = type_checker.errors;
 
         IDEHelper::new(modules_container, selectable_items, errors)
     }
@@ -749,10 +759,19 @@ impl IDEHelper {
         let items = self.find(&index);
         if let Some(item) = items.first() {
             let root_index_o = if let Some(ref target) = item.target {
-                if let Some(index) = target.index() {
-                    result.push(IDETextEdit::new(index, item.len, new_name.to_owned()));
+                if matches!(target, IDESelectableItemTarget::Itself(_)) {
+                    result.push(IDETextEdit::new(
+                        item.start.clone(),
+                        item.len,
+                        new_name.to_owned(),
+                    ));
+                    Some(item.start.clone())
+                } else {
+                    if let Some(index) = target.index() {
+                        result.push(IDETextEdit::new(index, item.len, new_name.to_owned()));
+                    }
+                    target.index()
                 }
-                target.index()
             } else {
                 result.push(IDETextEdit::new(
                     item.start.clone(),
