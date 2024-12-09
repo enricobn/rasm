@@ -6,12 +6,25 @@ use std::ops::Deref;
 use derivative::Derivative;
 use itertools::Itertools;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, strum_macros::Display)]
+pub enum ASTBuiltinFunctionType {
+    Match,
+    MatchOne,
+    StructGetter,
+    StructLambdaGetter,
+    StructSetter,
+    StructLambdaSetter,
+    StructConstructor,
+    EnumVariantConstructor,
+    Other(String),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ASTPosition {
     pub row: usize,
     pub column: usize,
     /// used to identify builtin functions and disambiguate the ones related to the same type/property
-    pub builtin: Option<String>,
+    pub builtin: Option<ASTBuiltinFunctionType>,
 }
 
 impl ASTPosition {
@@ -23,11 +36,11 @@ impl ASTPosition {
         }
     }
 
-    pub fn builtin(position: &ASTPosition, id: String) -> Self {
+    pub fn builtin(position: &ASTPosition, builtin_type: ASTBuiltinFunctionType) -> Self {
         Self {
             row: position.row,
             column: position.column,
-            builtin: Some(id),
+            builtin: Some(builtin_type),
         }
     }
 

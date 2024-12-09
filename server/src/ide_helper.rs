@@ -15,7 +15,9 @@ use rasm_core::type_check::ast_type_checker::{
 };
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
-use rasm_parser::parser::ast::{ASTModule, ASTPosition, ASTType, BuiltinTypeKind};
+use rasm_parser::parser::ast::{
+    ASTBuiltinFunctionType, ASTModule, ASTPosition, ASTType, BuiltinTypeKind,
+};
 use rasm_utils::OptionDisplay;
 
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
@@ -782,6 +784,13 @@ impl IDEHelper {
             };
 
             if let Some(root_index) = root_index_o {
+                match root_index.position().builtin {
+                    Some(ASTBuiltinFunctionType::Match)
+                    | Some(ASTBuiltinFunctionType::MatchOne) => {
+                        return Err("Rename of builtin function.".to_owned());
+                    }
+                    _ => {}
+                }
                 let references = self.references(&root_index);
 
                 for reference in references.iter() {
@@ -847,7 +856,9 @@ mod tests {
     use rasm_core::project::RasmProject;
     use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
     use rasm_parser::lexer::Lexer;
-    use rasm_parser::parser::ast::{ASTFunctionSignature, ASTPosition, ASTType, BuiltinTypeKind};
+    use rasm_parser::parser::ast::{
+        ASTBuiltinFunctionType, ASTFunctionSignature, ASTPosition, ASTType, BuiltinTypeKind,
+    };
     use rasm_parser::parser::Parser;
     use rasm_utils::OptionDisplay;
 
@@ -1247,7 +1258,13 @@ mod tests {
 
         if let Some(IDESelectableItemTarget::Function(index, _, descr)) = item.target {
             assert_eq!(
-                get_index_with_builtin(&project, "enums.rasm", 10, 6, Some("match".to_owned())),
+                get_index_with_builtin(
+                    &project,
+                    "enums.rasm",
+                    10,
+                    6,
+                    Some(ASTBuiltinFunctionType::Match)
+                ),
                 index
             );
             assert!(descr.starts_with("match"));
@@ -1350,6 +1367,18 @@ mod tests {
             13,
             Err("Rename of symbols outside current module is not yet supported.".to_owned()),
             "types.rasm",
+        );
+    }
+
+    #[test]
+    fn rename_match() {
+        test_rename(
+            "resources/test/enums.rasm",
+            "aName",
+            17,
+            12,
+            Err("Rename of builtin function.".to_owned()),
+            "enums.rasm",
         );
     }
 
@@ -1557,7 +1586,7 @@ mod tests {
         file_n: &str,
         row: usize,
         column: usize,
-        builtin: Option<String>,
+        builtin: Option<ASTBuiltinFunctionType>,
     ) -> ASTIndex {
         let path = Path::new(file_n);
 

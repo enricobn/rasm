@@ -113,33 +113,33 @@ impl ASTModulesContainer {
     ) {
         if add_builtin {
             for enum_def in module.enums.iter() {
-                for signature in BuiltinFunctions::enum_signatures(enum_def) {
+                for (signature, position, ft) in BuiltinFunctions::enum_signatures(enum_def) {
                     let signatures = self
                         .signatures
                         .entry(signature.name.clone())
                         .or_insert(Vec::new());
-                    let f = format!("{signature}");
+
                     signatures.push(ASTFunctionSignatureEntry::new(
                         signature.fix_generics(&namespace.0),
                         namespace.clone(),
                         module_id.clone(),
-                        ASTPosition::builtin(&enum_def.position, f),
+                        ASTPosition::builtin(&position, ft),
                     ));
                 }
             }
 
             for struct_def in module.structs.iter() {
-                for signature in BuiltinFunctions::struct_signatures(struct_def) {
+                for (signature, position, tf) in BuiltinFunctions::struct_signatures(struct_def) {
                     let signatures = self
                         .signatures
                         .entry(signature.name.clone())
                         .or_insert(Vec::new());
-                    let f = format!("{signature}");
+
                     signatures.push(ASTFunctionSignatureEntry::new(
                         signature.fix_generics(&namespace.0),
                         namespace.clone(),
                         module_id.clone(),
-                        ASTPosition::builtin(&struct_def.position, f),
+                        ASTPosition::builtin(&position, tf),
                     ));
                 }
             }

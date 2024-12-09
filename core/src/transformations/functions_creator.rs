@@ -5,9 +5,10 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::{CodeGen, CodeGenAsm};
 use rasm_parser::parser::ast::{
-    ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTFunctionSignature, ASTModifiers, ASTModule, ASTParameterDef, ASTPosition, ASTStatement,
-    ASTStructDef, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
+    ASTBuiltinFunctionType, ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody,
+    ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature, ASTModifiers, ASTModule,
+    ASTParameterDef, ASTPosition, ASTStatement, ASTStructDef, ASTStructPropertyDef, ASTType,
+    BuiltinTypeKind,
 };
 
 use crate::codegen::enh_ast::{self, EnhModuleInfo};
@@ -81,7 +82,7 @@ pub trait FunctionsCreator {
             signature,
             false,
             enum_def.modifiers.public,
-            ASTPosition::builtin(&enum_def.position, name.to_owned()),
+            ASTPosition::builtin(&enum_def.position, ASTBuiltinFunctionType::Match),
             parameters_names,
             parameters_positions,
             function_body,
@@ -105,13 +106,11 @@ pub trait FunctionsCreator {
         let (parameters_names, parameters_positions, signature) =
             BuiltinFunctions::match_one_signature(enum_def, variant);
 
-        let name = signature.name.clone();
-
         let function_def = ASTFunctionDef::from_signature(
             signature,
             false,
             enum_def.modifiers.public,
-            ASTPosition::builtin(&enum_def.position, name),
+            ASTPosition::builtin(&variant.position, ASTBuiltinFunctionType::MatchOne),
             parameters_names,
             parameters_positions,
             function_body,
@@ -131,7 +130,7 @@ pub trait FunctionsCreator {
         let mut signatures =
             BuiltinFunctions::struct_get_property_signatures(struct_def, property_def);
 
-        let (parameters_names, parameters_positions, signature) = signatures.remove(0);
+        let ((parameters_names, parameters_positions, signature), ft) = signatures.remove(0);
 
         let mut result = Vec::new();
 
@@ -142,16 +141,14 @@ pub trait FunctionsCreator {
         {
             let body = self.struct_lambda_property_rasm_body(&property_def, parameters);
 
-            let (lambda_parameters_names, lambda_parameters_positions, lambda_signature) =
+            let ((lambda_parameters_names, lambda_parameters_positions, lambda_signature), ft) =
                 signatures.remove(0);
-
-            let name = lambda_signature.name.clone();
 
             result.push(ASTFunctionDef::from_signature(
                 lambda_signature,
                 false,
                 struct_def.modifiers.public,
-                ASTPosition::builtin(&property_def.position, format!("lambda get {name}")),
+                ASTPosition::builtin(&property_def.position, ft),
                 lambda_parameters_names,
                 lambda_parameters_positions,
                 ASTFunctionBody::RASMBody(body),
@@ -180,13 +177,11 @@ pub trait FunctionsCreator {
     ) -> ASTFunctionDef {
         let (native_body, inline) = self.struct_property_body(i, &property_def.name);
 
-        let name = signature.name.clone();
-
         ASTFunctionDef::from_signature(
             signature,
             inline,
             struct_def.modifiers.public,
-            ASTPosition::builtin(&property_def.position, format!("get {name}")),
+            ASTPosition::builtin(&property_def.position, ASTBuiltinFunctionType::StructGetter),
             parameters_names,
             parameters_positions,
             ASTFunctionBody::NativeBody(native_body),
@@ -202,13 +197,11 @@ pub trait FunctionsCreator {
         let (parameters_names, parameters_positions, signature) =
             BuiltinFunctions::struct_set_property_signature(struct_def, property_def);
 
-        let name = signature.name.clone();
-
         ASTFunctionDef::from_signature(
             signature,
             false,
             struct_def.modifiers.public,
-            ASTPosition::builtin(&property_def.position, name),
+            ASTPosition::builtin(&property_def.position, ASTBuiltinFunctionType::StructSetter),
             parameters_names,
             parameters_positions,
             ASTFunctionBody::NativeBody(self.struct_setter_body(i, &property_def.name)),
@@ -224,13 +217,14 @@ pub trait FunctionsCreator {
         let (parameters_names, parameters_positions, signature) =
             BuiltinFunctions::struct_set_property_lambda_signature(struct_def, property_def);
 
-        let name = signature.name.clone();
-
         ASTFunctionDef::from_signature(
             signature,
             false,
             struct_def.modifiers.public,
-            ASTPosition::builtin(&property_def.position, format!("set {name}")),
+            ASTPosition::builtin(
+                &property_def.position,
+                ASTBuiltinFunctionType::StructLambdaSetter,
+            ),
             parameters_names,
             parameters_positions,
             ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(i, &property_def.name)),
@@ -249,16 +243,22 @@ pub trait FunctionsCreator {
                     function_name: format!("{}", property_def.name),
                     parameters: vec![ASTExpression::ValueRef(
                         "v".to_owned(),
-                        ASTPosition::builtin(&property_def.position, "v ref".to_owned()),
+                        ASTPosition::builtin(
+                            &property_def.position,
+                            ASTBuiltinFunctionType::Other("v ref".to_owned()),
+                        ),
                     )],
                     position: ASTPosition::builtin(
                         &property_def.position,
-                        "_f let call".to_owned(),
+                        ASTBuiltinFunctionType::Other("_f let call".to_owned()),
                     ),
                     generics: Vec::new(),
                 }),
                 false,
-                ASTPosition::builtin(&property_def.position, "_f let".to_owned()),
+                ASTPosition::builtin(
+                    &property_def.position,
+                    ASTBuiltinFunctionType::Other("_f let".to_owned()),
+                ),
             ),
             ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(ASTFunctionCall {
                 function_name: "_f".to_owned(),
@@ -270,12 +270,15 @@ pub trait FunctionsCreator {
                             format!("p{index}"),
                             ASTPosition::builtin(
                                 &property_def.position,
-                                format!("_f call ref to p{index}"),
+                                ASTBuiltinFunctionType::Other(format!("_f call ref to p{index}")),
                             ),
                         )
                     })
                     .collect(),
-                position: ASTPosition::builtin(&property_def.position, "_f call".to_owned()),
+                position: ASTPosition::builtin(
+                    &property_def.position,
+                    ASTBuiltinFunctionType::Other("_f call".to_owned()),
+                ),
                 generics: Vec::new(),
             })),
         ]
@@ -462,13 +465,19 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             parameters: vec![ASTParameterDef {
                 name: "s".into(),
                 ast_type: ASTType::Builtin(BuiltinTypeKind::String),
-                position: ASTPosition::builtin(&ASTPosition::none(), format!("{name} param")),
+                position: ASTPosition::builtin(
+                    &ASTPosition::none(),
+                    ASTBuiltinFunctionType::Other(format!("{name} param")),
+                ),
             }],
             body,
             inline: false,
             return_type: ASTType::Unit,
             generic_types: Vec::new(),
-            position: ASTPosition::builtin(&ASTPosition::none(), name.to_owned()),
+            position: ASTPosition::builtin(
+                &ASTPosition::none(),
+                ASTBuiltinFunctionType::Other(name.to_owned()),
+            ),
             modifiers: ASTModifiers::public(),
         };
 
@@ -491,13 +500,19 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             parameters: vec![ASTParameterDef {
                 name: "s".into(),
                 ast_type: ASTType::Builtin(BuiltinTypeKind::String),
-                position: ASTPosition::builtin(&ASTPosition::none(), format!("{name} param")),
+                position: ASTPosition::builtin(
+                    &ASTPosition::none(),
+                    ASTBuiltinFunctionType::Other(format!("{name} param")),
+                ),
             }],
             body,
             inline: false,
             return_type: ASTType::Unit,
             generic_types: Vec::new(),
-            position: ASTPosition::builtin(&ASTPosition::none(), name.to_owned()),
+            position: ASTPosition::builtin(
+                &ASTPosition::none(),
+                ASTBuiltinFunctionType::Other(name.to_owned()),
+            ),
             modifiers: ASTModifiers::public(),
         };
 
