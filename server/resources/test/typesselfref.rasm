@@ -1,0 +1,6 @@
+struct AStruct {
+    aValue: Option<AStruct>
+}
+
+
+let v = AStruct(Option::None());

@@ -218,14 +218,32 @@ impl<'a> IDEHelperBuilder<'a> {
                 for par in function.parameters.iter() {
                     let par_type = &par.ast_type;
 
-                    self.add_par_selectable(
+                    self.add_selectable_type(
                         par_type,
                         &info,
                         &modules_container,
                         &mut selectable_items,
                     );
                 }
+
+                self.add_selectable_type(
+                    &function.return_type,
+                    &info,
+                    &modules_container,
+                    &mut selectable_items,
+                );
             }
+            /*
+            for s in module.structs.iter() {
+                // let start = ASTIndex::new(namespace.clone(), id.clone(), s.position.clone());
+                //selectable_items.push(IDESelectableItem::new(start, s.name.len(), None));
+
+                for p in s.properties.iter() {
+                    let start = ASTIndex::new(namespace.clone(), id.clone(), p.position.clone());
+                    selectable_items.push(IDESelectableItem::new(start, p.name.len(), None));
+                }
+            }
+            */
         }
 
         for (index, entry) in type_checker.result.map.iter() {
@@ -317,7 +335,7 @@ impl<'a> IDEHelperBuilder<'a> {
         IDEHelper::new(modules_container, selectable_items, errors)
     }
 
-    fn add_par_selectable(
+    fn add_selectable_type(
         &self,
         par_type: &ASTType,
         info: &ModuleInfo,
@@ -330,8 +348,11 @@ impl<'a> IDEHelperBuilder<'a> {
             position,
         } = par_type
         {
+            if position.builtin.is_some() {
+                return;
+            }
             for parameter_type in param_types.iter() {
-                self.add_par_selectable(parameter_type, info, modules_container, selectable_items);
+                self.add_selectable_type(parameter_type, info, modules_container, selectable_items);
             }
 
             let ct_start = ASTIndex::new(
@@ -434,7 +455,9 @@ impl IDEHelper {
 
         for selectable_item in self.selectable_items.iter() {
             if selectable_item.contains(index) {
-                result.push(selectable_item.clone());
+                if selectable_item.start.position().builtin == index.position().builtin {
+                    result.push(selectable_item.clone());
+                }
             }
         }
 
@@ -750,7 +773,19 @@ impl IDEHelper {
             }
 
             return result;
-        }
+        } /*else {
+              for i in items.iter() {
+                  println!(
+                      "references item {i} {}",
+                      OptionDisplay(
+                          &(i.target
+                              .clone()
+                              .and_then(|it| it.index())
+                              .and_then(|it| it.position().clone().builtin))
+                      )
+                  );
+              }
+          }*/
 
         Vec::new()
     }
@@ -805,12 +840,22 @@ impl IDEHelper {
 
         if result
             .iter()
-            .all(|it| it.from.module_id() == index.module_id())
+            .any(|it| it.from.module_id() != index.module_id())
         {
-            Ok(result)
-        } else {
+            /*
+            for edit in result.iter() {
+                println!("edit {} : {}", edit.from.module_id(), edit.from.position());
+            }
+            */
             // TODO we want to be able to rename symbols of the current lib
             Err("Rename of symbols outside current module is not yet supported.".to_owned())
+        } else {
+            // TODO it can happen for example renaming a type that is the type of a property in a struct, because there are multiple
+            // builtin functions that "insist" on the same property (getter, setter, setter with lambda ...), but it
+            // could be better to find another way, for example inspecting the ASTPosition.builtin value
+            result.sort_by(|a, b| a.from.position().partial_cmp(b.from.position()).unwrap());
+            result.dedup();
+            Ok(result)
         }
     }
 
@@ -1379,6 +1424,50 @@ mod tests {
             12,
             Err("Rename of builtin function.".to_owned()),
             "enums.rasm",
+        );
+    }
+
+    #[test]
+    fn rename_struct_property() {
+        test_rename(
+            "resources/test/types.rasm",
+            "aName",
+            12,
+            20,
+            Ok(vec![(2, 5, 5), (12, 17, 5), (36, 17, 5)]),
+            "types.rasm",
+        );
+    }
+
+    #[test]
+    fn rename_struct_by_constructor() {
+        test_rename(
+            "resources/test/types.rasm",
+            "aName",
+            6,
+            19,
+            Ok(vec![
+                (1, 8, 7),
+                (6, 15, 7),
+                (19, 23, 7),
+                (27, 27, 7),
+                (31, 26, 7),
+                (31, 43, 7),
+                (36, 5, 7),
+            ]),
+            "types.rasm",
+        );
+    }
+
+    #[test]
+    fn rename_struct_by_constructor_with_sef_ref() {
+        test_rename(
+            "resources/test/typesselfref.rasm",
+            "aName",
+            6,
+            9,
+            Ok(vec![(1, 8, 7), (2, 20, 7), (6, 9, 7)]),
+            "typesselfref.rasm",
         );
     }
 

@@ -319,7 +319,7 @@ impl BuiltinFunctions {
                     return_type,
                     &format!("call{}", Self::uppercase_first_letter(&property_def.name)),
                 ),
-                ASTBuiltinFunctionType::StructLambdaGetter,
+                ASTBuiltinFunctionType::StructLambdaCall,
             ));
         }
         result

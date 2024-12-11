@@ -6,12 +6,12 @@ use std::ops::Deref;
 use derivative::Derivative;
 use itertools::Itertools;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, strum_macros::Display)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, strum_macros::Display, PartialOrd, Ord)]
 pub enum ASTBuiltinFunctionType {
     Match,
     MatchOne,
     StructGetter,
-    StructLambdaGetter,
+    StructLambdaCall,
     StructSetter,
     StructLambdaSetter,
     StructConstructor,
@@ -19,7 +19,7 @@ pub enum ASTBuiltinFunctionType {
     Other(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ASTPosition {
     pub row: usize,
     pub column: usize,
