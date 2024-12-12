@@ -38,7 +38,13 @@ pub fn project_and_container(
     let mut container = ASTModulesContainer::new();
 
     for (module, info) in modules.iter() {
-        container.add(module, info.module_namespace(), info.module_id(), false);
+        container.add(
+            module,
+            info.module_namespace(),
+            info.module_id(),
+            false,
+            !info.namespace.is_same_lib(&project.config.package.name),
+        );
     }
 
     (project, container)

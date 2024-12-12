@@ -148,7 +148,7 @@ pub enum IDECompletionType {
 }
 
 pub struct IDEHelperBuilder<'a> {
-    entries: HashMap<ModuleId, (&'a ASTModule, ModuleNamespace, bool)>,
+    entries: HashMap<ModuleId, (&'a ASTModule, ModuleNamespace, bool, bool)>,
 }
 
 impl<'a> IDEHelperBuilder<'a> {
@@ -164,9 +164,10 @@ impl<'a> IDEHelperBuilder<'a> {
         id: ModuleId,
         namespace: ModuleNamespace,
         add_builtin: bool,
+        read_only_module: bool,
     ) -> Self {
         self.entries
-            .insert(id, (module, namespace, add_builtin))
+            .insert(id, (module, namespace, add_builtin, read_only_module))
             .map(|it| panic!("Already added {it:?}"));
 
         self
@@ -175,8 +176,14 @@ impl<'a> IDEHelperBuilder<'a> {
     pub fn build(self) -> IDEHelper {
         let mut modules_container = ASTModulesContainer::new();
 
-        for (id, (module, namespace, add_builtin)) in self.entries.iter() {
-            modules_container.add(module, namespace.clone(), id.clone(), *add_builtin);
+        for (id, (module, namespace, add_builtin, readonly)) in self.entries.iter() {
+            modules_container.add(
+                module,
+                namespace.clone(),
+                id.clone(),
+                *add_builtin,
+                *readonly,
+            );
         }
 
         let mut static_val_context = ValContext::new(None);
@@ -184,7 +191,7 @@ impl<'a> IDEHelperBuilder<'a> {
         let mut type_checker = ASTTypeChecker::new();
         let mut selectable_items = Vec::new();
 
-        for (id, (module, namespace, _add_builtin)) in self.entries.iter() {
+        for (id, (module, namespace, _add_builtin, readonly)) in self.entries.iter() {
             //module_info_to_enh_info.insert(info.module_info(), info.clone());
             let mut val_context = ValContext::new(None);
 
@@ -199,7 +206,7 @@ impl<'a> IDEHelperBuilder<'a> {
             );
         }
 
-        for (id, (module, namespace, _add_builtin)) in self.entries.iter() {
+        for (id, (module, namespace, _add_builtin, readonly)) in self.entries.iter() {
             let info = ModuleInfo::new(namespace.clone(), id.clone());
 
             for function in module.functions.iter() {
@@ -364,7 +371,7 @@ impl<'a> IDEHelperBuilder<'a> {
             if let Some(ct_index) =
                 IDEHelper::get_custom_type_index(modules_container, &info.namespace(), name)
             {
-                let (_, ct_namespace, _) = self.entries.get(&ct_index.module_id()).unwrap();
+                let (_, ct_namespace, _, _) = self.entries.get(&ct_index.module_id()).unwrap();
 
                 let def_info = ModuleInfo::new(ct_namespace.clone(), ct_index.module_id().clone());
                 let def_index = ASTIndex::new(
@@ -398,6 +405,7 @@ pub fn get_ide_helper_from_catalog<ID, NAMESPACE>(
             module_id.clone(),
             module_namespace.clone(),
             add_builtin,
+            catalog.is_readonly_module(module_id),
         );
     }
 
@@ -418,7 +426,13 @@ pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<Com
     );
 
     for (module, info) in modules.iter() {
-        builder = builder.add(&module, info.module_id(), info.module_namespace(), false);
+        builder = builder.add(
+            &module,
+            info.module_id(),
+            info.module_namespace(),
+            false,
+            !info.namespace.is_same_lib(&project.config.package.name),
+        );
     }
 
     (builder.build(), errors)
@@ -838,17 +852,17 @@ impl IDEHelper {
             }
         }
 
-        if result
-            .iter()
-            .any(|it| it.from.module_id() != index.module_id())
-        {
+        if result.iter().any(|it| {
+            self.modules_container
+                .is_readonly_module(&it.from.module_id())
+        }) {
             /*
             for edit in result.iter() {
                 println!("edit {} : {}", edit.from.module_id(), edit.from.position());
             }
             */
             // TODO we want to be able to rename symbols of the current lib
-            Err("Rename of symbols outside current module is not yet supported.".to_owned())
+            Err("Rename of symbols outside current library.".to_owned())
         } else {
             // TODO it can happen for example renaming a type that is the type of a property in a struct, because there are multiple
             // builtin functions that "insist" on the same property (getter, setter, setter with lambda ...), but it
@@ -1410,7 +1424,7 @@ mod tests {
             "aName",
             7,
             13,
-            Err("Rename of symbols outside current module is not yet supported.".to_owned()),
+            Err("Rename of symbols outside current library.".to_owned()),
             "types.rasm",
         );
     }
@@ -1468,6 +1482,28 @@ mod tests {
             9,
             Ok(vec![(1, 8, 7), (2, 20, 7), (6, 9, 7)]),
             "typesselfref.rasm",
+        );
+    }
+
+    #[test]
+    fn rename_in_multiple_modules() {
+        test_rename_with_module_ns(
+            "../rasm/resources/examples/breakout",
+            "aName",
+            216,
+            30,
+            Ok(vec![
+                ("breakout_breakout".to_owned(), 173, 12, 9),
+                ("breakout_breakout".to_owned(), 183, 16, 9),
+                ("breakout_breakout".to_owned(), 216, 26, 9),
+                ("breakout_game".to_owned(), 32, 26, 9),
+                ("breakout_game".to_owned(), 50, 22, 9),
+                ("breakout_game".to_owned(), 86, 44, 9),
+                ("breakout_game".to_owned(), 92, 40, 9),
+                ("breakout_menu".to_owned(), 5, 26, 9),
+                ("breakout_menu".to_owned(), 15, 44, 9),
+            ]),
+            "src/main/rasm/breakout.rasm",
         );
     }
 
@@ -1627,27 +1663,7 @@ mod tests {
         expected: Result<Vec<(usize, usize, usize)>, String>,
         file_name: &str,
     ) {
-        /*
-        let (project, eh_module, module) = get_reference_finder(file, None);
-        let finder = get_reference_finder2_for_project(&project);
-        */
-
         let (project, helper) = get_helper(file);
-
-        /*
-        for item in finder.selectable_items.iter() {
-            match &item.target {
-                Some(target) => match target {
-                    SelectableItemTarget::Ref(index, enh_asttype) => {}
-                    SelectableItemTarget::Function(index, enh_asttype, _) => {
-                        println!("function {}", OptionDisplay(&target.index()))
-                    }
-                    SelectableItemTarget::Type(index, enh_asttype) => {}
-                },
-                None => {}
-            }
-        }
-        */
 
         let edits = helper.rename(
             &get_index(&project, file_name, row, column),
@@ -1660,6 +1676,40 @@ mod tests {
                 .map(|it| (it.from.position().row, it.from.position().column, it.len))
                 .collect::<Vec<_>>();
             f.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+            f
+        });
+
+        assert_eq!(expected, found);
+    }
+
+    fn test_rename_with_module_ns(
+        file: &str,
+        new_name: &str,
+        row: usize,
+        column: usize,
+        expected: Result<Vec<(String, usize, usize, usize)>, String>,
+        file_name: &str,
+    ) {
+        let (project, helper) = get_helper(file);
+
+        let edits = helper.rename(
+            &get_index(&project, file_name, row, column),
+            new_name.to_owned(),
+        );
+
+        let found = edits.map(|it| {
+            let mut f = it
+                .into_iter()
+                .map(|it| {
+                    (
+                        format!("{}", it.from.module_namespace()),
+                        it.from.position().row,
+                        it.from.position().column,
+                        it.len,
+                    )
+                })
+                .collect::<Vec<_>>();
+            f.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1).then(a.2.cmp(&b.2))));
             f
         });
 
@@ -1783,6 +1833,7 @@ mod tests {
                 module_info.id().clone(),
                 module_info.namespace().clone(),
                 true,
+                false,
             )
             .build();
 

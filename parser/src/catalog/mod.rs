@@ -4,7 +4,7 @@ use crate::parser::ast::ASTPosition;
 
 pub mod modules_catalog;
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ModuleNamespace(pub String);
 
 impl Display for ModuleNamespace {

@@ -134,6 +134,10 @@ impl EnhASTNameSpace {
     pub fn is_core(&self) -> bool {
         self.lib == "::core"
     }
+
+    pub fn is_same_lib(&self, lib: &str) -> bool {
+        self.lib == lib
+    }
 }
 
 impl Display for EnhASTNameSpace {

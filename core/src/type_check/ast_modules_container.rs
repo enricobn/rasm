@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fmt::Display, iter::zip};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+    iter::zip,
+};
 
 use rasm_utils::OptionDisplay;
 
@@ -91,6 +95,7 @@ pub struct ASTModulesContainer {
     type_defs: HashMap<String, Vec<(ModuleInfo, ASTTypeDef)>>,
     signatures: HashMap<String, Vec<ASTFunctionSignatureEntry>>,
     functions_by_index: HashMap<ASTIndex, ASTFunctionDef>,
+    readonly_modules: HashSet<ModuleId>,
 }
 
 impl ASTModulesContainer {
@@ -101,6 +106,7 @@ impl ASTModulesContainer {
             type_defs: HashMap::new(),
             signatures: HashMap::new(),
             functions_by_index: HashMap::new(),
+            readonly_modules: HashSet::new(),
         }
     }
 
@@ -110,6 +116,7 @@ impl ASTModulesContainer {
         namespace: ModuleNamespace,
         module_id: ModuleId,
         add_builtin: bool,
+        readonly: bool,
     ) {
         if add_builtin {
             for enum_def in module.enums.iter() {
@@ -208,6 +215,9 @@ impl ASTModulesContainer {
                         OptionDisplay(&function.position.builtin)
                     )
                 });
+        }
+        if readonly {
+            self.readonly_modules.insert(module_id.clone());
         }
     }
 
@@ -327,6 +337,10 @@ impl ASTModulesContainer {
             it.iter()
                 .find(|(info, e)| e.modifiers.public || info.namespace() == from_module_id)
         })
+    }
+
+    pub fn is_readonly_module(&self, module_id: &ModuleId) -> bool {
+        self.readonly_modules.contains(module_id)
     }
 
     fn is_equals(
@@ -526,6 +540,7 @@ mod tests {
                 ModuleNamespace(info.namespace.safe_name()),
                 info.module_id(),
                 false, // modules fromRasmProject contains already builtin functions
+                !info.namespace.is_same_lib(&project.config.package.name),
             );
         }
 

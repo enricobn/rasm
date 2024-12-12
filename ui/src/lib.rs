@@ -82,7 +82,13 @@ impl UI {
 
         for (module, info) in modules {
             bodies.push((module.body.clone(), info.clone()));
-            modules_container.add(&module, info.module_namespace(), info.module_id(), false);
+            modules_container.add(
+                &module,
+                info.module_namespace(),
+                info.module_id(),
+                false,
+                !info.namespace.is_same_lib(&project.config.package.name),
+            );
         }
 
         let mut ast_type_checker = ASTTypeChecker::new();
