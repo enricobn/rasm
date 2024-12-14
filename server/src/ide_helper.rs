@@ -16,7 +16,8 @@ use rasm_core::type_check::ast_type_checker::{
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::parser::ast::{
-    ASTBuiltinFunctionType, ASTModule, ASTPosition, ASTType, BuiltinTypeKind,
+    ASTBuiltinFunctionType, ASTExpression, ASTFunctionBody, ASTModule, ASTPosition, ASTStatement,
+    ASTType, BuiltinTypeKind,
 };
 use rasm_utils::OptionDisplay;
 
@@ -190,6 +191,7 @@ impl<'a> IDEHelperBuilder<'a> {
 
         let mut type_checker = ASTTypeChecker::new();
         let mut selectable_items = Vec::new();
+        let mut statements = HashMap::new();
 
         for (id, (module, namespace, _add_builtin, readonly)) in self.entries.iter() {
             //module_info_to_enh_info.insert(info.module_info(), info.clone());
@@ -204,6 +206,10 @@ impl<'a> IDEHelperBuilder<'a> {
                 &id,
                 &modules_container,
             );
+
+            let entry = statements.entry(id.clone());
+            let stmts = entry.or_insert(Vec::new());
+            stmts.append(&mut Self::get_statements(&module.body));
         }
 
         for (id, (module, namespace, _add_builtin, readonly)) in self.entries.iter() {
@@ -239,6 +245,13 @@ impl<'a> IDEHelperBuilder<'a> {
                     &modules_container,
                     &mut selectable_items,
                 );
+
+                if let ASTFunctionBody::RASMBody(body) = &function.body {
+                    let entry = statements.entry(id.clone());
+                    let stmts = entry.or_insert(Vec::new());
+
+                    stmts.append(&mut Self::get_statements(body));
+                }
             }
             /*
             for s in module.structs.iter() {
@@ -339,7 +352,56 @@ impl<'a> IDEHelperBuilder<'a> {
 
         let errors = type_checker.errors;
 
-        IDEHelper::new(modules_container, selectable_items, errors)
+        IDEHelper::new(modules_container, selectable_items, errors, statements)
+    }
+
+    fn get_statements(body: &Vec<ASTStatement>) -> Vec<ASTPosition> {
+        let mut result = Vec::new();
+
+        for s in body.iter() {
+            match s {
+                ASTStatement::Expression(expr) => {
+                    result.append(&mut Self::get_expr_statements(expr, true))
+                }
+                ASTStatement::LetStatement(_, expr, _, _) => {
+                    result.push(s.position());
+                    result.append(&mut Self::get_expr_statements(expr, true))
+                }
+            }
+        }
+
+        result
+    }
+
+    fn get_expr_statements(expr: &ASTExpression, is_statement: bool) -> Vec<ASTPosition> {
+        let mut result = Vec::new();
+        if let ASTExpression::ASTFunctionCallExpression(call) = expr {
+            // in function calls due to dot notation, the first argument could be positioned before
+            // the call. For example in :
+            // 1
+            // .add(10)
+            //
+            // the call is at line 2, but the first argument, and so the statement, starts at line 1
+            if is_statement {
+                let mut positions = vec![call.position.clone()];
+                positions.append(
+                    &mut call
+                        .parameters
+                        .iter()
+                        .map(|it| it.position())
+                        .collect::<Vec<_>>(),
+                );
+
+                result.push(positions.iter().min().unwrap().clone());
+            }
+            for p in call.parameters.iter() {
+                result.append(&mut Self::get_expr_statements(p, false));
+            }
+        } else if let ASTExpression::Lambda(body) = expr {
+            result.append(&mut Self::get_statements(&body.body));
+        }
+
+        result
     }
 
     fn add_selectable_type(
@@ -449,6 +511,7 @@ pub struct IDEHelper {
     modules_container: ASTModulesContainer,
     selectable_items: Vec<IDESelectableItem>,
     errors: Vec<ASTTypeCheckError>,
+    statements: HashMap<ModuleId, Vec<ASTPosition>>,
 }
 
 impl IDEHelper {
@@ -456,11 +519,13 @@ impl IDEHelper {
         modules_container: ASTModulesContainer,
         selectable_items: Vec<IDESelectableItem>,
         errors: Vec<ASTTypeCheckError>,
+        statements: HashMap<ModuleId, Vec<ASTPosition>>,
     ) -> Self {
         Self {
             modules_container,
             selectable_items,
             errors,
+            statements,
         }
     }
 
@@ -900,6 +965,26 @@ impl IDEHelper {
             None
         }
     }
+
+    pub fn statement_start_position(&self, index: &ASTIndex) -> Option<ASTPosition> {
+        if let Some(statements) = self.statements.get(index.module_id()) {
+            let mut result = None;
+            let mut sorted = statements.clone();
+            sorted.sort();
+
+            for statement_position in sorted {
+                if statement_position.cmp(index.position()).is_gt() {
+                    break;
+                } else {
+                    result = Some(statement_position);
+                }
+            }
+
+            result
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -916,7 +1001,8 @@ mod tests {
     use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
     use rasm_parser::lexer::Lexer;
     use rasm_parser::parser::ast::{
-        ASTBuiltinFunctionType, ASTFunctionSignature, ASTPosition, ASTType, BuiltinTypeKind,
+        ASTBuiltinFunctionType, ASTFunctionSignature, ASTPosition, ASTStatement, ASTType,
+        BuiltinTypeKind,
     };
     use rasm_parser::parser::Parser;
     use rasm_utils::OptionDisplay;
@@ -1591,6 +1677,52 @@ mod tests {
                     panic!("{message}");
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_last_statement() {
+        let (project, helper) = get_helper("resources/test/references.rasm");
+
+        if let Some((_, _, info)) = project.get_module(
+            Path::new("resources/test/references.rasm"),
+            &CompileTarget::C(COptions::default()),
+        ) {
+            let index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(3, 13),
+            );
+            if let Some(i) = helper.statement_start_position(&index) {
+                assert_eq!(ASTPosition::new(3, 5), i);
+            } else {
+                panic!("Cannot find statement.");
+            }
+        } else {
+            panic!("Cannot find module.");
+        }
+    }
+
+    #[test]
+    fn test_last_statement_dot_notation() {
+        let (project, helper) = get_helper("resources/test/references.rasm");
+
+        if let Some((_, _, info)) = project.get_module(
+            Path::new("resources/test/references.rasm"),
+            &CompileTarget::C(COptions::default()),
+        ) {
+            let index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(2, 10),
+            );
+            if let Some(i) = helper.statement_start_position(&index) {
+                assert_eq!(ASTPosition::new(1, 1), i);
+            } else {
+                panic!("Cannot find statement.");
+            }
+        } else {
+            panic!("Cannot find module.");
         }
     }
 
