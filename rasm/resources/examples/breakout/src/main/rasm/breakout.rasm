@@ -228,19 +228,19 @@ sdlDestroyWindow(win);
 
 // TODO keys are not as expected space is 44 but should be 32!
 fn update(event: Option<KeyEvent>, state: State) -> State {
-    let resources = resources(state);
-    let keys = keys(state);
-    let stage = stage(state);
-    let highScores = highScores(state);
+    let resources = state.resources;
+    let keys = state.keys;
+    let stage = state.stage;
+    let highScores = state.highScores;
 
-    let newKeys = match(event, fn(e) {
-          let key = key(e);
-          let keyState = state(e);
+    let newKeys = event.match(fn(e) {
+          let key = e.key;
+          let keyState = e.state;
 
-          match(keyState, {
+          keyState.match({
             vecOf(key);
           }, {
-            filter(keys, fn(k) { not(eq(k, key));});
+            keys.filter(fn(k) { not(k.eq(key));});
           });
       }, { keys; });
 
@@ -249,10 +249,10 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
         State(resources, newKeys, newStage, highScores);
     }, fn(gameState) {
         let gameResult = update(resources, newKeys, gameState);
-        match(gameResult, fn(newGameState) {
+        gameResult.match(fn(newGameState) {
             State(resources, newKeys, Stage::Game(newGameState), highScores);
         }, fn(score) {
-            let newHighScores = addScore(highScores, score);
+            let newHighScores = highScores.add(score);
             writeHighScores(newHighScores);
             State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
         });
@@ -260,18 +260,18 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
     });
 }
 
-fn addScore(highScores: Vec<HighScore>, score: i32) -> Vec<HighScore> {
-    push(highScores, HighScore(score, now()));
+fn add(highScores: Vec<HighScore>, score: i32) -> Vec<HighScore> {
+    highScores.push(HighScore(score, now()));
 }
 
 fn render(ren: SDLRenderer, state: State) {
     sdlSetRenderDrawColor(ren, BLACK);
     sdlRenderClear(ren);
 
-    let resources = resources(state);
-    let stage = stage(state);
+    let resources = state.resources;
+    let stage = state.stage;
 
-    match(stage, fn(menuState) { render(ren, resources, menuState);}, fn(gameState) { render(ren, resources, gameState);});
+    stage.match(fn(menuState) { render(ren, resources, menuState);}, fn(gameState) { render(ren, resources, gameState);});
 
     sdlRenderPresent(ren);
 }
@@ -279,8 +279,8 @@ fn render(ren: SDLRenderer, state: State) {
 fn loadHighScores() -> Vec<HighScore> {
     if(fileExists("scores.txt"), {
         let scores = readFile("scores.txt");
-        let lines = lines(scores);
-        fmap(lines, fn(line) {
+        let lines = scores.lines;
+        lines.fmap(fn(line) {
             let splitted = splitToList(line, ",");
             splitted.map3(fn(score, sec, nano) {
                 toi32(score).fmap(fn(sc) {
@@ -328,8 +328,8 @@ fn splitToList(s: str, separator: str) -> List<str> {
 
     match(separatorIndex,
         fn(index) {
-            let item = substr(s, 0, index);
-            let remainder = substr(s, add(index, 1), sub(sub(len(s), index), 1));
+            let item = s.substr(0, index);
+            let remainder = s.substr(index.add(1), s.len.sub(index).sub(1));
             match(item,
                 fn(f) {
                     match(remainder,
