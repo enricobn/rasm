@@ -704,14 +704,14 @@ fn expr_calls<'a>(
 mod tests {
     use std::path::Path;
 
-    use rasm_utils::OptionDisplay;
+    use rasm_utils::{test_utils::init_log, OptionDisplay};
 
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget},
         project::RasmProjectRunType,
         type_check::{
             ast_type_checker_from_project, functions_dependencies::function_dependencies,
-            test_utils::project_and_container, tests::init_log,
+            test_utils::project_and_container,
         },
     };
 

@@ -304,18 +304,6 @@ impl CompileTarget {
             panic!()
         }
 
-        let mut modules_container = ASTModulesContainer::new();
-
-        for (module, info) in modules.iter() {
-            modules_container.add(
-                module,
-                info.module_namespace(),
-                info.module_id(),
-                false,
-                !info.namespace.is_same_lib(&project.config.package.name),
-            );
-        }
-
         let (enhanced_ast_module, errors) = EnhancedASTModule::from_ast(
             modules,
             &project,

@@ -8,3 +8,4 @@ license.workspace = true
 # workspace
 linked-hash-map.workspace = true
 log.workspace = true
+env_logger.workspace = true

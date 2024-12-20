@@ -1,0 +1,18 @@
+let o = Option::Some(1);
+
+o.match(fn(v) {
+    print("Some ");
+    println(v);
+}, {
+    println("None");
+});
+
+fn aFunction() -> i32 {
+    let a = 1;
+    let b = a.add(1);
+}
+
+fn anotherFunction() -> i32 {
+    let a = 1;
+    let b = a.add(1);
+}

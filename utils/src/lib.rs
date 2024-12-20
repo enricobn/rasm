@@ -7,6 +7,8 @@ use std::slice::Iter;
 use linked_hash_map::LinkedHashMap;
 
 pub mod debug_indent;
+//#[cfg(test)]
+pub mod test_utils;
 
 // TODO is it useful?
 pub trait MyToString {

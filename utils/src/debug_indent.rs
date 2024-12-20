@@ -124,6 +124,24 @@ macro_rules! dedent {
     };
 }
 
+#[macro_export]
+macro_rules! reset_indent {
+    () => {
+        unsafe {
+            if $crate::debug_indent::ENABLE_INDENT {
+                $crate::debug_indent::INDENT.with(|indent| {
+                    if log::log_enabled!(log::Level::Debug) {
+                        for i in 0..*indent.borrow() {
+                            $crate::debug_indent::dedent_to_log();
+                        }
+                    }
+                    *indent.borrow_mut() = 0;
+                });
+            }
+        }
+    };
+}
+
 mod tests {
 
     #[test]

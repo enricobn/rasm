@@ -215,7 +215,7 @@ impl Lexer {
                         if !actual.is_empty() {
                             self.add_error(format!("Bracket, but actual={}", actual));
                         }
-                        let token = self.some_token(bracket);
+                        let token = self.some_token_at(bracket, self.row, self.column);
                         self.column += 1;
                         self.index += 1;
                         return token;

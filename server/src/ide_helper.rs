@@ -22,6 +22,7 @@ use rasm_parser::parser::ast::{
 use rasm_utils::OptionDisplay;
 
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
+use crate::statement_finder::StatementFinder;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IDETextEdit {
@@ -191,9 +192,8 @@ impl<'a> IDEHelperBuilder<'a> {
 
         let mut type_checker = ASTTypeChecker::new();
         let mut selectable_items = Vec::new();
-        let mut statements = HashMap::new();
 
-        for (id, (module, namespace, _add_builtin, readonly)) in self.entries.iter() {
+        for (id, (module, namespace, _add_builtin, _readonly)) in self.entries.iter() {
             //module_info_to_enh_info.insert(info.module_info(), info.clone());
             let mut val_context = ValContext::new(None);
 
@@ -206,13 +206,9 @@ impl<'a> IDEHelperBuilder<'a> {
                 &id,
                 &modules_container,
             );
-
-            let entry = statements.entry(id.clone());
-            let stmts = entry.or_insert(Vec::new());
-            stmts.append(&mut Self::get_statements(&module.body));
         }
 
-        for (id, (module, namespace, _add_builtin, readonly)) in self.entries.iter() {
+        for (id, (module, namespace, _add_builtin, _readonly)) in self.entries.iter() {
             let info = ModuleInfo::new(namespace.clone(), id.clone());
 
             for function in module.functions.iter() {
@@ -245,13 +241,6 @@ impl<'a> IDEHelperBuilder<'a> {
                     &modules_container,
                     &mut selectable_items,
                 );
-
-                if let ASTFunctionBody::RASMBody(body) = &function.body {
-                    let entry = statements.entry(id.clone());
-                    let stmts = entry.or_insert(Vec::new());
-
-                    stmts.append(&mut Self::get_statements(body));
-                }
             }
             /*
             for s in module.structs.iter() {
@@ -352,7 +341,7 @@ impl<'a> IDEHelperBuilder<'a> {
 
         let errors = type_checker.errors;
 
-        IDEHelper::new(modules_container, selectable_items, errors, statements)
+        IDEHelper::new(modules_container, selectable_items, errors)
     }
 
     fn get_statements(body: &Vec<ASTStatement>) -> Vec<ASTPosition> {
@@ -511,7 +500,6 @@ pub struct IDEHelper {
     modules_container: ASTModulesContainer,
     selectable_items: Vec<IDESelectableItem>,
     errors: Vec<ASTTypeCheckError>,
-    statements: HashMap<ModuleId, Vec<ASTPosition>>,
 }
 
 impl IDEHelper {
@@ -519,13 +507,11 @@ impl IDEHelper {
         modules_container: ASTModulesContainer,
         selectable_items: Vec<IDESelectableItem>,
         errors: Vec<ASTTypeCheckError>,
-        statements: HashMap<ModuleId, Vec<ASTPosition>>,
     ) -> Self {
         Self {
             modules_container,
             selectable_items,
             errors,
-            statements,
         }
     }
 
@@ -966,24 +952,9 @@ impl IDEHelper {
         }
     }
 
+    /// find the statement start position of the expression that starts at index
     pub fn statement_start_position(&self, index: &ASTIndex) -> Option<ASTPosition> {
-        if let Some(statements) = self.statements.get(index.module_id()) {
-            let mut result = None;
-            let mut sorted = statements.clone();
-            sorted.sort();
-
-            for statement_position in sorted {
-                if statement_position.cmp(index.position()).is_gt() {
-                    break;
-                } else {
-                    result = Some(statement_position);
-                }
-            }
-
-            result
-        } else {
-            None
-        }
+        StatementFinder {}.statement_start_position(index, &self.modules_container)
     }
 }
 
@@ -1001,11 +972,11 @@ mod tests {
     use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
     use rasm_parser::lexer::Lexer;
     use rasm_parser::parser::ast::{
-        ASTBuiltinFunctionType, ASTFunctionSignature, ASTPosition, ASTStatement, ASTType,
-        BuiltinTypeKind,
+        ASTBuiltinFunctionType, ASTFunctionSignature, ASTPosition, ASTType, BuiltinTypeKind,
     };
     use rasm_parser::parser::Parser;
-    use rasm_utils::OptionDisplay;
+    use rasm_utils::test_utils::{init_log, init_minimal_log};
+    use rasm_utils::{reset_indent, OptionDisplay};
 
     use crate::completion_service::{CompletionResult, CompletionTrigger};
     use crate::ide_helper::IDEHelperBuilder;
@@ -1681,7 +1652,35 @@ mod tests {
     }
 
     #[test]
-    fn test_last_statement() {
+    fn test_statement_start_position_simple() {
+        init_minimal_log();
+
+        let (project, helper) = get_helper("resources/test/simple.rasm");
+
+        if let Some((_, _, info)) = project.get_module(
+            Path::new("resources/test/simple.rasm"),
+            &CompileTarget::C(COptions::default()),
+        ) {
+            let index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(3, 13),
+            );
+
+            reset_indent!();
+
+            if let Some(i) = helper.statement_start_position(&index) {
+                assert_eq!(ASTPosition::new(3, 1), i);
+            } else {
+                panic!("Cannot find statement.");
+            }
+        } else {
+            panic!("Cannot find module.");
+        }
+    }
+
+    #[test]
+    fn test_statement_start_position_lambda() {
         let (project, helper) = get_helper("resources/test/references.rasm");
 
         if let Some((_, _, info)) = project.get_module(
@@ -1704,7 +1703,7 @@ mod tests {
     }
 
     #[test]
-    fn test_last_statement_dot_notation() {
+    fn test_statement_start_position_dot_notation() {
         let (project, helper) = get_helper("resources/test/references.rasm");
 
         if let Some((_, _, info)) = project.get_module(
@@ -1718,6 +1717,98 @@ mod tests {
             );
             if let Some(i) = helper.statement_start_position(&index) {
                 assert_eq!(ASTPosition::new(1, 1), i);
+            } else {
+                panic!("Cannot find statement.");
+            }
+        } else {
+            panic!("Cannot find module.");
+        }
+    }
+
+    #[test]
+    fn test_statement_start_position_corner_case1() {
+        let (project, helper) = get_helper("resources/test/statement_start_position.rasm");
+
+        if let Some((_, _, info)) = project.get_module(
+            Path::new("resources/test/statement_start_position.rasm"),
+            &CompileTarget::C(COptions::default()),
+        ) {
+            let index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(6, 4),
+            );
+            if let Some(i) = helper.statement_start_position(&index) {
+                assert_eq!(ASTPosition::new(3, 1), i);
+            } else {
+                panic!("Cannot find statement.");
+            }
+        } else {
+            panic!("Cannot find module.");
+        }
+    }
+
+    #[test]
+    fn test_statement_start_position_corner_case2() {
+        let (project, helper) = get_helper("resources/test/statement_start_position.rasm");
+
+        if let Some((_, _, info)) = project.get_module(
+            Path::new("resources/test/statement_start_position.rasm"),
+            &CompileTarget::C(COptions::default()),
+        ) {
+            let index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(1, 9),
+            );
+            if let Some(i) = helper.statement_start_position(&index) {
+                assert_eq!(ASTPosition::new(1, 1), i);
+            } else {
+                panic!("Cannot find statement.");
+            }
+        } else {
+            panic!("Cannot find module.");
+        }
+    }
+
+    #[test]
+    fn test_statement_start_position_in_function() {
+        let (project, helper) = get_helper("resources/test/statement_start_position.rasm");
+
+        if let Some((_, _, info)) = project.get_module(
+            Path::new("resources/test/statement_start_position.rasm"),
+            &CompileTarget::C(COptions::default()),
+        ) {
+            let index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(17, 13),
+            );
+            if let Some(i) = helper.statement_start_position(&index) {
+                assert_eq!(ASTPosition::new(17, 5), i);
+            } else {
+                panic!("Cannot find statement.");
+            }
+        } else {
+            panic!("Cannot find module.");
+        }
+    }
+
+    #[test]
+    fn test_statement_start_position_breakout() {
+        let (project, helper) = get_helper("../rasm/resources/examples/breakout");
+
+        if let Some((_, _, info)) = project.get_module(
+            Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
+            &CompileTarget::C(COptions::default()),
+        ) {
+            let index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(325, 31),
+            );
+            if let Some(i) = helper.statement_start_position(&index) {
+                assert_eq!(ASTPosition::new(325, 5), i);
             } else {
                 panic!("Cannot find statement.");
             }

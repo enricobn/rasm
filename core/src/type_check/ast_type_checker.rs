@@ -1400,7 +1400,7 @@ mod tests {
         time::Instant,
     };
 
-    use rasm_utils::OptionDisplay;
+    use rasm_utils::{test_utils::init_minimal_log, OptionDisplay};
 
     use crate::{
         codegen::{
@@ -1411,7 +1411,6 @@ mod tests {
         project::{RasmProject, RasmProjectRunType},
         type_check::{
             ast_modules_container::ASTModulesContainer, test_utils::project_and_container,
-            tests::init_minimal_log,
         },
     };
     use rasm_parser::{

@@ -553,7 +553,7 @@ impl ASTValueType {
     }
 }
 
-// TODO can we do partialeq? It depends on ASTIndex
+// TODO can we do partialeq? It depends on ASTPOsition
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTExpression {
     ASTFunctionCallExpression(ASTFunctionCall),

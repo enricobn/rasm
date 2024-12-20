@@ -8,6 +8,7 @@ pub mod file_token;
 pub mod ide_helper;
 pub mod selectable_item;
 pub mod server;
+pub mod statement_finder;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RasmTextEdit {
