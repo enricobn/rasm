@@ -16,13 +16,25 @@ use rasm_core::type_check::ast_type_checker::{
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::parser::ast::{
-    ASTBuiltinFunctionType, ASTExpression, ASTFunctionBody, ASTModule, ASTPosition, ASTStatement,
-    ASTType, BuiltinTypeKind,
+    ASTBuiltinFunctionType, ASTExpression, ASTModule, ASTPosition, ASTStatement, ASTType,
+    BuiltinTypeKind,
 };
 use rasm_utils::OptionDisplay;
 
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
 use crate::statement_finder::StatementFinder;
+
+pub enum IDESymbolKind {
+    Struct,
+    Enum,
+    Type,
+}
+
+pub struct IDESymbolInformation {
+    pub name: String,
+    pub kind: IDESymbolKind,
+    pub index: ASTIndex,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IDETextEdit {
@@ -922,6 +934,56 @@ impl IDEHelper {
             result.dedup();
             Ok(result)
         }
+    }
+
+    pub fn types(&self) -> Vec<IDESymbolInformation> {
+        let mut result = self
+            .modules_container
+            .enum_defs()
+            .into_iter()
+            .map(|it| IDESymbolInformation {
+                name: it.1.name.to_owned(),
+                kind: IDESymbolKind::Enum,
+                index: ASTIndex::new(
+                    it.0.namespace().clone(),
+                    it.0.id().clone(),
+                    it.1.position.clone(),
+                ),
+            })
+            .collect::<Vec<_>>();
+        result.append(
+            &mut self
+                .modules_container
+                .struct_defs()
+                .into_iter()
+                .map(|it| IDESymbolInformation {
+                    name: it.1.name.to_owned(),
+                    kind: IDESymbolKind::Struct,
+                    index: ASTIndex::new(
+                        it.0.namespace().clone(),
+                        it.0.id().clone(),
+                        it.1.position.clone(),
+                    ),
+                })
+                .collect::<Vec<_>>(),
+        );
+        result.append(
+            &mut self
+                .modules_container
+                .type_defs()
+                .into_iter()
+                .map(|it| IDESymbolInformation {
+                    name: it.1.name.to_owned(),
+                    kind: IDESymbolKind::Type,
+                    index: ASTIndex::new(
+                        it.0.namespace().clone(),
+                        it.0.id().clone(),
+                        it.1.position.clone(),
+                    ),
+                })
+                .collect::<Vec<_>>(),
+        );
+        result
     }
 
     fn get_custom_type_index(

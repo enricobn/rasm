@@ -324,6 +324,10 @@ impl ASTModulesContainer {
         })
     }
 
+    pub fn enum_defs(&self) -> Vec<&(ModuleInfo, ASTEnumDef)> {
+        self.enum_defs.values().flatten().collect()
+    }
+
     pub fn get_struct_def(
         &self,
         from_module_id: &ModuleNamespace,
@@ -335,6 +339,10 @@ impl ASTModulesContainer {
         })
     }
 
+    pub fn struct_defs(&self) -> Vec<&(ModuleInfo, ASTStructDef)> {
+        self.struct_defs.values().flatten().collect()
+    }
+
     pub fn get_type_def(
         &self,
         from_module_id: &ModuleNamespace,
@@ -344,6 +352,10 @@ impl ASTModulesContainer {
             it.iter()
                 .find(|(info, e)| e.modifiers.public || info.namespace() == from_module_id)
         })
+    }
+
+    pub fn type_defs(&self) -> Vec<&(ModuleInfo, ASTTypeDef)> {
+        self.type_defs.values().flatten().collect()
     }
 
     pub fn is_readonly_module(&self, module_id: &ModuleId) -> bool {
