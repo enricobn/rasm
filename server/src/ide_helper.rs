@@ -16,8 +16,8 @@ use rasm_core::type_check::ast_type_checker::{
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::parser::ast::{
-    ASTBuiltinFunctionType, ASTExpression, ASTModule, ASTPosition, ASTStatement, ASTType,
-    BuiltinTypeKind,
+    ASTBuiltinFunctionType, ASTExpression, ASTFunctionDef, ASTModule, ASTPosition, ASTStatement,
+    ASTType, BuiltinTypeKind, CustomTypeDef,
 };
 use rasm_utils::OptionDisplay;
 
@@ -28,6 +28,7 @@ pub enum IDESymbolKind {
     Struct,
     Enum,
     Type,
+    Function,
 }
 
 pub struct IDESymbolInformation {
@@ -936,19 +937,13 @@ impl IDEHelper {
         }
     }
 
-    pub fn types(&self) -> Vec<IDESymbolInformation> {
+    pub fn symbols(&self) -> Vec<IDESymbolInformation> {
         let mut result = self
             .modules_container
             .enum_defs()
             .into_iter()
-            .map(|it| IDESymbolInformation {
-                name: it.1.name.to_owned(),
-                kind: IDESymbolKind::Enum,
-                index: ASTIndex::new(
-                    it.0.namespace().clone(),
-                    it.0.id().clone(),
-                    it.1.position.clone(),
-                ),
+            .map(|it| {
+                self.type_def_to_symbol(&it.1, it.0.namespace(), it.0.id(), IDESymbolKind::Enum)
             })
             .collect::<Vec<_>>();
         result.append(
@@ -956,14 +951,13 @@ impl IDEHelper {
                 .modules_container
                 .struct_defs()
                 .into_iter()
-                .map(|it| IDESymbolInformation {
-                    name: it.1.name.to_owned(),
-                    kind: IDESymbolKind::Struct,
-                    index: ASTIndex::new(
-                        it.0.namespace().clone(),
-                        it.0.id().clone(),
-                        it.1.position.clone(),
-                    ),
+                .map(|it| {
+                    self.type_def_to_symbol(
+                        &it.1,
+                        it.0.namespace(),
+                        it.0.id(),
+                        IDESymbolKind::Struct,
+                    )
                 })
                 .collect::<Vec<_>>(),
         );
@@ -972,18 +966,81 @@ impl IDEHelper {
                 .modules_container
                 .type_defs()
                 .into_iter()
-                .map(|it| IDESymbolInformation {
-                    name: it.1.name.to_owned(),
-                    kind: IDESymbolKind::Type,
-                    index: ASTIndex::new(
-                        it.0.namespace().clone(),
-                        it.0.id().clone(),
-                        it.1.position.clone(),
-                    ),
+                .map(|it| {
+                    self.type_def_to_symbol(&it.1, it.0.namespace(), it.0.id(), IDESymbolKind::Type)
                 })
                 .collect::<Vec<_>>(),
         );
         result
+    }
+
+    fn type_def_to_symbol(
+        &self,
+        type_def: &dyn CustomTypeDef,
+        namespace: &ModuleNamespace,
+        id: &ModuleId,
+        kind: IDESymbolKind,
+    ) -> IDESymbolInformation {
+        IDESymbolInformation {
+            name: type_def.name().to_owned(),
+            kind,
+            index: ASTIndex::new(namespace.clone(), id.clone(), type_def.position().clone()),
+        }
+    }
+
+    fn function_to_symbol(
+        &self,
+        function: &ASTFunctionDef,
+        namespace: &ModuleNamespace,
+        id: &ModuleId,
+    ) -> IDESymbolInformation {
+        IDESymbolInformation {
+            name: function.name.clone(),
+            kind: IDESymbolKind::Function,
+            index: ASTIndex::new(namespace.clone(), id.clone(), function.position.clone()),
+        }
+    }
+
+    pub fn module_symbols(&self, module_id: &ModuleId) -> Vec<IDESymbolInformation> {
+        if let Some(module) = self.modules_container.module(module_id) {
+            let namespace = self.modules_container.module_namespace(module_id).unwrap();
+            let mut symbols: Vec<IDESymbolInformation> = module
+                .enums
+                .iter()
+                .map(|it| self.type_def_to_symbol(it, namespace, module_id, IDESymbolKind::Enum))
+                .collect();
+            symbols.append(
+                &mut module
+                    .structs
+                    .iter()
+                    .map(|it| {
+                        self.type_def_to_symbol(it, namespace, module_id, IDESymbolKind::Enum)
+                    })
+                    .collect(),
+            );
+
+            symbols.append(
+                &mut module
+                    .types
+                    .iter()
+                    .map(|it| {
+                        self.type_def_to_symbol(it, namespace, module_id, IDESymbolKind::Enum)
+                    })
+                    .collect(),
+            );
+
+            symbols.append(
+                &mut module
+                    .functions
+                    .iter()
+                    .filter(|it| it.position.builtin.is_none())
+                    .map(|it| self.function_to_symbol(it, namespace, module_id))
+                    .collect(),
+            );
+
+            return symbols;
+        }
+        vec![]
     }
 
     fn get_custom_type_index(

@@ -699,6 +699,7 @@ impl ASTModule {
 pub trait CustomTypeDef: Display {
     fn name(&self) -> &str;
     fn modifiers(&self) -> &ASTModifiers;
+    fn position(&self) -> &ASTPosition;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -717,6 +718,10 @@ impl CustomTypeDef for ASTEnumDef {
 
     fn modifiers(&self) -> &ASTModifiers {
         &self.modifiers
+    }
+
+    fn position(&self) -> &ASTPosition {
+        &self.position
     }
 }
 
@@ -778,6 +783,10 @@ impl CustomTypeDef for ASTStructDef {
     fn modifiers(&self) -> &ASTModifiers {
         &self.modifiers
     }
+
+    fn position(&self) -> &ASTPosition {
+        &self.position
+    }
 }
 
 impl Display for ASTStructDef {
@@ -809,6 +818,10 @@ impl CustomTypeDef for ASTTypeDef {
 
     fn modifiers(&self) -> &ASTModifiers {
         &self.modifiers
+    }
+
+    fn position(&self) -> &ASTPosition {
+        &self.position
     }
 }
 

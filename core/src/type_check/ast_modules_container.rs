@@ -96,7 +96,7 @@ pub struct ASTModulesContainer {
     signatures: HashMap<String, Vec<ASTFunctionSignatureEntry>>,
     functions_by_index: HashMap<ASTIndex, ASTFunctionDef>,
     readonly_modules: HashSet<ModuleId>,
-    modules: HashMap<ModuleId, ASTModule>,
+    modules: HashMap<ModuleId, (ASTModule, ModuleNamespace)>,
 }
 
 impl ASTModulesContainer {
@@ -221,7 +221,8 @@ impl ASTModulesContainer {
         if readonly {
             self.readonly_modules.insert(module_id.clone());
         }
-        self.modules.insert(module_id.clone(), module.clone());
+        self.modules
+            .insert(module_id.clone(), (module.clone(), namespace.clone()));
     }
 
     pub fn function(&self, index: &ASTIndex) -> Option<&ASTFunctionDef> {
@@ -229,7 +230,11 @@ impl ASTModulesContainer {
     }
 
     pub fn module(&self, id: &ModuleId) -> Option<&ASTModule> {
-        self.modules.get(id)
+        self.modules.get(id).map(|it| &it.0)
+    }
+
+    pub fn module_namespace(&self, id: &ModuleId) -> Option<&ModuleNamespace> {
+        self.modules.get(id).map(|it| &it.1)
     }
 
     /*
