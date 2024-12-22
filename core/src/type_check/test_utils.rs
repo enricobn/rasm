@@ -37,7 +37,7 @@ pub fn project_and_container(
 
     let mut container = ASTModulesContainer::new();
 
-    for (module, info) in modules.iter() {
+    for (module, info) in modules.into_iter() {
         container.add(
             module,
             info.module_namespace(),

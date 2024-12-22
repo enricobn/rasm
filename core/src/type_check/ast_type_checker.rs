@@ -1427,25 +1427,13 @@ mod tests {
         let target = CompileTarget::C(COptions::default());
 
         let mut statics = Statics::new();
-        let (modules, _errors) = project.get_all_modules(
+        let (container, _catalog, _errors) = project.container_and_catalog(
             &mut statics,
             &RasmProjectRunType::Main,
             &target,
             false,
             &CommandLineOptions::default(),
         );
-
-        let mut container = ASTModulesContainer::new();
-
-        for (module, info) in modules.iter() {
-            container.add(
-                module,
-                info.module_namespace(),
-                info.module_id(),
-                false,
-                !info.namespace.is_same_lib(&project.config.package.name),
-            );
-        }
 
         let mut statics = ValContext::new(None);
 
@@ -1754,25 +1742,13 @@ mod tests {
         let target = CompileTarget::C(COptions::default());
 
         let mut statics = Statics::new();
-        let (modules, _errors) = project.get_all_modules(
+        let (container, _catalog, _errors) = project.container_and_catalog(
             &mut statics,
             &RasmProjectRunType::Main,
             &target,
             false,
             &CommandLineOptions::default(),
         );
-
-        let mut container = ASTModulesContainer::new();
-
-        for (module, info) in modules.iter() {
-            container.add(
-                module,
-                info.module_namespace(),
-                info.module_id(),
-                false,
-                !info.namespace.is_same_lib(&project.config.package.name),
-            );
-        }
 
         println!(
             "read project {path} and calculating container in {:?}",
@@ -1783,7 +1759,7 @@ mod tests {
 
         let mut function_type_checker = ASTTypeChecker::new();
 
-        for (module, info) in modules {
+        for (id, namespace, module) in container.modules().iter() {
             let mut val_context = ValContext::new(None);
 
             function_type_checker.add_body(
@@ -1791,17 +1767,17 @@ mod tests {
                 &mut static_val_context,
                 &module.body,
                 None,
-                &info.module_namespace(),
-                &info.module_id(),
+                &namespace,
+                &id,
                 &container,
             );
 
-            for function in module.functions.into_iter() {
+            for function in module.functions.iter() {
                 function_type_checker.add_function(
                     &function,
                     &static_val_context,
-                    &info.module_namespace(),
-                    &info.module_id(),
+                    &namespace,
+                    &id,
                     &container,
                 );
             }

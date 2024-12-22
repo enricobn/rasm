@@ -114,7 +114,7 @@ impl ASTModulesContainer {
 
     pub fn add(
         &mut self,
-        module: &ASTModule,
+        module: ASTModule,
         namespace: ModuleNamespace,
         module_id: ModuleId,
         add_builtin: bool,
@@ -222,7 +222,7 @@ impl ASTModulesContainer {
             self.readonly_modules.insert(module_id.clone());
         }
         self.modules
-            .insert(module_id.clone(), (module.clone(), namespace.clone()));
+            .insert(module_id.clone(), (module, namespace.clone()));
     }
 
     pub fn function(&self, index: &ASTIndex) -> Option<&ASTFunctionDef> {
@@ -365,6 +365,13 @@ impl ASTModulesContainer {
 
     pub fn is_readonly_module(&self, module_id: &ModuleId) -> bool {
         self.readonly_modules.contains(module_id)
+    }
+
+    pub fn modules(&self) -> Vec<(&ModuleId, &ModuleNamespace, &ASTModule)> {
+        self.modules
+            .iter()
+            .map(|(id, (module, namespace))| (id, namespace, module))
+            .collect()
     }
 
     fn is_equals(
@@ -543,30 +550,14 @@ mod tests {
         let project = RasmProject::new(PathBuf::from(project_path));
         let target = CompileTarget::C(COptions::default());
         let mut statics = Statics::new();
-        let (modules, _) = project.get_all_modules(
+
+        let (container, _catalog, _errors) = project.container_and_catalog(
             &mut statics,
             &RasmProjectRunType::Main,
             &target,
             false,
             &CommandLineOptions::default(),
         );
-
-        let mut container = ASTModulesContainer::new();
-        for (module, info) in modules {
-            /*
-            println!(
-                "adding module {}",
-                OptionDisplay(&info.path.clone().map(|it| it.to_string_lossy().to_string()))
-            );
-            */
-            container.add(
-                &module,
-                ModuleNamespace(info.namespace.safe_name()),
-                info.module_id(),
-                false, // modules fromRasmProject contains already builtin functions
-                !info.namespace.is_same_lib(&project.config.package.name),
-            );
-        }
 
         container
     }

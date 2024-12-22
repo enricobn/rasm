@@ -5,7 +5,6 @@ use rasm_parser::{
     catalog::ASTIndex,
     parser::ast::{ASTExpression, ASTFunctionBody, ASTPosition, ASTStatement},
 };
-use rasm_utils::{debug_i, dedent, indent, OptionDisplay};
 
 pub enum SSPResult {
     Before(ASTPosition),

@@ -26,6 +26,7 @@ use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 use crate::commandline::CommandLineOptions;
 use crate::project_catalog::RasmProjectCatalog;
+use crate::type_check::ast_modules_container::ASTModulesContainer;
 use linked_hash_map::LinkedHashMap;
 use log::info;
 use pathdiff::diff_paths;
@@ -379,7 +380,7 @@ impl RasmProject {
         result
     }
 
-    pub fn catalog(
+    pub fn container_and_catalog(
         &self,
         statics: &mut Statics,
         run_type: &RasmProjectRunType,
@@ -387,17 +388,26 @@ impl RasmProject {
         debug: bool,
         options: &CommandLineOptions,
     ) -> (
+        ASTModulesContainer,
         impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
         Vec<CompilationError>,
     ) {
         let mut catalog = RasmProjectCatalog::new(&self.config.package.name);
+        let mut container = ASTModulesContainer::new();
         let (modules, errors) = self.get_all_modules(statics, run_type, target, debug, options);
 
         for (module, info) in modules {
-            catalog.add(module, info);
+            container.add(
+                module,
+                info.module_namespace(),
+                info.module_id(),
+                false,
+                !info.namespace.is_same_lib(&self.config.package.name),
+            );
+            catalog.add(info);
         }
 
-        (catalog, errors)
+        (container, catalog, errors)
     }
 
     pub fn get_all_modules(
@@ -994,7 +1004,7 @@ mod tests {
         let sut = RasmProject::new(PathBuf::from("resources/test/helloworld.rasm"));
 
         let mut statics = Statics::new();
-        let (catalog, _errors) = sut.catalog(
+        let (_container, catalog, _errors) = sut.container_and_catalog(
             &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),

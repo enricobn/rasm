@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::io;
 
@@ -13,11 +12,9 @@ use rasm_core::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeF
 use rasm_core::type_check::ast_type_checker::{
     ASTTypeCheckError, ASTTypeCheckInfo, ASTTypeChecker,
 };
-use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::parser::ast::{
-    ASTBuiltinFunctionType, ASTExpression, ASTFunctionDef, ASTModule, ASTPosition, ASTStatement,
-    ASTType, BuiltinTypeKind, CustomTypeDef,
+    ASTBuiltinFunctionType, ASTFunctionDef, ASTPosition, ASTType, BuiltinTypeKind, CustomTypeDef,
 };
 use rasm_utils::OptionDisplay;
 
@@ -162,51 +159,41 @@ pub enum IDECompletionType {
     Identifier(String),
 }
 
-pub struct IDEHelperBuilder<'a> {
-    entries: HashMap<ModuleId, (&'a ASTModule, ModuleNamespace, bool, bool)>,
+pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<CompilationError>) {
+    let mut statics = Statics::new();
+
+    let (container, _catalog, errors) = project.container_and_catalog(
+        &mut statics,
+        &RasmProjectRunType::Main,
+        &CompileTarget::C(COptions::default()),
+        false,
+        &CommandLineOptions::default(),
+    );
+
+    (IDEHelper::from_container(container), errors)
 }
 
-impl<'a> IDEHelperBuilder<'a> {
-    pub fn new() -> Self {
-        Self {
-            entries: HashMap::new(),
-        }
-    }
+#[derive(PartialEq, Eq)]
+enum CharAtResult {
+    Char(char),
+    EndOfLine,
+    Outside,
+}
 
-    pub fn add(
-        mut self,
-        module: &'a ASTModule,
-        id: ModuleId,
-        namespace: ModuleNamespace,
-        add_builtin: bool,
-        read_only_module: bool,
-    ) -> Self {
-        self.entries
-            .insert(id, (module, namespace, add_builtin, read_only_module))
-            .map(|it| panic!("Already added {it:?}"));
+pub struct IDEHelper {
+    modules_container: ASTModulesContainer,
+    selectable_items: Vec<IDESelectableItem>,
+    errors: Vec<ASTTypeCheckError>,
+}
 
-        self
-    }
-
-    pub fn build(self) -> IDEHelper {
-        let mut modules_container = ASTModulesContainer::new();
-
-        for (id, (module, namespace, add_builtin, readonly)) in self.entries.iter() {
-            modules_container.add(
-                module,
-                namespace.clone(),
-                id.clone(),
-                *add_builtin,
-                *readonly,
-            );
-        }
-
+impl IDEHelper {
+    pub fn from_container(modules_container: ASTModulesContainer) -> IDEHelper {
         let mut static_val_context = ValContext::new(None);
 
         let mut type_checker = ASTTypeChecker::new();
         let mut selectable_items = Vec::new();
 
-        for (id, (module, namespace, _add_builtin, _readonly)) in self.entries.iter() {
+        for (id, namespace, module) in modules_container.modules().into_iter() {
             //module_info_to_enh_info.insert(info.module_info(), info.clone());
             let mut val_context = ValContext::new(None);
 
@@ -221,7 +208,7 @@ impl<'a> IDEHelperBuilder<'a> {
             );
         }
 
-        for (id, (module, namespace, _add_builtin, _readonly)) in self.entries.iter() {
+        for (id, namespace, module) in modules_container.modules().into_iter() {
             let info = ModuleInfo::new(namespace.clone(), id.clone());
 
             for function in module.functions.iter() {
@@ -240,7 +227,7 @@ impl<'a> IDEHelperBuilder<'a> {
                 for par in function.parameters.iter() {
                     let par_type = &par.ast_type;
 
-                    self.add_selectable_type(
+                    Self::add_selectable_type(
                         par_type,
                         &info,
                         &modules_container,
@@ -248,7 +235,7 @@ impl<'a> IDEHelperBuilder<'a> {
                     );
                 }
 
-                self.add_selectable_type(
+                Self::add_selectable_type(
                     &function.return_type,
                     &info,
                     &modules_container,
@@ -357,57 +344,7 @@ impl<'a> IDEHelperBuilder<'a> {
         IDEHelper::new(modules_container, selectable_items, errors)
     }
 
-    fn get_statements(body: &Vec<ASTStatement>) -> Vec<ASTPosition> {
-        let mut result = Vec::new();
-
-        for s in body.iter() {
-            match s {
-                ASTStatement::Expression(expr) => {
-                    result.append(&mut Self::get_expr_statements(expr, true))
-                }
-                ASTStatement::LetStatement(_, expr, _, _) => {
-                    result.push(s.position());
-                    result.append(&mut Self::get_expr_statements(expr, true))
-                }
-            }
-        }
-
-        result
-    }
-
-    fn get_expr_statements(expr: &ASTExpression, is_statement: bool) -> Vec<ASTPosition> {
-        let mut result = Vec::new();
-        if let ASTExpression::ASTFunctionCallExpression(call) = expr {
-            // in function calls due to dot notation, the first argument could be positioned before
-            // the call. For example in :
-            // 1
-            // .add(10)
-            //
-            // the call is at line 2, but the first argument, and so the statement, starts at line 1
-            if is_statement {
-                let mut positions = vec![call.position.clone()];
-                positions.append(
-                    &mut call
-                        .parameters
-                        .iter()
-                        .map(|it| it.position())
-                        .collect::<Vec<_>>(),
-                );
-
-                result.push(positions.iter().min().unwrap().clone());
-            }
-            for p in call.parameters.iter() {
-                result.append(&mut Self::get_expr_statements(p, false));
-            }
-        } else if let ASTExpression::Lambda(body) = expr {
-            result.append(&mut Self::get_statements(&body.body));
-        }
-
-        result
-    }
-
     fn add_selectable_type(
-        &self,
         par_type: &ASTType,
         info: &ModuleInfo,
         modules_container: &ASTModulesContainer,
@@ -423,7 +360,12 @@ impl<'a> IDEHelperBuilder<'a> {
                 return;
             }
             for parameter_type in param_types.iter() {
-                self.add_selectable_type(parameter_type, info, modules_container, selectable_items);
+                Self::add_selectable_type(
+                    parameter_type,
+                    info,
+                    modules_container,
+                    selectable_items,
+                );
             }
 
             let ct_start = ASTIndex::new(
@@ -435,7 +377,9 @@ impl<'a> IDEHelperBuilder<'a> {
             if let Some(ct_index) =
                 IDEHelper::get_custom_type_index(modules_container, &info.namespace(), name)
             {
-                let (_, ct_namespace, _, _) = self.entries.get(&ct_index.module_id()).unwrap();
+                let ct_namespace = modules_container
+                    .module_namespace(&ct_index.module_id())
+                    .unwrap();
 
                 let def_info = ModuleInfo::new(ct_namespace.clone(), ct_index.module_id().clone());
                 let def_index = ASTIndex::new(
@@ -455,64 +399,6 @@ impl<'a> IDEHelperBuilder<'a> {
             }
         }
     }
-}
-
-pub fn get_ide_helper_from_catalog<ID, NAMESPACE>(
-    catalog: &dyn ModulesCatalog<ID, NAMESPACE>,
-    add_builtin: bool,
-) -> IDEHelper {
-    let mut builder = IDEHelperBuilder::new();
-
-    for (module, _id, _namespace, module_id, module_namespace) in catalog.catalog() {
-        builder = builder.add(
-            &module,
-            module_id.clone(),
-            module_namespace.clone(),
-            add_builtin,
-            catalog.is_readonly_module(module_id),
-        );
-    }
-
-    builder.build()
-}
-
-pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<CompilationError>) {
-    let mut statics = Statics::new();
-
-    let mut builder = IDEHelperBuilder::new();
-
-    let (modules, errors) = project.get_all_modules(
-        &mut statics,
-        &RasmProjectRunType::Main,
-        &CompileTarget::C(COptions::default()),
-        false,
-        &CommandLineOptions::default(),
-    );
-
-    for (module, info) in modules.iter() {
-        builder = builder.add(
-            &module,
-            info.module_id(),
-            info.module_namespace(),
-            false,
-            !info.namespace.is_same_lib(&project.config.package.name),
-        );
-    }
-
-    (builder.build(), errors)
-}
-
-#[derive(PartialEq, Eq)]
-enum CharAtResult {
-    Char(char),
-    EndOfLine,
-    Outside,
-}
-
-pub struct IDEHelper {
-    modules_container: ASTModulesContainer,
-    selectable_items: Vec<IDESelectableItem>,
-    errors: Vec<ASTTypeCheckError>,
 }
 
 impl IDEHelper {
@@ -1088,17 +974,17 @@ mod tests {
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::errors::CompilationError;
     use rasm_core::project::RasmProject;
+    use rasm_core::type_check::ast_modules_container::ASTModulesContainer;
     use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
     use rasm_parser::lexer::Lexer;
     use rasm_parser::parser::ast::{
         ASTBuiltinFunctionType, ASTFunctionSignature, ASTPosition, ASTType, BuiltinTypeKind,
     };
     use rasm_parser::parser::Parser;
-    use rasm_utils::test_utils::{init_log, init_minimal_log};
+    use rasm_utils::test_utils::init_minimal_log;
     use rasm_utils::{reset_indent, OptionDisplay};
 
     use crate::completion_service::{CompletionResult, CompletionTrigger};
-    use crate::ide_helper::IDEHelperBuilder;
 
     use super::{
         get_ide_helper_from_project, IDEHelper, IDESelectableItem, IDESelectableItemTarget,
@@ -2169,15 +2055,16 @@ mod tests {
         let module_info =
             ModuleInfo::new(ModuleNamespace("ns".to_owned()), ModuleId("id".to_owned()));
 
-        let helper = IDEHelperBuilder::new()
-            .add(
-                &module,
-                module_info.id().clone(),
-                module_info.namespace().clone(),
-                true,
-                false,
-            )
-            .build();
+        let mut container = ASTModulesContainer::new();
+        container.add(
+            module,
+            module_info.namespace().clone(),
+            module_info.id().clone(),
+            true,
+            false,
+        );
+
+        let helper = IDEHelper::from_container(container);
 
         match helper.get_completions(
             content.to_owned(),

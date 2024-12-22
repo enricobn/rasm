@@ -50,7 +50,7 @@ use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreat
 use crate::transformations::typed_functions_creator::{
     TypedFunctionsCreator, TypedFunctionsCreatorNasmi386,
 };
-use crate::type_check::ast_modules_container::ASTModulesContainer;
+
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, DefaultFunction, DefaultFunctionCall,
 };

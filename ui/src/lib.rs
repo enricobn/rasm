@@ -66,7 +66,7 @@ impl UI {
     pub fn show(project: RasmProject, target: CompileTarget) -> iced::Result {
         let mut statics = Statics::new();
 
-        let (modules, _errors) = project.get_all_modules(
+        let (modules_container, catalog, errors) = project.container_and_catalog(
             &mut statics,
             &RasmProjectRunType::All,
             &target,
@@ -74,34 +74,25 @@ impl UI {
             &CommandLineOptions::default(),
         );
 
-        let mut modules_container = ASTModulesContainer::new();
-
         let mut static_val_context = ValContext::new(None);
 
         let mut bodies = Vec::new();
 
-        for (module, info) in modules {
-            bodies.push((module.body.clone(), info.clone()));
-            modules_container.add(
-                &module,
-                info.module_namespace(),
-                info.module_id(),
-                false,
-                !info.namespace.is_same_lib(&project.config.package.name),
-            );
+        for (id, namespace, module) in modules_container.modules() {
+            bodies.push((module.body.clone(), id.clone(), namespace.clone()));
         }
 
         let mut ast_type_checker = ASTTypeChecker::new();
 
-        for (body, info) in bodies {
+        for (body, id, namespace) in bodies {
             let mut val_context = ValContext::new(None);
             ast_type_checker.add_body(
                 &mut val_context,
                 &mut static_val_context,
                 &body,
                 None,
-                &info.module_namespace(),
-                &info.module_id(),
+                &namespace,
+                &id,
                 &modules_container,
             );
         }

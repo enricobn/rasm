@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 
-use rasm_parser::{
-    catalog::{modules_catalog::ModulesCatalog, ModuleId, ModuleInfo, ModuleNamespace},
-    parser::ast::ASTModule,
+use rasm_parser::catalog::{
+    modules_catalog::ModulesCatalog, ModuleId, ModuleInfo, ModuleNamespace,
 };
 
 use crate::codegen::enh_ast::{EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 
 struct ModuleEntry {
-    module: ASTModule,
     id: ModuleId,
     namespace: ModuleNamespace,
     enh_namespace: EnhASTNameSpace,
@@ -27,13 +25,12 @@ impl RasmProjectCatalog {
         }
     }
 
-    pub fn add(&mut self, module: ASTModule, info: EnhModuleInfo) {
+    pub fn add(&mut self, info: EnhModuleInfo) {
         if self
             .map
             .insert(
                 info.id.clone(),
                 ModuleEntry {
-                    module,
                     id: info.module_id(),
                     namespace: info.module_namespace(),
                     enh_namespace: info.namespace,
@@ -47,10 +44,6 @@ impl RasmProjectCatalog {
 }
 
 impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> for RasmProjectCatalog {
-    fn module(&self, id: &EnhModuleId) -> Option<&ASTModule> {
-        self.map.get(id).map(|it| &it.module)
-    }
-
     fn info(&self, id: &EnhModuleId) -> Option<ModuleInfo> {
         self.map
             .get(id)
@@ -66,26 +59,10 @@ impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> for RasmProjectCatalog {
         None
     }
 
-    fn catalog(
-        &self,
-    ) -> Vec<(
-        &ASTModule,
-        &EnhModuleId,
-        &EnhASTNameSpace,
-        &ModuleId,
-        &ModuleNamespace,
-    )> {
+    fn catalog(&self) -> Vec<(&EnhModuleId, &EnhASTNameSpace, &ModuleId, &ModuleNamespace)> {
         self.map
             .iter()
-            .map(|(id, entry)| {
-                (
-                    &entry.module,
-                    id,
-                    &entry.enh_namespace,
-                    &entry.id,
-                    &entry.namespace,
-                )
-            })
+            .map(|(id, entry)| (id, &entry.enh_namespace, &entry.id, &entry.namespace))
             .collect::<Vec<_>>()
     }
 
