@@ -392,7 +392,7 @@ impl RasmProject {
         impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
         Vec<CompilationError>,
     ) {
-        let mut catalog = RasmProjectCatalog::new(&self.config.package.name);
+        let mut catalog = RasmProjectCatalog::new();
         let mut container = ASTModulesContainer::new();
         let (modules, errors) = self.get_all_modules(statics, run_type, target, debug, options);
 

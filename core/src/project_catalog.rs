@@ -13,14 +13,12 @@ struct ModuleEntry {
 }
 
 pub struct RasmProjectCatalog {
-    project_lib: String,
     map: HashMap<EnhModuleId, ModuleEntry>,
 }
 
 impl RasmProjectCatalog {
-    pub fn new(project_lib: &str) -> Self {
+    pub fn new() -> Self {
         Self {
-            project_lib: project_lib.to_owned(),
             map: HashMap::new(),
         }
     }
@@ -64,13 +62,5 @@ impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> for RasmProjectCatalog {
             .iter()
             .map(|(id, entry)| (id, &entry.enh_namespace, &entry.id, &entry.namespace))
             .collect::<Vec<_>>()
-    }
-
-    fn is_readonly_module(&self, id: &ModuleId) -> bool {
-        if let Some(ci) = self.catalog_info(id) {
-            !ci.1.is_same_lib(&self.project_lib)
-        } else {
-            true
-        }
     }
 }
