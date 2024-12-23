@@ -13,9 +13,11 @@ use rasm_core::type_check::ast_type_checker::{
     ASTTypeCheckError, ASTTypeCheckInfo, ASTTypeChecker,
 };
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
+use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast::{
     ASTBuiltinFunctionType, ASTFunctionDef, ASTPosition, ASTType, BuiltinTypeKind, CustomTypeDef,
 };
+use rasm_parser::parser::Parser;
 use rasm_utils::OptionDisplay;
 
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
@@ -960,6 +962,48 @@ impl IDEHelper {
     /// find the statement start position of the expression that starts at index
     pub fn statement_start_position(&self, index: &ASTIndex) -> Option<ASTPosition> {
         StatementFinder {}.statement_start_position(index, &self.modules_container)
+    }
+
+    pub fn try_extract_let(
+        &self,
+        expression_text: &str,
+        start_index: ASTIndex,
+    ) -> Option<Vec<IDETextEdit>> {
+        let mut new_text = expression_text.to_owned();
+        new_text.push_str(";");
+        let parser = Parser::new(Lexer::new(new_text.to_owned()));
+        let (_, errors) = parser.parse();
+
+        let module_namespace = start_index.module_namespace().clone();
+        let module_id = start_index.module_id().clone();
+
+        if errors.is_empty() {
+            if let Some(start_position) = self.statement_start_position(&start_index) {
+                let mut changes = Vec::new();
+                changes.push(IDETextEdit::new(
+                    start_index,
+                    expression_text.len(),
+                    "valName".to_owned(),
+                ));
+
+                new_text.insert_str(0, "let valName = ");
+                new_text.push_str("\n");
+                if start_position.column > 0 {
+                    new_text.push_str(" ".repeat(start_position.column - 1).as_str());
+                }
+
+                let insert_index = ASTIndex::new(module_namespace, module_id, start_position);
+
+                changes.push(IDETextEdit::new(insert_index, 0, new_text));
+
+                Some(changes)
+                //}
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }
 
