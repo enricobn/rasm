@@ -67,6 +67,14 @@ impl ASTPosition {
             builtin: self.builtin.clone(),
         }
     }
+
+    pub fn mv_down(&self, len: usize) -> Self {
+        Self {
+            row: self.row + len,
+            column: self.column,
+            builtin: self.builtin.clone(),
+        }
+    }
 }
 
 impl Display for ASTPosition {
@@ -246,7 +254,7 @@ impl Display for ASTLambdaDef {
         let body = self
             .body
             .iter()
-            .map(|it| format!("{it};"))
+            .map(|it| format!("{it}"))
             .collect::<Vec<String>>()
             .join("");
 
