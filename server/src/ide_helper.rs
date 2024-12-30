@@ -1,6 +1,8 @@
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::io;
 
+use linked_hash_map::LinkedHashMap;
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::statics::Statics;
@@ -15,11 +17,13 @@ use rasm_core::type_check::ast_type_checker::{
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast::{
-    ASTBuiltinFunctionType, ASTFunctionDef, ASTPosition, ASTType, BuiltinTypeKind, CustomTypeDef,
+    ASTBuiltinFunctionType, ASTExpression, ASTFunctionDef, ASTPosition, ASTStatement, ASTType,
+    BuiltinTypeKind, CustomTypeDef,
 };
 use rasm_parser::parser::Parser;
 use rasm_utils::OptionDisplay;
 
+use crate::ast_tree::{ASTElement, ASTTree};
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
 use crate::statement_finder::StatementFinder;
 
@@ -39,13 +43,17 @@ pub struct IDESymbolInformation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IDETextEdit {
     pub from: ASTIndex,
-    pub len: usize,
+    pub to: ASTIndex,
     pub text: String,
 }
 
 impl IDETextEdit {
-    pub fn new(from: ASTIndex, len: usize, text: String) -> Self {
-        Self { from, len, text }
+    pub fn new(from: ASTIndex, to: ASTIndex, text: String) -> Self {
+        Self { from, to, text }
+    }
+    pub fn same_line(from: ASTIndex, len: usize, text: String) -> Self {
+        let to = from.mv_right(len);
+        Self { from, to, text }
     }
 }
 
@@ -763,7 +771,7 @@ impl IDEHelper {
         if let Some(item) = items.first() {
             let root_index_o = if let Some(ref target) = item.target {
                 if matches!(target, IDESelectableItemTarget::Itself(_)) {
-                    result.push(IDETextEdit::new(
+                    result.push(IDETextEdit::same_line(
                         item.start.clone(),
                         item.len,
                         new_name.to_owned(),
@@ -771,12 +779,12 @@ impl IDEHelper {
                     Some(item.start.clone())
                 } else {
                     if let Some(index) = target.index() {
-                        result.push(IDETextEdit::new(index, item.len, new_name.to_owned()));
+                        result.push(IDETextEdit::same_line(index, item.len, new_name.to_owned()));
                     }
                     target.index()
                 }
             } else {
-                result.push(IDETextEdit::new(
+                result.push(IDETextEdit::same_line(
                     item.start.clone(),
                     item.len,
                     new_name.to_owned(),
@@ -795,11 +803,11 @@ impl IDEHelper {
                 let references = self.references(&root_index);
 
                 for reference in references.iter() {
-                    result.push(IDETextEdit {
-                        from: reference.start.clone(),
-                        len: item.len,
-                        text: new_name.clone(),
-                    });
+                    result.push(IDETextEdit::same_line(
+                        reference.start.clone(),
+                        item.len,
+                        new_name.clone(),
+                    ));
                 }
             }
         }
@@ -967,7 +975,8 @@ impl IDEHelper {
     pub fn try_extract_let(
         &self,
         expression_text: &str,
-        start_index: ASTIndex,
+        start_index: &ASTIndex,
+        end_index: &ASTIndex,
     ) -> Option<Vec<IDETextEdit>> {
         let mut new_text = expression_text.to_owned();
         new_text.push_str(";");
@@ -978,11 +987,11 @@ impl IDEHelper {
         let module_id = start_index.module_id().clone();
 
         if errors.is_empty() {
-            if let Some(start_position) = self.statement_start_position(&start_index) {
+            if let Some(start_position) = self.statement_start_position(start_index) {
                 let mut changes = Vec::new();
                 changes.push(IDETextEdit::new(
-                    start_index,
-                    expression_text.len(),
+                    start_index.clone(),
+                    end_index.clone(),
                     "valName".to_owned(),
                 ));
 
@@ -994,7 +1003,7 @@ impl IDEHelper {
 
                 let insert_index = ASTIndex::new(module_namespace, module_id, start_position);
 
-                changes.push(IDETextEdit::new(insert_index, 0, new_text));
+                changes.push(IDETextEdit::same_line(insert_index, 0, new_text));
 
                 Some(changes)
                 //}
@@ -1003,6 +1012,196 @@ impl IDEHelper {
             }
         } else {
             None
+        }
+    }
+
+    pub fn try_extract_function(
+        &self,
+        original_code: &str,
+        start_index: &ASTIndex,
+        end_index: &ASTIndex,
+        last_position: ASTPosition,
+    ) -> Option<Vec<IDETextEdit>> {
+        let (ends_with_semicolon, code) = if original_code.ends_with(';') {
+            (true, original_code.to_owned())
+        } else {
+            let mut new_code = original_code.to_owned();
+            new_code.push(';');
+            (false, new_code)
+        };
+        let parser = Parser::new(Lexer::new(code.clone()));
+        let (module, errors) = parser.parse();
+
+        if !errors.is_empty() {
+            return None;
+        }
+
+        let mut container = ASTModulesContainer::new();
+        container.add(
+            module,
+            start_index.module_namespace().clone(),
+            start_index.module_id().clone(),
+            false,
+            true,
+        );
+
+        let module = container.module(start_index.module_id())?;
+        let mod_position = StatementFinder {}.module_position(start_index, &container)?;
+
+        let tree = ASTTree::new(&mod_position.body());
+
+        // println!("{tree}");
+
+        let last_statement = tree.last_statement()?;
+
+        let last_element = tree.get_element(last_statement)?;
+
+        if let ASTElement::Statement(stmt) = last_element {
+            if matches!(stmt, ASTStatement::LetStatement(_, _, _, _)) {
+                return None;
+            }
+        } else {
+            return None;
+        }
+
+        let last_statement_type = self.type_from_diff(
+            end_index.module_id(),
+            end_index.module_namespace(),
+            last_statement,
+            start_index.position().row - 1,
+            if end_index.position().row == start_index.position().row {
+                start_index.position().column - 1
+            } else {
+                0
+            },
+        )?;
+
+        // println!("last_statement_type {last_statement_type}");
+
+        let mut parameters_defs = Vec::new();
+        let mut parameters_values = Vec::new();
+        let parameters = Self::extract_vals_body(&module.body, &HashSet::new());
+        for par in parameters {
+            let diff_col = if par.1.row == 1 {
+                start_index.position().column - 1
+            } else {
+                0
+            };
+            let par_type = self.type_from_diff(
+                end_index.module_id(),
+                end_index.module_namespace(),
+                &par.1,
+                start_index.position().row - 1,
+                diff_col,
+            )?;
+            // println!("{} {}", par.0, par_type);
+            parameters_defs.push(format!("{}: {}", par.0, par_type));
+            parameters_values.push(par.0);
+        }
+
+        let mut function_code = format!(
+            "\n\nfn newFunction({}) -> {} {{\n",
+            parameters_defs.join(", "),
+            last_statement_type
+        );
+
+        function_code.push_str(&code);
+        function_code.push_str("\n}");
+
+        let mut call_code = format!("newFunction({})", parameters_values.join(", "));
+
+        if ends_with_semicolon {
+            call_code.push(';');
+        }
+
+        //println!("{function_code}");
+
+        Some(vec![
+            IDETextEdit::same_line(
+                start_index.with_position(last_position.mv_right(1)),
+                0,
+                function_code,
+            ),
+            IDETextEdit::new(start_index.clone(), end_index.clone(), call_code),
+        ])
+    }
+
+    fn type_from_diff(
+        &self,
+        module_id: &ModuleId,
+        module_namespace: &ModuleNamespace,
+        position: &ASTPosition,
+        diff_row: usize,
+        diff_col: usize,
+    ) -> Option<ASTType> {
+        let position_in_source =
+            ASTPosition::new(position.row + diff_row, position.column + diff_col);
+
+        let mut selectable_items = self.find(&ASTIndex::new(
+            module_namespace.clone(),
+            module_id.clone(),
+            position_in_source,
+        ));
+
+        if selectable_items.len() != 1 {
+            return None;
+        }
+
+        let last_statement_target = selectable_items.remove(0).target?;
+
+        last_statement_target.completion_type()
+    }
+
+    fn extract_vals_body(
+        body: &Vec<ASTStatement>,
+        excluding: &HashSet<String>,
+    ) -> LinkedHashMap<String, ASTPosition> {
+        let mut result = LinkedHashMap::new();
+        let mut excluding = excluding.clone();
+
+        for statement in body.iter() {
+            let statement_result = match statement {
+                ASTStatement::Expression(expr) => Self::extract_vals_expr(expr, &excluding),
+                ASTStatement::LetStatement(name, expr, _, _) => {
+                    excluding.insert(name.to_owned());
+                    Self::extract_vals_expr(expr, &excluding)
+                }
+            };
+            result.extend(statement_result);
+        }
+
+        result
+    }
+
+    fn extract_vals_expr(
+        expr: &ASTExpression,
+        excluding: &HashSet<String>,
+    ) -> LinkedHashMap<String, ASTPosition> {
+        match expr {
+            ASTExpression::ASTFunctionCallExpression(function_call) => {
+                let mut result = LinkedHashMap::new();
+                for e in function_call.parameters.iter() {
+                    result.extend(Self::extract_vals_expr(e, excluding));
+                }
+                result
+            }
+            ASTExpression::ValueRef(name, position) => {
+                if excluding.contains(name) {
+                    LinkedHashMap::new()
+                } else {
+                    let mut result = LinkedHashMap::new();
+                    result.insert(name.clone(), position.clone());
+                    result
+                }
+            }
+            ASTExpression::Value(_, _) => LinkedHashMap::new(),
+            ASTExpression::Lambda(lambda_def) => {
+                let mut excluding = excluding.clone();
+                for (name, _) in lambda_def.parameter_names.iter() {
+                    excluding.insert(name.clone());
+                }
+                Self::extract_vals_body(&lambda_def.body, &excluding)
+            }
         }
     }
 }
@@ -1866,6 +2065,127 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_extract_function_breakout() {
+        let (project, helper) = get_helper("../rasm/resources/examples/breakout");
+
+        if let Some((_, _, info)) = project.get_module(
+            Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
+            &CompileTarget::C(COptions::default()),
+        ) {
+            let start_index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(255, 13),
+            );
+            let end_index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(257, 93),
+            );
+            let code = "let newHighScores = highScores.add(score);
+            writeHighScores(newHighScores);
+            State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);";
+            if let Some(mut result) =
+                helper.try_extract_function(code, &start_index, &end_index, ASTPosition::new(0, 0))
+            {
+                let edit = result.remove(0);
+                assert_eq!("\n\nfn newFunction(highScores: Vec<HighScore>, score: i32, resources: Resources, newKeys: Vec<i32>) -> State {
+let newHighScores = highScores.add(score);
+            writeHighScores(newHighScores);
+            State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
+}", edit.text);
+                let edit = result.remove(0);
+                assert_eq!(
+                    "newFunction(highScores, score, resources, newKeys);",
+                    edit.text
+                );
+            } else {
+                panic!("Cannot find statement.");
+            }
+        } else {
+            panic!("Cannot find module.");
+        }
+    }
+
+    #[test]
+    fn test_extract_function_breakout_1() {
+        let (project, helper) = get_helper("../rasm/resources/examples/breakout");
+
+        if let Some((_, _, info)) = project.get_module(
+            Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
+            &CompileTarget::C(COptions::default()),
+        ) {
+            let start_index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(257, 39),
+            );
+            let end_index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(257, 76),
+            );
+            let code = "Stage::Menu(MenuState(newHighScores))";
+            if let Some(mut result) =
+                helper.try_extract_function(code, &start_index, &end_index, ASTPosition::new(0, 0))
+            {
+                let edit = result.remove(0);
+                assert_eq!(
+                    "\n\nfn newFunction(newHighScores: Vec<HighScore>) -> Stage {
+Stage::Menu(MenuState(newHighScores));
+}",
+                    edit.text
+                );
+                let edit = result.remove(0);
+                assert_eq!("newFunction(newHighScores)", edit.text);
+            } else {
+                panic!("Cannot find statement.");
+            }
+        } else {
+            panic!("Cannot find module.");
+        }
+    }
+
+    #[test]
+    fn test_extract_function_breakout_2() {
+        let (project, helper) = get_helper("../rasm/resources/examples/breakout");
+
+        if let Some((_, _, info)) = project.get_module(
+            Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
+            &CompileTarget::C(COptions::default()),
+        ) {
+            let start_index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(257, 13),
+            );
+            let end_index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(257, 92),
+            );
+            let code =
+                "State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);";
+            if let Some(mut result) =
+                helper.try_extract_function(code, &start_index, &end_index, ASTPosition::new(0, 0))
+            {
+                let edit = result.remove(0);
+                assert_eq!(
+                    "\n\nfn newFunction(resources: Resources, newKeys: Vec<i32>, newHighScores: Vec<HighScore>) -> State {
+State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
+}", edit.text
+                );
+                let edit = result.remove(0);
+                assert_eq!("newFunction(resources, newKeys, newHighScores);", edit.text);
+            } else {
+                panic!("Cannot find statement.");
+            }
+        } else {
+            panic!("Cannot find module.");
+        }
+    }
+
     fn same_signature(s1: &ASTFunctionSignature, s2: &ASTFunctionSignature) -> bool {
         if s1.parameters_types.len() != s2.parameters_types.len() {
             return false;
@@ -1945,7 +2265,13 @@ mod tests {
         let found = edits.map(|it| {
             let mut f = it
                 .into_iter()
-                .map(|it| (it.from.position().row, it.from.position().column, it.len))
+                .map(|it| {
+                    (
+                        it.from.position().row,
+                        it.from.position().column,
+                        it.to.position().column - it.from.position().column,
+                    )
+                })
                 .collect::<Vec<_>>();
             f.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
             f
@@ -1977,7 +2303,7 @@ mod tests {
                         format!("{}", it.from.module_namespace()),
                         it.from.position().row,
                         it.from.position().column,
-                        it.len,
+                        it.to.position().column - it.from.position().column,
                     )
                 })
                 .collect::<Vec<_>>();

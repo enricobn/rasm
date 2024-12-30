@@ -1,16 +1,10 @@
-use std::fmt::Display;
-
 use rasm_core::type_check::ast_modules_container::ASTModulesContainer;
 use rasm_parser::{
     catalog::ASTIndex,
-    parser::ast::{ASTExpression, ASTFunctionBody, ASTPosition, ASTStatement},
+    parser::ast::{
+        ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTModule, ASTPosition, ASTStatement,
+    },
 };
-
-pub enum SSPResult {
-    Before(ASTPosition),
-    Exact(ASTPosition),
-    After(ASTPosition),
-}
 
 enum SFExprResult {
     InExpr,
@@ -18,12 +12,19 @@ enum SFExprResult {
     InStatement(ASTPosition),
 }
 
-impl Display for SSPResult {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub enum ModulePosition<'a> {
+    Body(&'a ASTModule),
+    Function(&'a ASTModule, &'a ASTFunctionDef),
+}
+
+impl<'a> ModulePosition<'a> {
+    pub fn body(&self) -> &'a Vec<ASTStatement> {
         match self {
-            SSPResult::Before(position) => write!(f, "Before({position})"),
-            SSPResult::Exact(position) => write!(f, "Exact({position})"),
-            SSPResult::After(position) => write!(f, "After({position})"),
+            ModulePosition::Body(module) => &module.body,
+            ModulePosition::Function(_, ref function_def) => match &function_def.body {
+                ASTFunctionBody::RASMBody(vec) => vec,
+                ASTFunctionBody::NativeBody(_) => panic!(), // it should not happen
+            },
         }
     }
 }
@@ -37,6 +38,18 @@ impl StatementFinder {
         index: &ASTIndex,
         modules_container: &ASTModulesContainer,
     ) -> Option<ASTPosition> {
+        if let Some(module_position) = self.module_position(index, modules_container) {
+            self.find_body(index.position(), &module_position.body())
+        } else {
+            None
+        }
+    }
+
+    pub fn module_position<'a>(
+        &self,
+        index: &ASTIndex,
+        modules_container: &'a ASTModulesContainer,
+    ) -> Option<ModulePosition<'a>> {
         if let Some(module) = modules_container.module(index.module_id()) {
             let mut functions_positions = module
                 .functions
@@ -44,11 +57,20 @@ impl StatementFinder {
                 .map(|it| it.position.clone())
                 .collect::<Vec<_>>();
             functions_positions.sort();
+
+            if let Some(first_function_pos) = functions_positions.first() {
+                if index.position().cmp(&first_function_pos).is_le() {
+                    return Some(ModulePosition::Body(module));
+                }
+            } else {
+                return Some(ModulePosition::Body(module));
+            }
+
             functions_positions.reverse();
 
             let mut function = None;
             for fp in functions_positions.iter() {
-                if index.position().cmp(fp).is_gt() {
+                if index.position().cmp(&fp).is_gt() {
                     function = modules_container.function(&ASTIndex::new(
                         index.module_namespace().clone(),
                         index.module_id().clone(),
@@ -59,15 +81,9 @@ impl StatementFinder {
             }
 
             if let Some(function) = function {
-                if let ASTFunctionBody::RASMBody(ref body) = function.body {
-                    if let Some(pos) = self.find_body(index.position(), body) {
-                        return Some(pos);
-                    }
+                if let ASTFunctionBody::RASMBody(_) = function.body {
+                    return Some(ModulePosition::Function(module, &function));
                 }
-            }
-
-            if let Some(pos) = self.find_body(index.position(), &module.body) {
-                return Some(pos);
             }
         }
         None

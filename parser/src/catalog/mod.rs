@@ -91,6 +91,14 @@ impl ASTIndex {
         }
     }
 
+    pub fn mv_left(&self, offset: usize) -> Self {
+        Self {
+            module_namespace: self.module_namespace.clone(),
+            module_id: self.module_id.clone(),
+            position: self.position.clone().mv_left(offset),
+        }
+    }
+
     pub fn module_namespace(&self) -> &ModuleNamespace {
         &self.module_namespace
     }
@@ -105,6 +113,14 @@ impl ASTIndex {
 
     pub fn info(&self) -> ModuleInfo {
         ModuleInfo::new(self.module_namespace.clone(), self.module_id.clone())
+    }
+
+    pub fn with_position(&self, position: ASTPosition) -> Self {
+        Self {
+            module_namespace: self.module_namespace.clone(),
+            module_id: self.module_id.clone(),
+            position,
+        }
     }
 }
 
