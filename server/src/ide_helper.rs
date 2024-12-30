@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::io;
 
@@ -42,40 +42,77 @@ pub struct IDESymbolInformation {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IDETextEdit {
-    pub from: ASTIndex,
-    pub to: ASTIndex,
+    pub range: IDERange,
     pub text: String,
 }
 
 impl IDETextEdit {
-    pub fn new(from: ASTIndex, to: ASTIndex, text: String) -> Self {
-        Self { from, to, text }
+    pub fn new(range: IDERange, text: String) -> Self {
+        Self { range, text }
     }
-    pub fn same_line(from: ASTIndex, len: usize, text: String) -> Self {
+    pub fn same_line(from: ASTPosition, len: usize, text: String) -> Self {
         let to = from.mv_right(len);
-        Self { from, to, text }
+        Self {
+            range: IDERange::new(from, to),
+            text,
+        }
     }
 }
 
+pub struct IDEWorkspaceEdit {
+    pub changes: HashMap<ModuleId, Vec<IDETextEdit>>,
+}
+
+impl IDEWorkspaceEdit {
+    pub fn new() -> Self {
+        Self {
+            changes: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, id: ModuleId, edit: IDETextEdit) {
+        self.changes.entry(id).or_insert(Vec::new()).push(edit);
+    }
+
+    pub fn insert_same_line(&mut self, start: ASTIndex, len: usize, text: String) {
+        let edit = IDETextEdit::new(IDERange::same_line(start.position().clone(), len), text);
+        self.changes
+            .entry(start.module_id().clone())
+            .or_insert(Vec::new())
+            .push(edit);
+    }
+
+    pub fn changes(&self) -> &HashMap<ModuleId, Vec<IDETextEdit>> {
+        &self.changes
+    }
+
+    pub fn unique_changes(&self) -> HashMap<ModuleId, Vec<IDETextEdit>> {
+        self.changes
+            .iter()
+            .map(|(id, vec)| {
+                let mut result = vec.clone();
+                result.sort_by(|a, b| a.range.start.cmp(&b.range.start).then(a.text.cmp(&b.text)));
+                result.dedup();
+                (id.clone(), result)
+            })
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IDERange {
-    pub start: ASTIndex,
-    pub len: usize,
+    pub start: ASTPosition,
+    pub end: ASTPosition,
 }
 
 impl IDERange {
-    pub fn new(start: ASTIndex, len: usize) -> Self {
-        Self { start, len }
+    pub fn new(start: ASTPosition, end: ASTPosition) -> Self {
+        Self { start, end }
     }
 
-    pub fn contains(&self, index: &ASTIndex) -> bool {
-        if self.start.module_id() != index.module_id()
-            || self.start.module_namespace() != index.module_namespace()
-        {
-            return false;
-        }
-        self.start.position().row == index.position().row
-            && index.position().column >= self.start.position().column
-            && index.position().column <= (self.start.position().column + self.len - 1)
+    pub fn same_line(start: ASTPosition, len: usize) -> Self {
+        let end = start.mv_right(len);
+        Self::new(start, end)
     }
 }
 
@@ -106,7 +143,12 @@ impl IDESelectableItem {
     }
 
     pub fn contains(&self, index: &ASTIndex) -> bool {
-        IDERange::new(self.start.clone(), self.len).contains(index)
+        if self.start.module_id() != index.module_id() {
+            return false;
+        }
+        self.start.position().row == index.position().row
+            && index.position().column >= self.start.position().column
+            && index.position().column < self.start.position().column + self.len
     }
 }
 
@@ -764,31 +806,23 @@ impl IDEHelper {
         Vec::new()
     }
 
-    pub fn rename(&self, index: &ASTIndex, new_name: String) -> Result<Vec<IDETextEdit>, String> {
-        let mut result = Vec::new();
+    pub fn rename(&self, index: &ASTIndex, new_name: String) -> Result<IDEWorkspaceEdit, String> {
+        let mut result = IDEWorkspaceEdit::new();
 
         let items = self.find(&index);
         if let Some(item) = items.first() {
             let root_index_o = if let Some(ref target) = item.target {
                 if matches!(target, IDESelectableItemTarget::Itself(_)) {
-                    result.push(IDETextEdit::same_line(
-                        item.start.clone(),
-                        item.len,
-                        new_name.to_owned(),
-                    ));
+                    result.insert_same_line(item.start.clone(), item.len, new_name.to_owned());
                     Some(item.start.clone())
                 } else {
                     if let Some(index) = target.index() {
-                        result.push(IDETextEdit::same_line(index, item.len, new_name.to_owned()));
+                        result.insert_same_line(index, item.len, new_name.to_owned());
                     }
                     target.index()
                 }
             } else {
-                result.push(IDETextEdit::same_line(
-                    item.start.clone(),
-                    item.len,
-                    new_name.to_owned(),
-                ));
+                result.insert_same_line(item.start.clone(), item.len, new_name.to_owned());
                 Some(item.start.clone())
             };
 
@@ -803,19 +837,16 @@ impl IDEHelper {
                 let references = self.references(&root_index);
 
                 for reference in references.iter() {
-                    result.push(IDETextEdit::same_line(
-                        reference.start.clone(),
-                        item.len,
-                        new_name.clone(),
-                    ));
+                    result.insert_same_line(reference.start.clone(), item.len, new_name.clone());
                 }
             }
         }
 
-        if result.iter().any(|it| {
-            self.modules_container
-                .is_readonly_module(&it.from.module_id())
-        }) {
+        if result
+            .changes()
+            .iter()
+            .any(|it| self.modules_container.is_readonly_module(&it.0))
+        {
             /*
             for edit in result.iter() {
                 println!("edit {} : {}", edit.from.module_id(), edit.from.position());
@@ -827,8 +858,7 @@ impl IDEHelper {
             // TODO it can happen for example renaming a type that is the type of a property in a struct, because there are multiple
             // builtin functions that "insist" on the same property (getter, setter, setter with lambda ...), but it
             // could be better to find another way, for example inspecting the ASTPosition.builtin value
-            result.sort_by(|a, b| a.from.position().partial_cmp(b.from.position()).unwrap());
-            result.dedup();
+            result.changes = result.unique_changes();
             Ok(result)
         }
     }
@@ -977,7 +1007,7 @@ impl IDEHelper {
         expression_text: &str,
         start_index: &ASTIndex,
         end_index: &ASTIndex,
-    ) -> Option<Vec<IDETextEdit>> {
+    ) -> Option<IDEWorkspaceEdit> {
         let mut new_text = expression_text.to_owned();
         new_text.push_str(";");
         let parser = Parser::new(Lexer::new(new_text.to_owned()));
@@ -988,12 +1018,14 @@ impl IDEHelper {
 
         if errors.is_empty() {
             if let Some(start_position) = self.statement_start_position(start_index) {
-                let mut changes = Vec::new();
-                changes.push(IDETextEdit::new(
-                    start_index.clone(),
-                    end_index.clone(),
-                    "valName".to_owned(),
-                ));
+                let mut changes = IDEWorkspaceEdit::new();
+                changes.insert(
+                    start_index.module_id().clone(),
+                    IDETextEdit::new(
+                        IDERange::new(start_index.position().clone(), end_index.position().clone()),
+                        "valName".to_owned(),
+                    ),
+                );
 
                 new_text.insert_str(0, "let valName = ");
                 new_text.push_str("\n");
@@ -1003,7 +1035,7 @@ impl IDEHelper {
 
                 let insert_index = ASTIndex::new(module_namespace, module_id, start_position);
 
-                changes.push(IDETextEdit::same_line(insert_index, 0, new_text));
+                changes.insert_same_line(insert_index, 0, new_text);
 
                 Some(changes)
                 //}
@@ -1021,7 +1053,7 @@ impl IDEHelper {
         start_index: &ASTIndex,
         end_index: &ASTIndex,
         last_position: ASTPosition,
-    ) -> Option<Vec<IDETextEdit>> {
+    ) -> Option<IDEWorkspaceEdit> {
         let (ends_with_semicolon, code) = if original_code.ends_with(';') {
             (true, original_code.to_owned())
         } else {
@@ -1116,14 +1148,23 @@ impl IDEHelper {
 
         //println!("{function_code}");
 
-        Some(vec![
-            IDETextEdit::same_line(
-                start_index.with_position(last_position.mv_right(1)),
-                0,
-                function_code,
+        let mut changes = IDEWorkspaceEdit::new();
+
+        changes.insert_same_line(
+            start_index.with_position(last_position.mv_right(1)),
+            0,
+            function_code,
+        );
+
+        changes.insert(
+            start_index.module_id().clone(),
+            IDETextEdit::new(
+                IDERange::new(start_index.position().clone(), end_index.position().clone()),
+                call_code,
             ),
-            IDETextEdit::new(start_index.clone(), end_index.clone(), call_code),
-        ])
+        );
+
+        Some(changes)
     }
 
     fn type_from_diff(
@@ -1798,15 +1839,15 @@ mod tests {
             216,
             30,
             Ok(vec![
-                ("breakout_breakout".to_owned(), 173, 12, 9),
-                ("breakout_breakout".to_owned(), 183, 16, 9),
-                ("breakout_breakout".to_owned(), 216, 26, 9),
-                ("breakout_game".to_owned(), 32, 26, 9),
-                ("breakout_game".to_owned(), 50, 22, 9),
-                ("breakout_game".to_owned(), 86, 44, 9),
-                ("breakout_game".to_owned(), 92, 40, 9),
-                ("breakout_menu".to_owned(), 5, 26, 9),
-                ("breakout_menu".to_owned(), 15, 44, 9),
+                ("breakout.rasm".to_owned(), 173, 12, 9),
+                ("breakout.rasm".to_owned(), 183, 16, 9),
+                ("breakout.rasm".to_owned(), 216, 26, 9),
+                ("game.rasm".to_owned(), 32, 26, 9),
+                ("game.rasm".to_owned(), 50, 22, 9),
+                ("game.rasm".to_owned(), 86, 44, 9),
+                ("game.rasm".to_owned(), 92, 40, 9),
+                ("menu.rasm".to_owned(), 5, 26, 9),
+                ("menu.rasm".to_owned(), 15, 44, 9),
             ]),
             "src/main/rasm/breakout.rasm",
         );
@@ -2086,9 +2127,10 @@ mod tests {
             let code = "let newHighScores = highScores.add(score);
             writeHighScores(newHighScores);
             State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);";
-            if let Some(mut result) =
+            if let Some(result) =
                 helper.try_extract_function(code, &start_index, &end_index, ASTPosition::new(0, 0))
             {
+                let mut result = result.changes().clone().remove(&info.module_id()).unwrap();
                 let edit = result.remove(0);
                 assert_eq!("\n\nfn newFunction(highScores: Vec<HighScore>, score: i32, resources: Resources, newKeys: Vec<i32>) -> State {
 let newHighScores = highScores.add(score);
@@ -2127,9 +2169,10 @@ let newHighScores = highScores.add(score);
                 ASTPosition::new(257, 76),
             );
             let code = "Stage::Menu(MenuState(newHighScores))";
-            if let Some(mut result) =
+            if let Some(result) =
                 helper.try_extract_function(code, &start_index, &end_index, ASTPosition::new(0, 0))
             {
+                let mut result = result.changes().clone().remove(&info.module_id()).unwrap();
                 let edit = result.remove(0);
                 assert_eq!(
                     "\n\nfn newFunction(newHighScores: Vec<HighScore>) -> Stage {
@@ -2167,9 +2210,10 @@ Stage::Menu(MenuState(newHighScores));
             );
             let code =
                 "State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);";
-            if let Some(mut result) =
+            if let Some(result) =
                 helper.try_extract_function(code, &start_index, &end_index, ASTPosition::new(0, 0))
             {
+                let mut result = result.changes().clone().remove(&info.module_id()).unwrap();
                 let edit = result.remove(0);
                 assert_eq!(
                     "\n\nfn newFunction(resources: Resources, newKeys: Vec<i32>, newHighScores: Vec<HighScore>) -> State {
@@ -2257,19 +2301,20 @@ State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
     ) {
         let (project, helper) = get_helper(file);
 
-        let edits = helper.rename(
-            &get_index(&project, file_name, row, column),
-            new_name.to_owned(),
-        );
+        let index = get_index(&project, file_name, row, column);
+        let edits = helper.rename(&index, new_name.to_owned());
 
         let found = edits.map(|it| {
             let mut f = it
-                .into_iter()
+                .changes()
+                .get(index.module_id())
+                .unwrap()
+                .iter()
                 .map(|it| {
                     (
-                        it.from.position().row,
-                        it.from.position().column,
-                        it.to.position().column - it.from.position().column,
+                        it.range.start.row,
+                        it.range.start.column,
+                        it.range.end.column - it.range.start.column,
                     )
                 })
                 .collect::<Vec<_>>();
@@ -2290,21 +2335,22 @@ State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
     ) {
         let (project, helper) = get_helper(file);
 
-        let edits = helper.rename(
-            &get_index(&project, file_name, row, column),
-            new_name.to_owned(),
-        );
+        let index = get_index(&project, file_name, row, column);
+        let edits = helper.rename(&index, new_name.to_owned());
 
         let found = edits.map(|it| {
             let mut f = it
-                .into_iter()
-                .map(|it| {
-                    (
-                        format!("{}", it.from.module_namespace()),
-                        it.from.position().row,
-                        it.from.position().column,
-                        it.to.position().column - it.from.position().column,
-                    )
+                .changes()
+                .iter()
+                .flat_map(move |(module_id, edits)| {
+                    edits.iter().map(move |it| {
+                        (
+                            format!("{}", module_id.0.split("/").last().unwrap()),
+                            it.range.start.row,
+                            it.range.start.column,
+                            it.range.end.column - it.range.start.column,
+                        )
+                    })
                 })
                 .collect::<Vec<_>>();
             f.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1).then(a.2.cmp(&b.2))));
