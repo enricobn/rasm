@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
-use rasm_parser::parser::ast::{ASTExpression, ASTPosition, ASTStatement};
+use rasm_parser::parser::ast::{ASTExpression, ASTFunctionCall, ASTPosition, ASTStatement};
 
 pub enum ASTElement<'a> {
     Statement(&'a ASTStatement),
@@ -83,6 +83,48 @@ impl<'a> ASTTree<'a> {
 
     pub fn get_element(&self, position: &ASTPosition) -> Option<&ASTElement> {
         self.positions.get(position)
+    }
+
+    pub fn previous_element(&self, position: &ASTPosition) -> Option<&ASTElement> {
+        let mut column = position.column;
+        while column > 0 {
+            if let Some(e) = self.get_element(&ASTPosition::new(position.row, column)) {
+                return Some(e);
+            }
+            column -= 1;
+        }
+        None
+    }
+
+    pub fn enclosing_call(&self, element: &ASTElement) -> Option<&ASTFunctionCall> {
+        if let ASTElement::Expression(e) = element {
+            if let Some(parent) = self.parents.get(&e.position()) {
+                if let Some(p_e) = self.get_element(parent) {
+                    let expr = match p_e {
+                        ASTElement::Statement(stmt) => match stmt {
+                            ASTStatement::Expression(astexpression) => astexpression,
+                            ASTStatement::LetStatement(_, _, _, _) => {
+                                return None;
+                            }
+                        },
+                        ASTElement::Expression(astexpression) => astexpression,
+                    };
+
+                    if let ASTExpression::ASTFunctionCallExpression(call) = expr {
+                        return Some(call);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub fn children(&self, position: &ASTPosition) -> Vec<&ASTPosition> {
+        self.parents
+            .iter()
+            .filter(|(_, parent)| parent == &position)
+            .map(|(child, _)| child)
+            .collect()
     }
 
     fn add_statement(&mut self, statement: &'a ASTStatement) {

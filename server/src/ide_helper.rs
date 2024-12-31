@@ -17,8 +17,9 @@ use rasm_core::type_check::ast_type_checker::{
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast::{
-    ASTBuiltinFunctionType, ASTExpression, ASTFunctionDef, ASTPosition, ASTStatement, ASTType,
-    BuiltinTypeKind, CustomTypeDef,
+    ASTBuiltinFunctionType, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTFunctionSignature,
+    ASTModifiers, ASTParameterDef, ASTPosition, ASTStatement, ASTType, BuiltinTypeKind,
+    CustomTypeDef,
 };
 use rasm_parser::parser::Parser;
 use rasm_utils::OptionDisplay;
@@ -211,6 +212,44 @@ pub enum IDECompletionType {
     Identifier(String),
 }
 
+#[derive(PartialEq, Eq)]
+enum CharAtResult {
+    Char(char),
+    EndOfLine,
+    Outside,
+}
+
+pub struct IDESignature {
+    pub name: String,
+    pub parameters: Vec<ASTParameterDef>,
+    pub return_type: ASTType,
+    pub inline: bool,
+    pub generic_types: Vec<String>,
+    pub position: ASTPosition,
+    pub modifiers: ASTModifiers,
+    pub native: bool,
+}
+
+impl IDESignature {
+    fn new(function: &ASTFunctionDef) -> Self {
+        Self {
+            name: function.name.clone(),
+            parameters: function.parameters.clone(),
+            return_type: function.return_type.clone(),
+            inline: function.inline,
+            generic_types: function.generic_types.clone(),
+            position: function.position.clone(),
+            modifiers: function.modifiers.clone(),
+            native: matches!(function.body, ASTFunctionBody::NativeBody(_)),
+        }
+    }
+}
+
+pub struct IDESignatureHelp {
+    pub signature: IDESignature,
+    pub param: usize,
+}
+
 pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<CompilationError>) {
     let mut statics = Statics::new();
 
@@ -223,13 +262,6 @@ pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<Com
     );
 
     (IDEHelper::from_container(container), errors)
-}
-
-#[derive(PartialEq, Eq)]
-enum CharAtResult {
-    Char(char),
-    EndOfLine,
-    Outside,
 }
 
 pub struct IDEHelper {
@@ -1245,6 +1277,51 @@ impl IDEHelper {
             }
         }
     }
+
+    pub fn signature_help(&self, index: &ASTIndex) -> Option<IDESignatureHelp> {
+        let mod_position = StatementFinder {}.module_position(index, &self.modules_container)?;
+        let tree = match mod_position {
+            crate::statement_finder::ModulePosition::Body(module) => ASTTree::new(&module.body),
+            crate::statement_finder::ModulePosition::Function(_, function_def) => {
+                if let ASTFunctionBody::RASMBody(ref body) = function_def.body {
+                    ASTTree::new(body)
+                } else {
+                    return None;
+                }
+            }
+        };
+
+        let element = tree.previous_element(index.position())?;
+
+        if let Some(call) = tree.enclosing_call(element) {
+            let mut items = self.find(&index.with_position(call.position.clone()));
+
+            if items.len() == 1 {
+                let item = items.remove(0);
+
+                if let Some(IDESelectableItemTarget::Function(function_index, _, _)) = item.target {
+                    if let Some(function) = self.modules_container.function(&function_index) {
+                        let mut children = tree.children(&call.position);
+
+                        children.sort();
+
+                        let (i, _) = children
+                            .iter()
+                            .enumerate()
+                            .find(|(_, p)| p == &&&element.position())?;
+
+                        let signature = IDESignature::new(function);
+                        return Some(IDESignatureHelp {
+                            signature,
+                            param: i,
+                        });
+                    }
+                }
+            }
+        }
+
+        None
+    }
 }
 
 #[cfg(test)]
@@ -2222,6 +2299,31 @@ State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
                 );
                 let edit = result.remove(0);
                 assert_eq!("newFunction(resources, newKeys, newHighScores);", edit.text);
+            } else {
+                panic!("Cannot find statement.");
+            }
+        } else {
+            panic!("Cannot find module.");
+        }
+    }
+
+    #[test]
+    fn test_signature_help_breakout() {
+        let (project, helper) = get_helper("../rasm/resources/examples/breakout");
+
+        if let Some((_, _, info)) = project.get_module(
+            Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
+            &CompileTarget::C(COptions::default()),
+        ) {
+            let index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(257, 30),
+            );
+            if let Some(result) = helper.signature_help(&index) {
+                assert_eq!("State", result.signature.name);
+                assert_eq!(4, result.signature.parameters.len());
+                assert_eq!(1, result.param);
             } else {
                 panic!("Cannot find statement.");
             }

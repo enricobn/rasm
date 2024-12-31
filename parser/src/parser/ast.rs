@@ -181,8 +181,8 @@ impl Display for ASTFunctionDef {
             .collect::<Vec<String>>()
             .join(",");
         f.write_str(&format!(
-            "{modifiers}{}{} {}{generic_types}({args}) -> {rt}",
-            modifiers, fun_or_asm, self.name
+            "{modifiers}{} {}{generic_types}({args}) -> {rt}",
+            fun_or_asm, self.name
         ))
     }
 }
