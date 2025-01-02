@@ -433,6 +433,26 @@ impl ASTModulesContainer {
             ASTType::Unit => matches!(with_type, ASTType::Unit),
         }
     }
+
+    pub fn custom_type_index(&self, namespace: &ModuleNamespace, name: &str) -> Option<ASTIndex> {
+        let e = self
+            .get_enum_def(namespace, name)
+            .map(|(info, def)| (info, &def.position));
+        let s = self
+            .get_struct_def(namespace, name)
+            .map(|(info, def)| (info, &def.position));
+        let t = self
+            .get_type_def(namespace, name)
+            .map(|(info, def)| (info, &def.position));
+
+        e.or(s.or(t)).map(|(info, position)| {
+            ASTIndex::new(
+                info.namespace().clone(),
+                info.id().clone(),
+                position.clone(),
+            )
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
