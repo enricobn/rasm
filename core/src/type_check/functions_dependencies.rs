@@ -708,9 +708,8 @@ mod tests {
 
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget},
-        project::RasmProjectRunType,
         type_check::{
-            ast_type_checker_from_project, functions_dependencies::function_dependencies,
+            ast_type_checker::ASTTypeChecker, functions_dependencies::function_dependencies,
             test_utils::project_and_container,
         },
     };
@@ -774,8 +773,7 @@ mod tests {
 
         let function = module.functions.first().unwrap();
 
-        let type_checker =
-            ast_type_checker_from_project(&project, &RasmProjectRunType::Main, &target, &container);
+        let (type_checker, _) = ASTTypeChecker::from_modules_container(&container);
 
         function_dependencies(
             function,

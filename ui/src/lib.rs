@@ -68,7 +68,7 @@ impl UI {
 
         let (modules_container, catalog, errors) = project.container_and_catalog(
             &mut statics,
-            &RasmProjectRunType::All,
+            &RasmProjectRunType::Main,
             &target,
             false,
             &CommandLineOptions::default(),

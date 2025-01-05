@@ -256,6 +256,39 @@ impl ASTTypeChecker {
         }
     }
 
+    pub fn from_modules_container(modules_container: &ASTModulesContainer) -> (Self, ValContext) {
+        let mut type_checker = ASTTypeChecker::new();
+        let mut static_val_context = ValContext::new(None);
+
+        for (id, namespace, module) in modules_container.modules() {
+            let mut val_context = ValContext::new(None);
+
+            type_checker.add_body(
+                &mut val_context,
+                &mut static_val_context,
+                &module.body,
+                None,
+                &namespace,
+                &id,
+                &modules_container,
+            );
+        }
+
+        for (id, namespace, module) in modules_container.modules() {
+            for function in module.functions.iter() {
+                type_checker.add_function(
+                    &function,
+                    &static_val_context,
+                    &namespace,
+                    &id,
+                    &modules_container,
+                );
+            }
+        }
+
+        (type_checker, static_val_context)
+    }
+
     pub fn add_function(
         &mut self,
         function: &ASTFunctionDef,
@@ -1710,7 +1743,7 @@ mod tests {
 
     #[test]
     fn test_functions_checker8() {
-        let file = "resources/test/ast_type_checker/ast_type_checker8.rasm";
+        let file: &str = "resources/test/ast_type_checker/ast_type_checker8.rasm";
 
         let (types_map, info) = check_function(file, "generic");
 
@@ -1755,33 +1788,7 @@ mod tests {
             start.elapsed()
         );
 
-        let mut static_val_context = ValContext::new(None);
-
-        let mut function_type_checker = ASTTypeChecker::new();
-
-        for (id, namespace, module) in container.modules().iter() {
-            let mut val_context = ValContext::new(None);
-
-            function_type_checker.add_body(
-                &mut val_context,
-                &mut static_val_context,
-                &module.body,
-                None,
-                &namespace,
-                &id,
-                &container,
-            );
-
-            for function in module.functions.iter() {
-                function_type_checker.add_function(
-                    &function,
-                    &static_val_context,
-                    &namespace,
-                    &id,
-                    &container,
-                );
-            }
-        }
+        ASTTypeChecker::from_modules_container(&container);
 
         println!("checked project {path} in {:?}", start.elapsed());
     }

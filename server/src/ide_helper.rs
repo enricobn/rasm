@@ -17,9 +17,8 @@ use rasm_core::type_check::ast_type_checker::{
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast::{
-    ASTBuiltinFunctionType, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTFunctionSignature,
-    ASTModifiers, ASTParameterDef, ASTPosition, ASTStatement, ASTType, BuiltinTypeKind,
-    CustomTypeDef,
+    ASTBuiltinFunctionType, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTModifiers,
+    ASTParameterDef, ASTPosition, ASTStatement, ASTType, BuiltinTypeKind, CustomTypeDef,
 };
 use rasm_parser::parser::Parser;
 use rasm_utils::OptionDisplay;
@@ -219,6 +218,7 @@ enum CharAtResult {
     Outside,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct IDESignature {
     pub name: String,
     pub parameters: Vec<ASTParameterDef>,
@@ -272,13 +272,11 @@ pub struct IDEHelper {
 
 impl IDEHelper {
     pub fn from_container(modules_container: ASTModulesContainer) -> IDEHelper {
+        let mut selectable_items = Vec::new();
+        let mut type_checker = ASTTypeChecker::new();
         let mut static_val_context = ValContext::new(None);
 
-        let mut type_checker = ASTTypeChecker::new();
-        let mut selectable_items = Vec::new();
-
-        for (id, namespace, module) in modules_container.modules().into_iter() {
-            //module_info_to_enh_info.insert(info.module_info(), info.clone());
+        for (id, namespace, module) in modules_container.modules() {
             let mut val_context = ValContext::new(None);
 
             type_checker.add_body(
@@ -292,7 +290,7 @@ impl IDEHelper {
             );
         }
 
-        for (id, namespace, module) in modules_container.modules().into_iter() {
+        for (id, namespace, module) in modules_container.modules() {
             let info = ModuleInfo::new(namespace.clone(), id.clone());
 
             for function in module.functions.iter() {
@@ -2330,6 +2328,11 @@ State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
         } else {
             panic!("Cannot find module.");
         }
+    }
+
+    #[test]
+    fn test_matchmacro() {
+        get_helper("../rasm/resources/test/matchmacro.rasm");
     }
 
     fn same_signature(s1: &ASTFunctionSignature, s2: &ASTFunctionSignature) -> bool {

@@ -1,15 +1,8 @@
-use ast_modules_container::ASTModulesContainer;
-use ast_type_checker::ASTTypeChecker;
 use type_check_error::TypeCheckError;
 
-use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::EnhASTIndex;
 use crate::codegen::enh_ast::{EnhASTType, EnhBuiltinTypeKind};
-use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, TextMacro};
-use crate::codegen::val_context::ValContext;
-use crate::commandline::CommandLineOptions;
-use crate::project::{RasmProject, RasmProjectRunType};
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 use rasm_utils::{debug_i, dedent, indent};
 
@@ -301,56 +294,6 @@ pub fn substitute(
         debug_i!("something substituted {ast_type} -> {r}");
     }
     result
-}
-
-pub fn ast_type_checker_from_project(
-    project: &RasmProject,
-    run_type: &RasmProjectRunType,
-    target: &CompileTarget,
-    modules_container: &ASTModulesContainer,
-) -> ASTTypeChecker {
-    let mut statics = Statics::new();
-
-    let (modules, errors) = project.get_all_modules(
-        &mut statics,
-        run_type,
-        target,
-        false,
-        &CommandLineOptions::default(),
-    );
-
-    let mut ast_type_checker = ASTTypeChecker::new();
-
-    let mut static_val_context = ValContext::new(None);
-
-    for (module, info) in modules.iter() {
-        //module_info_to_enh_info.insert(info.module_info(), info.clone());
-        let mut val_context = ValContext::new(None);
-
-        ast_type_checker.add_body(
-            &mut val_context,
-            &mut static_val_context,
-            &module.body,
-            None,
-            &info.module_namespace(),
-            &info.module_id(),
-            modules_container,
-        );
-    }
-
-    for (module, info) in modules.iter() {
-        for function in module.functions.iter() {
-            ast_type_checker.add_function(
-                &function,
-                &static_val_context,
-                &info.module_namespace(),
-                &info.module_id(),
-                modules_container,
-            );
-        }
-    }
-
-    ast_type_checker
 }
 
 fn substitute_types(

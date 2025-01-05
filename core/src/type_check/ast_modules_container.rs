@@ -120,6 +120,8 @@ impl ASTModulesContainer {
         add_builtin: bool,
         readonly: bool,
     ) {
+        println!("adding module {module_id}");
+
         if add_builtin {
             for enum_def in module.enums.iter() {
                 for (signature, position, ft) in BuiltinFunctions::enum_signatures(enum_def) {
@@ -210,7 +212,7 @@ impl ASTModulesContainer {
                 .iter()
                 .for_each(|f| {
                     panic!(
-                        "{f} : {} {}\n{function} : {} {}",
+                        "already added function {f} : {} {}\n{function} : {} {}",
                         f.position,
                         OptionDisplay(&f.position.builtin),
                         function.position,
