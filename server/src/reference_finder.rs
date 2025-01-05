@@ -36,9 +36,11 @@ impl ReferenceFinder {
     pub fn new(
         module: &EnhancedASTModule,
         ast_module: &EnhASTModule,
+        compile_target: CompileTarget,
+        debug: bool,
     ) -> Result<Self, TypeCheckError> {
         let path = ast_module.path.clone();
-        let selectable_items = Self::process_module(module, ast_module)?;
+        let selectable_items = Self::process_module(module, ast_module, compile_target, debug)?;
 
         Ok(Self {
             selectable_items,
@@ -416,16 +418,24 @@ impl ReferenceFinder {
     fn process_module(
         enhanced_module: &EnhancedASTModule,
         module: &EnhASTModule,
+        compile_target: CompileTarget,
+        debug: bool,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut reference_context = ReferenceContext::new(None);
         let mut reference_static_context = ReferenceContext::new(None);
         let mut val_context = EnhValContext::new(None);
         let mut statics = Statics::new();
 
-        let mut type_check = TypeCheck::new();
+        let mut type_check = TypeCheck::new(compile_target.clone(), debug);
 
         let mut result = Vec::new();
-        Self::process_statics(enhanced_module, &mut reference_static_context, &mut statics);
+        Self::process_statics(
+            enhanced_module,
+            &mut reference_static_context,
+            &mut statics,
+            compile_target,
+            debug,
+        );
 
         let mut new_functions = Vec::new();
 
@@ -471,11 +481,13 @@ impl ReferenceFinder {
         enhanced_module: &EnhancedASTModule,
         reference_static_context: &mut ReferenceContext,
         statics: &mut Statics,
+        compile_target: CompileTarget,
+        debug: bool,
     ) -> Vec<SelectableItem> {
         let mut result = Vec::new();
         let mut reference_context = ReferenceContext::new(None);
         let mut val_context = EnhValContext::new(None);
-        let mut type_check = TypeCheck::new();
+        let mut type_check = TypeCheck::new(compile_target, debug);
 
         let mut new_functions = Vec::new();
 
@@ -1187,7 +1199,13 @@ mod tests {
     fn simple() {
         let (_project, eh_module, module) =
             get_reference_finder("resources/test/simple.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         let file_name = Path::new("resources/test/simple.rasm");
 
@@ -1254,7 +1272,13 @@ mod tests {
     #[test]
     fn types() {
         let (_project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         let file_name = Path::new("resources/test/types.rasm");
         let project = RasmProject::new(file_name.to_path_buf());
@@ -1327,7 +1351,13 @@ mod tests {
     #[test]
     fn struct_constructor() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         let file_name = Path::new("resources/test/types.rasm");
 
@@ -1346,7 +1376,13 @@ mod tests {
     #[test]
     fn types_1() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         let file_name = PathBuf::from("resources/test/types.rasm");
         let found = finder
@@ -1362,7 +1398,13 @@ mod tests {
     #[test]
     fn types_2() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         let file_name = PathBuf::from("resources/test/types.rasm");
         let found = finder
@@ -1378,7 +1420,13 @@ mod tests {
     #[test]
     fn types_3() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         let file_name = PathBuf::from("resources/test/types.rasm");
         let found = finder
@@ -1493,7 +1541,13 @@ mod tests {
     #[test]
     fn types_lambda_param_type() {
         let (_project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
 
@@ -1537,7 +1591,13 @@ mod tests {
             "resources/test/types.rasm",
             Some(&result_rasm.to_string_lossy()),
         );
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         match finder.find(&EnhASTIndex::new(Some(result_rasm.clone()), 11, 9)) {
             Ok(mut selectable_items) => {
@@ -1564,7 +1624,13 @@ mod tests {
     #[test]
     fn enums() {
         let (_project, eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         let file_name = Path::new("resources/test/enums.rasm");
 
@@ -1590,7 +1656,13 @@ mod tests {
     #[test]
     fn enums_1() {
         let (_project, eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         let file_name = Path::new("resources/test/enums.rasm");
 
@@ -1628,7 +1700,13 @@ mod tests {
             Some("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
         );
 
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -1687,7 +1765,13 @@ mod tests {
 
     fn test_references(file: &str, row: usize, column: usize, expected: Vec<(usize, usize)>) {
         let (_project, eh_module, module) = get_reference_finder(file, None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         /*
         for item in finder.selectable_items.iter() {
@@ -1732,7 +1816,13 @@ mod tests {
         expected: Result<Vec<(usize, usize, usize)>, String>,
     ) {
         let (_project, eh_module, module) = get_reference_finder(file, None);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         /*
         for item in finder.selectable_items.iter() {
@@ -1870,7 +1960,13 @@ mod tests {
             RasmProject::new(PathBuf::from(file_name))
         };
         let (eh_module, module) = get_reference_finder_for_project(&project, file_name);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         let file_name = Some(PathBuf::from(file_name));
         let index = EnhASTIndex::new(file_name.clone(), row, col);
@@ -1903,7 +1999,13 @@ mod tests {
             RasmProject::new(PathBuf::from(file_name))
         };
         let (eh_module, module) = get_reference_finder_for_project(&project, file_name);
-        let finder = ReferenceFinder::new(&eh_module, &module).unwrap();
+        let finder = ReferenceFinder::new(
+            &eh_module,
+            &module,
+            CompileTarget::C(COptions::default()),
+            false,
+        )
+        .unwrap();
 
         let file_name = Some(PathBuf::from(file_name));
         let index = EnhASTIndex::new(file_name.clone(), row, col);

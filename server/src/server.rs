@@ -26,13 +26,16 @@ use axum::extract::{Query, State};
 use axum::response::Html;
 use axum::{routing::get, Router};
 use log::info;
-use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTModule};
+use rasm_core::codegen::enh_ast::EnhASTIndex;
 use rasm_core::codegen::AsmOptions;
 use rasm_core::commandline::CommandLineOptions;
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
+use rasm_parser::catalog::ASTIndex;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
-use crate::reference_finder::ReferenceFinder;
+use crate::ide_helper::IDEHelper;
+
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
@@ -188,19 +191,24 @@ async fn file<'a>(
         .canonicalize()
         .unwrap();
 
+    let target = CompileTarget::Nasmi386(AsmOptions::default());
+
     let (module, errors, info) = &state
         .project
-        .get_module(
-            file_path.as_path(),
-            &CompileTarget::Nasmi386(AsmOptions::default()),
-        )
+        .get_module(file_path.as_path(), &target)
         .unwrap();
 
-    let finder = ReferenceFinder::new(
-        &state.enhanced_modules,
-        &EnhASTModule::from_ast(module.clone(), info.clone()),
-    )
-    .unwrap();
+    let mut statics = Statics::new();
+
+    let (container, catalog, _) = project.container_and_catalog(
+        &mut statics,
+        &RasmProjectRunType::Main,
+        &target,
+        false,
+        &CommandLineOptions::default(),
+    );
+
+    let ide_helper = IDEHelper::from_container(container);
 
     let result = if let Ok(mut file) = File::open(file_path.clone()) {
         let mut s = String::new();
@@ -226,6 +234,12 @@ async fn file<'a>(
                 it.position.column,
             );
 
+            let ast_index = ASTIndex::new(
+                info.module_namespace().clone(),
+                info.module_id().clone(),
+                it.position.clone(),
+            );
+
             if row != index.row {
                 row = index.row;
                 if !(is_multiline(&it)
@@ -234,16 +248,17 @@ async fn file<'a>(
                     html.push_str(&format!("{: >6} ", row));
                 }
             }
-            let mut vec = finder.find(&index).unwrap();
+            let mut vec = ide_helper.find(&ast_index);
             let name = format!("_{}_{}", it.position.row, it.position.column);
             if !vec.is_empty() {
                 let item = vec.remove(0);
                 if let Some((file_name, row, column)) =
                     item.target.and_then(|it| it.index()).and_then(|index| {
-                        index
-                            .clone()
-                            .file_name
-                            .map(|it| (it, index.row, index.column))
+                        let info = catalog.catalog_info(index.module_id());
+                        info.and_then(|(id, _)| {
+                            id.path()
+                                .map(|path| (path, index.position().row, index.position().column))
+                        })
                     })
                 {
                     let ref_name = format!(

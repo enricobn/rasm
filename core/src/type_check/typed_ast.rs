@@ -942,15 +942,13 @@ pub fn convert_to_typed_module(
     target: &CompileTarget,
     debug: bool,
 ) -> Result<ASTTypedModule, CompilationError> {
-    let type_check = TypeCheck::new();
+    let type_check = TypeCheck::new(target.clone(), debug);
 
     let module = type_check.type_check(
         original_module.clone(),
         statics,
         default_functions,
         mandatory_functions,
-        target,
-        debug,
     )?;
 
     let mut conv_context = ConvContext::new(&module);

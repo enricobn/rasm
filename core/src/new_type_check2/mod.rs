@@ -49,14 +49,18 @@ type InputModule = EnhancedASTModule;
 type OutputModule = EnhancedASTModule;
 
 pub struct TypeCheck {
+    target: CompileTarget,
+    debug: bool,
     stack: Vec<EnhASTIndex>,
     functions_stack: LinkedHashMap<String, Vec<EnhASTIndex>>,
     new_functions: HashMap<String, EnhASTFunctionDef>,
 }
 
 impl TypeCheck {
-    pub fn new() -> Self {
+    pub fn new(target: CompileTarget, debug: bool) -> Self {
         Self {
+            target,
+            debug,
             stack: vec![],
             functions_stack: Default::default(),
             new_functions: HashMap::new(),
@@ -69,8 +73,6 @@ impl TypeCheck {
         statics: &mut Statics,
         default_functions: Vec<DefaultFunction>,
         mandatory_functions: Vec<DefaultFunction>,
-        target: &CompileTarget,
-        debug: bool,
     ) -> Result<OutputModule, CompilationError> {
         let mut val_context = EnhValContext::new(None);
 
@@ -146,14 +148,7 @@ impl TypeCheck {
 
                 let mut new_functions = Vec::new();
                 match self
-                    .transform_function(
-                        &module,
-                        statics,
-                        &function,
-                        target,
-                        debug,
-                        &mut new_functions,
-                    )
+                    .transform_function(&module, statics, &function, &mut new_functions)
                     .map_err(|it| CompilationError {
                         index: function.index.clone(),
                         error_kind: CompilationErrorKind::TypeCheck(
@@ -1158,8 +1153,6 @@ impl TypeCheck {
         module: &InputModule,
         statics: &mut Statics,
         new_function_def: &EnhASTFunctionDef,
-        target: &CompileTarget,
-        debug: bool,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
     ) -> Result<Option<EnhASTFunctionBody>, TypeCheckError> {
         debug_i!("transform_function {new_function_def}");
@@ -1200,7 +1193,7 @@ impl TypeCheck {
             EnhASTFunctionBody::NativeBody(asm_body) => {
                 let type_def_provider = DummyTypeDefProvider::new();
 
-                let evaluator = target.get_evaluator(debug);
+                let evaluator = self.target.get_evaluator(self.debug);
                 let text_macro_names = evaluator
                     .get_macros(None, Some(new_function_def), asm_body, &type_def_provider)
                     .map_err(|it| {
@@ -1247,7 +1240,8 @@ impl TypeCheck {
                     }
                 }
 
-                let called_functions = target
+                let called_functions = self
+                    .target
                     .called_functions(
                         None,
                         Some(new_function_def),
@@ -1255,7 +1249,7 @@ impl TypeCheck {
                         &val_context,
                         &type_def_provider,
                         statics,
-                        debug,
+                        self.debug,
                     )
                     .map_err(|it| {
                         dedent!();
