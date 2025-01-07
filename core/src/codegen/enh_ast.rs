@@ -1070,13 +1070,13 @@ pub enum EnhASTExpression {
 }
 
 impl EnhASTExpression {
-    pub fn get_index(&self) -> EnhASTIndex {
+    pub fn get_index(&self) -> Option<&EnhASTIndex> {
         match self {
-            EnhASTExpression::ASTFunctionCallExpression(call) => call.index.clone(),
-            EnhASTExpression::ValueRef(_, index) => index.clone(),
-            EnhASTExpression::Value(_, index) => index.clone(),
-            EnhASTExpression::Lambda(def) => def.index.clone(),
-            EnhASTExpression::Any(_) => EnhASTIndex::none(),
+            EnhASTExpression::ASTFunctionCallExpression(call) => Some(&call.index),
+            EnhASTExpression::ValueRef(_, index) => Some(index),
+            EnhASTExpression::Value(_, index) => Some(index),
+            EnhASTExpression::Lambda(def) => Some(&def.index),
+            EnhASTExpression::Any(_) => None,
         }
     }
 
@@ -1155,10 +1155,10 @@ pub enum EnhASTStatement {
 }
 
 impl EnhASTStatement {
-    pub fn get_index(&self) -> EnhASTIndex {
+    pub fn get_index(&self) -> Option<&EnhASTIndex> {
         match self {
             EnhASTStatement::Expression(expr) => expr.get_index(),
-            EnhASTStatement::LetStatement(_, _, _, index) => index.clone(),
+            EnhASTStatement::LetStatement(_, _, _, index) => Some(index),
         }
     }
 

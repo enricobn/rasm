@@ -21,6 +21,7 @@ use rasm_core::type_check::functions_container::EnhTypeFilter;
 use rasm_core::type_check::substitute;
 use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_parser::parser::ast::ASTValueType;
+use rasm_utils::OptionDisplay;
 
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
 use crate::reference_context::ReferenceContext;
@@ -1031,7 +1032,10 @@ impl ReferenceFinder {
                         ) {
                             Ok(inner) => inner,
                             Err(e) => {
-                                eprintln!("Error evaluating expr {expr} : {}", expr.get_index());
+                                eprintln!(
+                                    "Error evaluating expr {expr} : {}",
+                                    OptionDisplay(&expr.get_index())
+                                );
                                 eprintln!("{e}");
                                 Vec::new()
                             }
@@ -1097,7 +1101,10 @@ impl ReferenceFinder {
                         ) {
                             Ok(inner) => inner,
                             Err(e) => {
-                                eprintln!("Error evaluating expr {expr} : {}", expr.get_index());
+                                eprintln!(
+                                    "Error evaluating expr {expr} : {}",
+                                    OptionDisplay(&expr.get_index())
+                                );
                                 eprintln!("{e}");
                                 Vec::new()
                             }
@@ -1127,7 +1134,10 @@ impl ReferenceFinder {
                         ) {
                             Ok(inner) => inner,
                             Err(e) => {
-                                eprintln!("Error evaluating expr {expr} : {}", expr.get_index());
+                                eprintln!(
+                                    "Error evaluating expr {expr} : {}",
+                                    OptionDisplay(&expr.get_index())
+                                );
                                 eprintln!("{e}");
                                 Vec::new()
                             }

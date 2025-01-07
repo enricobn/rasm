@@ -849,7 +849,7 @@ impl TypeCheck {
                         if !t.almost_equal(param_type, module)? {
                             valid = false;
                             return Err(TypeCheckError::new_with_kind(
-                                expr.get_index(),
+                                expr.get_index().unwrap_or(&EnhASTIndex::none()).clone(),
                                 format!("not matching type expected {t} got {param_type}"),
                                 self.stack.clone(),
                                 TypeCheckErrorKind::Ignorable,
@@ -1086,7 +1086,7 @@ impl TypeCheck {
                         .extend(resolve_generic_types_from_effective_type(pt, et)?)
                         .map_err(|it| {
                             TypeCheckError::new(
-                                expr.get_index(),
+                                expr.get_index().unwrap_or(&EnhASTIndex::none()).clone(),
                                 format!("cannot resolve {pt} with {et}, {it}"),
                                 self.stack.clone(),
                             )
@@ -1108,7 +1108,7 @@ impl TypeCheck {
                             )?)
                             .map_err(|it| {
                                 TypeCheckError::new(
-                                    expr.get_index(),
+                                    expr.get_index().unwrap_or(&EnhASTIndex::none()).clone(),
                                     format!("cannot resolve {return_type} with {et}, {it}"),
                                     self.stack.clone(),
                                 )
