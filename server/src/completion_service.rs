@@ -29,6 +29,7 @@ use rasm_core::codegen::typedef_provider::TypeDefProvider;
 use rasm_core::codegen::{get_typed_module, TypedValKind};
 use rasm_core::errors::{CompilationError, CompilationErrorKind};
 use rasm_core::new_type_check2;
+use rasm_core::type_check::ast_type_checker::ASTTypeChecker;
 use rasm_core::type_check::functions_container::EnhTypeFilter;
 use rasm_core::type_check::typed_ast::{
     get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef,
@@ -269,7 +270,17 @@ impl CompletionService {
         statics: &mut Statics,
         target: &CompileTarget,
     ) -> Result<Self, CompilationError> {
-        let typed_module = get_typed_module(module, false, false, statics, target, false)?;
+        let typed_module = get_typed_module(
+            module,
+            false,
+            false,
+            statics,
+            target,
+            false,
+            ASTTypeChecker::new(), // TODO I think this class is not used
+            todo!(),
+            todo!(),
+        )?;
 
         let mut completable_items = Vec::new();
 
@@ -725,8 +736,18 @@ mod tests {
 
         assert!(errors.is_empty());
 
+        let mut statics_for_cont = Statics::new();
+
+        let (_, catalog, _) = project.container_and_catalog(
+            &mut statics_for_cont,
+            &RasmProjectRunType::Main,
+            &target,
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let (module, errors) =
-            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, &catalog);
 
         assert!(errors.is_empty());
 

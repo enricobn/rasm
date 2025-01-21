@@ -7,3 +7,5 @@ debug.log.xml
 tmp/
 scores.txt
 callgrind.out.*
+flamegraph.svg
+perf.data*

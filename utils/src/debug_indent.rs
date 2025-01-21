@@ -5,6 +5,7 @@ use std::io::Write;
 pub static mut ENABLE_INDENT: bool = true;
 
 thread_local! {
+    pub static ENABLE_LOG: RefCell<bool> = RefCell::new(true);
     pub static INDENT : RefCell<usize> = RefCell::new(0);
     pub static FILE : RefCell<LogFile> = RefCell::new(LogFile::new());
 }
@@ -75,35 +76,40 @@ pub fn dedent_to_log() {
 
 #[macro_export]
 macro_rules! debug_i {
-    ($ ( $ a: expr), *) => {
-        unsafe {
-            $crate::debug_indent::INDENT.with(|indent| {
-                let s = if !$crate::debug_indent::ENABLE_INDENT || *indent.borrow() == 0 {
-                    "".into()
-                } else {
-                    "|  ".repeat(*indent.borrow())
-                };
-                log::debug!("{}{}", s, & format ! ( $( $ a), * ));
-            });
-        }
-        if log::log_enabled!(log::Level::Debug) {
-            $crate::debug_indent::write_to_log(& format ! ( $( $ a), * ));
-        }
-    };
+        ($ ( $ a: expr), *) => {
+            if $crate::debug_indent::log_enabled() {
+                unsafe {
+                    $crate::debug_indent::INDENT.with(|indent| {
+                        let s = if !$crate::debug_indent::ENABLE_INDENT || *indent.borrow() == 0 {
+                            "".into()
+                        } else {
+                            "|  ".repeat(*indent.borrow())
+                        };
+                        log::debug!("{}{}", s, & format ! ( $( $ a), * ));
+                    });
+                }
+                if log::log_enabled!(log::Level::Debug) {
+                    $crate::debug_indent::write_to_log(& format ! ( $( $ a), * ));
+                }
+            }
+        };
+
 }
 
 #[macro_export]
 macro_rules! indent {
     () => {
-        unsafe {
-            if $crate::debug_indent::ENABLE_INDENT {
-                $crate::debug_indent::INDENT.with(|indent| {
-                    *indent.borrow_mut() += 1;
-                });
+        if $crate::debug_indent::log_enabled() {
+            unsafe {
+                if $crate::debug_indent::ENABLE_INDENT {
+                    $crate::debug_indent::INDENT.with(|indent| {
+                        *indent.borrow_mut() += 1;
+                    });
+                }
             }
-        }
-        if log::log_enabled!(log::Level::Debug) {
-            $crate::debug_indent::indent_to_log();
+            if log::log_enabled!(log::Level::Debug) {
+                $crate::debug_indent::indent_to_log();
+            }
         }
     };
 }
@@ -111,15 +117,17 @@ macro_rules! indent {
 #[macro_export]
 macro_rules! dedent {
     () => {
-        unsafe {
-            if $crate::debug_indent::ENABLE_INDENT {
-                $crate::debug_indent::INDENT.with(|indent| {
-                    *indent.borrow_mut() -= 1;
-                });
+        if $crate::debug_indent::log_enabled() {
+            unsafe {
+                if $crate::debug_indent::ENABLE_INDENT {
+                    $crate::debug_indent::INDENT.with(|indent| {
+                        *indent.borrow_mut() -= 1;
+                    });
+                }
             }
-        }
-        if log::log_enabled!(log::Level::Debug) {
-            $crate::debug_indent::dedent_to_log();
+            if log::log_enabled!(log::Level::Debug) {
+                $crate::debug_indent::dedent_to_log();
+            }
         }
     };
 }
@@ -140,6 +148,16 @@ macro_rules! reset_indent {
             }
         }
     };
+}
+
+pub fn enable_log(enable: bool) {
+    ENABLE_LOG.with(|enable_log| {
+        *enable_log.borrow_mut() = enable;
+    });
+}
+
+pub fn log_enabled() -> bool {
+    ENABLE_LOG.with(|enable_log| *enable_log.borrow())
 }
 
 mod tests {

@@ -1274,14 +1274,46 @@ pub fn value_type_to_typed_type(value_type: &ASTValueType) -> ASTTypedType {
 
 #[cfg(test)]
 mod tests {
+    use rasm_parser::catalog::modules_catalog::ModulesCatalog;
+    use rasm_parser::catalog::{ModuleId, ModuleInfo, ModuleNamespace};
     use rasm_utils::SliceDisplay;
 
     use crate::codegen::c::code_gen_c::CodeGenC;
     use crate::codegen::c::options::COptions;
+    use crate::codegen::enh_ast::{EnhASTNameSpace, EnhModuleId};
     use crate::codegen::enh_val_context::EnhValContext;
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::CodeGen;
+
+    struct DummyModulesCatalog {}
+
+    impl DummyModulesCatalog {
+        fn new() -> Self {
+            Self {}
+        }
+    }
+
+    impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> for DummyModulesCatalog {
+        fn info(&self, id: &EnhModuleId) -> Option<ModuleInfo> {
+            None
+        }
+
+        fn catalog_info(
+            &self,
+            id: &rasm_parser::catalog::ModuleId,
+        ) -> Option<(&EnhModuleId, &EnhASTNameSpace)> {
+            None
+        }
+
+        fn catalog(&self) -> Vec<(&EnhModuleId, &EnhASTNameSpace, &ModuleId, &ModuleNamespace)> {
+            Vec::new()
+        }
+
+        fn namespace(&self, namespace: &EnhASTNameSpace) -> Option<&ModuleNamespace> {
+            None
+        }
+    }
 
     #[test]
     fn called_functions() {
@@ -1297,6 +1329,7 @@ mod tests {
                 &EnhValContext::new(None),
                 &DummyTypeDefProvider::new(),
                 &mut statics,
+                &DummyModulesCatalog::new(),
             )
             .unwrap();
 

@@ -947,16 +947,16 @@ impl Parser {
     }
 
     fn debug(&self, message: &str) {
-        debug!("{}", message);
-        debug!("i {}", self.i);
-        debug!(
+        debug_i!("{}", message);
+        debug_i!("i {}", self.i);
+        debug_i!(
             "token {:?} : {}",
             self.get_token().map(|it| &it.kind),
             self.get_position(0)
         );
-        debug!("state {:?}", self.state);
-        debug!("data {}", SliceDisplay(&self.parser_data));
-        debug!("");
+        debug_i!("state {:?}", self.state);
+        debug_i!("data {}", SliceDisplay(&self.parser_data));
+        debug_i!("");
     }
 
     fn try_parse_function_call(&mut self) -> Option<(String, Vec<ASTType>, usize, usize)> {

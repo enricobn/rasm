@@ -21,6 +21,7 @@ lazy_static.workspace = true
 log.workspace = true
 pad.workspace = true
 pathdiff.workspace = true
+rand.workspace = true
 rayon.workspace = true
 regex.workspace = true
 rust-embed.workspace = true

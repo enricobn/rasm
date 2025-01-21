@@ -5,6 +5,7 @@ use std::ops::Deref;
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
 use log::info;
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 
 use crate::codegen::c::code_gen_c::value_type_to_typed_type;
 use crate::codegen::compile_target::CompileTarget;
@@ -12,7 +13,7 @@ use crate::codegen::enh_ast::{
     EnhASTEnumDef, EnhASTEnumVariantDef, EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall,
     EnhASTFunctionDef, EnhASTIndex, EnhASTLambdaDef, EnhASTNameSpace, EnhASTParameterDef,
     EnhASTStatement, EnhASTStructDef, EnhASTStructPropertyDef, EnhASTType, EnhASTTypeDef,
-    EnhBuiltinTypeKind,
+    EnhBuiltinTypeKind, EnhModuleId,
 };
 use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -27,6 +28,9 @@ use crate::type_check::type_check_error::TypeCheckError;
 use crate::type_check::{get_new_native_call, substitute, verify};
 use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
 use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
+
+use super::ast_modules_container::ASTModulesContainer;
+use super::ast_type_checker::ASTTypeChecker;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -941,14 +945,24 @@ pub fn convert_to_typed_module(
     default_functions: Vec<DefaultFunction>,
     target: &CompileTarget,
     debug: bool,
+    ast_type_checker: ASTTypeChecker,
+    modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    modules_container: &ASTModulesContainer,
 ) -> Result<ASTTypedModule, CompilationError> {
-    let type_check = TypeCheck::new(target.clone(), debug);
+    let type_check = TypeCheck::new(
+        target.clone(),
+        debug,
+        ast_type_checker,
+        modules_catalog,
+        modules_container,
+    );
 
     let module = type_check.type_check(
         original_module.clone(),
         statics,
         default_functions,
         mandatory_functions,
+        modules_catalog,
     )?;
 
     let mut conv_context = ConvContext::new(&module);
@@ -994,6 +1008,7 @@ pub fn convert_to_typed_module(
         &conv_context,
         &mut functions_by_name,
         statics,
+        modules_catalog,
     );
 
     let evaluator = target.get_evaluator(debug);
@@ -1003,7 +1018,15 @@ pub fn convert_to_typed_module(
             ASTTypedFunctionBody::RASMBody(_) => {}
             ASTTypedFunctionBody::NativeBody(body) => {
                 let new_body = evaluator
-                    .translate(statics, Some(function), None, body, true, &conv_context)
+                    .translate(
+                        statics,
+                        Some(function),
+                        None,
+                        body,
+                        true,
+                        &conv_context,
+                        modules_catalog,
+                    )
                     .map_err(|it| {
                         compilation_error(
                             function.index.clone(),
@@ -1049,6 +1072,7 @@ pub fn convert_to_typed_module(
                         &conv_context,
                         statics,
                         debug,
+                        modules_catalog,
                     )
                     .map_err(|err| CompilationError {
                         index: function.index.clone(),
@@ -1097,6 +1121,7 @@ pub fn convert_to_typed_module(
                         &new_body,
                         false,
                         &conv_context,
+                        modules_catalog,
                     )
                     .map_err(|it| {
                         compilation_error(

@@ -140,9 +140,9 @@ impl ASTFunctionSignature {
         result.parameters_types = result
             .parameters_types
             .into_iter()
-            .map(|it| it.fix_generics(&generics_prefix))
+            .map(|it| it.add_generic_prefix(&generics_prefix))
             .collect();
-        result.return_type = result.return_type.fix_generics(&generics_prefix);
+        result.return_type = result.return_type.add_generic_prefix(&generics_prefix);
         result.generics = result
             .generics
             .into_iter()
@@ -367,7 +367,7 @@ impl ASTType {
         }
     }
 
-    pub fn fix_generics(&self, prefix: &dyn Display) -> Self {
+    pub fn add_generic_prefix(&self, prefix: &dyn Display) -> Self {
         match self {
             ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
                 BuiltinTypeKind::Bool => self.clone(),
@@ -381,9 +381,9 @@ impl ASTType {
                 } => ASTType::Builtin(BuiltinTypeKind::Lambda {
                     parameters: parameters
                         .iter()
-                        .map(|it| it.fix_generics(prefix))
+                        .map(|it| it.add_generic_prefix(prefix))
                         .collect(),
-                    return_type: Box::new(return_type.fix_generics(prefix)),
+                    return_type: Box::new(return_type.add_generic_prefix(prefix)),
                 }),
             },
             ASTType::Generic(position, name) => {
@@ -397,7 +397,51 @@ impl ASTType {
                 name: name.clone(),
                 param_types: param_types
                     .iter()
-                    .map(|it| it.fix_generics(prefix))
+                    .map(|it| it.add_generic_prefix(prefix))
+                    .collect(),
+                position: position.clone(),
+            },
+            ASTType::Unit => self.clone(),
+        }
+    }
+
+    pub fn remove_generic_prefix(&self) -> Self {
+        match self {
+            ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
+                BuiltinTypeKind::Bool => self.clone(),
+                BuiltinTypeKind::Char => self.clone(),
+                BuiltinTypeKind::I32 => self.clone(),
+                BuiltinTypeKind::F32 => self.clone(),
+                BuiltinTypeKind::String => self.clone(),
+                BuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    parameters: parameters
+                        .iter()
+                        .map(|it| it.remove_generic_prefix())
+                        .collect(),
+                    return_type: Box::new(return_type.remove_generic_prefix()),
+                }),
+            },
+            ASTType::Generic(position, name) => {
+                if let Some(i) = name.find(':') {
+                    let original_generic = name.split_at(i + 1).1.to_owned();
+                    //println!("found generic {s} -> {}", original_generic);
+                    ASTType::Generic(position.clone(), original_generic)
+                } else {
+                    self.clone()
+                }
+            }
+            ASTType::Custom {
+                name,
+                param_types,
+                position,
+            } => ASTType::Custom {
+                name: name.clone(),
+                param_types: param_types
+                    .iter()
+                    .map(|it| it.remove_generic_prefix())
                     .collect(),
                 position: position.clone(),
             },
@@ -471,7 +515,7 @@ impl ASTParameterDef {
 
     pub fn fix_generics(self, prefix: &dyn Display) -> Self {
         let mut result = self;
-        result.ast_type = result.ast_type.fix_generics(prefix);
+        result.ast_type = result.ast_type.add_generic_prefix(prefix);
         result
     }
 }

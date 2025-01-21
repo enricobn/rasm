@@ -331,7 +331,7 @@ fn call_expr_dependencies(
                     ) {
                         Ok(rgt) => {
                             for par in function.parameters.iter() {
-                                let par_type = par.ast_type.fix_generics(&format!(
+                                let par_type = par.ast_type.add_generic_prefix(&format!(
                                     "{}_{}",
                                     module_namespace.0, function.name
                                 ));

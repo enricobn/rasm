@@ -4,7 +4,7 @@ use std::{
     iter::zip,
 };
 
-use rasm_utils::OptionDisplay;
+use rasm_utils::{find_one, OptionDisplay};
 
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
@@ -120,8 +120,6 @@ impl ASTModulesContainer {
         add_builtin: bool,
         readonly: bool,
     ) {
-        println!("adding module {module_id}");
-
         if add_builtin {
             for enum_def in module.enums.iter() {
                 for (signature, position, ft) in BuiltinFunctions::enum_signatures(enum_def) {
@@ -326,8 +324,9 @@ impl ASTModulesContainer {
         name: &str,
     ) -> Option<&(ModuleInfo, ASTEnumDef)> {
         self.enum_defs.get(name).and_then(|it| {
-            it.iter()
-                .find(|(info, e)| e.modifiers.public || info.namespace() == from_module_id)
+            find_one(it.iter(), |(info, e)| {
+                e.modifiers.public || info.namespace() == from_module_id
+            })
         })
     }
 
@@ -341,8 +340,9 @@ impl ASTModulesContainer {
         name: &str,
     ) -> Option<&(ModuleInfo, ASTStructDef)> {
         self.struct_defs.get(name).and_then(|it| {
-            it.iter()
-                .find(|(info, e)| e.modifiers.public || info.namespace() == from_module_id)
+            find_one(it.iter(), |(info, e)| {
+                e.modifiers.public || info.namespace() == from_module_id
+            })
         })
     }
 
@@ -356,8 +356,9 @@ impl ASTModulesContainer {
         name: &str,
     ) -> Option<&(ModuleInfo, ASTTypeDef)> {
         self.type_defs.get(name).and_then(|it| {
-            it.iter()
-                .find(|(info, e)| e.modifiers.public || info.namespace() == from_module_id)
+            find_one(it.iter(), |(info, e)| {
+                e.modifiers.public || info.namespace() == from_module_id
+            })
         })
     }
 
@@ -510,6 +511,50 @@ impl ASTTypeFilter {
                 } => false,
                 ASTType::Unit => false,
             },
+        }
+    }
+
+    pub fn is_generic(&self) -> bool {
+        match &self {
+            ASTTypeFilter::Exact(asttype, _) => asttype.is_generic(),
+            ASTTypeFilter::Any => todo!(),
+            ASTTypeFilter::Lambda(_, asttype_filter) => asttype_filter
+                .as_ref()
+                .map(|it| it.is_generic())
+                .unwrap_or(false),
+        }
+    }
+
+    pub fn exact(
+        ast_type: ASTType,
+        module_namespace: &ModuleNamespace,
+        module_id: &ModuleId,
+        container: &ASTModulesContainer,
+    ) -> Self {
+        if let ASTType::Custom {
+            name,
+            param_types: _,
+            position: _,
+        } = &ast_type
+        {
+            if let Some(t) = container.custom_type_index(module_namespace, name) {
+                return ASTTypeFilter::Exact(
+                    ast_type,
+                    ModuleInfo::new(t.module_namespace().clone(), t.module_id().clone()),
+                );
+            }
+        }
+        ASTTypeFilter::Exact(
+            ast_type,
+            ModuleInfo::new(module_namespace.clone(), module_id.clone()),
+        )
+    }
+
+    pub fn generic_type_coeff(&self) -> Option<usize> {
+        match self {
+            ASTTypeFilter::Exact(t, _) => Some(ASTFunctionSignatureEntry::generic_type_coeff(t)),
+            ASTTypeFilter::Lambda(_, rt) => rt.as_ref().and_then(|it| it.generic_type_coeff()),
+            _ => None,
         }
     }
 }

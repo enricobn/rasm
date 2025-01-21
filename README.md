@@ -127,6 +127,8 @@ Only executables produced with libc support can be run with valgrind.
 
 ## profiling build
 
+you may need to install perf, look at the output
+
 sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
 CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -p rasm build -f rasm/resources/examples/breakout
 

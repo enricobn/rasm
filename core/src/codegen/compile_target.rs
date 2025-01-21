@@ -18,6 +18,7 @@
 
 use linked_hash_map::LinkedHashMap;
 use log::info;
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_utils::OptionDisplay;
 use std::fs::{self, File};
 use std::io::Write;
@@ -51,11 +52,13 @@ use crate::transformations::typed_functions_creator::{
     TypedFunctionsCreator, TypedFunctionsCreatorNasmi386,
 };
 
+use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, DefaultFunction, DefaultFunctionCall,
 };
 
 use super::c::typed_function_creator::TypedFunctionsCreatorC;
+use super::enh_ast::EnhModuleId;
 
 #[derive(RustEmbed)]
 #[folder = "../core/resources/corelib/nasmi386"]
@@ -129,14 +132,24 @@ impl CompileTarget {
         }
     }
 
-    fn generate(&self, statics: Statics, typed_module: &ASTTypedModule, debug: bool) -> String {
+    fn generate(
+        &self,
+        statics: Statics,
+        typed_module: &ASTTypedModule,
+        debug: bool,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    ) -> String {
         match self {
-            CompileTarget::Nasmi386(options) => {
-                CodeGenAsm::new(options.clone(), debug).generate(typed_module, statics)
-            }
-            CompileTarget::C(options) => {
-                CodeGenC::new(options.clone(), debug).generate(typed_module, statics)
-            }
+            CompileTarget::Nasmi386(options) => CodeGenAsm::new(options.clone(), debug).generate(
+                typed_module,
+                statics,
+                modules_catalog,
+            ),
+            CompileTarget::C(options) => CodeGenC::new(options.clone(), debug).generate(
+                typed_module,
+                statics,
+                modules_catalog,
+            ),
         }
     }
 
@@ -224,6 +237,7 @@ impl CompileTarget {
         type_def_provider: &dyn TypeDefProvider,
         _statics: &mut Statics,
         debug: bool,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String> {
         match self {
             CompileTarget::Nasmi386(options) => {
@@ -235,6 +249,7 @@ impl CompileTarget {
                     context,
                     type_def_provider,
                     _statics,
+                    modules_catalog,
                 )
             }
             CompileTarget::C(options) => {
@@ -246,6 +261,7 @@ impl CompileTarget {
                     context,
                     type_def_provider,
                     _statics,
+                    modules_catalog,
                 )
             }
         }
@@ -304,15 +320,19 @@ impl CompileTarget {
             panic!()
         }
 
-        let (enhanced_ast_module, errors) = EnhancedASTModule::from_ast(
-            modules,
-            &project,
-            &mut statics,
+        info!("parse ended in {:?}", start.elapsed());
+
+        let start = Instant::now();
+
+        let mut statics_for_cc = Statics::new();
+
+        let (container, catalog, errors) = project.container_and_catalog(
+            &mut statics_for_cc,
+            &run_type,
             self,
             command_line_options.debug,
+            &command_line_options,
         );
-
-        info!("parse ended in {:?}", start.elapsed());
 
         if !errors.is_empty() {
             for error in errors {
@@ -321,7 +341,21 @@ impl CompileTarget {
             panic!()
         }
 
-        let start = Instant::now();
+        let (enhanced_ast_module, errors) = EnhancedASTModule::from_ast(
+            modules,
+            &project,
+            &mut statics,
+            self,
+            command_line_options.debug,
+            &catalog,
+        );
+
+        if !errors.is_empty() {
+            for error in errors {
+                eprintln!("{error}");
+            }
+            panic!()
+        }
 
         let typed_module = get_typed_module(
             enhanced_ast_module,
@@ -330,6 +364,9 @@ impl CompileTarget {
             &mut statics,
             self,
             command_line_options.debug,
+            ASTTypeChecker::from_modules_container(&container).0,
+            &catalog,
+            &container,
         )
         .unwrap_or_else(|e| Self::raise_error(e));
 
@@ -341,7 +378,7 @@ impl CompileTarget {
                     let start = Instant::now();
 
                     let native_code =
-                        self.generate(statics, &typed_module, command_line_options.debug);
+                        self.generate(statics, &typed_module, command_line_options.debug, &catalog);
 
                     info!("code generation ended in {:?}", start.elapsed());
 
@@ -423,7 +460,8 @@ impl CompileTarget {
                         }
                     });
 
-                let native_code = self.generate(statics, &typed_module, command_line_options.debug);
+                let native_code =
+                    self.generate(statics, &typed_module, command_line_options.debug, &catalog);
 
                 File::create(out_path)
                     .unwrap_or_else(|_| panic!("cannot create file {}", out_path.to_str().unwrap()))

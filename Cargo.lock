@@ -2976,6 +2976,7 @@ dependencies = [
  "log",
  "pad",
  "pathdiff",
+ "rand 0.8.5",
  "rasm-parser",
  "rasm-utils",
  "rayon",

@@ -1,4 +1,5 @@
 use log::debug;
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 
 use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -11,7 +12,9 @@ use rasm_parser::parser::ast::{
     BuiltinTypeKind,
 };
 
-use crate::codegen::enh_ast::{self, EnhModuleInfo};
+use crate::codegen::enh_ast::{
+    self, EnhASTFunctionDef, EnhASTNameSpace, EnhModuleId, EnhModuleInfo,
+};
 use rasm_parser::parser::builtin_functions::BuiltinFunctions;
 
 pub trait FunctionsCreator {
@@ -67,7 +70,12 @@ pub trait FunctionsCreator {
         }
     }
 
-    fn create_globals(&self, module: &mut EnhancedASTModule, statics: &mut Statics);
+    fn create_globals(
+        &self,
+        module: &mut EnhancedASTModule,
+        statics: &mut Statics,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    );
 
     fn create_match_function(&self, module: &mut ASTModule, enum_def: &ASTEnumDef) {
         let name = "match";
@@ -455,7 +463,12 @@ impl FunctionsCreatorNasmi386 {
 }
 
 impl FunctionsCreator for FunctionsCreatorNasmi386 {
-    fn create_globals(&self, module: &mut EnhancedASTModule, statics: &mut Statics) {
+    fn create_globals(
+        &self,
+        module: &mut EnhancedASTModule,
+        statics: &mut Statics,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    ) {
         let message_key = statics.add_str("String");
         let body_src = self.str_deref_body(&message_key);
         let body = ASTFunctionBody::NativeBody(body_src);
@@ -483,10 +496,11 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
 
         module.add_function(
             name,
-            enh_ast::EnhASTFunctionDef::from_ast(
-                None,
-                enh_ast::EnhASTNameSpace::global(),
+            EnhASTFunctionDef::from_ast(
+                &EnhModuleId::none(),
+                &EnhASTNameSpace::global(),
                 function_def,
+                modules_catalog,
             ),
         );
 
@@ -519,9 +533,10 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         module.add_function(
             name,
             enh_ast::EnhASTFunctionDef::from_ast(
-                None,
-                enh_ast::EnhASTNameSpace::global(),
+                &EnhModuleId::none(),
+                &EnhASTNameSpace::global(),
                 function_def,
+                modules_catalog,
             ),
         );
     }

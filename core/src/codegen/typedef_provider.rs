@@ -372,7 +372,7 @@ pub trait TypeDefProvider {
                     println!("Not found 1");
                     println!("{:?}", ast_type);
                     println!("{:?}", custom_typed_type_def.ast_type());
-                    panic!();
+                    //panic!();
                 }
                 false
             }

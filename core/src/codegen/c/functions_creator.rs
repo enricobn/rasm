@@ -16,13 +16,16 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::c::code_gen_c::CCodeManipulator;
 use crate::codegen::code_manipulator::CodeManipulator;
-use crate::codegen::enh_ast::EnhModuleInfo;
+use crate::codegen::enh_ast::{EnhASTNameSpace, EnhModuleInfo};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
+use crate::codegen::{c::code_gen_c::CCodeManipulator, enh_ast::EnhModuleId};
 use crate::transformations::functions_creator::FunctionsCreator;
-use rasm_parser::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef};
+use rasm_parser::{
+    catalog::modules_catalog::ModulesCatalog,
+    parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef},
+};
 
 use super::code_gen_c::CodeGenC;
 
@@ -39,7 +42,12 @@ impl CFunctionsCreator {
 }
 
 impl FunctionsCreator for CFunctionsCreator {
-    fn create_globals(&self, module: &mut EnhancedASTModule, statics: &mut Statics) {
+    fn create_globals(
+        &self,
+        module: &mut EnhancedASTModule,
+        statics: &mut Statics,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    ) {
         // TODO
     }
 

@@ -17,6 +17,7 @@ use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::EnhValKind;
 use rasm_core::new_type_check2::TypeCheck;
 use rasm_core::project::RasmProject;
+use rasm_core::type_check::ast_type_checker::ASTTypeChecker;
 use rasm_core::type_check::functions_container::EnhTypeFilter;
 use rasm_core::type_check::substitute;
 use rasm_core::type_check::type_check_error::TypeCheckError;
@@ -427,7 +428,14 @@ impl ReferenceFinder {
         let mut val_context = EnhValContext::new(None);
         let mut statics = Statics::new();
 
-        let mut type_check = TypeCheck::new(compile_target.clone(), debug);
+        // TOD do we need a real ASTTypeChecker?
+        let mut type_check = TypeCheck::new(
+            compile_target.clone(),
+            debug,
+            ASTTypeChecker::new(),
+            todo!(),
+            todo!(),
+        );
 
         let mut result = Vec::new();
         Self::process_statics(
@@ -488,7 +496,14 @@ impl ReferenceFinder {
         let mut result = Vec::new();
         let mut reference_context = ReferenceContext::new(None);
         let mut val_context = EnhValContext::new(None);
-        let mut type_check = TypeCheck::new(compile_target, debug);
+        // TOD do we need a real ASTTypeChecker?
+        let mut type_check = TypeCheck::new(
+            compile_target,
+            debug,
+            ASTTypeChecker::new(),
+            todo!(),
+            todo!(),
+        );
 
         let mut new_functions = Vec::new();
 
@@ -1926,7 +1941,7 @@ mod tests {
         );
 
         let (enhanced_ast_module, errors) =
-            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, todo!());
 
         if !errors.is_empty() {
             panic!("{}", SliceDisplay(&errors));
@@ -1938,7 +1953,10 @@ mod tests {
             panic!("{}", SliceDisplay(&errors));
         }
 
-        (enhanced_ast_module, EnhASTModule::from_ast(module, info))
+        (
+            enhanced_ast_module,
+            EnhASTModule::from_ast(module, info, todo!()),
+        )
     }
 
     fn init_log() {

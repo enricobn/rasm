@@ -3,6 +3,7 @@ use std::iter::zip;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use enh_ast::EnhModuleId;
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
 use log::debug;
@@ -10,6 +11,7 @@ use pad::PadStr;
 
 use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_utils::{debug_i, OptionDisplay};
 use snailquote::unescape;
 
@@ -37,6 +39,8 @@ use crate::errors::CompilationError;
 use crate::transformations::typed_functions_creator::{
     enum_has_references, struct_has_references, type_has_references,
 };
+use crate::type_check::ast_modules_container::ASTModulesContainer;
+use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::get_new_native_call;
 use crate::type_check::typed_ast::{
     convert_to_typed_module, get_type_of_typed_expression, ASTTypedExpression,
@@ -141,6 +145,9 @@ pub fn get_typed_module(
     statics: &mut Statics,
     target: &CompileTarget,
     debug: bool,
+    ast_type_checker: ASTTypeChecker,
+    modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    modules_container: &ASTModulesContainer,
 ) -> Result<ASTTypedModule, CompilationError> {
     let mandatory_functions = target.get_mandatory_functions(&module);
     let default_functions = target.get_default_functions(print_memory_info);
@@ -153,6 +160,9 @@ pub fn get_typed_module(
         default_functions,
         target,
         debug,
+        ast_type_checker,
+        modules_catalog,
+        modules_container,
     )
 }
 
@@ -176,7 +186,12 @@ pub fn get_std_lib_path() -> Option<String> {
 pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     fn options(&self) -> &AsmOptions;
 
-    fn generate(&'a self, typed_module: &ASTTypedModule, statics: Statics) -> String {
+    fn generate(
+        &'a self,
+        typed_module: &ASTTypedModule,
+        statics: Statics,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    ) -> String {
         let debug = self.debug();
         let mut statics = statics;
         let mut id: usize = 0;
@@ -281,7 +296,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         self.initialize_static_values(&mut generated_code);
 
-        let code = self.translate_static_code(static_code, typed_module);
+        let code = self.translate_static_code(static_code, typed_module, modules_catalog);
 
         self.add(&mut generated_code, &code, None, true);
 
@@ -338,7 +353,12 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
     fn create_command_line_arguments(&self, generated_code: &mut String);
 
-    fn translate_static_code(&self, static_code: String, typed_module: &ASTTypedModule) -> String {
+    fn translate_static_code(
+        &self,
+        static_code: String,
+        typed_module: &ASTTypedModule,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    ) -> String {
         let mut temp_statics = Statics::new();
         let evaluator = self.get_text_macro_evaluator();
 
@@ -350,6 +370,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 &static_code,
                 false,
                 typed_module,
+                modules_catalog,
             )
             .unwrap()
     }
@@ -1765,32 +1786,57 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         body: &str,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<String, String> {
         let val_context = EnhValContext::new(None);
 
         let evaluator = self.get_text_macro_evaluator();
 
-        let new_body = evaluator.translate(statics, None, None, body, true, typed_module)?;
+        let new_body = evaluator.translate(
+            statics,
+            None,
+            None,
+            body,
+            true,
+            typed_module,
+            modules_catalog,
+        )?;
 
-        let result = evaluator.translate(statics, None, None, &new_body, false, typed_module)?;
+        let result = evaluator.translate(
+            statics,
+            None,
+            None,
+            &new_body,
+            false,
+            typed_module,
+            modules_catalog,
+        )?;
 
         let mut lines: Vec<String> = result.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 
-        self.called_functions(None, None, &result, &val_context, typed_module, statics)?
-            .iter()
-            .for_each(|(m, it)| {
-                debug_i!("native call to {:?}, in main", it);
-                if let Some(new_function_def) = typed_module.functions_by_name.get(&it.name) {
-                    debug_i!("converted to {new_function_def}");
-                    if it.name != new_function_def.name {
-                        lines[it.i] = get_new_native_call(m, &new_function_def.name);
-                    }
-                } else {
-                    // panic!("cannot find call {function_call}");
-                    // TODO I hope it is a predefined function like addRef or deref for a struct or enum
-                    println!("translate_body: cannot find call to {}", it.name);
+        self.called_functions(
+            None,
+            None,
+            &result,
+            &val_context,
+            typed_module,
+            statics,
+            modules_catalog,
+        )?
+        .iter()
+        .for_each(|(m, it)| {
+            debug_i!("native call to {:?}, in main", it);
+            if let Some(new_function_def) = typed_module.functions_by_name.get(&it.name) {
+                debug_i!("converted to {new_function_def}");
+                if it.name != new_function_def.name {
+                    lines[it.i] = get_new_native_call(m, &new_function_def.name);
                 }
-            });
+            } else {
+                // panic!("cannot find call {function_call}");
+                // TODO I hope it is a predefined function like addRef or deref for a struct or enum
+                println!("translate_body: cannot find call to {}", it.name);
+            }
+        });
 
         let result = lines.join("\n");
 
@@ -1937,6 +1983,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         context: &EnhValContext,
         type_def_provider: &dyn TypeDefProvider,
         _statics: &mut Statics,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String> {
         let mut result = Vec::new();
 
@@ -1948,6 +1995,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
             body,
             type_def_provider,
             &|name, _parameter| name == "call",
+            modules_catalog,
         )? {
             debug_i!("found call macro {m}");
             let types: Vec<EnhASTType> = m
@@ -3720,10 +3768,44 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
 
 #[cfg(test)]
 mod tests {
+    use rasm_parser::catalog::modules_catalog::ModulesCatalog;
+    use rasm_parser::catalog::{ModuleId, ModuleInfo, ModuleNamespace};
+
     use crate::codegen::enh_val_context::EnhValContext;
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::{AsmOptions, CodeGen, CodeGenAsm};
+
+    use super::enh_ast::{EnhASTNameSpace, EnhModuleId};
+
+    struct DummyModulesCatalog {}
+
+    impl DummyModulesCatalog {
+        fn new() -> Self {
+            Self {}
+        }
+    }
+
+    impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> for DummyModulesCatalog {
+        fn info(&self, id: &EnhModuleId) -> Option<ModuleInfo> {
+            None
+        }
+
+        fn catalog_info(
+            &self,
+            id: &rasm_parser::catalog::ModuleId,
+        ) -> Option<(&EnhModuleId, &EnhASTNameSpace)> {
+            None
+        }
+
+        fn catalog(&self) -> Vec<(&EnhModuleId, &EnhASTNameSpace, &ModuleId, &ModuleNamespace)> {
+            Vec::new()
+        }
+
+        fn namespace(&self, namespace: &EnhASTNameSpace) -> Option<&ModuleNamespace> {
+            None
+        }
+    }
 
     #[test]
     fn called_functions_in_comment() {
@@ -3738,6 +3820,7 @@ mod tests {
                 &EnhValContext::new(None),
                 &DummyTypeDefProvider::new(),
                 &mut statics,
+                &DummyModulesCatalog::new()
             )
             .unwrap()
             .is_empty());
@@ -3756,6 +3839,7 @@ mod tests {
                 &EnhValContext::new(None),
                 &DummyTypeDefProvider::new(),
                 &mut statics,
+                &DummyModulesCatalog::new()
             )
             .unwrap()
             .is_empty());
@@ -3774,6 +3858,7 @@ mod tests {
                 &EnhValContext::new(None),
                 &DummyTypeDefProvider::new(),
                 &mut statics,
+                &DummyModulesCatalog::new()
             )
             .unwrap()
             .get(0)

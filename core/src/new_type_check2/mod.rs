@@ -19,18 +19,24 @@
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
+use rand::RngCore;
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
+use rasm_parser::catalog::{ASTIndex, ModuleInfo};
+use rasm_parser::parser::ast::{ASTPosition, ASTType, BuiltinTypeKind};
 use std::collections::HashMap;
 use std::iter::zip;
 use std::ops::Deref;
 
 use crate::codegen::c::code_gen_c::value_type_to_enh_type;
 use crate::codegen::compile_target::CompileTarget;
+use crate::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
+use crate::type_check::ast_type_checker::ASTTypeChecker;
 use log::info;
 
 use crate::codegen::enh_ast::{
     EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex,
     EnhASTLambdaDef, EnhASTNameSpace, EnhASTParameterDef, EnhASTStatement, EnhASTType,
-    EnhBuiltinTypeKind,
+    EnhBuiltinTypeKind, EnhModuleId, EnhModuleInfo,
 };
 use crate::codegen::enh_val_context::EnhValContext;
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -48,22 +54,34 @@ use rasm_utils::{debug_i, dedent, indent, OptionDisplay, SliceDisplay};
 type InputModule = EnhancedASTModule;
 type OutputModule = EnhancedASTModule;
 
-pub struct TypeCheck {
+pub struct TypeCheck<'a> {
     target: CompileTarget,
     debug: bool,
     stack: Vec<EnhASTIndex>,
     functions_stack: LinkedHashMap<String, Vec<EnhASTIndex>>,
     new_functions: HashMap<String, EnhASTFunctionDef>,
+    type_checker: ASTTypeChecker,
+    modules_catalog: &'a dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    modules_container: &'a ASTModulesContainer,
 }
 
-impl TypeCheck {
-    pub fn new(target: CompileTarget, debug: bool) -> Self {
+impl<'a> TypeCheck<'a> {
+    pub fn new(
+        target: CompileTarget,
+        debug: bool,
+        type_checker: ASTTypeChecker,
+        modules_catalog: &'a dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        modules_container: &'a ASTModulesContainer,
+    ) -> Self {
         Self {
             target,
             debug,
             stack: vec![],
             functions_stack: Default::default(),
             new_functions: HashMap::new(),
+            type_checker,
+            modules_catalog,
+            modules_container,
         }
     }
 
@@ -73,6 +91,7 @@ impl TypeCheck {
         statics: &mut Statics,
         default_functions: Vec<DefaultFunction>,
         mandatory_functions: Vec<DefaultFunction>,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<OutputModule, CompilationError> {
         let mut val_context = EnhValContext::new(None);
 
@@ -148,7 +167,13 @@ impl TypeCheck {
 
                 let mut new_functions = Vec::new();
                 match self
-                    .transform_function(&module, statics, &function, &mut new_functions)
+                    .transform_function(
+                        &module,
+                        statics,
+                        &function,
+                        &mut new_functions,
+                        modules_catalog,
+                    )
                     .map_err(|it| CompilationError {
                         index: function.index.clone(),
                         error_kind: CompilationErrorKind::TypeCheck(
@@ -831,7 +856,7 @@ impl TypeCheck {
                                 namespace,
                                 inside_function,
                                 &mut inner_new_functions,
-                                strict
+                                strict,
                             )?/*
                             .map_err(|it| {
                                 it.add(
@@ -1154,6 +1179,7 @@ impl TypeCheck {
         statics: &mut Statics,
         new_function_def: &EnhASTFunctionDef,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<Option<EnhASTFunctionBody>, TypeCheckError> {
         debug_i!("transform_function {new_function_def}");
         debug_i!(
@@ -1195,7 +1221,13 @@ impl TypeCheck {
 
                 let evaluator = self.target.get_evaluator(self.debug);
                 let text_macro_names = evaluator
-                    .get_macros(None, Some(new_function_def), asm_body, &type_def_provider)
+                    .get_macros(
+                        None,
+                        Some(new_function_def),
+                        asm_body,
+                        &type_def_provider,
+                        modules_catalog,
+                    )
                     .map_err(|it| {
                         dedent!();
                         TypeCheckError::new(
@@ -1250,6 +1282,7 @@ impl TypeCheck {
                         &type_def_provider,
                         statics,
                         self.debug,
+                        modules_catalog,
                     )
                     .map_err(|it| {
                         dedent!();
@@ -1389,6 +1422,122 @@ impl TypeCheck {
         })
     }
 
+    fn enh_filter_from_ast(
+        &self,
+        filter: &ASTTypeFilter,
+        namespace: &EnhASTNameSpace,
+    ) -> EnhTypeFilter {
+        match filter {
+            ASTTypeFilter::Exact(ast_type, module_info) => {
+                EnhTypeFilter::Exact(self.enh_ast_type(ast_type, module_info, namespace))
+            }
+            ASTTypeFilter::Any => EnhTypeFilter::Any,
+            ASTTypeFilter::Lambda(s, asttype_filter) => EnhTypeFilter::Lambda(
+                *s,
+                asttype_filter
+                    .clone()
+                    .map(|it| Box::new(self.enh_filter_from_ast(&it, namespace))),
+            ),
+        }
+    }
+
+    fn enh_ast_type(
+        &self,
+        ast_type: &ASTType,
+        module_info: &ModuleInfo,
+        namespace: &EnhASTNameSpace,
+    ) -> EnhASTType {
+        let ast_type = if ast_type.is_generic() {
+            &ast_type.remove_generic_prefix()
+        } else {
+            ast_type
+        };
+
+        let (filter_module_id, filter_module_namespace) = {
+            if let ASTType::Custom {
+                name,
+                param_types,
+                position,
+            } = ast_type
+            {
+                let (filter_module_id, filter_module_namespace) =
+                    if let Some(ast_namespace) = self.modules_catalog.namespace(namespace) {
+                        if let Some(t) = self
+                            .modules_container
+                            .custom_type_index(ast_namespace, name)
+                        {
+                            if let Some((id, namespace)) =
+                                self.modules_catalog.catalog_info(t.module_id())
+                            {
+                                (id, namespace)
+                            } else {
+                                self.modules_catalog.catalog_info(module_info.id()).unwrap()
+                            }
+                        } else {
+                            self.modules_catalog.catalog_info(module_info.id()).unwrap()
+                        }
+                    } else {
+                        self.modules_catalog.catalog_info(module_info.id()).unwrap()
+                    };
+
+                let param_types = param_types
+                    .iter()
+                    .map(|it| self.enh_ast_type(it, module_info, namespace))
+                    .collect();
+
+                /*
+                if name == "ASTType" && &filter_module_namespace.safe_name() == "stdlib_vec" {
+                    println!("ASTType error namespace {}", module_info.namespace());
+                }
+                */
+
+                return EnhASTType::Custom {
+                    namespace: filter_module_namespace.clone(),
+                    name: name.clone(),
+                    param_types,
+                    index: EnhASTIndex {
+                        file_name: filter_module_id.path(),
+                        row: position.row,
+                        column: position.column,
+                    },
+                };
+            } else if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                parameters,
+                return_type,
+            }) = ast_type
+            {
+                let parameters = parameters
+                    .iter()
+                    .map(|it| self.enh_ast_type(it, module_info, namespace))
+                    .collect();
+
+                let return_type = self.enh_ast_type(&return_type, module_info, namespace);
+
+                return EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type: Box::new(return_type),
+                });
+            } else {
+                self.modules_catalog.catalog_info(module_info.id()).unwrap()
+            }
+        };
+
+        /*
+        if format!("{ast_type}").contains("Option<IOError>") {
+            println!("ast_type {ast_type}");
+            println!("    module_info {module_info}");
+            println!("    filter_module_namespace {filter_module_namespace}");
+        }
+        */
+
+        EnhASTType::from_ast(
+            filter_module_namespace,
+            filter_module_id,
+            ast_type.clone(),
+            self.modules_catalog,
+        )
+    }
+
     pub fn type_of_expression(
         &mut self,
         module: &InputModule,
@@ -1405,6 +1554,40 @@ impl TypeCheck {
             OptionDisplay(&expected_type)
         );
         indent!();
+
+        // let mut found_in_type_check = None;
+
+        if let Some(enh_index) = typed_expression.get_index() {
+            if let Some(ref path) = enh_index.file_name {
+                let info = EnhModuleInfo::new(EnhModuleId::Path(path.clone()), namespace.clone());
+                let index = ASTIndex::new(
+                    info.module_namespace(),
+                    info.module_id(),
+                    ASTPosition::new(enh_index.row, enh_index.column),
+                );
+                if let Some(t) = self.type_checker.result.get(&index) {
+                    if let Some(f) = t.filter() {
+                        if !f.is_generic() {
+                            /*
+                            if let ASTTypeFilter::Exact(t1, ti) = f {
+                                println!("Exact {t1} {ti} namespace {namespace}");
+                                if &format!("{t1}") == "ASTType" {
+                                    println!("ASTType {t1} {ti}");
+                                }
+
+                            }
+                            */
+                            let filter = self.enh_filter_from_ast(f, namespace);
+                            //found_in_type_check = Some(filter.clone());
+                            //let mut rng = rand::thread_rng();
+                            //println!("optimized {}", rng.next_u64());
+                            //return Ok(filter);
+                        }
+                    }
+                }
+            }
+        }
+
         let result = match typed_expression {
             EnhASTExpression::ASTFunctionCallExpression(call) => {
                 if val_context.is_lambda(&call.function_name) {
@@ -1591,6 +1774,21 @@ impl TypeCheck {
 
         debug_i!("found type {result}");
         dedent!();
+
+        /*
+        if let Some(ftc) = found_in_type_check {
+            if let EnhTypeFilter::Exact(ft) = &ftc {
+                if let EnhTypeFilter::Exact(t) = &result {
+                    if ft != t {
+                        println!("different exact {ft:?} {t:?}");
+                    }
+                } else {
+                    // println!("not found in result {ft}");
+                }
+            }
+        }
+        */
+
         Ok(result)
     }
 
@@ -1724,6 +1922,7 @@ mod tests {
     use crate::commandline::CommandLineOptions;
     use crate::new_type_check2::TypeCheck;
     use crate::project::{RasmProject, RasmProjectRunType};
+    use crate::type_check::ast_type_checker::ASTTypeChecker;
     use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use crate::type_check::type_check_error::TypeCheckError;
     use crate::type_check::typed_ast::convert_to_typed_module;
@@ -1738,6 +1937,12 @@ mod tests {
     #[test]
     pub fn breakout() {
         let project = dir_to_project("../rasm/resources/examples/breakout");
+        test_project(project).unwrap_or_else(|e| panic!("{e}"))
+    }
+
+    #[test]
+    pub fn let1() {
+        let project = dir_to_project("../rasm/resources/test/let1.rasm");
         test_project(project).unwrap_or_else(|e| panic!("{e}"))
     }
 
@@ -2050,21 +2255,35 @@ mod tests {
         let target = CompileTarget::Nasmi386(AsmOptions::default());
         let mut statics = Statics::new();
 
+        let run_type = RasmProjectRunType::Main;
+        let command_line_options = CommandLineOptions::default();
+
         let (modules, _errors) = project.get_all_modules(
             &mut statics,
-            &RasmProjectRunType::Main,
+            &run_type,
             &target,
             false,
-            &CommandLineOptions::default(),
+            &command_line_options,
+        );
+
+        //resolved_module.print();
+
+        let mut statics_for_cc = Statics::new();
+
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics_for_cc,
+            &run_type,
+            &target,
+            command_line_options.debug,
+            &command_line_options,
         );
 
         let (module, _) =
-            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, &catalog);
 
         let mandatory_functions = target.get_mandatory_functions(&module);
 
         let default_functions = target.get_default_functions(false);
-        //resolved_module.print();
 
         let _ = convert_to_typed_module(
             module,
@@ -2074,6 +2293,9 @@ mod tests {
             default_functions,
             &target,
             false,
+            ASTTypeChecker::from_modules_container(&container).0,
+            &catalog,
+            &container,
         );
 
         //print_typed_module(&typed_module.0);
@@ -2102,6 +2324,8 @@ mod tests {
     }
 
     fn dir_to_project(test_folder: &str) -> RasmProject {
+        env::set_var("RASM_STDLIB", "../../../stdlib");
+
         init_log();
         let file_name = PathBuf::from(test_folder);
 

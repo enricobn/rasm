@@ -5,3 +5,11 @@ pub fn endsWith<T>(s: str, suffix: str, f: fn(str) -> Option<T>) -> Option<T> {
         Option::None();
     });
 }
+
+pub fn endsWith1<T>(s: str, suffix: str, f: fn(str) -> Option<T>) -> Option<T> {
+    if(s.endsWith(suffix).not, {
+        Option::None();        
+    }, {
+        f(s.removeSuffix(suffix));
+    });
+}
