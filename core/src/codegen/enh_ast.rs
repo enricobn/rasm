@@ -5,7 +5,6 @@ use std::ops::Deref;
 use std::path::PathBuf;
 
 use derivative::Derivative;
-use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -273,24 +272,18 @@ impl EnhASTFunctionDef {
         id: &EnhModuleId,
         namespace: &EnhASTNameSpace,
         function: ASTFunctionDef,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Self {
         Self {
             original_name: function.name.clone(),
             name: function.name,
-            parameters: EnhASTParameterDef::from_asts(
-                id,
-                namespace,
-                function.parameters,
-                modules_catalog,
-            ),
-            return_type: EnhASTType::from_ast(namespace, id, function.return_type, modules_catalog),
+            parameters: EnhASTParameterDef::from_asts(id, namespace, function.parameters),
+            return_type: EnhASTType::from_ast(namespace, id, function.return_type),
             body: {
                 match function.body {
                     ASTFunctionBody::RASMBody(statements) => EnhASTFunctionBody::RASMBody(
                         statements
                             .into_iter()
-                            .map(|it| EnhASTStatement::from_ast(id, namespace, it, modules_catalog))
+                            .map(|it| EnhASTStatement::from_ast(id, namespace, it))
                             .collect(),
                     ),
                     ASTFunctionBody::NativeBody(value) => EnhASTFunctionBody::NativeBody(value),
@@ -325,12 +318,7 @@ impl EnhASTLambdaDef {
         result
     }
 
-    pub fn from_ast(
-        id: &EnhModuleId,
-        namespace: &EnhASTNameSpace,
-        lambda: ASTLambdaDef,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
-    ) -> Self {
+    pub fn from_ast(id: &EnhModuleId, namespace: &EnhASTNameSpace, lambda: ASTLambdaDef) -> Self {
         Self {
             parameter_names: lambda
                 .parameter_names
@@ -340,7 +328,7 @@ impl EnhASTLambdaDef {
             body: lambda
                 .body
                 .into_iter()
-                .map(|it| EnhASTStatement::from_ast(id, namespace, it, modules_catalog))
+                .map(|it| EnhASTStatement::from_ast(id, namespace, it))
                 .collect(),
             index: EnhASTIndex::from_position(id.path(), &lambda.position),
         }
@@ -707,7 +695,6 @@ impl EnhASTType {
         namespace: &'a EnhASTNameSpace,
         id: &'a EnhModuleId,
         ast_type: ASTType,
-        modules_catalog: &'a dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Self {
         match ast_type {
             ASTType::Builtin(kind) => {
@@ -721,17 +708,11 @@ impl EnhASTType {
                         parameters,
                         return_type,
                     } => EnhBuiltinTypeKind::Lambda {
-                        parameters: EnhASTType::from_asts(
-                            namespace,
-                            id,
-                            parameters,
-                            modules_catalog,
-                        ),
+                        parameters: EnhASTType::from_asts(namespace, id, parameters),
                         return_type: Box::new(EnhASTType::from_ast(
                             namespace,
                             id,
                             return_type.as_ref().clone(),
-                            modules_catalog,
                         )),
                     },
                 };
@@ -748,7 +729,7 @@ impl EnhASTType {
             } => EnhASTType::Custom {
                 namespace: namespace.clone(),
                 name: name.clone(),
-                param_types: EnhASTType::from_asts(namespace, id, param_types, modules_catalog),
+                param_types: EnhASTType::from_asts(namespace, id, param_types),
                 index: EnhASTIndex::from_position(id.path(), &index),
             },
             ASTType::Unit => EnhASTType::Unit,
@@ -759,10 +740,9 @@ impl EnhASTType {
         namespace: &EnhASTNameSpace,
         id: &EnhModuleId,
         asts: Vec<ASTType>,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Vec<EnhASTType> {
         asts.into_iter()
-            .map(|it| EnhASTType::from_ast(namespace, id, it, modules_catalog))
+            .map(|it| EnhASTType::from_ast(namespace, id, it))
             .collect()
     }
 }
@@ -847,11 +827,10 @@ impl EnhASTParameterDef {
         id: &EnhModuleId,
         namespace: &EnhASTNameSpace,
         parameter: ASTParameterDef,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Self {
         Self {
             name: parameter.name,
-            ast_type: EnhASTType::from_ast(namespace, id, parameter.ast_type, modules_catalog),
+            ast_type: EnhASTType::from_ast(namespace, id, parameter.ast_type),
             ast_index: EnhASTIndex::from_position(id.path(), &parameter.position),
         }
     }
@@ -860,11 +839,10 @@ impl EnhASTParameterDef {
         id: &EnhModuleId,
         namespace: &EnhASTNameSpace,
         parameters: Vec<ASTParameterDef>,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Vec<EnhASTParameterDef> {
         parameters
             .into_iter()
-            .map(|it| EnhASTParameterDef::from_ast(id, namespace, it, modules_catalog))
+            .map(|it| EnhASTParameterDef::from_ast(id, namespace, it))
             .collect()
     }
 }
@@ -893,11 +871,10 @@ impl EnhASTStructPropertyDef {
         id: &EnhModuleId,
         namespace: &EnhASTNameSpace,
         property: ASTStructPropertyDef,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Self {
         Self {
             name: property.name,
-            ast_type: EnhASTType::from_ast(namespace, id, property.ast_type, modules_catalog),
+            ast_type: EnhASTType::from_ast(namespace, id, property.ast_type),
             index: EnhASTIndex::from_position(id.path(), &property.position),
         }
     }
@@ -935,12 +912,7 @@ impl EnhASTFunctionCall {
         result
     }
 
-    pub fn from_ast(
-        id: &EnhModuleId,
-        namespace: &EnhASTNameSpace,
-        call: ASTFunctionCall,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
-    ) -> Self {
+    pub fn from_ast(id: &EnhModuleId, namespace: &EnhASTNameSpace, call: ASTFunctionCall) -> Self {
         Self {
             namespace: namespace.clone(),
             original_function_name: call.function_name.clone(),
@@ -948,10 +920,10 @@ impl EnhASTFunctionCall {
             parameters: call
                 .parameters
                 .into_iter()
-                .map(|it| EnhASTExpression::from_ast(id, namespace, it, modules_catalog))
+                .map(|it| EnhASTExpression::from_ast(id, namespace, it))
                 .collect(),
             index: EnhASTIndex::from_position(id.path(), &call.position),
-            generics: EnhASTType::from_asts(namespace, id, call.generics, modules_catalog),
+            generics: EnhASTType::from_asts(namespace, id, call.generics),
         }
     }
 }
@@ -1115,19 +1087,11 @@ impl EnhASTExpression {
         }
     }
 
-    pub fn from_ast(
-        id: &EnhModuleId,
-        namespace: &EnhASTNameSpace,
-        expr: ASTExpression,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
-    ) -> Self {
+    pub fn from_ast(id: &EnhModuleId, namespace: &EnhASTNameSpace, expr: ASTExpression) -> Self {
         match expr {
             ASTExpression::ASTFunctionCallExpression(call) => {
                 EnhASTExpression::ASTFunctionCallExpression(EnhASTFunctionCall::from_ast(
-                    id,
-                    namespace,
-                    call,
-                    modules_catalog,
+                    id, namespace, call,
                 ))
             }
             ASTExpression::ValueRef(name, position) => EnhASTExpression::ValueRef(
@@ -1138,12 +1102,9 @@ impl EnhASTExpression {
                 value_type.clone(),
                 EnhASTIndex::from_position(id.path(), &position),
             ),
-            ASTExpression::Lambda(lambda) => EnhASTExpression::Lambda(EnhASTLambdaDef::from_ast(
-                id,
-                namespace,
-                lambda,
-                modules_catalog,
-            )),
+            ASTExpression::Lambda(lambda) => {
+                EnhASTExpression::Lambda(EnhASTLambdaDef::from_ast(id, namespace, lambda))
+            }
         }
     }
 }
@@ -1203,15 +1164,13 @@ impl EnhASTStatement {
         id: &EnhModuleId,
         namespace: &EnhASTNameSpace,
         statement: ASTStatement,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Self {
         match statement {
-            ASTStatement::Expression(expr) => EnhASTStatement::Expression(
-                EnhASTExpression::from_ast(id, namespace, expr, modules_catalog),
-            ),
+            ASTStatement::Expression(expr) => {
+                EnhASTStatement::Expression(EnhASTExpression::from_ast(id, namespace, expr))
+            }
             ASTStatement::LetStatement(name, astexpression, is_const, position) => {
-                let expr =
-                    EnhASTExpression::from_ast(id, namespace, astexpression, modules_catalog);
+                let expr = EnhASTExpression::from_ast(id, namespace, astexpression);
                 EnhASTStatement::LetStatement(
                     name.clone(),
                     expr.clone(),
@@ -1271,34 +1230,28 @@ impl EnhASTModule {
         self.types.extend(module.types);
     }
 
-    pub fn from_ast(
-        module: ASTModule,
-        info: EnhModuleInfo,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
-    ) -> Self {
+    pub fn from_ast(module: ASTModule, info: EnhModuleInfo) -> Self {
         Self {
             path: info.path().unwrap_or(PathBuf::new()), // TODO I don't like it
             body: module
                 .body
                 .into_iter()
-                .map(|it| EnhASTStatement::from_ast(&info.id, &info.namespace, it, modules_catalog))
+                .map(|it| EnhASTStatement::from_ast(&info.id, &info.namespace, it))
                 .collect(),
             functions: module
                 .functions
                 .into_iter()
-                .map(|it| {
-                    EnhASTFunctionDef::from_ast(&info.id, &info.namespace, it, modules_catalog)
-                })
+                .map(|it| EnhASTFunctionDef::from_ast(&info.id, &info.namespace, it))
                 .collect(),
             enums: module
                 .enums
                 .into_iter()
-                .map(|it| EnhASTEnumDef::from_ast(&info.id, &info.namespace, it, modules_catalog))
+                .map(|it| EnhASTEnumDef::from_ast(&info.id, &info.namespace, it))
                 .collect(),
             structs: module
                 .structs
                 .into_iter()
-                .map(|it| EnhASTStructDef::from_ast(&info.id, &info.namespace, it, modules_catalog))
+                .map(|it| EnhASTStructDef::from_ast(&info.id, &info.namespace, it))
                 .collect(),
             types: module
                 .types
@@ -1389,12 +1342,7 @@ impl EnhASTEnumDef {
         result
     }
 
-    pub fn from_ast(
-        id: &EnhModuleId,
-        namespace: &EnhASTNameSpace,
-        enum_def: ASTEnumDef,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
-    ) -> Self {
+    pub fn from_ast(id: &EnhModuleId, namespace: &EnhASTNameSpace, enum_def: ASTEnumDef) -> Self {
         Self {
             namespace: namespace.clone(),
             name: enum_def.name,
@@ -1402,7 +1350,7 @@ impl EnhASTEnumDef {
             variants: enum_def
                 .variants
                 .into_iter()
-                .map(|it| EnhASTEnumVariantDef::from_ast(id, namespace, it, modules_catalog))
+                .map(|it| EnhASTEnumVariantDef::from_ast(id, namespace, it))
                 .collect(),
             index: EnhASTIndex::from_position(id.path(), &enum_def.position),
             modifiers: enum_def.modifiers,
@@ -1446,16 +1394,10 @@ impl EnhASTEnumVariantDef {
         id: &EnhModuleId,
         namespace: &EnhASTNameSpace,
         variant_def: ASTEnumVariantDef,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Self {
         Self {
             name: variant_def.name,
-            parameters: EnhASTParameterDef::from_asts(
-                id,
-                namespace,
-                variant_def.parameters,
-                modules_catalog,
-            ),
+            parameters: EnhASTParameterDef::from_asts(id, namespace, variant_def.parameters),
             index: EnhASTIndex::from_position(id.path(), &variant_def.position),
         }
     }
@@ -1514,7 +1456,6 @@ impl EnhASTStructDef {
         id: &EnhModuleId,
         namespace: &EnhASTNameSpace,
         struct_def: ASTStructDef,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Self {
         Self {
             namespace: namespace.clone(),
@@ -1523,7 +1464,7 @@ impl EnhASTStructDef {
             properties: struct_def
                 .properties
                 .into_iter()
-                .map(|it| EnhASTStructPropertyDef::from_ast(id, namespace, it, modules_catalog))
+                .map(|it| EnhASTStructPropertyDef::from_ast(id, namespace, it))
                 .collect(),
             index: EnhASTIndex::from_position(id.path(), &struct_def.position),
             modifiers: struct_def.modifiers,

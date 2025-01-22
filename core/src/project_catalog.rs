@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use rasm_parser::catalog::{
     modules_catalog::ModulesCatalog, ModuleId, ModuleInfo, ModuleNamespace,
 };
-use rasm_utils::find_one;
 
 use crate::codegen::enh_ast::{EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 

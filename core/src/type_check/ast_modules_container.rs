@@ -4,7 +4,7 @@ use std::{
     iter::zip,
 };
 
-use rasm_utils::{find_one, OptionDisplay};
+use rasm_utils::{debug_i, find_one, OptionDisplay, SliceDisplay};
 
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
@@ -260,6 +260,10 @@ impl ASTModulesContainer {
         return_type_filter: Option<&ASTType>,
         function_call_module_namespace: &ModuleNamespace,
     ) -> Vec<&ASTFunctionSignatureEntry> {
+        debug_i!(
+            "find_call_vec {function_to_call} {}",
+            SliceDisplay(parameter_types_filter)
+        );
         if let Some(signatures) = self.signatures.get(function_to_call) {
             let result = signatures
                 .iter()
@@ -498,7 +502,13 @@ impl ASTTypeFilter {
                         &parameters.len() == par_len
                             && return_type_filter
                                 .as_ref()
-                                .map(|it| it.is_compatible(&return_type, module_id, container))
+                                // TODO I don't like it:
+                                // a lambda that returns some type can be passed to a function that takes a lambda that returns Unit.
+                                // For example in a forEach (that takes a lambda that returns Unit) we can pass a lambda that returns something...
+                                .map(|it| {
+                                    return_type.is_unit()
+                                        || it.is_compatible(&return_type, module_id, container)
+                                })
                                 .unwrap_or(true)
                     }
                     _ => false,

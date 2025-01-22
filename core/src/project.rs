@@ -32,6 +32,7 @@ use log::info;
 use pathdiff::diff_paths;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::ModuleInfo;
+use rasm_utils::debug_indent::{enable_log, log_enabled};
 use rayon::prelude::*;
 use rust_embed::RustEmbed;
 use serde::Deserialize;
@@ -320,11 +321,14 @@ impl RasmProject {
             }
         }
 
+        let log_enabled = log_enabled();
+
         pairs.append(
             &mut self
                 .get_all_dependencies()
                 .into_par_iter()
                 .map(|dependency| {
+                    enable_log(log_enabled);
                     info!("including dependency {}", dependency.config.package.name);
                     //TODO include tests?
                     let mut dep_modules =
@@ -581,6 +585,7 @@ impl RasmProject {
                 EnhModuleInfo::new(EnhModuleId::Path(path), namespace),
             )]
         } else {
+            let log_enabled = log_enabled();
             WalkDir::new(source_folder)
                 .into_iter()
                 .collect::<Vec<_>>()
@@ -588,6 +593,7 @@ impl RasmProject {
                 .filter_map(Result::ok)
                 .filter(|it| it.file_name().to_str().unwrap().ends_with(".rasm"))
                 .filter_map(|entry| {
+                    enable_log(log_enabled);
                     let path = entry.path();
 
                     self.get_module(path, target)

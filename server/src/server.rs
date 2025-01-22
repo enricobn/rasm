@@ -105,7 +105,7 @@ impl ServerState {
         );
 
         let (enhanced_ast_module, _errors) =
-            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, todo!());
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
 
         // TODO errors
 

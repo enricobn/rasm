@@ -2,8 +2,6 @@ use ast::ASTPosition;
 use lazy_static::lazy_static;
 use std::fmt::{Display, Formatter};
 
-use log::debug;
-
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };

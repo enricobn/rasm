@@ -1,6 +1,5 @@
 use std::iter::zip;
 
-use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_utils::debug_i;
 
 use crate::codegen::compile_target::CompileTarget;
@@ -18,7 +17,7 @@ use crate::type_check::functions_container::{EnhTypeFilter, FunctionsContainer};
 use crate::type_check::type_check_error::TypeCheckError;
 use rasm_parser::parser::ast;
 
-use super::enh_ast::{EnhModuleId, EnhModuleInfo};
+use super::enh_ast::EnhModuleInfo;
 
 #[derive(Clone, Debug)]
 pub struct EnhancedASTModule {
@@ -37,18 +36,16 @@ impl EnhancedASTModule {
         statics: &mut Statics,
         target: &CompileTarget,
         debug: bool,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> (Self, Vec<CompilationError>) {
         Self::new(
             modules
                 .into_iter()
-                .map(|(module, info)| EnhASTModule::from_ast(module, info, modules_catalog))
+                .map(|(module, info)| EnhASTModule::from_ast(module, info))
                 .collect(),
             project,
             statics,
             target,
             debug,
-            modules_catalog,
         )
     }
     pub fn new(
@@ -57,7 +54,6 @@ impl EnhancedASTModule {
         statics: &mut Statics,
         target: &CompileTarget,
         debug: bool,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> (Self, Vec<CompilationError>) {
         let mut body = Vec::new();
         let mut enums = Vec::new();
@@ -99,11 +95,9 @@ impl EnhancedASTModule {
             project.test_resources_folder(),
         );
 
-        target.functions_creator(debug).create_globals(
-            &mut enhanced_module,
-            statics,
-            modules_catalog,
-        );
+        target
+            .functions_creator(debug)
+            .create_globals(&mut enhanced_module, statics);
 
         enhanced_module = enhanced_module.fix_namespaces();
 

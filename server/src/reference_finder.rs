@@ -9,7 +9,7 @@ use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enh_ast::{
     EnhASTEnumDef, EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef,
     EnhASTIndex, EnhASTLambdaDef, EnhASTModule, EnhASTNameSpace, EnhASTParameterDef,
-    EnhASTStatement, EnhASTStructDef, EnhASTType, EnhASTTypeDef, EnhBuiltinTypeKind,
+    EnhASTStatement, EnhASTStructDef, EnhASTType, EnhASTTypeDef, EnhBuiltinTypeKind, EnhModuleId,
 };
 use rasm_core::codegen::enh_val_context::EnhValContext;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
@@ -17,10 +17,12 @@ use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::EnhValKind;
 use rasm_core::new_type_check2::TypeCheck;
 use rasm_core::project::RasmProject;
+use rasm_core::type_check::ast_modules_container::ASTModulesContainer;
 use rasm_core::type_check::ast_type_checker::ASTTypeChecker;
 use rasm_core::type_check::functions_container::EnhTypeFilter;
 use rasm_core::type_check::substitute;
 use rasm_core::type_check::type_check_error::TypeCheckError;
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::parser::ast::ASTValueType;
 use rasm_utils::OptionDisplay;
 
@@ -40,9 +42,18 @@ impl ReferenceFinder {
         ast_module: &EnhASTModule,
         compile_target: CompileTarget,
         debug: bool,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        modules_container: &ASTModulesContainer,
     ) -> Result<Self, TypeCheckError> {
         let path = ast_module.path.clone();
-        let selectable_items = Self::process_module(module, ast_module, compile_target, debug)?;
+        let selectable_items = Self::process_module(
+            module,
+            ast_module,
+            compile_target,
+            debug,
+            modules_catalog,
+            modules_container,
+        )?;
 
         Ok(Self {
             selectable_items,
@@ -422,6 +433,8 @@ impl ReferenceFinder {
         module: &EnhASTModule,
         compile_target: CompileTarget,
         debug: bool,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        modules_container: &ASTModulesContainer,
     ) -> Result<Vec<SelectableItem>, TypeCheckError> {
         let mut reference_context = ReferenceContext::new(None);
         let mut reference_static_context = ReferenceContext::new(None);
@@ -433,8 +446,8 @@ impl ReferenceFinder {
             compile_target.clone(),
             debug,
             ASTTypeChecker::new(),
-            todo!(),
-            todo!(),
+            modules_catalog,
+            modules_container,
         );
 
         let mut result = Vec::new();
@@ -444,6 +457,8 @@ impl ReferenceFinder {
             &mut statics,
             compile_target,
             debug,
+            modules_catalog,
+            modules_container,
         );
 
         let mut new_functions = Vec::new();
@@ -492,6 +507,8 @@ impl ReferenceFinder {
         statics: &mut Statics,
         compile_target: CompileTarget,
         debug: bool,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        modules_container: &ASTModulesContainer,
     ) -> Vec<SelectableItem> {
         let mut result = Vec::new();
         let mut reference_context = ReferenceContext::new(None);
@@ -501,8 +518,8 @@ impl ReferenceFinder {
             compile_target,
             debug,
             ASTTypeChecker::new(),
-            todo!(),
-            todo!(),
+            modules_catalog,
+            modules_container,
         );
 
         let mut new_functions = Vec::new();
@@ -1222,13 +1239,24 @@ mod tests {
 
     #[test]
     fn simple() {
-        let (_project, eh_module, module) =
-            get_reference_finder("resources/test/simple.rasm", None);
+        let (project, eh_module, module) = get_reference_finder("resources/test/simple.rasm", None);
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -1296,12 +1324,24 @@ mod tests {
 
     #[test]
     fn types() {
-        let (_project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -1376,11 +1416,23 @@ mod tests {
     #[test]
     fn struct_constructor() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -1401,11 +1453,23 @@ mod tests {
     #[test]
     fn types_1() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -1423,11 +1487,23 @@ mod tests {
     #[test]
     fn types_2() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -1445,11 +1521,23 @@ mod tests {
     #[test]
     fn types_3() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -1565,12 +1653,24 @@ mod tests {
 
     #[test]
     fn types_lambda_param_type() {
-        let (_project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+        let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -1612,15 +1712,27 @@ mod tests {
 
         let result_rasm = stdlib_path.join("src/main/rasm/result.rasm");
 
-        let (_project, eh_module, module) = get_reference_finder(
+        let (project, eh_module, module) = get_reference_finder(
             "resources/test/types.rasm",
             Some(&result_rasm.to_string_lossy()),
         );
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -1648,12 +1760,24 @@ mod tests {
 
     #[test]
     fn enums() {
-        let (_project, eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
+        let (project, eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -1680,12 +1804,24 @@ mod tests {
 
     #[test]
     fn enums_1() {
-        let (_project, eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
+        let (project, eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -1720,9 +1856,18 @@ mod tests {
             .filter_level(log::LevelFilter::Info)
             .try_init();
 
-        let (_project, eh_module, module) = get_reference_finder(
+        let (project, eh_module, module) = get_reference_finder(
             "../rasm/resources/examples/breakout",
             Some("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
+        );
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -1730,6 +1875,8 @@ mod tests {
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
     }
@@ -1789,12 +1936,24 @@ mod tests {
     }
 
     fn test_references(file: &str, row: usize, column: usize, expected: Vec<(usize, usize)>) {
-        let (_project, eh_module, module) = get_reference_finder(file, None);
+        let (project, eh_module, module) = get_reference_finder(file, None);
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -1840,12 +1999,24 @@ mod tests {
         column: usize,
         expected: Result<Vec<(usize, usize, usize)>, String>,
     ) {
-        let (_project, eh_module, module) = get_reference_finder(file, None);
+        let (project, eh_module, module) = get_reference_finder(file, None);
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -1941,7 +2112,7 @@ mod tests {
         );
 
         let (enhanced_ast_module, errors) =
-            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, todo!());
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
 
         if !errors.is_empty() {
             panic!("{}", SliceDisplay(&errors));
@@ -1953,10 +2124,7 @@ mod tests {
             panic!("{}", SliceDisplay(&errors));
         }
 
-        (
-            enhanced_ast_module,
-            EnhASTModule::from_ast(module, info, todo!()),
-        )
+        (enhanced_ast_module, EnhASTModule::from_ast(module, info))
     }
 
     fn init_log() {
@@ -1987,12 +2155,24 @@ mod tests {
         } else {
             RasmProject::new(PathBuf::from(file_name))
         };
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let (eh_module, module) = get_reference_finder_for_project(&project, file_name);
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 
@@ -2026,12 +2206,24 @@ mod tests {
         } else {
             RasmProject::new(PathBuf::from(file_name))
         };
+
+        let mut statics = Statics::new();
+        let (container, catalog, _) = project.container_and_catalog(
+            &mut statics,
+            &RasmProjectRunType::Main,
+            &CompileTarget::C(COptions::default()),
+            false,
+            &CommandLineOptions::default(),
+        );
+
         let (eh_module, module) = get_reference_finder_for_project(&project, file_name);
         let finder = ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),
             false,
+            &catalog,
+            &container,
         )
         .unwrap();
 

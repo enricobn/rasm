@@ -1,11 +1,9 @@
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display, Formatter};
-use std::path::PathBuf;
 
 use lazy_static::lazy_static;
 use linked_hash_map::LinkedHashMap;
-use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_utils::debug_i;
 use regex::Regex;
 
@@ -132,7 +130,6 @@ impl TextMacroEvaluator {
         body: &str,
         pre_macro: bool,
         type_def_provider: &dyn TypeDefProvider,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<String, String> {
         let index = typed_function_def
             .map(|tfd| tfd.index.clone())
@@ -164,7 +161,6 @@ impl TextMacroEvaluator {
                         typed_function_def,
                         function_def,
                         type_def_provider,
-                        modules_catalog,
                     )?,
                 };
 
@@ -197,7 +193,6 @@ impl TextMacroEvaluator {
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&EnhASTFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<Vec<MacroParam>, String> {
         let mut result = Vec::new();
 
@@ -219,7 +214,6 @@ impl TextMacroEvaluator {
                             typed_function_def,
                             function_def,
                             type_def_provider,
-                            modules_catalog,
                         )?;
 
                         result.push(param);
@@ -260,7 +254,6 @@ impl TextMacroEvaluator {
                     typed_function_def,
                     function_def,
                     type_def_provider,
-                    modules_catalog,
                 )?;
                 result.push(param);
             }
@@ -278,7 +271,6 @@ impl TextMacroEvaluator {
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&EnhASTFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<MacroParam, String> {
         let p = actual_param.trim();
 
@@ -309,7 +301,6 @@ impl TextMacroEvaluator {
                             &context_generic_types,
                             &f.resolved_generic_types,
                             &f.index.id(),
-                            modules_catalog,
                         )?;
 
                         if let Some(t) = par_type {
@@ -344,7 +335,6 @@ impl TextMacroEvaluator {
                         &context_generic_types,
                         &ResolvedGenericTypes::new(),
                         &f.index.id(),
-                        modules_catalog,
                     )?;
                     if !f.parameters.iter().any(|it| it.name == par_name) {
                         match &f.body {
@@ -382,7 +372,6 @@ impl TextMacroEvaluator {
                     &context_generic_types,
                     &f.resolved_generic_types,
                     &f.index.id(),
-                    modules_catalog,
                 )?
             } else {
                 self.parse_typed_argument(
@@ -393,7 +382,6 @@ impl TextMacroEvaluator {
                     &context_generic_types,
                     &ResolvedGenericTypes::new(),
                     &EnhModuleId::Other(String::new()), // TODO is it correct?
-                    modules_catalog,
                 )?
             };
 
@@ -494,7 +482,6 @@ impl TextMacroEvaluator {
         context_generic_types: &[String],
         resolved_generic_types: &ResolvedGenericTypes,
         id: &EnhModuleId,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<(String, Option<EnhASTType>, Option<ASTTypedType>), String> {
         //println!("parse_typed_argument namespace {namespace}, p {p}");
         // TODO the check of :: is a trick since function names could have ::, try to do it better
@@ -535,8 +522,7 @@ impl TextMacroEvaluator {
                     }
                     Some((ref ast_type, _)) => {
                         //println!("parse_typed_argument {ast_type}");
-                        let eh_ast_type =
-                            EnhASTType::from_ast(namespace, id, ast_type.clone(), modules_catalog);
+                        let eh_ast_type = EnhASTType::from_ast(namespace, id, ast_type.clone());
                         let t = if let ast::ASTType::Generic(_position, _name) = ast_type {
                             if let Some(t) = substitute(&eh_ast_type, resolved_generic_types) {
                                 t
@@ -632,7 +618,6 @@ impl TextMacroEvaluator {
         function_def: Option<&EnhASTFunctionDef>,
         body: &str,
         type_def_provider: &dyn TypeDefProvider,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<Vec<(TextMacro, usize)>, String> {
         self.get_macros_filter(
             typed_function_def,
@@ -640,7 +625,6 @@ impl TextMacroEvaluator {
             body,
             type_def_provider,
             &|_name, _params| true,
-            modules_catalog,
         )
     }
 
@@ -651,7 +635,6 @@ impl TextMacroEvaluator {
         body: &str,
         type_def_provider: &dyn TypeDefProvider,
         filter: &dyn Fn(&str, &str) -> bool,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<Vec<(TextMacro, usize)>, String> {
         let index = typed_function_def
             .map(|tfd| tfd.index.clone())
@@ -684,7 +667,6 @@ impl TextMacroEvaluator {
                         typed_function_def,
                         function_def,
                         type_def_provider,
-                        modules_catalog,
                     )?,
                 };
 
@@ -1527,13 +1509,11 @@ mod tests {
     use crate::codegen::c::options::COptions;
     use crate::codegen::{AsmOptions, CodeGen, CodeGenAsm};
     use linked_hash_map::LinkedHashMap;
-    use rasm_parser::catalog::modules_catalog::ModulesCatalog;
-    use rasm_parser::catalog::{ModuleId, ModuleInfo, ModuleNamespace};
     use rasm_parser::parser::ast::ASTModifiers;
 
     use crate::codegen::enh_ast::{
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
-        EnhASTType, EnhBuiltinTypeKind, EnhModuleId,
+        EnhASTType, EnhBuiltinTypeKind,
     };
     use crate::codegen::statics::{MemoryValue, Statics};
     use crate::codegen::text_macro::{MacroParam, TextMacro};
@@ -1543,29 +1523,6 @@ mod tests {
         ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
         BuiltinTypedTypeKind,
     };
-
-    struct DummyModulesCatalog {}
-
-    impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> for DummyModulesCatalog {
-        fn info(&self, id: &EnhModuleId) -> Option<ModuleInfo> {
-            None
-        }
-
-        fn catalog_info(
-            &self,
-            id: &rasm_parser::catalog::ModuleId,
-        ) -> Option<(&EnhModuleId, &EnhASTNameSpace)> {
-            None
-        }
-
-        fn catalog(&self) -> Vec<(&EnhModuleId, &EnhASTNameSpace, &ModuleId, &ModuleNamespace)> {
-            Vec::new()
-        }
-
-        fn namespace(&self, namespace: &EnhASTNameSpace) -> Option<&ModuleNamespace> {
-            None
-        }
-    }
 
     #[test]
     fn call() {
@@ -1607,7 +1564,6 @@ mod tests {
                 "a line\n$call(nprint,10)\nanother line\n",
                 false,
                 &DummyTypeDefProvider::new(),
-                &DummyModulesCatalog {},
             )
             .unwrap();
 
@@ -1630,7 +1586,6 @@ mod tests {
                 "a line\n$call(println, \"Hello, world\")\nanother line\n",
                 false,
                 &DummyTypeDefProvider::new(),
-                &DummyModulesCatalog {},
             )
             .unwrap();
 
@@ -1674,7 +1629,6 @@ mod tests {
                 "a line\n$call(println, $s)\nanother line\n",
                 false,
                 &DummyTypeDefProvider::new(),
-                &DummyModulesCatalog {},
             )
             .unwrap();
 
@@ -1713,7 +1667,6 @@ mod tests {
                 "a line\n$ccall(printf, $s)\nanother line\n",
                 false,
                 &DummyTypeDefProvider::new(),
-                &DummyModulesCatalog {},
             )
             .unwrap();
 
@@ -1736,7 +1689,6 @@ mod tests {
                 "mov     eax, 1          ; $call(any)",
                 false,
                 &DummyTypeDefProvider::new(),
-                &DummyModulesCatalog {},
             )
             .unwrap();
 
@@ -1768,7 +1720,6 @@ mod tests {
                 None,
                 "$call(slen, $s)",
                 &DummyTypeDefProvider::new(),
-                &DummyModulesCatalog {},
             )
             .unwrap();
 
@@ -1795,7 +1746,6 @@ mod tests {
                 "$call(List_0_addRef,eax:List_0)",
                 false,
                 &DummyTypeDefProvider::new(),
-                &DummyModulesCatalog {},
             )
             .unwrap();
 
@@ -1833,7 +1783,6 @@ mod tests {
             Some(&function_def),
             "$call(List_0_addRef,$s:i32)",
             &DummyTypeDefProvider::new(),
-            &DummyModulesCatalog {},
         );
 
         assert_eq!(
@@ -1871,7 +1820,6 @@ mod tests {
                 None,
                 "($call(aFun,$par))->value",
                 &DummyTypeDefProvider::new(),
-                &DummyModulesCatalog {},
             )
             .unwrap();
 

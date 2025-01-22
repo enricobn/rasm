@@ -19,9 +19,8 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use linked_hash_map::LinkedHashMap;
-use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 
-use crate::codegen::enh_ast::{EnhASTFunctionBody, EnhASTNameSpace, EnhModuleId};
+use crate::codegen::enh_ast::{EnhASTFunctionBody, EnhASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
@@ -287,7 +286,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         function_name: &str,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> String {
         let mut body = String::new();
 
@@ -594,7 +592,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         function_name: &str,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> String {
         let suffix = if function_name == "deref" {
             "Deref"
@@ -643,7 +640,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                     body,
                     false,
                     type_def_provider,
-                    modules_catalog,
                 )
                 .unwrap()
         } else {

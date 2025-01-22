@@ -18,7 +18,6 @@
 
 use linked_hash_map::LinkedHashMap;
 use log::info;
-use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_utils::OptionDisplay;
 use std::fs::{self, File};
 use std::io::Write;
@@ -58,7 +57,6 @@ use crate::type_check::typed_ast::{
 };
 
 use super::c::typed_function_creator::TypedFunctionsCreatorC;
-use super::enh_ast::EnhModuleId;
 
 #[derive(RustEmbed)]
 #[folder = "../core/resources/corelib/nasmi386"]
@@ -132,24 +130,14 @@ impl CompileTarget {
         }
     }
 
-    fn generate(
-        &self,
-        statics: Statics,
-        typed_module: &ASTTypedModule,
-        debug: bool,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
-    ) -> String {
+    fn generate(&self, statics: Statics, typed_module: &ASTTypedModule, debug: bool) -> String {
         match self {
-            CompileTarget::Nasmi386(options) => CodeGenAsm::new(options.clone(), debug).generate(
-                typed_module,
-                statics,
-                modules_catalog,
-            ),
-            CompileTarget::C(options) => CodeGenC::new(options.clone(), debug).generate(
-                typed_module,
-                statics,
-                modules_catalog,
-            ),
+            CompileTarget::Nasmi386(options) => {
+                CodeGenAsm::new(options.clone(), debug).generate(typed_module, statics)
+            }
+            CompileTarget::C(options) => {
+                CodeGenC::new(options.clone(), debug).generate(typed_module, statics)
+            }
         }
     }
 
@@ -237,7 +225,6 @@ impl CompileTarget {
         type_def_provider: &dyn TypeDefProvider,
         _statics: &mut Statics,
         debug: bool,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String> {
         match self {
             CompileTarget::Nasmi386(options) => {
@@ -249,7 +236,6 @@ impl CompileTarget {
                     context,
                     type_def_provider,
                     _statics,
-                    modules_catalog,
                 )
             }
             CompileTarget::C(options) => {
@@ -261,7 +247,6 @@ impl CompileTarget {
                     context,
                     type_def_provider,
                     _statics,
-                    modules_catalog,
                 )
             }
         }
@@ -347,7 +332,6 @@ impl CompileTarget {
             &mut statics,
             self,
             command_line_options.debug,
-            &catalog,
         );
 
         if !errors.is_empty() {
@@ -378,7 +362,7 @@ impl CompileTarget {
                     let start = Instant::now();
 
                     let native_code =
-                        self.generate(statics, &typed_module, command_line_options.debug, &catalog);
+                        self.generate(statics, &typed_module, command_line_options.debug);
 
                     info!("code generation ended in {:?}", start.elapsed());
 
@@ -460,8 +444,7 @@ impl CompileTarget {
                         }
                     });
 
-                let native_code =
-                    self.generate(statics, &typed_module, command_line_options.debug, &catalog);
+                let native_code = self.generate(statics, &typed_module, command_line_options.debug);
 
                 File::create(out_path)
                     .unwrap_or_else(|_| panic!("cannot create file {}", out_path.to_str().unwrap()))

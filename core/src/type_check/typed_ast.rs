@@ -962,7 +962,6 @@ pub fn convert_to_typed_module(
         statics,
         default_functions,
         mandatory_functions,
-        modules_catalog,
     )?;
 
     let mut conv_context = ConvContext::new(&module);
@@ -1008,7 +1007,6 @@ pub fn convert_to_typed_module(
         &conv_context,
         &mut functions_by_name,
         statics,
-        modules_catalog,
     );
 
     let evaluator = target.get_evaluator(debug);
@@ -1018,15 +1016,7 @@ pub fn convert_to_typed_module(
             ASTTypedFunctionBody::RASMBody(_) => {}
             ASTTypedFunctionBody::NativeBody(body) => {
                 let new_body = evaluator
-                    .translate(
-                        statics,
-                        Some(function),
-                        None,
-                        body,
-                        true,
-                        &conv_context,
-                        modules_catalog,
-                    )
+                    .translate(statics, Some(function), None, body, true, &conv_context)
                     .map_err(|it| {
                         compilation_error(
                             function.index.clone(),
@@ -1072,7 +1062,6 @@ pub fn convert_to_typed_module(
                         &conv_context,
                         statics,
                         debug,
-                        modules_catalog,
                     )
                     .map_err(|err| CompilationError {
                         index: function.index.clone(),
@@ -1121,7 +1110,6 @@ pub fn convert_to_typed_module(
                         &new_body,
                         false,
                         &conv_context,
-                        modules_catalog,
                     )
                     .map_err(|it| {
                         compilation_error(

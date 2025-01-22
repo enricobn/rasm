@@ -21,7 +21,9 @@ use std::io;
 use std::ops::Deref;
 
 use rasm_core::codegen::compile_target::CompileTarget;
-use rasm_core::codegen::enh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
+use rasm_core::codegen::enh_ast::{
+    EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind, EnhModuleId,
+};
 use rasm_core::codegen::enh_val_context::TypedValContext;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
@@ -29,12 +31,14 @@ use rasm_core::codegen::typedef_provider::TypeDefProvider;
 use rasm_core::codegen::{get_typed_module, TypedValKind};
 use rasm_core::errors::{CompilationError, CompilationErrorKind};
 use rasm_core::new_type_check2;
+use rasm_core::type_check::ast_modules_container::ASTModulesContainer;
 use rasm_core::type_check::ast_type_checker::ASTTypeChecker;
 use rasm_core::type_check::functions_container::EnhTypeFilter;
 use rasm_core::type_check::typed_ast::{
     get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::parser::ast::{ASTFunctionSignature, ASTType, BuiltinTypeKind};
 use rasm_utils::OptionDisplay;
 
@@ -269,6 +273,8 @@ impl CompletionService {
         module: EnhancedASTModule,
         statics: &mut Statics,
         target: &CompileTarget,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        modules_container: &ASTModulesContainer,
     ) -> Result<Self, CompilationError> {
         let typed_module = get_typed_module(
             module,
@@ -278,8 +284,8 @@ impl CompletionService {
             target,
             false,
             ASTTypeChecker::new(), // TODO I think this class is not used
-            todo!(),
-            todo!(),
+            modules_catalog,
+            modules_container,
         )?;
 
         let mut completable_items = Vec::new();
@@ -726,33 +732,37 @@ mod tests {
         let mut statics = Statics::new();
 
         let target = CompileTarget::Nasmi386(AsmOptions::default());
-        let (modules, errors) = project.get_all_modules(
+        let run_type = RasmProjectRunType::Main;
+
+        let command_line_options = CommandLineOptions::default();
+
+        let (container, catalog, _) = project.container_and_catalog(
             &mut statics,
-            &RasmProjectRunType::Main,
+            &run_type,
             &target,
             false,
-            &CommandLineOptions::default(),
+            &command_line_options,
+        );
+
+        let mut statics = Statics::new();
+        let (modules, errors) = project.get_all_modules(
+            &mut statics,
+            &run_type,
+            &target,
+            false,
+            &command_line_options,
         );
 
         assert!(errors.is_empty());
 
-        let mut statics_for_cont = Statics::new();
-
-        let (_, catalog, _) = project.container_and_catalog(
-            &mut statics_for_cont,
-            &RasmProjectRunType::Main,
-            &target,
-            false,
-            &CommandLineOptions::default(),
-        );
-
         let (module, errors) =
-            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, &catalog);
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
 
         assert!(errors.is_empty());
 
         (
-            CompletionService::new(module.clone(), &mut statics, &target).unwrap(),
+            CompletionService::new(module.clone(), &mut statics, &target, &catalog, &container)
+                .unwrap(),
             module,
         )
     }

@@ -19,7 +19,6 @@
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
-use rand::RngCore;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleInfo};
 use rasm_parser::parser::ast::{ASTPosition, ASTType, BuiltinTypeKind};
@@ -91,7 +90,6 @@ impl<'a> TypeCheck<'a> {
         statics: &mut Statics,
         default_functions: Vec<DefaultFunction>,
         mandatory_functions: Vec<DefaultFunction>,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<OutputModule, CompilationError> {
         let mut val_context = EnhValContext::new(None);
 
@@ -167,13 +165,7 @@ impl<'a> TypeCheck<'a> {
 
                 let mut new_functions = Vec::new();
                 match self
-                    .transform_function(
-                        &module,
-                        statics,
-                        &function,
-                        &mut new_functions,
-                        modules_catalog,
-                    )
+                    .transform_function(&module, statics, &function, &mut new_functions)
                     .map_err(|it| CompilationError {
                         index: function.index.clone(),
                         error_kind: CompilationErrorKind::TypeCheck(
@@ -1179,7 +1171,6 @@ impl<'a> TypeCheck<'a> {
         statics: &mut Statics,
         new_function_def: &EnhASTFunctionDef,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Result<Option<EnhASTFunctionBody>, TypeCheckError> {
         debug_i!("transform_function {new_function_def}");
         debug_i!(
@@ -1221,13 +1212,7 @@ impl<'a> TypeCheck<'a> {
 
                 let evaluator = self.target.get_evaluator(self.debug);
                 let text_macro_names = evaluator
-                    .get_macros(
-                        None,
-                        Some(new_function_def),
-                        asm_body,
-                        &type_def_provider,
-                        modules_catalog,
-                    )
+                    .get_macros(None, Some(new_function_def), asm_body, &type_def_provider)
                     .map_err(|it| {
                         dedent!();
                         TypeCheckError::new(
@@ -1282,7 +1267,6 @@ impl<'a> TypeCheck<'a> {
                         &type_def_provider,
                         statics,
                         self.debug,
-                        modules_catalog,
                     )
                     .map_err(|it| {
                         dedent!();
@@ -1530,12 +1514,7 @@ impl<'a> TypeCheck<'a> {
         }
         */
 
-        EnhASTType::from_ast(
-            filter_module_namespace,
-            filter_module_id,
-            ast_type.clone(),
-            self.modules_catalog,
-        )
+        EnhASTType::from_ast(filter_module_namespace, filter_module_id, ast_type.clone())
     }
 
     pub fn type_of_expression(
@@ -2279,7 +2258,7 @@ mod tests {
         );
 
         let (module, _) =
-            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, &catalog);
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
 
         let mandatory_functions = target.get_mandatory_functions(&module);
 

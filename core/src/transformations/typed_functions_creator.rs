@@ -1,10 +1,9 @@
 use linked_hash_map::LinkedHashMap;
-use log::debug;
-use rasm_parser::catalog::modules_catalog::ModulesCatalog;
+use rasm_utils::debug_i;
 
 use crate::codegen::backend::Backend;
 use crate::codegen::backend::{BackendAsm, BackendNasmi386};
-use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId};
+use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
@@ -21,17 +20,9 @@ pub trait TypedFunctionsCreator {
         typed_module: &dyn TypeDefProvider,
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) {
         for struct_def in typed_module.structs().iter() {
-            self.for_struct(
-                module,
-                typed_module,
-                functions_by_name,
-                statics,
-                struct_def,
-                modules_catalog,
-            );
+            self.for_struct(module, typed_module, functions_by_name, statics, struct_def);
         }
 
         for enum_def in typed_module.enums().iter() {
@@ -45,7 +36,6 @@ pub trait TypedFunctionsCreator {
                 functions_by_name,
                 statics,
                 typed_type_def,
-                modules_catalog,
             );
         }
     }
@@ -57,7 +47,6 @@ pub trait TypedFunctionsCreator {
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
         typed_type_def: &ASTTypedTypeDef,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) {
         if typed_type_def.is_ref {
             self.create_type_free(
@@ -67,7 +56,6 @@ pub trait TypedFunctionsCreator {
                 typed_module,
                 functions_by_name,
                 statics,
-                modules_catalog,
             );
             self.create_type_free(
                 module,
@@ -76,7 +64,6 @@ pub trait TypedFunctionsCreator {
                 typed_module,
                 functions_by_name,
                 statics,
-                modules_catalog,
             );
         }
     }
@@ -102,7 +89,6 @@ pub trait TypedFunctionsCreator {
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
         struct_def: &ASTTypedStructDef,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) {
         if struct_has_references(struct_def, typed_module) {
             self.create_struct_free(
@@ -111,7 +97,6 @@ pub trait TypedFunctionsCreator {
                 typed_module,
                 functions_by_name,
                 statics,
-                modules_catalog,
             );
             self.create_struct_free(
                 struct_def,
@@ -119,7 +104,6 @@ pub trait TypedFunctionsCreator {
                 typed_module,
                 functions_by_name,
                 statics,
-                modules_catalog,
             );
         }
     }
@@ -173,7 +157,7 @@ pub trait TypedFunctionsCreator {
 
         let function_def = self.create_function(namespace, &fun_name, ast_type, body, with_descr);
 
-        debug!("created function {function_def}");
+        debug_i!("created function {function_def}");
 
         functions_by_name.insert(fun_name, function_def);
     }
@@ -185,15 +169,8 @@ pub trait TypedFunctionsCreator {
         module: &dyn TypeDefProvider,
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) {
-        let body_str = self.create_struct_free_body(
-            struct_def,
-            function_name,
-            module,
-            statics,
-            modules_catalog,
-        );
+        let body_str = self.create_struct_free_body(struct_def, function_name, module, statics);
         let body = ASTTypedFunctionBody::NativeBody(body_str);
 
         self.add_function(
@@ -237,20 +214,13 @@ pub trait TypedFunctionsCreator {
         typed_module: &dyn TypeDefProvider,
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) {
-        let ast_type = ASTTypedType::Struct {
-            namespace: typed_type_def.namespace.clone(),
-            name: typed_type_def.name.clone(),
-        };
-
         let body_str = self.create_type_free_body(
             module,
             typed_type_def,
             function_name,
             typed_module,
             statics,
-            modules_catalog,
         );
         let body = ASTTypedFunctionBody::NativeBody(body_str);
 
@@ -271,7 +241,6 @@ pub trait TypedFunctionsCreator {
         function_name: &str,
         module: &dyn TypeDefProvider,
         statics: &mut Statics,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> String;
 
     fn create_enum_free_body(
@@ -289,7 +258,6 @@ pub trait TypedFunctionsCreator {
         function_name: &str,
         typed_module: &dyn TypeDefProvider,
         statics: &mut Statics,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> String;
 }
 
@@ -365,7 +333,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
         function_name: &str,
         module: &dyn TypeDefProvider,
         statics: &mut Statics,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> String {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
@@ -527,7 +494,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
         function_name: &str,
         typed_module: &dyn TypeDefProvider,
         statics: &mut Statics,
-        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> String {
         if !type_def.is_ref {
             return String::new();

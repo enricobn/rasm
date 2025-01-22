@@ -2,12 +2,9 @@ use std::{collections::HashMap, fmt::Display};
 
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
-use rasm_utils::{
-    debug_i, debug_indent::enable_log, dedent, indent, LinkedHashMapDisplay, OptionDisplay,
-    SliceDisplay,
-};
+use rasm_utils::{debug_i, dedent, indent, LinkedHashMapDisplay, OptionDisplay, SliceDisplay};
 
-use crate::{codegen::val_context::ValContext, new_type_check2::TypeCheck};
+use crate::codegen::val_context::ValContext;
 
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
@@ -273,8 +270,6 @@ impl ASTTypeChecker {
         for (id, namespace, module) in modules_container.modules() {
             let mut val_context = ValContext::new(None);
 
-            // enable_log(id.0.contains("lambda2"));
-
             type_checker.add_body(
                 &mut val_context,
                 &mut static_val_context,
@@ -285,8 +280,6 @@ impl ASTTypeChecker {
                 &modules_container,
             );
         }
-
-        //enable_log(false);
 
         for (id, namespace, module) in modules_container.modules() {
             for function in module.functions.iter() {
@@ -502,7 +495,7 @@ impl ASTTypeChecker {
         let index = ASTIndex::new(module_namespace.clone(), module_id.clone(), expr.position());
 
         if let Some(r) = self.result.get(&index) {
-            if !r.is_generic() {
+            if !r.is_generic() && r.exact().is_some() {
                 debug_i!("Cached {r}");
                 dedent!();
 
@@ -779,7 +772,7 @@ impl ASTTypeChecker {
         indent!();
 
         if let Some(t) = self.result.get(&index) {
-            if !t.is_generic() {
+            if !t.is_generic() && t.exact().is_some() {
                 debug_i!("Cached {t}");
                 dedent!();
                 return;
@@ -787,6 +780,8 @@ impl ASTTypeChecker {
         }
 
         let mut first_try_of_map = HashMap::new();
+
+        let mut tmp = ASTTypeChecker::new();
 
         for e in &call.parameters {
             let e_index = ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
@@ -796,7 +791,7 @@ impl ASTTypeChecker {
             // we hope that knowing only that it's a lambda, eventually the return type and the number of parameters is sufficient
 
             if let ASTExpression::Lambda(def) = e {
-                let ret_type = if let Some(body_ret_type) = self.add_body(
+                let ret_type = if let Some(body_ret_type) = tmp.add_body(
                     val_context,
                     statics,
                     &def.body,
@@ -1501,7 +1496,6 @@ mod tests {
     };
 
     use rasm_utils::{
-        debug_indent::enable_log,
         test_utils::{init_log, init_minimal_log},
         OptionDisplay,
     };
@@ -1877,8 +1871,6 @@ mod tests {
     #[test]
     fn test_type_check_lambda2() {
         init_log();
-
-        // enable_log(false);
 
         let (type_checker, catalog, _) = check_project("../rasm/resources/test/lambda2.rasm");
 
