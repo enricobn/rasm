@@ -349,7 +349,7 @@ impl<'a> TypeCheck<'a> {
         if let Some((_return_type, parameters_types)) = val_context.get_lambda(&call.function_name)
         {
             let new_expressions: Vec<EnhASTExpression> =
-                zip(call.parameters.iter(), parameters_types.clone().iter())
+                zip(call.parameters.iter(), parameters_types.iter())
                     .map(|(it, ast_type)| {
                         self.transform_expression(
                             module,
@@ -1560,6 +1560,7 @@ impl<'a> TypeCheck<'a> {
                             //found_in_type_check = Some(filter.clone());
                             //let mut rng = rand::thread_rng();
                             //println!("optimized {}", rng.next_u64());
+                            //dedent!();
                             //return Ok(filter);
                         }
                     }
