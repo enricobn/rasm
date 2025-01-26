@@ -305,10 +305,6 @@ impl CompileTarget {
             panic!()
         }
 
-        info!("parse ended in {:?}", start.elapsed());
-
-        let start = Instant::now();
-
         let mut statics_for_cc = Statics::new();
 
         let (container, catalog, errors) = project.container_and_catalog(
@@ -318,6 +314,8 @@ impl CompileTarget {
             command_line_options.debug,
             &command_line_options,
         );
+
+        info!("parse ended in {:?}", start.elapsed());
 
         if !errors.is_empty() {
             for error in errors {
