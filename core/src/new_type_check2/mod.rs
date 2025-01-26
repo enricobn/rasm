@@ -1547,19 +1547,7 @@ impl<'a> TypeCheck<'a> {
                 if let Some(t) = self.type_checker.result.get(&index) {
                     if let Some(f) = t.filter() {
                         if !f.is_generic() {
-                            /*
-                            if let ASTTypeFilter::Exact(t1, ti) = f {
-                                println!("Exact {t1} {ti} namespace {namespace}");
-                                if &format!("{t1}") == "ASTType" {
-                                    println!("ASTType {t1} {ti}");
-                                }
-
-                            }
-                            */
-                            let filter = self.enh_filter_from_ast(f, namespace);
-                            //found_in_type_check = Some(filter.clone());
-                            //let mut rng = rand::thread_rng();
-                            //println!("optimized {}", rng.next_u64());
+                            //let filter = self.enh_filter_from_ast(f, namespace);
                             //dedent!();
                             //return Ok(filter);
                         }
