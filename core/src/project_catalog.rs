@@ -15,6 +15,7 @@ struct ModuleEntry {
 pub struct RasmProjectCatalog {
     map: HashMap<EnhModuleId, ModuleEntry>,
     map_namespaces: HashMap<EnhASTNameSpace, ModuleNamespace>,
+    enh_map: HashMap<ModuleId, EnhModuleInfo>,
 }
 
 impl RasmProjectCatalog {
@@ -22,6 +23,7 @@ impl RasmProjectCatalog {
         Self {
             map: HashMap::new(),
             map_namespaces: HashMap::new(),
+            enh_map: HashMap::new(),
         }
     }
 
@@ -51,6 +53,14 @@ impl RasmProjectCatalog {
                 );
             }
         }
+
+        if self
+            .enh_map
+            .insert(info.module_id(), info.clone())
+            .is_some()
+        {
+            panic!("already added {}", &info.id);
+        }
     }
 }
 
@@ -62,12 +72,7 @@ impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> for RasmProjectCatalog {
     }
 
     fn catalog_info(&self, id: &ModuleId) -> Option<(&EnhModuleId, &EnhASTNameSpace)> {
-        for (enh_id, info) in self.map.iter() {
-            if &info.id == id {
-                return Some((enh_id, &info.enh_namespace));
-            }
-        }
-        None
+        self.enh_map.get(id).map(|it| (&it.id, &it.namespace))
     }
 
     fn catalog(&self) -> Vec<(&EnhModuleId, &EnhASTNameSpace, &ModuleId, &ModuleNamespace)> {
