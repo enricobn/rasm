@@ -98,19 +98,18 @@ impl<'a> TypeCheck<'a> {
         default_functions.extend(mandatory_functions);
 
         for default_function in default_functions {
-            let call = default_function.to_call(&EnhASTNameSpace::global());
-
             if let Some(f) =
-                module.find_precise_function(&call.original_function_name, &call.function_name)
+                module.find_precise_function(&default_function.name, &default_function.name)
             {
                 // TODO check error
                 self.new_functions
-                    .insert(call.function_name.clone(), f.clone());
-                self.functions_stack.insert(f.name.clone(), vec![]);
+                    .insert(default_function.name.clone(), f.clone());
+                self.functions_stack
+                    .insert(default_function.name.clone(), vec![]);
             } else {
                 return Err(Self::compilation_error(format!(
                     "Cannot find default function {}",
-                    call.function_name
+                    default_function.name
                 )));
             }
         }
@@ -1533,8 +1532,6 @@ impl<'a> TypeCheck<'a> {
             OptionDisplay(&expected_type)
         );
         indent!();
-
-        // let mut found_in_type_check = None;
 
         if let Some(enh_index) = typed_expression.get_index() {
             if let Some(ref path) = enh_index.file_name {
