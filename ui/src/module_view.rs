@@ -67,6 +67,8 @@ impl UI {
 
                 let mut just_added_new_line = false;
 
+                row = row.push(text(format!("{:>5} ", 1)));
+
                 for token in tokens {
                     if matches!(token.kind, TokenKind::EndOfLine) {
                         if just_added_new_line {
@@ -74,9 +76,11 @@ impl UI {
                         }
                         code = code.push(row);
                         row = Row::new();
+                        row = row.push(text(format!("{:>5} ", token.position.row + 1)));
                         just_added_new_line = true;
                     } else {
                         let token_position = token.position;
+                        let token_row = token_position.row;
                         let token_index = info.index(token_position.clone());
                         match token.kind {
                             TokenKind::AlphaNumeric(s) => {
@@ -136,6 +140,7 @@ impl UI {
                                 row = row.push(text(s).color(COMMENT_COLOR));
                                 code = code.push(row);
                                 row = Row::new();
+                                row = row.push(text(format!("{:>5} ", token_row + 1)));
                             }
                             TokenKind::MultiLineComment(s) => {
                                 row = row.push(text(s).color(COMMENT_COLOR))
