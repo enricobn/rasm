@@ -873,28 +873,10 @@ mod tests {
             original_function_name: "add".into(),
             function_name: "add".into(),
             parameters: vec![
-                EnhASTExpression::Value(
-                    ASTValueType::I32(10),
-                    EnhASTIndex {
-                        file_name: None,
-                        row: 0,
-                        column: 0,
-                    },
-                ),
-                EnhASTExpression::Value(
-                    ASTValueType::I32(20),
-                    EnhASTIndex {
-                        file_name: None,
-                        row: 0,
-                        column: 0,
-                    },
-                ),
+                EnhASTExpression::Value(ASTValueType::I32(10), EnhASTIndex::none()),
+                EnhASTExpression::Value(ASTValueType::I32(20), EnhASTIndex::none()),
             ],
-            index: EnhASTIndex {
-                file_name: None,
-                row: 0,
-                column: 0,
-            },
+            index: EnhASTIndex::none(),
             generics: Vec::new(),
         };
 

@@ -1786,7 +1786,7 @@ mod tests {
         );
 
         assert_eq!(
-            "Ok([(TextMacro { name: \"call\", parameters: [Plain(\"List_0_addRef\", None, None), Ref(\"$s\", Some(Builtin(I32)), None)], index: EnhASTIndex { file_name: None, row: 0, column: 0 } }, 0)])",
+            "Ok([(TextMacro { name: \"call\", parameters: [Plain(\"List_0_addRef\", None, None), Ref(\"$s\", Some(Builtin(I32)), None)], index: EnhASTIndex { file_name: None, row: 0, column: 0, builtin: None } }, 0)])",
             &format!("{:?}", result),
         );
     }

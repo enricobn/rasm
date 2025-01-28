@@ -1231,6 +1231,7 @@ mod tests {
     use rasm_core::codegen::AsmOptions;
     use rasm_core::commandline::CommandLineOptions;
     use rasm_core::project::{RasmProject, RasmProjectRunType};
+    use rasm_parser::parser::ast::ASTBuiltinFunctionType;
     use rasm_utils::{OptionDisplay, SliceDisplay};
 
     use crate::completion_service::{CompletionItem, CompletionTrigger};
@@ -1263,10 +1264,7 @@ mod tests {
         let file_name = Path::new("resources/test/simple.rasm");
 
         let project = RasmProject::new(file_name.to_path_buf());
-        let stdlib_path = project
-            .from_relative_to_root(Path::new("../../../stdlib"))
-            .canonicalize()
-            .unwrap();
+        let stdlib_path = Path::new("../stdlib").canonicalize().unwrap();
 
         assert_eq!(
             vec_selectable_item_to_vec_target_index(
@@ -1793,7 +1791,12 @@ mod tests {
 
         if let Some(SelectableItemTarget::Function(index, _, descr)) = item.target {
             assert_eq!(
-                EnhASTIndex::new(Some(file_name.canonicalize().unwrap()), 10, 6),
+                EnhASTIndex::builtin(
+                    Some(file_name.canonicalize().unwrap()),
+                    10,
+                    6,
+                    ASTBuiltinFunctionType::Match
+                ),
                 index
             );
             assert!(descr.starts_with("native match"));
@@ -2086,7 +2089,7 @@ mod tests {
         source: &str,
         module_path: Option<&str>,
     ) -> (RasmProject, EnhancedASTModule, EnhASTModule) {
-        env::set_var("RASM_STDLIB", "../../../stdlib");
+        env::set_var("RASM_STDLIB", "../stdlib");
 
         let file_name = Path::new(source);
         let project = RasmProject::new(file_name.to_path_buf());
@@ -2149,7 +2152,7 @@ mod tests {
         col: usize,
         trigger: CompletionTrigger,
     ) -> Result<Vec<String>, String> {
-        env::set_var("RASM_STDLIB", "../../../stdlib");
+        env::set_var("RASM_STDLIB", "../stdlib");
         let project = if let Some(project) = project {
             project
         } else {
@@ -2200,7 +2203,7 @@ mod tests {
         row: usize,
         col: usize,
     ) -> Vec<EnhASTIndex> {
-        env::set_var("RASM_STDLIB", "../../../stdlib");
+        env::set_var("RASM_STDLIB", "../stdlib");
         let project = if let Some(project) = project {
             project
         } else {

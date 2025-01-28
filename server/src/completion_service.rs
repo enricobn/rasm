@@ -724,7 +724,7 @@ mod tests {
 
     fn get_completion_service(source: &str) -> (CompletionService, EnhancedASTModule) {
         init();
-        env::set_var("RASM_STDLIB", "../../../stdlib");
+        env::set_var("RASM_STDLIB", "../stdlib");
         let file_name = Path::new(source);
 
         let project = RasmProject::new(file_name.to_path_buf());

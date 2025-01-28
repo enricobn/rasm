@@ -937,7 +937,12 @@ fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
     let mut dependencies_map = Map::new();
     let mut stdlib = Map::new();
     if let Some(stdlib_path) = get_std_lib_path() {
-        stdlib.insert("path".to_owned(), Value::String(stdlib_path));
+        let p = PathBuf::from(stdlib_path)
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        stdlib.insert("path".to_owned(), Value::String(p));
     } else {
         eprintln!("cannot find stdlib path. Define RASM_STDLIB environment variable.");
     }
@@ -1006,7 +1011,7 @@ mod tests {
 
     #[test]
     fn test_catalog() {
-        env::set_var("RASM_STDLIB", "../../../stdlib");
+        env::set_var("RASM_STDLIB", "../stdlib");
         let sut = RasmProject::new(PathBuf::from("resources/test/helloworld.rasm"));
 
         let mut statics = Statics::new();

@@ -15,9 +15,10 @@ use crate::project::RasmProject;
 use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
 
 use rasm_parser::parser::ast::{
-    ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTLambdaDef, ASTModifiers, ASTModule, ASTParameterDef, ASTPosition, ASTStatement,
-    ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef, ASTValueType, BuiltinTypeKind,
+    ASTBuiltinFunctionType, ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody,
+    ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModifiers, ASTModule, ASTParameterDef,
+    ASTPosition, ASTStatement, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef,
+    ASTValueType, BuiltinTypeKind,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -946,6 +947,7 @@ pub struct EnhASTIndex {
     pub file_name: Option<PathBuf>,
     pub row: usize,
     pub column: usize,
+    pub builtin: Option<ASTBuiltinFunctionType>,
 }
 
 impl EnhASTIndex {
@@ -954,6 +956,7 @@ impl EnhASTIndex {
             file_name: None,
             row: 0,
             column: 0,
+            builtin: None,
         }
     }
 
@@ -962,6 +965,21 @@ impl EnhASTIndex {
             file_name,
             row,
             column,
+            builtin: None,
+        }
+    }
+
+    pub fn builtin(
+        file_name: Option<PathBuf>,
+        row: usize,
+        column: usize,
+        builtin: ASTBuiltinFunctionType,
+    ) -> Self {
+        Self {
+            file_name,
+            row,
+            column,
+            builtin: Some(builtin),
         }
     }
 
@@ -970,6 +988,7 @@ impl EnhASTIndex {
             file_name: self.file_name.clone(),
             row: self.row,
             column: self.column + offset,
+            builtin: self.clone().builtin,
         }
     }
 
@@ -978,6 +997,7 @@ impl EnhASTIndex {
             file_name: self.file_name.clone(),
             row: self.row,
             column: (self.column as i32 - (offset as i32)) as usize,
+            builtin: self.clone().builtin,
         }
     }
 
@@ -986,6 +1006,7 @@ impl EnhASTIndex {
             file_name: self.file_name.clone(),
             row: self.row + offset,
             column: self.column,
+            builtin: self.clone().builtin,
         }
     }
 
@@ -994,6 +1015,7 @@ impl EnhASTIndex {
             file_name: path,
             row: position.row,
             column: position.column,
+            builtin: position.clone().builtin,
         }
     }
 

@@ -29,7 +29,7 @@ use std::ops::Deref;
 use crate::codegen::c::code_gen_c::value_type_to_enh_type;
 use crate::codegen::compile_target::CompileTarget;
 use crate::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
-use crate::type_check::ast_type_checker::ASTTypeChecker;
+use crate::type_check::ast_type_checker::{ASTTypeCheckEntry, ASTTypeCheckInfo, ASTTypeChecker};
 use log::info;
 
 use crate::codegen::enh_ast::{
@@ -586,43 +586,62 @@ impl<'a> TypeCheck<'a> {
         )> = Vec::new();
         let mut errors = Vec::new();
 
-        /*
-        let same_in_new_functions = new_functions
-            .iter()
-            .map(|(f, _i)| {
-                let mut ff = f.clone();
-                ff.rank += 1;
-                ff
-            })
-            .filter(|it| it.original_name == call.original_function_name)
-            .collect_vec();
-        */
+        let mut original_functions = Vec::new();
+
+        if let Some(e) = self.get_type_check_entry(&call.index, namespace) {
+            if let ASTTypeCheckInfo::Call(_, vec) = e.info() {
+                if vec.len() == 1 {
+                    let (f, index) = vec.first().unwrap();
+
+                    if let Some((eh_id, eh_ns)) =
+                        self.modules_catalog.catalog_info(index.module_id())
+                    {
+                        if let Some(f) = module
+                            .find_functions_by_original_name(&f.name)
+                            .iter()
+                            .find(|it| {
+                                &it.index.id() == eh_id
+                                    && it.index.row == index.position().row
+                                    && it.index.builtin == index.position().builtin
+                            })
+                        {
+                            if f.generic_types.is_empty() {
+                                //original_functions = vec![f];
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         let first_type = Self::get_first_type(call, val_context);
 
-        let original_functions = module
-            .find_functions_by_original_name(&call.original_function_name)
-            .iter()
-            //.chain(same_in_new_functions.iter())
-            .filter(|it| {
-                (it.modifiers.public || &it.namespace == namespace)
-                    && it.parameters.len() == call.parameters.len()
-            })
-            .filter(|it| {
-                if let Some(ref ft) = first_type {
-                    match EnhTypeFilter::Exact(ft.clone())
-                        .almost_equal(&it.parameters.get(0).unwrap().ast_type, module)
-                    {
-                        Ok(b) => b,
-                        Err(_) => false,
+        if original_functions.is_empty() {
+            original_functions = module
+                .find_functions_by_original_name(&call.original_function_name)
+                .iter()
+                //.chain(same_in_new_functions.iter())
+                .filter(|it| {
+                    (it.modifiers.public || &it.namespace == namespace)
+                        && it.parameters.len() == call.parameters.len()
+                })
+                .filter(|it| {
+                    if let Some(ref ft) = first_type {
+                        match EnhTypeFilter::Exact(ft.clone())
+                            .almost_equal(&it.parameters.get(0).unwrap().ast_type, module)
+                        {
+                            Ok(b) => b,
+                            Err(_) => false,
+                        }
+                    } else {
+                        true
                     }
-                } else {
-                    true
-                }
-            })
-            .sorted_by(|fn1, fn2| fn1.rank.cmp(&fn2.rank));
+                })
+                .sorted_by(|fn1, fn2| fn1.rank.cmp(&fn2.rank))
+                .collect::<Vec<_>>();
+        }
 
-        if original_functions.clone().count() == 0 {
+        if original_functions.is_empty() {
             dedent!();
 
             return Err(TypeCheckError::new_with_kind(
@@ -635,49 +654,6 @@ impl<'a> TypeCheck<'a> {
                 TypeCheckErrorKind::Important
             ));
         }
-
-        /*
-        if new_functions.iter().any(|(f, i)| {
-            f.original_name == call.original_function_name
-                && (f.modifiers.public || &f.namespace == namespace)
-                && f.parameters.len() == call.parameters.len()
-        }) {
-            println!("found a function");
-        }
-        */
-
-        /*
-        let filters_resolved_generic_types = ResolvedGenericTypes::new();
-        let mut filters_new_functions = Vec::new();
-
-        let filters: Result<Vec<(TypeFilter, ASTExpression)>, TypeCheckError> = call
-            .parameters
-            .iter()
-            .filter(|e| !matches!(e, ASTExpression::Lambda(_)))
-            .map(|expr| {
-                let new_filter = self.get_filter(
-                    module,
-                    val_context,
-                    statics,
-                    &mut filters_resolved_generic_types,
-                    expr,
-                    None,
-                    namespace,
-                    inside_function,
-                    &mut filters_new_functions,
-                );
-
-                /*
-                if let Ok((nf, _)) = &new_filter {
-                    println!("filter for {expr} : {}", expr.get_index());
-                    println!("  {nf}");
-                }
-                */
-
-                new_filter
-            })
-            .collect();
-        */
 
         let mut ok_inner_new_functions = Vec::new();
 
@@ -770,41 +746,6 @@ impl<'a> TypeCheck<'a> {
                     }
                 }
             }
-
-            /*
-            if let Ok(filters) = &filters {
-                if filters.iter().all(|(f, _)| {
-                    if let TypeFilter::Exact(t) = f {
-                        !matches!(t, ASTType::Generic(_))
-                    } else {
-                        false
-                    }
-                }) && function.generic_types.is_empty()
-                {
-                    if zip(filters.iter(), function.parameters.iter())
-                        .all(|((f, _), p)| f.almost_equal(&p.ast_type, module).unwrap_or(false))
-                    {
-                        /*
-                        println!(
-                            "found good function {function} for {}",
-                            SliceDisplay(&filters.iter().map(|(f, _)| f).collect::<Vec<_>>())
-                        );
-                        */
-
-                        new_functions.append(&mut filters_new_functions);
-
-                        valid_functions.push((
-                            function.clone(),
-                            function.rank,
-                            filters_resolved_generic_types,
-                            filters.iter().map(|(_, e)| e.clone()).collect(),
-                        ));
-                        dedent!();
-                        break;
-                    }
-                }
-            }
-            */
 
             let mut something_resolved = true;
 
@@ -1482,6 +1423,7 @@ impl<'a> TypeCheck<'a> {
                         file_name: filter_module_id.path(),
                         row: position.row,
                         column: position.column,
+                        builtin: position.clone().builtin,
                     },
                 };
             } else if let ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -1516,6 +1458,23 @@ impl<'a> TypeCheck<'a> {
         EnhASTType::from_ast(filter_module_namespace, filter_module_id, ast_type.clone())
     }
 
+    fn get_type_check_entry(
+        &self,
+        enh_index: &EnhASTIndex,
+        namespace: &EnhASTNameSpace,
+    ) -> Option<&ASTTypeCheckEntry> {
+        if let Some(ref path) = enh_index.file_name {
+            let info = EnhModuleInfo::new(EnhModuleId::Path(path.clone()), namespace.clone());
+            let index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(enh_index.row, enh_index.column),
+            );
+            return self.type_checker.result.get(&index);
+        }
+        None
+    }
+
     pub fn type_of_expression(
         &mut self,
         module: &InputModule,
@@ -1534,20 +1493,12 @@ impl<'a> TypeCheck<'a> {
         indent!();
 
         if let Some(enh_index) = typed_expression.get_index() {
-            if let Some(ref path) = enh_index.file_name {
-                let info = EnhModuleInfo::new(EnhModuleId::Path(path.clone()), namespace.clone());
-                let index = ASTIndex::new(
-                    info.module_namespace(),
-                    info.module_id(),
-                    ASTPosition::new(enh_index.row, enh_index.column),
-                );
-                if let Some(t) = self.type_checker.result.get(&index) {
-                    if let Some(f) = t.filter() {
-                        if !f.is_generic() {
-                            //let filter = self.enh_filter_from_ast(f, namespace);
-                            //dedent!();
-                            //return Ok(filter);
-                        }
+            if let Some(t) = self.get_type_check_entry(enh_index, namespace) {
+                if let Some(f) = t.filter() {
+                    if !f.is_generic() {
+                        //let filter = self.enh_filter_from_ast(f, namespace);
+                        //dedent!();
+                        //return Ok(filter);
                     }
                 }
             }
@@ -2269,7 +2220,7 @@ mod tests {
 
     fn file_to_project(test_file: &str) -> RasmProject {
         init_log();
-        env::set_var("RASM_STDLIB", "../../../stdlib");
+        env::set_var("RASM_STDLIB", "../stdlib");
 
         let current_path = env::current_dir().unwrap();
 
@@ -2289,7 +2240,7 @@ mod tests {
     }
 
     fn dir_to_project(test_folder: &str) -> RasmProject {
-        env::set_var("RASM_STDLIB", "../../../stdlib");
+        env::set_var("RASM_STDLIB", "../stdlib");
 
         init_log();
         let file_name = PathBuf::from(test_folder);
