@@ -724,12 +724,6 @@ impl ASTTypeChecker {
                                 Self::resolve_generic_types_from_effective_type(et, eet)
                             {
                                 if let Some(rt) = Self::substitute(et, &rgt) {
-                                    /*
-                                    println!(
-                                        "resolved generic type from expected: expected {eet}, real {et}, result {rt}\n: {}",
-                                        index
-                                    );
-                                    */
                                     self.result.insert(
                                         index,
                                         ASTTypeCheckEntry::new(
@@ -824,12 +818,6 @@ impl ASTTypeChecker {
             }
         }
 
-        /*
-        for error in inner.errors {
-            println!("inner error {error}");
-        }
-        */
-
         let mut parameter_types_filters = Vec::new();
 
         for e in &call.parameters {
@@ -913,6 +901,7 @@ impl ASTTypeChecker {
                 format!("no functions for {}", call.function_name),
             ));
         } else {
+            /*
             if functions.len() > 1 {
                 let min = functions.iter().map(|it| it.rank).min().unwrap();
 
@@ -921,6 +910,7 @@ impl ASTTypeChecker {
                     .filter(|it| it.rank == min)
                     .collect::<Vec<_>>();
             }
+            */
 
             if functions.len() > 1 {
                 /*
@@ -1497,7 +1487,7 @@ mod tests {
 
     use rasm_utils::{
         test_utils::{init_log, init_minimal_log},
-        OptionDisplay,
+        OptionDisplay, SliceDisplay,
     };
 
     use crate::{
@@ -1511,7 +1501,8 @@ mod tests {
         commandline::CommandLineOptions,
         project::{RasmProject, RasmProjectRunType},
         type_check::{
-            ast_modules_container::ASTModulesContainer, test_utils::project_and_container,
+            ast_modules_container::ASTModulesContainer, ast_type_checker::ASTTypeCheckInfo,
+            test_utils::project_and_container,
         },
     };
     use rasm_parser::{
@@ -1888,7 +1879,7 @@ mod tests {
     #[test]
     fn test_lambda2_if() {
         init_minimal_log();
-        env::set_var("RASM_STDLIB", "../../../stdlib");
+        env::set_var("RASM_STDLIB", "../stdlib");
 
         let path = PathBuf::from("../rasm/resources/test/lambda2.rasm");
         let project = RasmProject::new(path.clone());
@@ -1962,7 +1953,7 @@ mod tests {
     #[test]
     fn test_lambda2_if_body() {
         init_minimal_log();
-        env::set_var("RASM_STDLIB", "../../../stdlib");
+        env::set_var("RASM_STDLIB", "../stdlib");
 
         let path = PathBuf::from("../rasm/resources/test/lambda2.rasm");
         let project = RasmProject::new(path.clone());
@@ -2018,6 +2009,28 @@ mod tests {
         panic!();
     }
 
+    #[test]
+    fn test_print() {
+        init_minimal_log();
+        // enable_log(false);
+
+        let (tc, catalog, _) = check_project("../stdlib");
+        if let Some(entry) = tc
+            .result
+            .get(&index(&catalog, "../stdlib/src/main/rasm/print.rasm", 13, 5).unwrap())
+        {
+            println!("{entry}");
+            if let ASTTypeCheckInfo::Call(_, vec) = &entry.info {
+                println!(
+                    "{}",
+                    SliceDisplay(&vec.iter().map(|it| &it.0).collect::<Vec<_>>())
+                );
+            }
+        } else {
+            panic!();
+        }
+    }
+
     fn index(
         catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
         path: &str,
@@ -2045,7 +2058,7 @@ mod tests {
         impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
         ValContext,
     ) {
-        env::set_var("RASM_STDLIB", "../../../stdlib");
+        env::set_var("RASM_STDLIB", "../stdlib");
         let start = Instant::now();
 
         let project = RasmProject::new(PathBuf::from(path));

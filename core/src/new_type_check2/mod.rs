@@ -606,7 +606,8 @@ impl<'a> TypeCheck<'a> {
                             })
                         {
                             if f.generic_types.is_empty() {
-                                //original_functions = vec![f];
+                                // println!("optimized call {call}:{} {f}", call.index);
+                                original_functions = vec![f];
                             }
                         }
                     }
@@ -1496,9 +1497,9 @@ impl<'a> TypeCheck<'a> {
             if let Some(t) = self.get_type_check_entry(enh_index, namespace) {
                 if let Some(f) = t.filter() {
                     if !f.is_generic() {
-                        //let filter = self.enh_filter_from_ast(f, namespace);
-                        //dedent!();
-                        //return Ok(filter);
+                        let filter = self.enh_filter_from_ast(f, namespace);
+                        dedent!();
+                        return Ok(filter);
                     }
                 }
             }

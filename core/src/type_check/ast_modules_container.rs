@@ -4,7 +4,7 @@ use std::{
     iter::zip,
 };
 
-use rasm_utils::{debug_i, debug_indent::enable_log, find_one, OptionDisplay, SliceDisplay};
+use rasm_utils::{debug_i, find_one, OptionDisplay, SliceDisplay};
 
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
@@ -608,8 +608,14 @@ impl ASTTypeFilter {
     ) -> u32 {
         match self {
             ASTTypeFilter::Exact(f_ast_type, f_module_info) => {
-                if container.is_equals(ast_type, module_id, f_ast_type, f_module_info.namespace()) {
-                    1000
+                if self.is_compatible(f_ast_type, f_module_info.namespace(), container) {
+                    if f_ast_type.is_generic() {
+                        500
+                    } else if ast_type.is_generic() {
+                        500
+                    } else {
+                        1000
+                    }
                 } else {
                     0
                 }

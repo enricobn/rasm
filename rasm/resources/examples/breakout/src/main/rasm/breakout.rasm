@@ -165,6 +165,11 @@ type check ended in 87.39312
     type check ended in 68.915151ms
 */
 
+/*
+    using ASTTypeChecker in TypeCheck
+    type check ended in 123.543843ms
+*/
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)
