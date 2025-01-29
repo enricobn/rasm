@@ -323,6 +323,13 @@ impl CompileTarget {
             }
             panic!()
         }
+        let start = Instant::now();
+
+        let (ast_type_check, _) = ASTTypeChecker::from_modules_container(&container);
+
+        info!("AST type check ended in {:?}", start.elapsed());
+
+        let start = Instant::now();
 
         let (enhanced_ast_module, errors) = EnhancedASTModule::from_ast(
             modules,
@@ -346,7 +353,7 @@ impl CompileTarget {
             &mut statics,
             self,
             command_line_options.debug,
-            ASTTypeChecker::from_modules_container(&container).0,
+            ast_type_check,
             &catalog,
             &container,
         )

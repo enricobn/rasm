@@ -170,6 +170,12 @@ type check ended in 87.39312
     type check ended in 123.543843ms
 */
 
+/*
+    fixed time evaluation
+    AST type check ended in 33.58431ms
+    type check ended in     62.9865ms
+*/
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)
