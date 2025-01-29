@@ -4,7 +4,7 @@ use std::{
     iter::zip,
 };
 
-use rasm_utils::{debug_i, find_one, OptionDisplay, SliceDisplay};
+use rasm_utils::{debug_i, debug_indent::enable_log, find_one, OptionDisplay, SliceDisplay};
 
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
@@ -71,7 +71,17 @@ impl ASTFunctionSignatureEntry {
     fn generic_type_coeff_internal(ast_type: &ASTType, coeff: usize) -> usize {
         if ast_type.is_generic() {
             match ast_type {
-                ASTType::Builtin(_) => 0,
+                ASTType::Builtin(builtin) => {
+                    if let BuiltinTypeKind::Lambda {
+                        parameters: _,
+                        return_type,
+                    } = builtin
+                    {
+                        Self::generic_type_coeff(&return_type)
+                    } else {
+                        0
+                    }
+                }
                 ASTType::Generic(_, _) => coeff,
                 ASTType::Custom {
                     name: _,
@@ -265,7 +275,7 @@ impl ASTModulesContainer {
             SliceDisplay(parameter_types_filter)
         );
         if let Some(signatures) = self.signatures.get(function_to_call) {
-            let result = signatures
+            let mut result = signatures
                 .iter()
                 .filter(|entry| {
                     entry.signature.parameters_types.len() == parameter_types_filter.len()
@@ -283,10 +293,45 @@ impl ASTModulesContainer {
                 })
                 .collect::<Vec<_>>();
 
+            if result.len() > 1 {
+                let mut functions_by_coeff = HashMap::new();
+                let mut max_coeff = 0;
+                for entry in result.into_iter() {
+                    let mut coeff = 0;
+                    for (filter, t) in
+                        zip(parameter_types_filter, &entry.signature.parameters_types)
+                    {
+                        let filter_coeff = filter.compatibility_coeff(&t, &entry.namespace, self);
+                        if filter_coeff == 0 {
+                            coeff = 0;
+                            break;
+                        } else {
+                            coeff += filter_coeff;
+                        }
+                    }
+
+                    if coeff != 0 {
+                        if coeff > max_coeff {
+                            max_coeff = coeff;
+                        }
+                        functions_by_coeff
+                            .entry(coeff)
+                            .or_insert(Vec::new())
+                            .push(entry);
+                    }
+                }
+
+                if functions_by_coeff.len() == 0 {
+                    result = Vec::new();
+                } else {
+                    result = functions_by_coeff.remove(&max_coeff).unwrap();
+                }
+            }
+
             /*
             if result.len() > 1 {
                 // TODO return type filter
-                let functions_with_all_non_generic = result
+                result = result
                     .iter()
                     .cloned()
                     .filter(|it| {
@@ -296,22 +341,9 @@ impl ASTModulesContainer {
                             .all(|f| !f.is_strictly_generic())
                     })
                     .collect::<Vec<_>>();
-                let all_filters_are_not_generic =
-                    parameter_types_filter.iter().all(|it| match it {
-                        ASTTypeFilter::Exact(ast_type, _) => !ast_type.is_strictly_generic(),
-                        ASTTypeFilter::Any => false,
-                        ASTTypeFilter::Lambda(..) => true,
-                    });
-                if functions_with_all_non_generic.len() == 1 && all_filters_are_not_generic {
-                    functions_with_all_non_generic
-                } else {
-                    result
-                }
-
-            } else {
-                result
             }
             */
+
             result
         } else {
             Vec::new()
@@ -565,6 +597,57 @@ impl ASTTypeFilter {
             ASTTypeFilter::Exact(t, _) => Some(ASTFunctionSignatureEntry::generic_type_coeff(t)),
             ASTTypeFilter::Lambda(_, rt) => rt.as_ref().and_then(|it| it.generic_type_coeff()),
             _ => None,
+        }
+    }
+
+    pub fn compatibility_coeff(
+        &self,
+        ast_type: &ASTType,
+        module_id: &ModuleNamespace,
+        container: &ASTModulesContainer,
+    ) -> u32 {
+        match self {
+            ASTTypeFilter::Exact(f_ast_type, f_module_info) => {
+                if container.is_equals(ast_type, module_id, f_ast_type, f_module_info.namespace()) {
+                    1000
+                } else {
+                    0
+                }
+            }
+            ASTTypeFilter::Any => 1000,
+            ASTTypeFilter::Lambda(par_len, return_type_filter) => match ast_type {
+                ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
+                    BuiltinTypeKind::Lambda {
+                        parameters,
+                        return_type,
+                    } => {
+                        if &parameters.len() == par_len
+                            && return_type_filter
+                                .as_ref()
+                                // TODO I don't like it:
+                                // a lambda that returns some type can be passed to a function that takes a lambda that returns Unit.
+                                // For example in a forEach (that takes a lambda that returns Unit) we can pass a lambda that returns something...
+                                .map(|it| {
+                                    return_type.is_unit()
+                                        || it.is_compatible(&return_type, module_id, container)
+                                })
+                                .unwrap_or(true)
+                        {
+                            1000
+                        } else {
+                            0
+                        }
+                    }
+                    _ => 0,
+                },
+                ASTType::Generic(_, _) => 500,
+                ASTType::Custom {
+                    name: _,
+                    param_types: _,
+                    position: _,
+                } => 0,
+                ASTType::Unit => 0,
+            },
         }
     }
 }
