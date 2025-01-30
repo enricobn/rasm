@@ -3,6 +3,7 @@ use std::{collections::HashMap, fmt::Display};
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::{debug_i, dedent, indent, LinkedHashMapDisplay, OptionDisplay, SliceDisplay};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::codegen::val_context::ValContext;
 
@@ -281,16 +282,27 @@ impl ASTTypeChecker {
             );
         }
 
-        for (id, namespace, module) in modules_container.modules() {
-            for function in module.functions.iter() {
-                type_checker.add_function(
-                    &function,
-                    &static_val_context,
-                    &namespace,
-                    &id,
-                    &modules_container,
-                );
-            }
+        let functions_ast_type_checkers = modules_container
+            .modules()
+            .par_iter()
+            .flat_map(|(id, namespace, module)| {
+                module.functions.par_iter().map(|function| {
+                    let mut ftc = ASTTypeChecker::new();
+                    ftc.add_function(
+                        &function,
+                        &static_val_context,
+                        &namespace.clone(),
+                        &id.clone(),
+                        &modules_container,
+                    );
+                    ftc
+                })
+            })
+            .collect::<Vec<_>>();
+
+        for fatc in functions_ast_type_checkers {
+            type_checker.result.extend(fatc.result);
+            type_checker.errors.extend(fatc.errors);
         }
 
         (type_checker, static_val_context)
@@ -502,58 +514,6 @@ impl ASTTypeChecker {
                 return;
             }
         }
-
-        /*
-
-        let cached = if let Some(r) = self.result.get(&index) {
-            // println!("OPTIMIZED get_expr_type_map");
-
-            if let Some(eet) = expected_expression_type {
-                if !eet.is_generic() {
-                    Some(ASTTypeCheckEntry::new(
-                        Some(ASTTypeFilter::Exact(
-                            eet.clone(),
-                            ModuleInfo::new(module_namespace.clone(), module_id.clone()),
-                        )),
-                        r.info().clone(),
-                    ))
-                } else {
-                    debug_i!("Cached {r}");
-                    dedent!();
-
-                    return;
-                }
-            } else {
-                debug_i!("Cached {r}");
-                dedent!();
-
-                return;
-            }
-        } else {
-            None
-        };
-
-        if let Some(ref e) = cached {
-            if let ASTExpression::Lambda(def) = expr {
-                debug_i!("Cached lambda {def}");
-                if let Some(eet) = expected_expression_type {
-                    if let Some((exact_type, exact_info)) = e.exact() {
-                        if let Ok(rgt) =
-                            Self::resolve_generic_types_from_effective_type(exact_type, eet)
-                        {
-                            debug_i!("Resolved {exact_type} {eet} -> {rgt}");
-                        }
-                    }
-                }
-            }
-
-            self.result.insert(index.clone(), e.clone());
-
-            debug_i!("Cached {e}");
-            dedent!();
-            return;
-        }
-        */
 
         match expr {
             ASTExpression::ASTFunctionCallExpression(call) => {
