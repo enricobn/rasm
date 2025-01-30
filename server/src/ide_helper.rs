@@ -1911,12 +1911,12 @@ mod tests {
         test_rename_with_module_ns(
             "../rasm/resources/examples/breakout",
             "aName",
-            216,
+            227,
             30,
             Ok(vec![
-                ("breakout.rasm".to_owned(), 173, 12, 9),
-                ("breakout.rasm".to_owned(), 183, 16, 9),
-                ("breakout.rasm".to_owned(), 216, 26, 9),
+                ("breakout.rasm".to_owned(), 184, 12, 9),
+                ("breakout.rasm".to_owned(), 194, 16, 9),
+                ("breakout.rasm".to_owned(), 227, 26, 9),
                 ("game.rasm".to_owned(), 32, 26, 9),
                 ("game.rasm".to_owned(), 50, 22, 9),
                 ("game.rasm".to_owned(), 86, 44, 9),
@@ -2169,10 +2169,10 @@ mod tests {
             let index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(325, 31),
+                ASTPosition::new(336, 31),
             );
             if let Some(i) = helper.statement_start_position(&index) {
-                assert_eq!(ASTPosition::new(325, 5), i);
+                assert_eq!(ASTPosition::new(336, 5), i);
             } else {
                 panic!("Cannot find statement.");
             }
@@ -2192,12 +2192,12 @@ mod tests {
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(255, 13),
+                ASTPosition::new(266, 13),
             );
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(257, 93),
+                ASTPosition::new(268, 93),
             );
             let code = "let newHighScores = highScores.add(score);
             writeHighScores(newHighScores);
@@ -2236,12 +2236,12 @@ let newHighScores = highScores.add(score);
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(257, 39),
+                ASTPosition::new(268, 39),
             );
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(257, 76),
+                ASTPosition::new(268, 76),
             );
             let code = "Stage::Menu(MenuState(newHighScores))";
             if let Some(result) =
@@ -2276,12 +2276,12 @@ Stage::Menu(MenuState(newHighScores));
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(257, 13),
+                ASTPosition::new(268, 13),
             );
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(257, 92),
+                ASTPosition::new(268, 92),
             );
             let code =
                 "State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);";
@@ -2316,7 +2316,7 @@ State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
             let index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(257, 30),
+                ASTPosition::new(268, 30),
             );
             if let Some(result) = helper.signature_help(&index) {
                 assert_eq!("State", result.signature.name);
