@@ -176,6 +176,12 @@ type check ended in 87.39312
     type check ended in     62.9865ms
 */
 
+/*
+    parallel ASTTypeChecker.from_modules_container
+    AST type check ended in 13.83144ms
+    type check ended in 62.13033ms
+*/
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)
