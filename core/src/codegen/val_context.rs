@@ -59,7 +59,7 @@ impl ValContext {
         &mut self,
         key: String,
         par: ASTParameterDef,
-        id: &ModuleNamespace,
+        namespace: &ModuleNamespace,
         source: &ModuleId,
     ) -> Result<Option<ValKind>, String> {
         let result = self.value_to_address.insert(
@@ -70,7 +70,7 @@ impl ValContext {
         if result.is_some() {
             Err(format!(
                 "already added {key}: {}",
-                ASTIndex::new(id.clone(), source.clone(), par.position)
+                ASTIndex::new(namespace.clone(), source.clone(), par.position)
             ))
         } else {
             debug_i!("added parameter {key} -> {par} to context");
