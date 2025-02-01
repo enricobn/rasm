@@ -1354,7 +1354,7 @@ impl<'a> TypeCheck<'a> {
     ) -> EnhTypeFilter {
         match filter {
             ASTTypeFilter::Exact(ast_type, module_info) => {
-                EnhTypeFilter::Exact(self.enh_ast_type(ast_type, module_info, namespace))
+                EnhTypeFilter::Exact(self.enh_ast_type(ast_type.clone(), module_info, namespace))
             }
             ASTTypeFilter::Any => EnhTypeFilter::Any,
             ASTTypeFilter::Lambda(s, asttype_filter) => EnhTypeFilter::Lambda(
@@ -1368,12 +1368,12 @@ impl<'a> TypeCheck<'a> {
 
     fn enh_ast_type(
         &self,
-        ast_type: &ASTType,
+        ast_type: ASTType,
         module_info: &ModuleInfo,
         namespace: &EnhASTNameSpace,
     ) -> EnhASTType {
         let ast_type = if ast_type.is_generic() {
-            &ast_type.remove_generic_prefix()
+            ast_type.remove_generic_prefix()
         } else {
             ast_type
         };
@@ -1389,7 +1389,7 @@ impl<'a> TypeCheck<'a> {
                     if let Some(ast_namespace) = self.modules_catalog.namespace(namespace) {
                         if let Some(t) = self
                             .modules_container
-                            .custom_type_index(ast_namespace, name)
+                            .custom_type_index(ast_namespace, &name)
                         {
                             if let Some((id, namespace)) =
                                 self.modules_catalog.catalog_info(t.module_id())
@@ -1406,7 +1406,7 @@ impl<'a> TypeCheck<'a> {
                     };
 
                 let param_types = param_types
-                    .iter()
+                    .into_iter()
                     .map(|it| self.enh_ast_type(it, module_info, namespace))
                     .collect();
 
@@ -1433,11 +1433,11 @@ impl<'a> TypeCheck<'a> {
             }) = ast_type
             {
                 let parameters = parameters
-                    .iter()
+                    .into_iter()
                     .map(|it| self.enh_ast_type(it, module_info, namespace))
                     .collect();
 
-                let return_type = self.enh_ast_type(&return_type, module_info, namespace);
+                let return_type = self.enh_ast_type(*return_type, module_info, namespace);
 
                 return EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                     parameters,
@@ -1456,7 +1456,7 @@ impl<'a> TypeCheck<'a> {
         }
         */
 
-        EnhASTType::from_ast(filter_module_namespace, filter_module_id, ast_type.clone())
+        EnhASTType::from_ast(filter_module_namespace, filter_module_id, ast_type)
     }
 
     fn get_type_check_entry(

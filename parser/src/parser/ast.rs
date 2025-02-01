@@ -405,48 +405,41 @@ impl ASTType {
         }
     }
 
-    pub fn remove_generic_prefix(&self) -> Self {
-        match self {
-            ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
-                BuiltinTypeKind::Bool => self.clone(),
-                BuiltinTypeKind::Char => self.clone(),
-                BuiltinTypeKind::I32 => self.clone(),
-                BuiltinTypeKind::F32 => self.clone(),
-                BuiltinTypeKind::String => self.clone(),
-                BuiltinTypeKind::Lambda {
-                    parameters,
-                    return_type,
-                } => ASTType::Builtin(BuiltinTypeKind::Lambda {
-                    parameters: parameters
-                        .iter()
-                        .map(|it| it.remove_generic_prefix())
-                        .collect(),
-                    return_type: Box::new(return_type.remove_generic_prefix()),
-                }),
-            },
-            ASTType::Generic(position, name) => {
-                if let Some(i) = name.find(':') {
-                    let original_generic = name.split_at(i + 1).1.to_owned();
-                    //println!("found generic {s} -> {}", original_generic);
-                    ASTType::Generic(position.clone(), original_generic)
-                } else {
-                    self.clone()
-                }
-            }
-            ASTType::Custom {
-                name,
-                param_types,
-                position,
-            } => ASTType::Custom {
-                name: name.clone(),
-                param_types: param_types
-                    .iter()
+    pub fn remove_generic_prefix(self) -> Self {
+        if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            parameters,
+            return_type,
+        }) = self
+        {
+            return ASTType::Builtin(BuiltinTypeKind::Lambda {
+                parameters: parameters
+                    .into_iter()
                     .map(|it| it.remove_generic_prefix())
                     .collect(),
-                position: position.clone(),
-            },
-            ASTType::Unit => self.clone(),
+                return_type: Box::new(return_type.remove_generic_prefix()),
+            });
+        } else if let ASTType::Generic(ref position, ref name) = self {
+            if let Some(i) = name.find(':') {
+                let original_generic = name.clone().split_at(i + 1).1.to_owned();
+                //println!("found generic {s} -> {}", original_generic);
+                return ASTType::Generic(position.clone(), original_generic);
+            }
+        } else if let ASTType::Custom {
+            name,
+            param_types,
+            position,
+        } = self
+        {
+            return ASTType::Custom {
+                name,
+                param_types: param_types
+                    .into_iter()
+                    .map(|it| it.remove_generic_prefix())
+                    .collect(),
+                position,
+            };
         }
+        self
     }
 }
 
