@@ -291,8 +291,8 @@ impl ASTTypeChecker {
                     ftc.add_function(
                         &function,
                         &static_val_context,
-                        &namespace.clone(),
-                        &id.clone(),
+                        namespace.clone(),
+                        id.clone(),
                         &modules_container,
                     );
                     ftc
