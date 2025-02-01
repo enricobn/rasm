@@ -1442,7 +1442,6 @@ mod tests {
         env,
         path::{Path, PathBuf},
         str::FromStr,
-        time::Instant,
     };
 
     use rasm_utils::{
@@ -1972,23 +1971,24 @@ mod tests {
     #[test]
     fn test_print() {
         init_minimal_log();
-        // enable_log(false);
 
         let (tc, catalog, _) = check_project("../stdlib");
         if let Some(entry) = tc
             .result
             .get(&index(&catalog, "../stdlib/src/main/rasm/print.rasm", 13, 5).unwrap())
         {
-            println!("{entry}");
             if let ASTTypeCheckInfo::Call(_, vec) = &entry.info {
-                println!(
-                    "{}",
-                    SliceDisplay(&vec.iter().map(|it| &it.0).collect::<Vec<_>>())
+                assert_eq!(
+                    "print<stdlib_list_print:T>(List<stdlib_list_print:T>), print<stdlib_iter_print:T>(Iter<stdlib_iter_print:T>), print<stdlib_print_print:T>(stdlib_print_print:T), print(Compare)",
+                    format!(
+                        "{}",
+                        SliceDisplay(&vec.iter().map(|it| &it.0).collect::<Vec<_>>())
+                    )
                 );
+                return;
             }
-        } else {
-            panic!();
         }
+        panic!()
     }
 
     fn index(
@@ -2019,8 +2019,6 @@ mod tests {
         ValContext,
     ) {
         env::set_var("RASM_STDLIB", "../stdlib");
-        let start = Instant::now();
-
         let project = RasmProject::new(PathBuf::from(path));
 
         let target = CompileTarget::C(COptions::default());
@@ -2034,14 +2032,7 @@ mod tests {
             &CommandLineOptions::default(),
         );
 
-        println!(
-            "read project {path} and calculating container in {:?}",
-            start.elapsed()
-        );
-
         let result = ASTTypeChecker::from_modules_container(&container);
-
-        println!("checked project {path} in {:?}", start.elapsed());
 
         (result.0, catalog, result.1)
     }
