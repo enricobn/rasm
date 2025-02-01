@@ -374,6 +374,7 @@ impl ASTTypeChecker {
         modules_container: &ASTModulesContainer,
     ) -> Option<ASTTypeCheckEntry> {
         let mut return_type = None;
+        let inner_val_context = &mut ValContext::new(Some(val_context));
         /*
         println!(
             "get_body_type_map expected_last_statement_type {}",
@@ -394,7 +395,7 @@ impl ASTTypeChecker {
                             if !elst.is_unit() {
                                 self.add_expr(
                                     e,
-                                    val_context,
+                                    inner_val_context,
                                     statics,
                                     Some(*elst),
                                     module_namespace,
@@ -404,7 +405,7 @@ impl ASTTypeChecker {
                             } else {
                                 self.add_expr(
                                     e,
-                                    val_context,
+                                    inner_val_context,
                                     statics,
                                     None,
                                     module_namespace,
@@ -415,7 +416,7 @@ impl ASTTypeChecker {
                         } else {
                             self.add_expr(
                                 e,
-                                val_context,
+                                inner_val_context,
                                 statics,
                                 None,
                                 module_namespace,
@@ -432,7 +433,7 @@ impl ASTTypeChecker {
                     } else {
                         self.add_expr(
                             e,
-                            val_context,
+                            inner_val_context,
                             statics,
                             None,
                             module_namespace,
@@ -444,7 +445,7 @@ impl ASTTypeChecker {
                 ASTStatement::LetStatement(key, e, is_const, index) => {
                     self.add_expr(
                         e,
-                        val_context,
+                        inner_val_context,
                         statics,
                         None,
                         module_namespace,
@@ -464,7 +465,11 @@ impl ASTTypeChecker {
                                     statics.insert_let(key.clone(), ast_type.clone(), &index)
                                 } else {
                                     // TODO error
-                                    val_context.insert_let(key.clone(), ast_type.clone(), &index)
+                                    inner_val_context.insert_let(
+                                        key.clone(),
+                                        ast_type.clone(),
+                                        &index,
+                                    )
                                 };
 
                                 if let Err(e) = insert_result {
