@@ -2330,11 +2330,6 @@ State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
         }
     }
 
-    #[test]
-    fn test_matchmacro() {
-        get_helper("../rasm/resources/test/matchmacro.rasm");
-    }
-
     fn same_signature(s1: &ASTFunctionSignature, s2: &ASTFunctionSignature) -> bool {
         if s1.parameters_types.len() != s2.parameters_types.len() {
             return false;

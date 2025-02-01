@@ -109,7 +109,7 @@ impl CodeGenC {
                     }
                 }
             },
-            ASTTypedType::Unit => "void".to_string(),
+            ASTTypedType::Unit => "struct Void_*".to_string(),
             ASTTypedType::Struct { namespace, name } => {
                 format!("struct {}_{name}*", namespace.safe_name())
             }
@@ -154,7 +154,7 @@ impl CodeGenC {
                     }
                 }
             },
-            ASTTypedType::Unit => "void".to_string(),
+            ASTTypedType::Unit => "struct Void_*".to_string(),
             ASTTypedType::Struct {
                 namespace: _,
                 name: _,
@@ -1118,13 +1118,13 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
                 self.add(
                     &mut before,
-                    "void (*addref_function)(struct RasmPointer_ *);",
+                    "struct Void_* (*addref_function)(struct RasmPointer_ *);",
                     None,
                     true,
                 );
                 self.add(
                     &mut before,
-                    "void (*deref_function)(struct RasmPointer_ *);",
+                    "struct Void_* (*deref_function)(struct RasmPointer_ *);",
                     None,
                     true,
                 );

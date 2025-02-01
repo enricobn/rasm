@@ -1,0 +1,94 @@
+enum ASTType {
+    Str,
+    Void
+}
+
+fn toString(t: ASTType) -> str {
+    t.match({ "Str";}, { "Void"; });
+}
+
+struct ASTEnumVariantDef {
+    name: str,
+    parameters: Vec<ASTType>
+}
+
+struct ASTEnumDef {
+    name: str,
+    variants: Vec<ASTEnumVariantDef>
+}
+
+let def = ASTEnumDef("ABC", 
+    vecOf(
+        ASTEnumVariantDef("A", Vec()),
+        ASTEnumVariantDef("B", Vec()),
+        ASTEnumVariantDef("C", Vec()))
+    );
+
+println(matchMacro(def));
+
+fn matchMacro(def: ASTEnumDef) -> str {
+    let matchDef = "struct Match".append(def.name).append("<T> {\n")
+    .append("    enumValue: ").append(def.name).append(",\n")
+    .append("    value: Option<T>\n}\n");
+
+    let variants1 = def.variants.map(fn (variant) { matchVariant1(def, variant); })
+        .join("\n");
+
+    let variants2 = def.variants.map(fn (variant) { matchVariant2(def, variant); })
+        .join("\n");
+
+    let elseFun = "fn else<T>(matchValue: Match".add(def.name).add("<T>, f: fn() -> T) -> T {\n")
+        .add("    matchValue.value.match(\n")
+        .add("        fn(value) { value; },\n")
+        .add("        { f(); }\n")
+        .add("    );\n}\n");
+
+    vecOf(matchDef).push(variants1).push(variants2).push(elseFun).join("");
+}
+
+fn matchVariant1(def: ASTEnumDef, variant: ASTEnumVariantDef) -> str {
+    "fn match".append(variant.name).append("<T>(enumValue: ").append(def.name)
+    .add(", f: fn(")
+    .add(variant.parameters.map(fn(it) { it.toString; }).join(", "))
+    .add(") -> T) -> Match")
+    .add(def.name)
+    .add("<T> {\n")
+    .add("    enumValue.match").append(variant.name).append("(\n")
+    .add("        { Match").append(def.name).append("(enumValue, Option::Some(f()));},\n")
+    .add("        { Match").append(def.name).append("(enumValue, Option::None());}\n")
+    .add("    );\n}\n");
+}
+
+fn matchVariant2(def: ASTEnumDef, variant: ASTEnumVariantDef) -> str {
+    "fn match".add(variant.name).add("<T>(matchValue: Match").add(def.name).add("<T>")
+    .add(", f: fn(")
+    .add(variant.parameters.map(fn(it) { it.toString; }).join(", "))
+    .add(") -> T) -> Match")
+    .add(def.name)
+    .add("<T> {\n")
+    .add("    matchValue.enumValue.match").append(variant.name).append("(\n")
+    .add("        { matchValue.value(Option::Some(f()));},\n")
+    .add("        { matchValue;}\n")
+    .add("    );\n}\n");
+}
+
+fn join(vec: Vec<str>, separator: str) -> str {
+    vec.foldLeft("", fn(prev,act) { prev.add(separator).add(act); });
+}
+
+/*
+
+enum ABC {
+    A,
+    B,
+    C
+}
+
+let abc = ABC::B();
+
+abc.matchA({ println("A"); })
+   .matchB({ println("B"); })
+   .matchC({ println("C"); })
+   .else({ println("Other"); });
+
+*/

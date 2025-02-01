@@ -119,20 +119,22 @@ it should print the fortieth fibonacci number (102334155)
 
 `sudo apt-get install libsdl2-ttf-dev`
 
-## valgrind
+## profiling
+
+### valgrind
 
 Only executables produced with libc support can be run with valgrind.
 
 `sudo apt-get install libc6-dbg:i386`
 
-## profiling build
-
-you may need to install perf, look at the output
+### profiling build
 
 sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
-CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -p rasm build -f rasm/resources/examples/breakout
+cargo build
+valgrind --tool=callgrind target/debug/rasm build ...
+callgrind_annotate --auto=yes callgrind.out.`<pid>`
 
-## profiling executable
+### profiling executable
 
 sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
 valgrind --tool=callgrind `<executable>`  

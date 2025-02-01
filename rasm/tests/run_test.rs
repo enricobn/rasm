@@ -633,6 +633,16 @@ fn test_poly() {
     run_test("poly", vec![], "f\n20\n");
 }
 
+#[test]
+fn test_matchmacro() {
+    run_test_no_verify("matchmacro", vec![]);
+}
+
+#[test]
+fn test_match() {
+    run_test("match", vec![], "A\n");
+}
+
 // Compile tests
 
 #[test]

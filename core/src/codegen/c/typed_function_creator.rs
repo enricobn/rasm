@@ -449,7 +449,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             }
 
             if variant.parameters.is_empty() {
-                self.code_gen.add(&mut body, "return;", None, true);
+                self.code_gen.add(&mut body, "return 0;", None, true);
                 self.code_gen.add(&mut body, "}", None, true);
                 continue;
             }

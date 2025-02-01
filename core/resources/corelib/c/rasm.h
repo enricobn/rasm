@@ -11,6 +11,8 @@ struct Enum {
   int variant_num;
 };
 
+struct Void_ {};
+
 struct RasmPointer_ *rasmMalloc(size_t size);
 
 void rasmFree(struct RasmPointer_ *pointer);

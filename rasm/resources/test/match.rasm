@@ -1,0 +1,59 @@
+enum ABC {
+    A,
+    B,
+    C
+}
+
+struct MatchABC<T> {
+    abc: ABC,
+    value: Option<T>
+}
+
+let abc = ABC::A();
+
+abc.matchA({ println("A"); })
+   .matchB({ println("B"); })
+   .matchC({ println("C"); })
+   .else({ println("Other"); });
+
+fn matchA<T>(abc: ABC, f: fn() -> T) -> MatchABC<T> {
+    abc.matchA(
+        { MatchABC(abc, Option::Some(f()));
+    },  { MatchABC(abc, Option::None()); });
+}
+
+fn matchB<T>(abc: ABC, f: fn() -> T) -> MatchABC<T> {
+    abc.matchB(
+        { MatchABC(abc, Option::Some(f()));
+    },  { MatchABC(abc, Option::None()); });
+}
+
+fn matchC<T>(abc: ABC, f: fn() -> T) -> MatchABC<T> {
+    abc.matchC(
+        { MatchABC(abc, Option::Some(f()));
+    },  { MatchABC(abc, Option::None()); });
+}
+
+fn matchA<T>(abc: MatchABC<T>, f: fn() -> T) -> MatchABC<T> {
+    abc.abc.matchA(
+        { abc.value(Option::Some(f())); },
+        { abc; });
+}
+
+fn matchB<T>(abc: MatchABC<T>, f: fn() -> T) -> MatchABC<T> {
+    abc.abc.matchB(
+        { abc.value(Option::Some(f())); },
+        { abc; });
+}
+
+fn matchC<T>(abc: MatchABC<T>, f: fn() -> T) -> MatchABC<T> {
+    abc.abc.matchC(
+        { abc.value(Option::Some(f())); },
+        { abc; });
+}
+
+fn else<T>(abc: MatchABC<T>, f: fn() -> T) -> T {
+    abc.value.match(
+        fn(value) { value; },
+        { f(); });
+}
