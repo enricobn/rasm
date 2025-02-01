@@ -347,13 +347,20 @@ impl ASTTypeChecker {
 
         match &function.body {
             ASTFunctionBody::RASMBody(body) => {
-                let rt = function.return_type.add_generic_prefix(&generics_prefix);
+                let rt = if function.return_type.is_generic() {
+                    &function
+                        .return_type
+                        .clone()
+                        .add_generic_prefix(&generics_prefix)
+                } else {
+                    &function.return_type
+                };
                 // TODO return_type
                 self.add_body(
                     &mut val_context,
                     &mut tmp_static_val_context,
                     body,
-                    Some(&rt),
+                    Some(rt),
                     module_namespace,
                     module_id,
                     modules_container,

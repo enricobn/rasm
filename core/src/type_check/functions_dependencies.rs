@@ -331,11 +331,10 @@ fn call_expr_dependencies(
                     ) {
                         Ok(rgt) => {
                             for par in function.parameters.iter() {
-                                let par_type = par.ast_type.add_generic_prefix(&format!(
-                                    "{}_{}",
-                                    module_namespace.0, function.name
-                                ));
-                                if par_type.is_generic() {
+                                if par.ast_type.is_generic() {
+                                    let par_type = par.ast_type.clone().add_generic_prefix(
+                                        &format!("{}_{}", module_namespace.0, function.name),
+                                    );
                                     debug_i!("resolved generic types {rgt}");
                                     if let Some(t) = ASTTypeChecker::substitute(&par_type, &rgt) {
                                         call_result
@@ -347,7 +346,9 @@ fn call_expr_dependencies(
                                 } else {
                                     call_result.or(
                                         par,
-                                        ASTParameterDependencies::precise(vec![par_type.clone()]),
+                                        ASTParameterDependencies::precise(vec![par
+                                            .ast_type
+                                            .clone()]),
                                     );
                                 }
                             }
