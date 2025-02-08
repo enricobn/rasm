@@ -134,7 +134,7 @@ impl ASTFunctionSignature {
         format!("{}_{}", prefix, self.name)
     }
 
-    pub fn fix_generics(self, prefix: &str) -> Self {
+    pub fn add_generic_prefix(self, prefix: &str) -> Self {
         let generics_prefix = self.generics_prefix(prefix);
         let mut result = self;
         result.parameters_types = result
@@ -150,6 +150,10 @@ impl ASTFunctionSignature {
             .collect();
 
         result
+    }
+
+    pub fn is_generic(&self) -> bool {
+        !self.generics.is_empty()
     }
 }
 

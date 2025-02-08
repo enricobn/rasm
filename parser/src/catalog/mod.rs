@@ -7,6 +7,12 @@ pub mod modules_catalog;
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ModuleNamespace(pub String);
 
+impl ModuleNamespace {
+    pub fn global() -> Self {
+        Self(String::new())
+    }
+}
+
 impl Display for ModuleNamespace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
@@ -15,6 +21,12 @@ impl Display for ModuleNamespace {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ModuleId(pub String);
+
+impl ModuleId {
+    pub fn global() -> Self {
+        Self(String::new())
+    }
+}
 
 impl Display for ModuleId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -43,7 +55,7 @@ impl ModuleInfo {
     }
 
     pub fn global() -> Self {
-        Self::new(ModuleNamespace(String::new()), ModuleId(String::new()))
+        Self::new(ModuleNamespace::global(), ModuleId::global())
     }
 
     pub fn namespace(&self) -> &ModuleNamespace {

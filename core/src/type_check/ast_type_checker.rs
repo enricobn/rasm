@@ -856,9 +856,11 @@ impl ASTTypeChecker {
 
         let mut functions = modules_container.find_call_vec(
             &call.function_name,
+            &call.position,
             &parameter_types_filters,
             expected_expression_type,
             module_namespace,
+            module_id,
         );
 
         if functions.is_empty() {
@@ -1005,7 +1007,7 @@ impl ASTTypeChecker {
             if parameter.is_generic() {
                 let calculated_type_filter = parameter_types_filters.get(i).unwrap();
 
-                let p_errors = self.resolve_type_filter(
+                let p_errors = Self::add_resolve_type_filter(
                     &index,
                     parameter,
                     calculated_type_filter,
@@ -1048,7 +1050,7 @@ impl ASTTypeChecker {
                 if let Some(ref calculated_type_filter) =
                     self.result.get(&e_index).and_then(|it| it.filter.clone())
                 {
-                    let p_errors = self.resolve_type_filter(
+                    let p_errors = Self::add_resolve_type_filter(
                         &index,
                         &parameter_type,
                         calculated_type_filter,
@@ -1138,28 +1140,42 @@ impl ASTTypeChecker {
         dedent!();
     }
 
-    fn resolve_type_filter(
-        &self,
+    fn add_resolve_type_filter(
         index: &ASTIndex,
         generic_type: &ASTType,
         effective_filter: &ASTTypeFilter,
         resolved_generic_types: &mut ASTResolvedGenericTypes,
     ) -> Vec<ASTTypeCheckError> {
         let mut errors = Vec::new();
-        if let ASTTypeFilter::Exact(effective_type, _) = effective_filter {
-            //if !effective_type.is_generic() {
-            match Self::resolve_generic_types_from_effective_type(generic_type, effective_type) {
-                Ok(rgt) => {
-                    if let Err(e) = resolved_generic_types.extend(rgt) {
-                        errors.push(ASTTypeCheckError::new(index.clone(), e));
-                    }
+
+        match Self::resolve_type_filter(generic_type, effective_filter) {
+            Ok(rgt) => {
+                if let Err(e) = resolved_generic_types.extend(rgt) {
+                    errors.push(ASTTypeCheckError::new(index.clone(), e));
                 }
-                Err(e) => errors.push(e),
             }
-            //} else {
-            //    println!("resolve_type_filter effective_type is generic, generic_type {generic_type}, effective_type {effective_type}");
-            //}
+            Err(e) => errors.push(e),
+        }
+
+        errors
+    }
+
+    pub fn resolve_type_filter(
+        generic_type: &ASTType,
+        effective_filter: &ASTTypeFilter,
+    ) -> Result<ASTResolvedGenericTypes, ASTTypeCheckError> {
+        if let ASTTypeFilter::Exact(effective_type, _) = effective_filter {
+            return Self::resolve_generic_types_from_effective_type(generic_type, effective_type);
         } else if let ASTTypeFilter::Lambda(n, ret_type) = effective_filter {
+            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+                parameters: _,
+                return_type,
+            }) = generic_type
+            {
+                if let Some(rt_filter) = ret_type {
+                    return Self::resolve_type_filter(&return_type, &rt_filter);
+                }
+            }
             if *n == 0 {
                 if let Some(filter) = ret_type {
                     if let ASTTypeFilter::Exact(effective_type, _) = filter.as_ref() {
@@ -1168,19 +1184,12 @@ impl ASTTypeChecker {
                             return_type: Box::new(effective_type.clone()),
                         });
                         //if !effective_type.is_generic() {
-                        match Self::resolve_generic_types_from_effective_type(generic_type, &ef) {
-                            Ok(rgt) => {
-                                if let Err(e) = resolved_generic_types.extend(rgt) {
-                                    errors.push(ASTTypeCheckError::new(index.clone(), e));
-                                }
-                            }
-                            Err(e) => errors.push(e),
-                        }
+                        return Self::resolve_generic_types_from_effective_type(generic_type, &ef);
                     }
                 }
             }
         }
-        errors
+        Ok(ASTResolvedGenericTypes::new())
     }
 
     pub fn resolve_generic_types_from_effective_type(
@@ -1318,7 +1327,7 @@ impl ASTTypeChecker {
                         })?;
                     }
                 }
-                // ASTType::Generic(_, _) => {}
+                ASTType::Generic(_, _) => {}
                 _ => {
                     dedent!();
                     return Err(Self::type_check_error(format!(

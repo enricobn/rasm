@@ -17,6 +17,8 @@ use rasm_parser::{
     },
 };
 
+use crate::type_check::ast_type_checker::{ASTResolvedGenericTypes, ASTTypeChecker};
+
 pub struct ASTFunctionSignatureEntry {
     pub signature: ASTFunctionSignature,
     pub namespace: ModuleNamespace,
@@ -99,6 +101,12 @@ impl ASTFunctionSignatureEntry {
     }
 }
 
+impl Display for ASTFunctionSignatureEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.signature)
+    }
+}
+
 pub struct ASTModulesContainer {
     struct_defs: HashMap<String, Vec<(ModuleInfo, ASTStructDef)>>,
     enum_defs: HashMap<String, Vec<(ModuleInfo, ASTEnumDef)>>,
@@ -139,7 +147,7 @@ impl ASTModulesContainer {
                         .or_insert(Vec::new());
 
                     signatures.push(ASTFunctionSignatureEntry::new(
-                        signature.fix_generics(&namespace.0),
+                        signature.add_generic_prefix(&namespace.0),
                         namespace.clone(),
                         module_id.clone(),
                         ASTPosition::builtin(&position, ft),
@@ -155,7 +163,7 @@ impl ASTModulesContainer {
                         .or_insert(Vec::new());
 
                     signatures.push(ASTFunctionSignatureEntry::new(
-                        signature.fix_generics(&namespace.0),
+                        signature.add_generic_prefix(&namespace.0),
                         namespace.clone(),
                         module_id.clone(),
                         ASTPosition::builtin(&position, tf),
@@ -204,7 +212,7 @@ impl ASTModulesContainer {
                 .entry(signature.name.clone())
                 .or_insert(Vec::new());
             signatures.push(ASTFunctionSignatureEntry::new(
-                signature.fix_generics(&namespace.0),
+                signature.add_generic_prefix(&namespace.0),
                 namespace.clone(),
                 module_id.clone(),
                 function.position.clone(),
@@ -247,28 +255,14 @@ impl ASTModulesContainer {
         self.modules.get(id).map(|it| &it.1)
     }
 
-    /*
-    fn get_all<'a, T>(
-        &'a self,
-        mapper: &'a dyn Fn(&'a ASTModule) -> &'a Vec<T>,
-    ) -> impl Iterator<Item = (&'a T, ModuleId)>
-    where
-        T: 'a,
-    {
-        self.modules.iter().flat_map(|(id, entries)| {
-            entries
-                .iter()
-                .flat_map(|entry| mapper(&entry.module).iter().map(|it| (it, id.clone())))
-        })
-    }
-    */
-
     pub fn find_call_vec(
         &self,
         function_to_call: &str,
+        position: &ASTPosition,
         parameter_types_filter: &Vec<ASTTypeFilter>,
         return_type_filter: Option<&ASTType>,
         function_call_module_namespace: &ModuleNamespace,
+        function_call_module_id: &ModuleId,
     ) -> Vec<&ASTFunctionSignatureEntry> {
         debug_i!(
             "find_call_vec {function_to_call} {}",
@@ -279,10 +273,8 @@ impl ASTModulesContainer {
                 .iter()
                 .filter(|entry| {
                     entry.signature.parameters_types.len() == parameter_types_filter.len()
-                })
-                .filter(|entry| {
-                    entry.signature.modifiers.public
-                        || &entry.namespace == function_call_module_namespace
+                        && (entry.signature.modifiers.public
+                            || &entry.namespace == function_call_module_namespace)
                 })
                 .filter(|entry| {
                     zip(parameter_types_filter, &entry.signature.parameters_types).all(
@@ -292,6 +284,77 @@ impl ASTModulesContainer {
                     )
                 })
                 .collect::<Vec<_>>();
+
+            let mut count = result.len();
+
+            if result.len() > 1 {
+                if let Some(rt) = return_type_filter {
+                    let filter = ASTTypeFilter::exact(
+                        rt.clone(),
+                        function_call_module_namespace,
+                        function_call_module_id,
+                        &self,
+                    );
+
+                    result = result
+                        .into_iter()
+                        .filter(|it| {
+                            filter.is_compatible(&it.signature.return_type, &it.namespace, &self)
+                        })
+                        .collect::<Vec<_>>();
+                }
+            }
+
+            count = result.len();
+
+            if result.len() > 1 {
+                result = result
+                    .into_iter()
+                    .filter(|it| {
+                        if it.signature.is_generic() {
+                            let mut resolver = ASTResolvedGenericTypes::new();
+                            let mut compatible = true;
+                            for (filter, t) in
+                                zip(parameter_types_filter, &it.signature.parameters_types)
+                            {
+                                match ASTTypeChecker::resolve_type_filter(t, filter) {
+                                    Ok(t_resolver) => {
+                                        if resolver.extend(t_resolver).is_err() {
+                                            compatible = false;
+                                            break;
+                                        }
+                                    }
+                                    Err(e) => {
+                                        compatible = false;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if compatible {
+                                if let Some(rt) = return_type_filter {
+                                    if let Ok(t_resolver) =
+                                        ASTTypeChecker::resolve_generic_types_from_effective_type(
+                                            rt, rt,
+                                        )
+                                    {
+                                        if resolver.extend(t_resolver).is_err() {
+                                            compatible = false;
+                                        }
+                                    } else {
+                                        compatible = false;
+                                    }
+                                }
+                            }
+                            compatible
+                        } else {
+                            true
+                        }
+                    })
+                    .collect::<Vec<_>>();
+            }
+
+            count = result.len();
 
             if result.len() > 1 {
                 let mut functions_by_coeff = HashMap::new();
@@ -327,22 +390,6 @@ impl ASTModulesContainer {
                     result = functions_by_coeff.remove(&max_coeff).unwrap();
                 }
             }
-
-            /*
-            if result.len() > 1 {
-                // TODO return type filter
-                result = result
-                    .iter()
-                    .cloned()
-                    .filter(|it| {
-                        it.signature
-                            .parameters_types
-                            .iter()
-                            .all(|f| !f.is_strictly_generic())
-                    })
-                    .collect::<Vec<_>>();
-            }
-            */
 
             result
         } else {
@@ -517,13 +564,16 @@ impl ASTTypeFilter {
     pub fn is_compatible(
         &self,
         ast_type: &ASTType,
-        module_id: &ModuleNamespace,
+        module_namespace: &ModuleNamespace,
         container: &ASTModulesContainer,
     ) -> bool {
         match self {
-            ASTTypeFilter::Exact(f_ast_type, f_module_info) => {
-                container.is_equals(ast_type, module_id, f_ast_type, f_module_info.namespace())
-            }
+            ASTTypeFilter::Exact(f_ast_type, f_module_info) => container.is_equals(
+                ast_type,
+                module_namespace,
+                f_ast_type,
+                f_module_info.namespace(),
+            ),
             ASTTypeFilter::Any => true,
             ASTTypeFilter::Lambda(par_len, return_type_filter) => match ast_type {
                 ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
@@ -539,7 +589,11 @@ impl ASTTypeFilter {
                                 // For example in a forEach (that takes a lambda that returns Unit) we can pass a lambda that returns something...
                                 .map(|it| {
                                     return_type.is_unit()
-                                        || it.is_compatible(&return_type, module_id, container)
+                                        || it.is_compatible(
+                                            &return_type,
+                                            module_namespace,
+                                            container,
+                                        )
                                 })
                                 .unwrap_or(true)
                     }
@@ -662,7 +716,10 @@ impl ASTTypeFilter {
 mod tests {
     use std::path::PathBuf;
 
-    use rasm_parser::parser::ast::{ASTPosition, ASTType, BuiltinTypeKind};
+    use rasm_parser::{
+        catalog::ModuleId,
+        parser::ast::{ASTPosition, ASTType, BuiltinTypeKind},
+    };
 
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
@@ -679,12 +736,14 @@ mod tests {
 
         let functions = container.find_call_vec(
             "add",
+            &ASTPosition::none(),
             &vec![
                 exact_builtin(BuiltinTypeKind::I32),
                 exact_builtin(BuiltinTypeKind::I32),
             ],
             None,
-            &ModuleNamespace(String::new()),
+            &ModuleNamespace::global(),
+            &ModuleId::global(),
         );
         assert_eq!(1, functions.len());
     }
@@ -695,6 +754,7 @@ mod tests {
 
         let functions = container.find_call_vec(
             "match",
+            &ASTPosition::none(),
             &vec![
                 exact_custom("Option", vec![ASTType::Builtin(BuiltinTypeKind::I32)]),
                 exact_builtin(BuiltinTypeKind::Lambda {
@@ -707,7 +767,8 @@ mod tests {
                 }),
             ],
             None,
-            &ModuleNamespace(String::new()),
+            &ModuleNamespace::global(),
+            &ModuleId::global(),
         );
         assert_eq!(1, functions.len());
     }
