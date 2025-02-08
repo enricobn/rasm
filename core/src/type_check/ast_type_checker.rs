@@ -1999,11 +1999,13 @@ mod tests {
             .get(&index(&catalog, "../stdlib/src/main/rasm/print.rasm", 13, 5).unwrap())
         {
             if let ASTTypeCheckInfo::Call(_, vec) = &entry.info {
+                let mut v = vec.iter().map(|it| format!("{}", it.0)).collect::<Vec<_>>();
+                v.sort();
                 assert_eq!(
-                    "print<stdlib_list_print:T>(List<stdlib_list_print:T>), print<stdlib_iter_print:T>(Iter<stdlib_iter_print:T>), print<stdlib_print_print:T>(stdlib_print_print:T), print(Compare)",
+                    "print(Compare), print<stdlib_iter_print:T>(Iter<stdlib_iter_print:T>), print<stdlib_list_print:T>(List<stdlib_list_print:T>), print<stdlib_print_print:T>(stdlib_print_print:T)",
                     format!(
                         "{}",
-                        SliceDisplay(&vec.iter().map(|it| &it.0).collect::<Vec<_>>())
+                        SliceDisplay(&v)
                     )
                 );
                 return;
