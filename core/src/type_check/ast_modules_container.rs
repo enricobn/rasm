@@ -291,17 +291,15 @@ impl ASTModulesContainer {
 
         if result.len() > 1 {
             if let Some(rt) = return_type_filter {
-                let filter = ASTTypeFilter::exact(
-                    rt.clone(),
-                    function_call_module_namespace,
-                    function_call_module_id,
-                    &self,
-                );
-
                 result = result
                     .into_iter()
                     .filter(|it| {
-                        filter.is_compatible(&it.signature.return_type, &it.namespace, &self)
+                        self.is_compatible(
+                            rt,
+                            function_call_module_namespace,
+                            &it.signature.return_type,
+                            &it.namespace,
+                        )
                     })
                     .collect::<Vec<_>>();
             }
