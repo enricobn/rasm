@@ -268,133 +268,126 @@ impl ASTModulesContainer {
             "find_call_vec {function_to_call} {}",
             SliceDisplay(parameter_types_filter)
         );
-        if let Some(signatures) = self.signatures.get(function_to_call) {
-            let mut result = signatures
-                .iter()
-                .filter(|entry| {
-                    entry.signature.parameters_types.len() == parameter_types_filter.len()
-                        && (entry.signature.modifiers.public
-                            || &entry.namespace == function_call_module_namespace)
-                })
-                .filter(|entry| {
-                    zip(parameter_types_filter, &entry.signature.parameters_types).all(
-                        |(filter, parameter)| {
-                            filter.is_compatible(&parameter, &entry.namespace, self)
-                        },
-                    )
-                })
-                .collect::<Vec<_>>();
 
-            let mut count = result.len();
+        let signatures = if let Some(signatures) = self.signatures.get(function_to_call) {
+            signatures
+        } else {
+            return Vec::new();
+        };
 
-            if result.len() > 1 {
-                if let Some(rt) = return_type_filter {
-                    let filter = ASTTypeFilter::exact(
-                        rt.clone(),
-                        function_call_module_namespace,
-                        function_call_module_id,
-                        &self,
-                    );
+        let mut result = signatures
+            .iter()
+            .filter(|entry| {
+                entry.signature.parameters_types.len() == parameter_types_filter.len()
+                    && (entry.signature.modifiers.public
+                        || &entry.namespace == function_call_module_namespace)
+            })
+            .filter(|entry| {
+                zip(parameter_types_filter, &entry.signature.parameters_types).all(
+                    |(filter, parameter)| filter.is_compatible(&parameter, &entry.namespace, self),
+                )
+            })
+            .collect::<Vec<_>>();
 
-                    result = result
-                        .into_iter()
-                        .filter(|it| {
-                            filter.is_compatible(&it.signature.return_type, &it.namespace, &self)
-                        })
-                        .collect::<Vec<_>>();
-                }
-            }
+        if result.len() > 1 {
+            if let Some(rt) = return_type_filter {
+                let filter = ASTTypeFilter::exact(
+                    rt.clone(),
+                    function_call_module_namespace,
+                    function_call_module_id,
+                    &self,
+                );
 
-            count = result.len();
-
-            if result.len() > 1 {
                 result = result
                     .into_iter()
                     .filter(|it| {
-                        if it.signature.is_generic() {
-                            let mut resolver = ASTResolvedGenericTypes::new();
-                            let mut compatible = true;
-                            for (filter, t) in
-                                zip(parameter_types_filter, &it.signature.parameters_types)
-                            {
-                                match ASTTypeChecker::resolve_type_filter(t, filter) {
-                                    Ok(t_resolver) => {
-                                        if resolver.extend(t_resolver).is_err() {
-                                            compatible = false;
-                                            break;
-                                        }
-                                    }
-                                    Err(e) => {
+                        filter.is_compatible(&it.signature.return_type, &it.namespace, &self)
+                    })
+                    .collect::<Vec<_>>();
+            }
+        }
+
+        if result.len() > 1 {
+            result = result
+                .into_iter()
+                .filter(|it| {
+                    if it.signature.is_generic() {
+                        let mut resolver = ASTResolvedGenericTypes::new();
+                        let mut compatible = true;
+                        for (filter, t) in
+                            zip(parameter_types_filter, &it.signature.parameters_types)
+                        {
+                            match ASTTypeChecker::resolve_type_filter(t, filter) {
+                                Ok(t_resolver) => {
+                                    if resolver.extend(t_resolver).is_err() {
                                         compatible = false;
                                         break;
                                     }
                                 }
-                            }
-
-                            if compatible {
-                                if let Some(rt) = return_type_filter {
-                                    if let Ok(t_resolver) =
-                                        ASTTypeChecker::resolve_generic_types_from_effective_type(
-                                            rt, rt,
-                                        )
-                                    {
-                                        if resolver.extend(t_resolver).is_err() {
-                                            compatible = false;
-                                        }
-                                    } else {
-                                        compatible = false;
-                                    }
+                                Err(e) => {
+                                    compatible = false;
+                                    break;
                                 }
                             }
-                            compatible
-                        } else {
-                            true
                         }
-                    })
-                    .collect::<Vec<_>>();
-            }
 
-            count = result.len();
-
-            if result.len() > 1 {
-                let mut functions_by_coeff = HashMap::new();
-                let mut max_coeff = 0;
-                for entry in result.into_iter() {
-                    let mut coeff = 0;
-                    for (filter, t) in
-                        zip(parameter_types_filter, &entry.signature.parameters_types)
-                    {
-                        let filter_coeff = filter.compatibility_coeff(&t, &entry.namespace, self);
-                        if filter_coeff == 0 {
-                            coeff = 0;
-                            break;
-                        } else {
-                            coeff += filter_coeff;
+                        if compatible {
+                            if let Some(rt) = return_type_filter {
+                                if let Ok(t_resolver) =
+                                    ASTTypeChecker::resolve_generic_types_from_effective_type(
+                                        rt, rt,
+                                    )
+                                {
+                                    if resolver.extend(t_resolver).is_err() {
+                                        compatible = false;
+                                    }
+                                } else {
+                                    compatible = false;
+                                }
+                            }
                         }
+                        compatible
+                    } else {
+                        true
                     }
-
-                    if coeff != 0 {
-                        if coeff > max_coeff {
-                            max_coeff = coeff;
-                        }
-                        functions_by_coeff
-                            .entry(coeff)
-                            .or_insert(Vec::new())
-                            .push(entry);
-                    }
-                }
-
-                if functions_by_coeff.len() == 0 {
-                    result = Vec::new();
-                } else {
-                    result = functions_by_coeff.remove(&max_coeff).unwrap();
-                }
-            }
-
-            result
-        } else {
-            Vec::new()
+                })
+                .collect::<Vec<_>>();
         }
+
+        if result.len() > 1 {
+            let mut functions_by_coeff = HashMap::new();
+            let mut max_coeff = 0;
+            for entry in result.into_iter() {
+                let mut coeff = 0;
+                for (filter, t) in zip(parameter_types_filter, &entry.signature.parameters_types) {
+                    let filter_coeff = filter.compatibility_coeff(&t, &entry.namespace, self);
+                    if filter_coeff == 0 {
+                        coeff = 0;
+                        break;
+                    } else {
+                        coeff += filter_coeff;
+                    }
+                }
+
+                if coeff != 0 {
+                    if coeff > max_coeff {
+                        max_coeff = coeff;
+                    }
+                    functions_by_coeff
+                        .entry(coeff)
+                        .or_insert(Vec::new())
+                        .push(entry);
+                }
+            }
+
+            if functions_by_coeff.len() == 0 {
+                result = Vec::new();
+            } else {
+                result = functions_by_coeff.remove(&max_coeff).unwrap();
+            }
+        }
+
+        result
     }
 
     pub fn signatures(&self) -> Vec<&ASTFunctionSignatureEntry> {
@@ -460,7 +453,7 @@ impl ASTModulesContainer {
             .collect()
     }
 
-    fn is_equals(
+    fn is_compatible(
         &self,
         a_type: &ASTType,
         an_id: &ModuleNamespace,
@@ -480,13 +473,15 @@ impl ASTModulesContainer {
                             return_type: wrt,
                         } = with_kind
                         {
-                            // TODO
                             a_p.len() == w_p.len()
+                                && zip(a_p, w_p)
+                                    .all(|(a, w)| self.is_compatible(a, an_id, w, with_id))
+                                && self.is_compatible(a_rt, an_id, wrt, with_id)
                         } else {
                             false
                         }
                     } else {
-                        a_kind == with_kind // TODO lambda
+                        a_kind == with_kind
                     }
                 } else if let ASTType::Generic(_, _) = with_type {
                     true
@@ -509,7 +504,7 @@ impl ASTModulesContainer {
                     a_name == with_name // TODO namespace
                         && a_param_types.len() == with_param_types.len()
                         && zip(a_param_types, with_param_types)
-                            .all(|(a_pt, w_pt)| self.is_equals(a_pt, an_id, w_pt, with_id))
+                            .all(|(a_pt, w_pt)| self.is_compatible(a_pt, an_id, w_pt, with_id))
                 } else if let ASTType::Generic(_, _) = with_type {
                     true
                 } else {
@@ -568,7 +563,7 @@ impl ASTTypeFilter {
         container: &ASTModulesContainer,
     ) -> bool {
         match self {
-            ASTTypeFilter::Exact(f_ast_type, f_module_info) => container.is_equals(
+            ASTTypeFilter::Exact(f_ast_type, f_module_info) => container.is_compatible(
                 ast_type,
                 module_namespace,
                 f_ast_type,
