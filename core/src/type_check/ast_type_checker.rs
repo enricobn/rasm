@@ -1047,17 +1047,17 @@ impl ASTTypeChecker {
                     modules_container,
                 );
 
-                if let Some(ref calculated_type_filter) =
-                    self.result.get(&e_index).and_then(|it| it.filter.clone())
-                {
-                    let p_errors = Self::add_resolve_type_filter(
-                        &index,
-                        &parameter_type,
-                        calculated_type_filter,
-                        &mut resolved_generic_types,
-                    );
+                if let Some(entry) = self.result.get(&e_index) {
+                    if let Some(ref calculated_type_filter) = entry.filter {
+                        let p_errors = Self::add_resolve_type_filter(
+                            &index,
+                            &parameter_type,
+                            calculated_type_filter,
+                            &mut resolved_generic_types,
+                        );
 
-                    loop_errors.extend(p_errors);
+                        loop_errors.extend(p_errors);
+                    }
                 }
             }
 
