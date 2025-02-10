@@ -1171,24 +1171,33 @@ impl ASTTypeChecker {
         if let ASTTypeFilter::Exact(effective_type, _) = effective_filter {
             return Self::resolve_generic_types_from_effective_type(generic_type, effective_type);
         } else if let ASTTypeFilter::Lambda(n, ret_type) = effective_filter {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
-                parameters: _,
-                return_type,
-            }) = generic_type
-            {
-                if let Some(rt_filter) = ret_type {
-                    return Self::resolve_type_filter(&return_type, &rt_filter);
-                }
-            }
-            if *n == 0 {
-                if let Some(filter) = ret_type {
-                    if let ASTTypeFilter::Exact(effective_type, _) = filter.as_ref() {
-                        let ef = ASTType::Builtin(BuiltinTypeKind::Lambda {
-                            parameters: Vec::new(),
-                            return_type: Box::new(effective_type.clone()),
-                        });
-                        //if !effective_type.is_generic() {
-                        return Self::resolve_generic_types_from_effective_type(generic_type, &ef);
+            if let Some(rt_filter) = ret_type {
+                match generic_type {
+                    ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        parameters: _,
+                        return_type,
+                    }) => {
+                        return Self::resolve_type_filter(&return_type, &rt_filter);
+                    }
+                    ASTType::Generic(_, _) => {
+                        if *n == 0 {
+                            if let ASTTypeFilter::Exact(effective_type, _) = rt_filter.as_ref() {
+                                let ef = ASTType::Builtin(BuiltinTypeKind::Lambda {
+                                    parameters: Vec::new(),
+                                    return_type: Box::new(effective_type.clone()),
+                                });
+                                return Self::resolve_generic_types_from_effective_type(
+                                    generic_type,
+                                    &ef,
+                                );
+                            }
+                        }
+                    }
+                    _ => {
+                        return Err(ASTTypeCheckError::new(
+                            ASTIndex::none(),
+                            format!("Expected lambda or generic. Got {generic_type}"),
+                        ));
                     }
                 }
             }
