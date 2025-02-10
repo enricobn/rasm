@@ -1034,8 +1034,12 @@ impl ASTTypeChecker {
                     e.position(),
                 );
                 let parameter_type = function_signature.parameters_types.get(i).unwrap();
-                let ast_type = Self::substitute(&parameter_type, &resolved_generic_types)
-                    .unwrap_or(parameter_type.clone());
+                let ps = Self::substitute(&parameter_type, &resolved_generic_types);
+                let ast_type = if let Some(ref a) = ps {
+                    a
+                } else {
+                    parameter_type
+                };
 
                 self.add_expr(
                     e,
