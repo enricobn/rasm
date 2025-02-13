@@ -1,7 +1,8 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, time::Instant};
 
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
+use log::info;
 use rasm_utils::{debug_i, dedent, indent, LinkedHashMapDisplay, OptionDisplay, SliceDisplay};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
@@ -288,13 +289,20 @@ impl ASTTypeChecker {
             .flat_map(|(id, namespace, module)| {
                 module.functions.par_iter().map(|function| {
                     let mut ftc = ASTTypeChecker::new();
+                    let start = Instant::now();
                     ftc.add_function(
                         &function,
                         &static_val_context,
-                        namespace.clone(),
-                        id.clone(),
+                        namespace,
+                        id,
                         &modules_container,
                     );
+
+                    let elapsed = start.elapsed();
+                    if function.name == "processNone" {
+                        info!("type check of {} in {}", function, elapsed.as_millis());
+                    }
+
                     ftc
                 })
             })
@@ -751,42 +759,43 @@ impl ASTTypeChecker {
 
         for e in &call.parameters {
             let e_index = ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
+            if self.result.get(&e_index).is_none() {
+                // it's almost impossible to determine the right type of lambda without knowing the expected type,
+                // here we are calculating only the types for filtering the functions,
+                // we hope that knowing only that it's a lambda, eventually the return type and the number of parameters is sufficient
 
-            // it's almost impossible to determine the right type of lambda without knowing the expected type,
-            // here we are calculating only the types for filtering the functions,
-            // we hope that knowing only that it's a lambda, eventually the return type and the number of parameters is sufficient
-
-            if let ASTExpression::Lambda(def) = e {
-                let ret_type = if let Some(body_ret_type) = tmp.add_body(
-                    val_context,
-                    statics,
-                    &def.body,
-                    None,
-                    module_namespace,
-                    module_id,
-                    modules_container,
-                ) {
-                    body_ret_type.filter().clone()
+                if let ASTExpression::Lambda(def) = e {
+                    let ret_type = if let Some(body_ret_type) = tmp.add_body(
+                        val_context,
+                        statics,
+                        &def.body,
+                        None,
+                        module_namespace,
+                        module_id,
+                        modules_container,
+                    ) {
+                        body_ret_type.filter().clone()
+                    } else {
+                        None
+                    };
+                    first_try_of_map.insert(
+                        e_index,
+                        ASTTypeFilter::Lambda(
+                            def.parameter_names.len(),
+                            ret_type.map(|it| Box::new(it)),
+                        ),
+                    );
                 } else {
-                    None
-                };
-                first_try_of_map.insert(
-                    e_index,
-                    ASTTypeFilter::Lambda(
-                        def.parameter_names.len(),
-                        ret_type.map(|it| Box::new(it)),
-                    ),
-                );
-            } else {
-                self.add_expr(
-                    e,
-                    val_context,
-                    statics,
-                    None,
-                    module_namespace,
-                    module_id,
-                    modules_container,
-                );
+                    self.add_expr(
+                        e,
+                        val_context,
+                        statics,
+                        None,
+                        module_namespace,
+                        module_id,
+                        modules_container,
+                    );
+                }
             }
         }
 

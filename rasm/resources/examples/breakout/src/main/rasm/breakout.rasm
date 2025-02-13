@@ -182,6 +182,13 @@ type check ended in 87.39312
     type check ended in 62.13033ms
 */
 
+/*
+    AST type check ended in 10.410923ms
+    type check ended in 61.791978ms
+*/
+
+// Code start -> for test purposes
+
 pub enum GameResult {
     Play(state: GameState),
     End(score: i32)
