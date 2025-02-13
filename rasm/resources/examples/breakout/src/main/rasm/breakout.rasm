@@ -183,6 +183,7 @@ type check ended in 87.39312
 */
 
 /*
+    little optimization
     AST type check ended in 10.410923ms
     type check ended in 61.791978ms
 */

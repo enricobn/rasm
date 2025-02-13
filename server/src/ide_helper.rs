@@ -1908,7 +1908,7 @@ mod tests {
 
     #[test]
     fn rename_in_multiple_modules() {
-        let start_code = 190;
+        let start_code = 191;
 
         test_rename_with_module_ns(
             "../rasm/resources/examples/breakout",
@@ -2162,7 +2162,7 @@ mod tests {
 
     #[test]
     fn test_statement_start_position_breakout() {
-        let start_code = 190;
+        let start_code = 191;
 
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
@@ -2187,7 +2187,7 @@ mod tests {
 
     #[test]
     fn test_extract_function_breakout() {
-        let start_code = 190;
+        let start_code = 191;
 
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
@@ -2233,7 +2233,7 @@ let newHighScores = highScores.add(score);
 
     #[test]
     fn test_extract_function_breakout_1() {
-        let start_code = 190;
+        let start_code = 191;
 
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
@@ -2275,7 +2275,7 @@ Stage::Menu(MenuState(newHighScores));
 
     #[test]
     fn test_extract_function_breakout_2() {
-        let start_code = 190;
+        let start_code = 191;
 
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
@@ -2317,7 +2317,7 @@ State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
 
     #[test]
     fn test_signature_help_breakout() {
-        let start_code = 190;
+        let start_code = 191;
 
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
