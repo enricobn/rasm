@@ -752,6 +752,25 @@ impl ASTTypeChecker {
                 return;
             }
         }
+        /*
+        if let Some(kind) = val_context.get(&call.function_name) {
+            self.result.insert(
+                index,
+                ASTTypeCheckEntry::reference(
+                    ASTTypeFilter::exact(
+                        kind.ast_type(),
+                        module_namespace,
+                        module_id,
+                        modules_container,
+                    ),
+                    call.function_name.clone(),
+                    kind.index(module_namespace, module_id),
+                ),
+            );
+            dedent!();
+            return;
+        }
+        */
 
         let mut first_try_of_map = HashMap::new();
 
@@ -831,7 +850,7 @@ impl ASTTypeChecker {
                 .collect::<Vec<_>>();
 
             let lambda_signature = ASTFunctionSignature {
-                name: String::new(),
+                name: call.function_name.clone(),
                 parameters_types,
                 return_type,
                 generics,
@@ -857,6 +876,24 @@ impl ASTTypeChecker {
                 true,
                 modules_container,
             );
+
+            /*
+            let kind = val_context.get(&call.function_name).unwrap();
+
+            self.result.insert(
+                index,
+                ASTTypeCheckEntry::reference(
+                    ASTTypeFilter::exact(
+                        kind.ast_type(),
+                        module_namespace,
+                        module_id,
+                        modules_container,
+                    ),
+                    call.function_name.clone(),
+                    kind.index(module_namespace, module_id),
+                ),
+            );
+            */
 
             dedent!();
 

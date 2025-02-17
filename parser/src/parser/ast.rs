@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::iter::zip;
@@ -431,6 +432,35 @@ impl ASTType {
             };
         }
         self
+    }
+
+    pub fn generics(&self) -> HashSet<String> {
+        let mut result = HashSet::new();
+        match self {
+            ASTType::Builtin(BuiltinTypeKind::Lambda {
+                parameters,
+                return_type,
+            }) => {
+                for p in parameters.iter() {
+                    result.extend(p.generics());
+                }
+                result.extend(return_type.generics());
+            }
+            ASTType::Generic(_, name) => {
+                result.insert(name.clone());
+            }
+            ASTType::Custom {
+                name,
+                param_types,
+                position,
+            } => {
+                for t in param_types.iter() {
+                    result.extend(t.generics());
+                }
+            }
+            _ => {}
+        }
+        result
     }
 }
 

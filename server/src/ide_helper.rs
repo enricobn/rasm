@@ -6,7 +6,7 @@ use linked_hash_map::LinkedHashMap;
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::statics::Statics;
-use rasm_core::codegen::val_context::ValContext;
+use rasm_core::codegen::val_context::{ValContext, ValKind};
 use rasm_core::commandline::CommandLineOptions;
 use rasm_core::errors::CompilationError;
 use rasm_core::project::{RasmProject, RasmProjectRunType};
@@ -25,7 +25,7 @@ use rasm_utils::OptionDisplay;
 
 use crate::ast_tree::{ASTElement, ASTTree};
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
-use crate::statement_finder::StatementFinder;
+use crate::statement_finder::{ModulePosition, StatementFinder};
 
 pub enum IDESymbolKind {
     Struct,
@@ -1118,6 +1118,23 @@ impl IDEHelper {
 
         let last_element = tree.get_element(last_statement)?;
 
+        let mut val_context = ValContext::new(None);
+
+        let orig_mod_position =
+            StatementFinder {}.module_position(start_index, &self.modules_container)?;
+
+        if let ModulePosition::Function(_, function) = orig_mod_position {
+            for par in function.parameters.iter() {
+                let mut p = par.clone();
+                val_context.insert_par(
+                    par.name.clone(),
+                    p,
+                    start_index.module_namespace(),
+                    start_index.module_id(),
+                );
+            }
+        }
+
         if let ASTElement::Statement(stmt) = last_element {
             if matches!(stmt, ASTStatement::LetStatement(_, _, _, _)) {
                 return None;
@@ -1142,8 +1159,17 @@ impl IDEHelper {
 
         let mut parameters_defs = Vec::new();
         let mut parameters_values = Vec::new();
-        let parameters = Self::extract_vals_body(&module.body, &HashSet::new());
+        let parameters = Self::extract_vals_body(&module.body, &HashSet::new(), &val_context);
+        let mut generics = HashSet::new();
         for par in parameters {
+            if let Some(kind) = val_context.get(&par.0) {
+                let ast_type = kind.ast_type().remove_generic_prefix();
+                generics.extend(ast_type.generics());
+
+                parameters_defs.push(format!("{}: {}", par.0, ast_type));
+                parameters_values.push(par.0);
+                continue;
+            }
             let diff_col = if par.1.row == 1 {
                 start_index.position().column - 1
             } else {
@@ -1157,15 +1183,25 @@ impl IDEHelper {
                 diff_col,
             )?;
             // println!("{} {}", par.0, par_type);
-            parameters_defs.push(format!("{}: {}", par.0, par_type));
+            let ast_type = par_type.remove_generic_prefix();
+            generics.extend(ast_type.generics());
+            parameters_defs.push(format!("{}: {}", par.0, ast_type));
             parameters_values.push(par.0);
         }
 
-        let mut function_code = format!(
-            "\n\nfn newFunction({}) -> {} {{\n",
+        let mut function_code = "\n\nfn newFunction".to_owned();
+
+        if !generics.is_empty() {
+            let mut g = generics.into_iter().collect::<Vec<_>>();
+            g.sort();
+            function_code.push_str(&format!("<{}>", g.join(",")));
+        }
+
+        function_code.push_str(&format!(
+            "({}) -> {} {{\n",
             parameters_defs.join(", "),
-            last_statement_type
-        );
+            last_statement_type.remove_generic_prefix()
+        ));
 
         function_code.push_str(&code);
         function_code.push_str("\n}");
@@ -1226,16 +1262,19 @@ impl IDEHelper {
     fn extract_vals_body(
         body: &Vec<ASTStatement>,
         excluding: &HashSet<String>,
+        val_context: &ValContext,
     ) -> LinkedHashMap<String, ASTPosition> {
         let mut result = LinkedHashMap::new();
         let mut excluding = excluding.clone();
 
         for statement in body.iter() {
             let statement_result = match statement {
-                ASTStatement::Expression(expr) => Self::extract_vals_expr(expr, &excluding),
+                ASTStatement::Expression(expr) => {
+                    Self::extract_vals_expr(expr, &excluding, val_context)
+                }
                 ASTStatement::LetStatement(name, expr, _, _) => {
                     excluding.insert(name.to_owned());
-                    Self::extract_vals_expr(expr, &excluding)
+                    Self::extract_vals_expr(expr, &excluding, val_context)
                 }
             };
             result.extend(statement_result);
@@ -1247,12 +1286,18 @@ impl IDEHelper {
     fn extract_vals_expr(
         expr: &ASTExpression,
         excluding: &HashSet<String>,
+        val_context: &ValContext,
     ) -> LinkedHashMap<String, ASTPosition> {
         match expr {
             ASTExpression::ASTFunctionCallExpression(function_call) => {
                 let mut result = LinkedHashMap::new();
+                if let Some(ValKind::ParameterRef(_, par)) =
+                    val_context.get(&function_call.function_name)
+                {
+                    result.insert(function_call.function_name.clone(), par.position.clone());
+                }
                 for e in function_call.parameters.iter() {
-                    result.extend(Self::extract_vals_expr(e, excluding));
+                    result.extend(Self::extract_vals_expr(e, excluding, val_context));
                 }
                 result
             }
@@ -1271,7 +1316,7 @@ impl IDEHelper {
                 for (name, _) in lambda_def.parameter_names.iter() {
                     excluding.insert(name.clone());
                 }
-                Self::extract_vals_body(&lambda_def.body, &excluding)
+                Self::extract_vals_body(&lambda_def.body, &excluding, val_context)
             }
         }
     }
@@ -1340,7 +1385,7 @@ mod tests {
         ASTBuiltinFunctionType, ASTFunctionSignature, ASTPosition, ASTType, BuiltinTypeKind,
     };
     use rasm_parser::parser::Parser;
-    use rasm_utils::test_utils::init_minimal_log;
+    use rasm_utils::test_utils::{init_minimal_log, read_chunk};
     use rasm_utils::{reset_indent, OptionDisplay};
 
     use crate::completion_service::{CompletionResult, CompletionTrigger};
@@ -2191,10 +2236,10 @@ mod tests {
 
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
-        if let Some((_, _, info)) = project.get_module(
-            Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
-            &CompileTarget::C(COptions::default()),
-        ) {
+        let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
+
+        if let Some((_, _, info)) = project.get_module(path, &CompileTarget::C(COptions::default()))
+        {
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
@@ -2205,11 +2250,11 @@ mod tests {
                 info.module_id(),
                 ASTPosition::new(start_code + 91, 93),
             );
-            let code = "let newHighScores = highScores.add(score);
-            writeHighScores(newHighScores);
-            State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);";
+
+            let code = read_code(path, &start_index, &end_index);
+
             if let Some(result) =
-                helper.try_extract_function(code, &start_index, &end_index, ASTPosition::new(0, 0))
+                helper.try_extract_function(&code, &start_index, &end_index, ASTPosition::new(0, 0))
             {
                 let mut result = result.changes().clone().remove(&info.module_id()).unwrap();
                 let edit = result.remove(0);
@@ -2237,10 +2282,9 @@ let newHighScores = highScores.add(score);
 
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
-        if let Some((_, _, info)) = project.get_module(
-            Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
-            &CompileTarget::C(COptions::default()),
-        ) {
+        let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
+        if let Some((_, _, info)) = project.get_module(path, &CompileTarget::C(COptions::default()))
+        {
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
@@ -2251,7 +2295,7 @@ let newHighScores = highScores.add(score);
                 info.module_id(),
                 ASTPosition::new(start_code + 91, 76),
             );
-            let code = "Stage::Menu(MenuState(newHighScores))";
+            let code = &read_code(path, &start_index, &end_index);
             if let Some(result) =
                 helper.try_extract_function(code, &start_index, &end_index, ASTPosition::new(0, 0))
             {
@@ -2279,10 +2323,9 @@ Stage::Menu(MenuState(newHighScores));
 
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
-        if let Some((_, _, info)) = project.get_module(
-            Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
-            &CompileTarget::C(COptions::default()),
-        ) {
+        let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
+        if let Some((_, _, info)) = project.get_module(path, &CompileTarget::C(COptions::default()))
+        {
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
@@ -2291,10 +2334,9 @@ Stage::Menu(MenuState(newHighScores));
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(start_code + 91, 92),
+                ASTPosition::new(start_code + 91, 93),
             );
-            let code =
-                "State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);";
+            let code = &read_code(path, &start_index, &end_index);
             if let Some(result) =
                 helper.try_extract_function(code, &start_index, &end_index, ASTPosition::new(0, 0))
             {
@@ -2334,6 +2376,42 @@ State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
                 assert_eq!("State", result.signature.name);
                 assert_eq!(4, result.signature.parameters.len());
                 assert_eq!(1, result.param);
+            } else {
+                panic!("Cannot find statement.");
+            }
+        } else {
+            panic!("Cannot find module.");
+        }
+    }
+
+    #[test]
+    fn test_extract_function_vec() {
+        let (project, helper) = get_helper("../stdlib");
+
+        let path = Path::new("../stdlib/src/main/rasm/vec.rasm");
+        if let Some((_, _, info)) = project.get_module(path, &CompileTarget::C(COptions::default()))
+        {
+            let start_index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(3, 9),
+            );
+            let end_index = ASTIndex::new(
+                info.module_namespace(),
+                info.module_id(),
+                ASTPosition::new(3, 50),
+            );
+            let code = &read_code(path, &start_index, &end_index);
+            if let Some(result) =
+                helper.try_extract_function(code, &start_index, &end_index, ASTPosition::new(0, 0))
+            {
+                let mut result = result.changes().clone().remove(&info.module_id()).unwrap();
+                let edit = result.remove(0);
+                assert_eq!(
+                    "\n\nfn newFunction<T,T1,T2>(vec2: Vec<T2>, zipFunction: fn (T1,T2) -> T, v1: T1) -> T {\nmap(vec2, fn(v2) {zipFunction(v1, v2); });\n}", edit.text
+                );
+                let edit = result.remove(0);
+                assert_eq!("newFunction(vec2, zipFunction, v1)", edit.text);
             } else {
                 panic!("Cannot find statement.");
             }
@@ -2630,5 +2708,16 @@ State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
         let index = get_index(&&project, file_name, row, col);
 
         vec_selectable_item_to_vec_target_index(helper.find(&index))
+    }
+
+    fn read_code(path: &Path, start_index: &ASTIndex, end_index: &ASTIndex) -> String {
+        read_chunk(
+            path,
+            start_index.position().row - 1,
+            start_index.position().column - 1,
+            end_index.position().row - 1,
+            end_index.position().column - 2,
+        )
+        .unwrap()
     }
 }
