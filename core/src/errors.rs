@@ -50,18 +50,30 @@ pub enum CompilationErrorKind {
 impl Display for CompilationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.error_kind {
-            CompilationErrorKind::Generic(message) => f.write_str(message)?,
-            CompilationErrorKind::Lexer(message) => f.write_str(message)?,
-            CompilationErrorKind::Parser(message) => f.write_str(message)?,
+            CompilationErrorKind::Generic(message) => {
+                f.write_str(message)?;
+                f.write_str(&format!(" in {}", self.index))
+            }
+            CompilationErrorKind::Lexer(message) => {
+                f.write_str(message)?;
+                f.write_str(&format!(" in {}", self.index))
+            }
+            CompilationErrorKind::Parser(message) => {
+                f.write_str(message)?;
+                f.write_str(&format!(" in {}", self.index))
+            }
             CompilationErrorKind::TypeCheck(message, error) => {
                 f.write_str(&format!("{message}\n"))?;
                 for e in error {
                     f.write_str(&format!("{e}\n"))?
                 }
-            }
-            CompilationErrorKind::Verify(message) => f.write_str(message)?,
-        }
 
-        f.write_str(&format!(" in {}", self.index))
+                Ok(())
+            }
+            CompilationErrorKind::Verify(message) => {
+                f.write_str(message)?;
+                f.write_str(&format!(" in {}", self.index))
+            }
+        }
     }
 }
