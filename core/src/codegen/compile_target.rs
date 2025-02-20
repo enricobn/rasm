@@ -507,6 +507,7 @@ impl CompileTarget {
     }
 
     fn raise_error(error: CompilationError) -> ! {
+        /*
         if let CompilationErrorKind::TypeCheck(a, b) = &error.error_kind {
             let important = b.iter().flat_map(|it| it.important()).collect::<Vec<_>>();
             if let Some(e) = important.first() {
@@ -518,6 +519,7 @@ impl CompileTarget {
                 exit(-1);
             }
         }
+        */
         eprintln!("{error}");
         eprintln!("error: could not compile due to previous errors");
         exit(-1);

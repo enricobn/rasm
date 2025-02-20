@@ -85,7 +85,12 @@ impl TypeCheckError {
         result
     }
 
-    fn write_one(&self, f: &mut Formatter<'_>, indent: usize) -> std::fmt::Result {
+    fn write_one(
+        &self,
+        f: &mut Formatter<'_>,
+        indent: usize,
+        prev_stack: &Vec<EnhASTIndex>,
+    ) -> std::fmt::Result {
         let spaces = " ".repeat(indent * 2);
 
         let kind = if self.kind == TypeCheckErrorKind::Important {
@@ -104,37 +109,48 @@ impl TypeCheckError {
             // return Ok(());
         }
 
-        /*
-        if !self.main.2.is_empty() {
-            f.write_str(&format!("{spaces}mains :\n"))?;
+        if !self.messages.is_empty() {
+            // f.write_str(&format!("{spaces}messages :\n"))?;
 
-            for i in self.main.2.iter().rev() {
+            for (index, message, stack) in self.messages.iter() {
+                if index.file_name.is_some() {
+                    f.write_str(&format!("{spaces}{} : {}\n", message, index))?;
+
+                    /*
+                    for i in stack.iter().rev() {
+                        f.write_str(&format!("{spaces}  {}\n", i))?;
+                    }
+                    */
+                }
+            }
+            //f.write_str(&format!("{spaces}end messages\n"))?;
+        }
+
+        let inner_stack = self
+            .main
+            .2
+            .iter()
+            .filter(|it| !prev_stack.contains(it))
+            .collect::<Vec<_>>();
+
+        if !inner_stack.is_empty() {
+            f.write_str(&format!("{spaces}call stack :\n"))?;
+
+            for i in inner_stack.iter().rev() {
                 if i.file_name.is_some() {
                     f.write_str(&format!("{spaces}{}\n", i))?;
                 }
             }
         }
 
-        if !self.messages.is_empty() {
-            f.write_str(&format!("{spaces}messages :\n"))?;
-
-            for (index, message, stack) in self.messages.iter() {
-                //if index.file_name.is_some() {
-                f.write_str(&format!("{spaces}  {} : {}\n", message, index))?;
-
-                for i in stack.iter().rev() {
-                    f.write_str(&format!("{spaces}  {}\n", i))?;
-                }
-                //}
-            }
-        }
-        */
-
         if !self.children.is_empty() {
-            // f.write_str(&format!("{spaces}children :\n"))?;
+            f.write_str(&format!("{spaces}children :\n"))?;
+
+            let mut stack = self.main.2.clone();
+            stack.push(self.main.0.clone());
 
             for child in self.children.iter() {
-                child.write_one(f, indent + 1)?;
+                child.write_one(f, indent + 1, &stack)?;
             }
         }
 
@@ -156,6 +172,6 @@ impl TypeCheckError {
 
 impl Display for TypeCheckError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.write_one(f, 0)
+        self.write_one(f, 0, &Vec::new())
     }
 }

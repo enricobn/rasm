@@ -172,14 +172,7 @@ impl<'a> TypeCheck<'a> {
                                 "Error in function {} : {}",
                                 function.original_name, function.index
                             ),
-                            vec![
-                                TypeCheckError::new(
-                                    function.index.clone(),
-                                    format!("Error in function {}", function.original_name),
-                                    self.stack.clone(),
-                                ),
-                                it,
-                            ],
+                            vec![it],
                         ),
                     })? {
                     Some(new_body) => {
@@ -345,6 +338,8 @@ impl<'a> TypeCheck<'a> {
             return Ok(call.clone());
         }
 
+        self.stack.push(call.index.clone());
+
         if let Some((_return_type, parameters_types)) = val_context.get_lambda(&call.function_name)
         {
             let new_expressions: Vec<EnhASTExpression> =
@@ -365,12 +360,10 @@ impl<'a> TypeCheck<'a> {
                     .collect::<Result<Vec<_>, TypeCheckError>>()
                     .map_err(|it| {
                         dedent!();
+                        self.stack.pop();
                         it.add(
                             call.index.clone(),
-                            format!(
-                                "converting expressions in call {}",
-                                call.original_function_name
-                            ),
+                            format!("calling {}", call.original_function_name),
                             self.stack.clone(),
                         )
                     })?;
@@ -378,10 +371,9 @@ impl<'a> TypeCheck<'a> {
             let mut new_call = call.clone();
             new_call.parameters = new_expressions;
             dedent!();
+            self.stack.pop();
             return Ok(new_call);
         }
-
-        self.stack.push(call.index.clone());
 
         let (mut new_function_def, resolved_generic_types, new_expressions) = self
             .get_valid_function(
@@ -398,7 +390,11 @@ impl<'a> TypeCheck<'a> {
             .map_err(|it| {
                 self.stack.pop();
                 dedent!();
-                it.clone()
+                it.add(
+                    call.index.clone(),
+                    format!("calling {}", call.original_function_name),
+                    self.stack.clone(),
+                )
             })?;
 
         debug_i!("found valid function {new_function_def}");
@@ -410,6 +406,7 @@ impl<'a> TypeCheck<'a> {
                 }
                 if p.ast_type.is_generic() {
                     if strict {
+                        self.stack.pop();
                         dedent!();
                         let result = Err(TypeCheckError::new(
                             p.ast_index.clone(),
@@ -418,8 +415,12 @@ impl<'a> TypeCheck<'a> {
                                 p.ast_type,
                             ),
                             self.stack.clone(),
+                        )
+                        .add(
+                            call.index.clone(),
+                            format!("calling {}", call.original_function_name),
+                            self.stack.clone(),
                         ));
-                        self.stack.pop();
                         return result;
                     }
                 }
@@ -433,6 +434,8 @@ impl<'a> TypeCheck<'a> {
             if new_function_def.return_type.is_generic() {
                 if strict {
                     dedent!();
+                    self.stack.pop();
+
                     let result = Err(TypeCheckError::new(
                         new_function_def.index.clone(),
                         format!(
@@ -441,8 +444,12 @@ impl<'a> TypeCheck<'a> {
                             OptionDisplay(&expected_return_type)
                         ),
                         self.stack.clone(),
+                    )
+                    .add(
+                        call.index.clone(),
+                        format!("calling {}", call.original_function_name),
+                        self.stack.clone(),
                     ));
-                    self.stack.pop();
                     return result;
                 }
             }
@@ -647,12 +654,9 @@ impl<'a> TypeCheck<'a> {
 
             return Err(TypeCheckError::new_with_kind(
                 call.index.clone(),
-                format!(
-                    "cannot find a function from namespace {namespace} for call {}. Expected return type {}",
-                    call.original_function_name,
-                    OptionDisplay(&expected_return_type)),
+                Self::invalid_function_message(namespace, first_type, call, expected_return_type),
                 self.stack.clone(),
-                TypeCheckErrorKind::Important
+                TypeCheckErrorKind::Standard,
             ));
         }
 
@@ -894,12 +898,10 @@ impl<'a> TypeCheck<'a> {
             dedent!();
             let result = Err(TypeCheckError::new(
                 call.index.clone(),
-                format!(
-                    "cannot find a valid function from namespace {namespace} for call {}. Expected return type {}",
-                    call.original_function_name,
-                    OptionDisplay(&expected_return_type)),
+                Self::invalid_function_message(namespace, first_type, call, expected_return_type),
                 self.stack.clone(),
-            ).add_errors(errors));
+            )
+            .add_errors(errors));
             //self.stack.pop();
             result
         } else if valid_functions.len() > 1 {
@@ -953,6 +955,27 @@ impl<'a> TypeCheck<'a> {
                 valid_functions.remove(0);
             Ok((valid_function, resolved_generic_types, expressions))
         }
+    }
+
+    fn invalid_function_message(
+        namespace: &EnhASTNameSpace,
+        first_type: Option<EnhASTType>,
+        call: &EnhASTFunctionCall,
+        expected_return_type: Option<&EnhASTType>,
+    ) -> String {
+        let first_type = first_type
+            .map(|it| format!("{it}"))
+            .unwrap_or(String::new());
+
+        let mut message = format!(
+            "cannot find a valid function from namespace {namespace} for call {}({first_type} ...)",
+            call.original_function_name
+        );
+
+        if let Some(er) = expected_return_type {
+            message.push_str(&format!(" -> {er}"));
+        }
+        message
     }
 
     fn get_first_type(

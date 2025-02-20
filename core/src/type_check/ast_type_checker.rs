@@ -918,7 +918,11 @@ impl ASTTypeChecker {
             );*/
             self.errors.push(ASTTypeCheckError::new(
                 index.clone(),
-                format!("no functions for {}", call.function_name),
+                format!(
+                    "no functions for {}({})",
+                    call.function_name,
+                    SliceDisplay(&parameter_types_filters)
+                ),
             ));
         } else {
             /*
