@@ -20,7 +20,6 @@ pub fn append<T>(s: str, v: T) -> str {
 }
 
 pub fn print<T>(file: File, s: T) -> Option<IOError> {
-   
     print(file, toString(s));
 }
 
