@@ -111,13 +111,17 @@ it should print the fortieth fibonacci number (102334155)
 
 ### C
 
-### To install SDL libraries on Ubuntu
+### To install SDL libraries on Ubuntu needed for some examples and for running tests
 
 `sudo apt-get install libsdl2-dev`
 
-### To install SDL TTF libraries on Ubuntu
+### To install SDL TTF libraries on Ubuntu needed for some examples and for running tests
 
 `sudo apt-get install libsdl2-ttf-dev`
+
+### To install SDL image libraries on Ubuntu needed for some examples and for running tests
+
+`sudo apt-get install libsdl2-image-dev`
 
 ## profiling
 

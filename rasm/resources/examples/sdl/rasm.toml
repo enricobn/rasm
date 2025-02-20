@@ -6,7 +6,7 @@ version = "0.1.0-alpha.0"
 stdlib = { path = "../../../../stdlib" }
 
 [natives.nasmi386]
-requires = ["libc", "SDL2", "SDL2_ttf"]
+requires = ["libc", "SDL2", "SDL2_ttf", "SDL2_image"]
 externals = [
     "printf",
     "SDL_CreateRenderer",
@@ -19,6 +19,7 @@ externals = [
     "SDL_FreeSurface",
     "SDL_GetError",
     "SDL_LoadBMP_RW",
+    "SDL_LoadSVG_RW",
     "SDL_Init",
     "SDL_PollEvent",
     "SDL_RenderClear",
@@ -33,5 +34,5 @@ externals = [
     "TTF_RenderText_Solid"]
 
 [natives.c]
-requires = ["SDL2", "SDL2_ttf"]
+requires = ["SDL2", "SDL2_ttf", "SDL2_image"]
 includes = ["/usr/include/SDL2/"]

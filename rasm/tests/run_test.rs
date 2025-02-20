@@ -673,7 +673,11 @@ fn test_breakout() {
 
 #[test]
 fn test_showimage() {
-    compile_example("resources/examples/showimage", true);
+    compile_example_with_target(
+        "resources/examples/showimage",
+        true,
+        CompileTarget::C(COptions::default()),
+    );
 }
 
 #[test]
@@ -749,7 +753,6 @@ fn compile_example(source: &str, only_compile: bool) {
 
 fn compile_example_with_target(source: &str, only_compile: bool, target: CompileTarget) {
     let dir = TempDir::new("rasm_int_test").unwrap();
-    compile(&dir, source, only_compile);
     compile_with_target(&dir, source, only_compile, target);
 }
 

@@ -41,6 +41,12 @@ pub native sdlLoadBMP(file: str) -> SDLSurface /{
     return SDL_LoadBMP_RW(rw, 1);
 }/
 
+pub native sdlLoadSVG(file: str) -> SDLSurface /{
+    $include(<SDL_image.h>)
+    SDL_RWops* rw = SDL_RWFromFile(file, "rb");
+    return IMG_LoadSVG_RW(rw);
+}/
+
 pub native sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> SDLTexture /{
     return SDL_CreateTextureFromSurface(ren, surface);
 }/
