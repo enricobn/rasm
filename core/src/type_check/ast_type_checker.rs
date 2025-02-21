@@ -1019,7 +1019,7 @@ impl ASTTypeChecker {
 
                 let filter = if return_types.len() == 1 {
                     Some(ASTTypeFilter::exact(
-                        return_types.iter().exactly_one().unwrap().deref().clone(),
+                        (*return_types.iter().exactly_one().unwrap()).clone(),
                         module_namespace,
                         module_id,
                         modules_container,
