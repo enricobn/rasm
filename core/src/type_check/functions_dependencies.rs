@@ -415,7 +415,7 @@ fn function_dependencies_inner_2(
     );
 
     for parameter in parameters_with_generic_type.iter() {
-        let mut parameter_dependencies = ASTParameterDependencies::Any;
+        let parameter_dependencies = ASTParameterDependencies::Any;
         debug_i!("analyzing parameter {parameter}");
         indent!();
 

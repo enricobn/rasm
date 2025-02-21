@@ -2226,7 +2226,7 @@ mod tests {
 
     fn check_function(file: &str, function_name: &str) -> (ASTTypeCheckerResult, EnhModuleInfo) {
         apply_to_functions_checker(file, file, |module, mut ftc, info, cont| {
-            let mut function = module
+            let function = module
                 .functions
                 .iter()
                 .find(|it| &it.name == function_name)

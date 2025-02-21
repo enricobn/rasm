@@ -1126,7 +1126,7 @@ impl IDEHelper {
 
         if let ModulePosition::Function(_, function) = orig_mod_position {
             for par in function.parameters.iter() {
-                let mut p = par.clone();
+                let p = par.clone();
                 val_context.insert_par(
                     par.name.clone(),
                     p,
