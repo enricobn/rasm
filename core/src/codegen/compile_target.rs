@@ -44,7 +44,7 @@ use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen, CodeGenAsm};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
-use crate::errors::{CompilationError, CompilationErrorKind};
+use crate::errors::CompilationError;
 use crate::project::{RasmProject, RasmProjectRunType};
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::{

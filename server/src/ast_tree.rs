@@ -66,7 +66,7 @@ impl<'a> ASTTree<'a> {
                 ASTElement::Statement(_) => true,
                 ASTElement::Expression(_) => false,
             })
-            .min_by_key(|(pos, _)| pos.clone())
+            .min_by_key(|(pos, _)| *pos)
             .map(|(pos, _)| pos)
     }
 
@@ -77,7 +77,7 @@ impl<'a> ASTTree<'a> {
                 ASTElement::Statement(_) => true,
                 ASTElement::Expression(_) => false,
             })
-            .max_by_key(|(pos, _)| pos.clone())
+            .max_by_key(|(pos, _)| *pos)
             .map(|(pos, _)| pos)
     }
 

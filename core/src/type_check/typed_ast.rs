@@ -924,7 +924,7 @@ impl<'a> ConvContext<'a> {
             } => ast_type_to_ast_typed_type_map
                 .iter()
                 .find(|(type_def_ast_type, _ast_typed_type)| {
-                    EnhTypeFilter::Exact(type_def_ast_type.clone().clone())
+                    EnhTypeFilter::Exact((*type_def_ast_type).clone())
                         .almost_equal(ast_type, self.module)
                         .unwrap_or(false)
                 })
