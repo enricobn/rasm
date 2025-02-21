@@ -235,13 +235,12 @@ impl UI {
         path: &str,
         static_val_context: &ValContext,
     ) -> SelectedModule {
-        let mut start = Instant::now();
         let type_checker_result =
             if let Some((module, errors, info)) = project.get_module(&Path::new(path), target) {
                 let mut ast_type_checker = ASTTypeChecker::new();
                 let mut val_context = ValContext::new(None);
 
-                start = Instant::now();
+                let start = Instant::now();
 
                 if !errors.is_empty() {
                     println!("compilation errors");
