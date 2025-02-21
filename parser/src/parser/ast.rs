@@ -239,6 +239,10 @@ impl ASTFunctionDef {
             modifiers: ASTModifiers { public: is_public },
         }
     }
+
+    pub fn is_generic(&self) -> bool {
+        !self.generic_types.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

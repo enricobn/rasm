@@ -94,6 +94,7 @@ impl UI {
                 &namespace,
                 &id,
                 &modules_container,
+                None,
             );
         }
 
@@ -259,6 +260,7 @@ impl UI {
                     &info.module_namespace(),
                     &info.module_id(),
                     modules_container,
+                    None,
                 );
 
                 for function in module.functions {

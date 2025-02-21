@@ -1,4 +1,9 @@
-use std::{collections::HashMap, fmt::Display, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+    ops::Deref,
+    time::Instant,
+};
 
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
@@ -76,24 +81,34 @@ impl ASTResolvedGenericTypes {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum ASTTypeCheckErroKind {
+    Error,
+    Warning,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypeCheckError {
+    kind: ASTTypeCheckErroKind,
     index: ASTIndex,
     message: String,
     inner: Vec<ASTTypeCheckError>,
 }
 
 impl ASTTypeCheckError {
-    fn new(index: ASTIndex, message: String) -> Self {
+    fn new(kind: ASTTypeCheckErroKind, index: ASTIndex, message: String) -> Self {
         Self {
+            kind,
             index,
             message,
             inner: Vec::new(),
         }
     }
 
-    fn add(self, index: ASTIndex, message: String) -> Self {
+    fn add(self, kind: ASTTypeCheckErroKind, index: ASTIndex, message: String) -> Self {
         let mut result = self.clone();
-        result.inner.push(ASTTypeCheckError::new(index, message));
+        result
+            .inner
+            .push(ASTTypeCheckError::new(kind, index, message));
         result
     }
 
@@ -103,6 +118,10 @@ impl ASTTypeCheckError {
 
     pub fn index(&self) -> &ASTIndex {
         &self.index
+    }
+
+    pub fn kind(&self) -> &ASTTypeCheckErroKind {
+        &self.kind
     }
 }
 
@@ -280,6 +299,7 @@ impl ASTTypeChecker {
                 &namespace,
                 &id,
                 &modules_container,
+                None,
             );
         }
 
@@ -344,6 +364,7 @@ impl ASTTypeChecker {
                 val_context.insert_par(par.name.clone(), par, module_namespace, module_id)
             {
                 self.errors.push(ASTTypeCheckError::new(
+                    ASTTypeCheckErroKind::Error,
                     ASTIndex::new(module_namespace.clone(), module_id.clone(), position),
                     e,
                 ));
@@ -372,6 +393,7 @@ impl ASTTypeChecker {
                     module_namespace,
                     module_id,
                     modules_container,
+                    Some(function),
                 );
             }
             ASTFunctionBody::NativeBody(_body) => {}
@@ -387,6 +409,7 @@ impl ASTTypeChecker {
         module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
         modules_container: &ASTModulesContainer,
+        function: Option<&ASTFunctionDef>,
     ) -> Option<ASTTypeCheckEntry> {
         let mut return_type = None;
         let inner_val_context = &mut ValContext::new(Some(val_context));
@@ -416,6 +439,7 @@ impl ASTTypeChecker {
                                     module_namespace,
                                     module_id,
                                     modules_container,
+                                    function,
                                 )
                             } else {
                                 self.add_expr(
@@ -426,6 +450,7 @@ impl ASTTypeChecker {
                                     module_namespace,
                                     module_id,
                                     modules_container,
+                                    function,
                                 )
                             };
                         } else {
@@ -437,6 +462,7 @@ impl ASTTypeChecker {
                                 module_namespace,
                                 module_id,
                                 modules_container,
+                                function,
                             );
                         }
                         if let Some(rt) = self.result.get(&index).cloned() {
@@ -454,6 +480,7 @@ impl ASTTypeChecker {
                             module_namespace,
                             module_id,
                             modules_container,
+                            function,
                         );
                     }
                 }
@@ -466,6 +493,7 @@ impl ASTTypeChecker {
                         module_namespace,
                         module_id,
                         modules_container,
+                        function,
                     );
 
                     let e_index =
@@ -488,7 +516,11 @@ impl ASTTypeChecker {
                                 };
 
                                 if let Err(e) = insert_result {
-                                    self.errors.push(ASTTypeCheckError::new(index.clone(), e));
+                                    self.errors.push(ASTTypeCheckError::new(
+                                        ASTTypeCheckErroKind::Error,
+                                        index.clone(),
+                                        e,
+                                    ));
                                 }
                             }
                             self.result.insert(
@@ -518,6 +550,7 @@ impl ASTTypeChecker {
         module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
         modules_container: &ASTModulesContainer,
+        function: Option<&ASTFunctionDef>,
     ) {
         debug_i!(
             "add_expr {expr} expected {}",
@@ -545,6 +578,7 @@ impl ASTTypeChecker {
                     module_namespace,
                     module_id,
                     modules_container,
+                    function,
                 );
             }
             ASTExpression::ValueRef(name, _) => {
@@ -578,6 +612,7 @@ impl ASTTypeChecker {
                     );
                 } else {
                     self.errors.push(ASTTypeCheckError::new(
+                        ASTTypeCheckErroKind::Error,
                         index.clone(),
                         format!("Cannot find value referencing {name}"),
                     ));
@@ -622,7 +657,11 @@ impl ASTTypeChecker {
                                 module_namespace,
                                 module_id,
                             ) {
-                                self.errors.push(ASTTypeCheckError::new(par_index, e));
+                                self.errors.push(ASTTypeCheckError::new(
+                                    ASTTypeCheckErroKind::Error,
+                                    par_index,
+                                    e,
+                                ));
                             } else {
                                 self.result.insert(
                                     par_index.clone(),
@@ -652,6 +691,7 @@ impl ASTTypeChecker {
                     module_namespace,
                     module_id,
                     modules_container,
+                    function,
                 );
 
                 if let Some(ASTTypeFilter::Exact(brt, _position)) =
@@ -731,6 +771,7 @@ impl ASTTypeChecker {
         module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
         modules_container: &ASTModulesContainer,
+        function: Option<&ASTFunctionDef>,
     ) {
         let index = ASTIndex::new(
             module_namespace.clone(),
@@ -792,6 +833,7 @@ impl ASTTypeChecker {
                         module_namespace,
                         module_id,
                         modules_container,
+                        function,
                     ) {
                         body_ret_type.filter().clone()
                     } else {
@@ -813,6 +855,7 @@ impl ASTTypeChecker {
                         module_namespace,
                         module_id,
                         modules_container,
+                        function,
                     );
                 }
             }
@@ -875,6 +918,7 @@ impl ASTTypeChecker {
                 module_id,
                 true,
                 modules_container,
+                function,
             );
 
             /*
@@ -917,6 +961,7 @@ impl ASTTypeChecker {
                 OptionDisplay(&expected_expression_type)
             );*/
             self.errors.push(ASTTypeCheckError::new(
+                ASTTypeCheckErroKind::Error,
                 index.clone(),
                 format!(
                     "no functions for {}({})",
@@ -953,7 +998,13 @@ impl ASTTypeChecker {
                     .map(|it| format!("  function {}", it.signature))
                     .join("\n");
 
+                let is_generic = function.map(ASTFunctionDef::is_generic).unwrap_or(false);
                 self.errors.push(ASTTypeCheckError::new(
+                    if is_generic {
+                        ASTTypeCheckErroKind::Warning
+                    } else {
+                        ASTTypeCheckErroKind::Error
+                    },
                     index.clone(),
                     format!(
                         "found more than one function for {}\n{functions_msg}",
@@ -961,10 +1012,26 @@ impl ASTTypeChecker {
                     ),
                 ));
 
+                let return_types = functions
+                    .iter()
+                    .map(|it| &it.signature.return_type)
+                    .collect::<HashSet<_>>();
+
+                let filter = if return_types.len() == 1 {
+                    Some(ASTTypeFilter::exact(
+                        return_types.iter().exactly_one().unwrap().deref().clone(),
+                        module_namespace,
+                        module_id,
+                        modules_container,
+                    ))
+                } else {
+                    None
+                };
+
                 self.result.insert(
                     index,
                     ASTTypeCheckEntry::new(
-                        None,
+                        filter,
                         ASTTypeCheckInfo::Call(
                             call.function_name.clone(),
                             functions
@@ -1017,6 +1084,7 @@ impl ASTTypeChecker {
                     module_id,
                     false,
                     modules_container,
+                    function,
                 );
             }
         }
@@ -1035,6 +1103,7 @@ impl ASTTypeChecker {
         call_module_id: &ModuleId,
         is_lambda: bool,
         modules_container: &ASTModulesContainer,
+        function: Option<&ASTFunctionDef>,
     ) {
         debug_i!(
             "process_function_signature {} with {} expected {}",
@@ -1099,6 +1168,7 @@ impl ASTTypeChecker {
                     call_module_namespace,
                     call_module_id,
                     modules_container,
+                    function,
                 );
 
                 if let Some(entry) = self.result.get(&e_index) {
@@ -1205,7 +1275,11 @@ impl ASTTypeChecker {
         match Self::resolve_type_filter(generic_type, effective_filter) {
             Ok(rgt) => {
                 if let Err(e) = resolved_generic_types.extend(rgt) {
-                    errors.push(ASTTypeCheckError::new(index.clone(), e));
+                    errors.push(ASTTypeCheckError::new(
+                        ASTTypeCheckErroKind::Error,
+                        index.clone(),
+                        e,
+                    ));
                 }
             }
             Err(e) => errors.push(e),
@@ -1245,6 +1319,7 @@ impl ASTTypeChecker {
                     }
                     _ => {
                         return Err(ASTTypeCheckError::new(
+                            ASTTypeCheckErroKind::Error,
                             ASTIndex::none(),
                             format!("Expected lambda or generic. Got {generic_type}"),
                         ));
@@ -1287,6 +1362,7 @@ impl ASTTypeChecker {
                             if e_parameters.len() != p_parameters.len() {
                                 dedent!();
                                 return Err(Self::type_check_error(
+                                    ASTTypeCheckErroKind::Error,
                                     "Invalid parameters count.".to_string(),
                                 ));
                             }
@@ -1296,11 +1372,11 @@ impl ASTTypeChecker {
                                 let inner_result = Self::resolve_generic_types_from_effective_type(p_p, e_p)
                                 .map_err(|e| {
                                     dedent!();
-                                    e.add(ASTIndex::none(), format!("lambda param gen type {generic_type}, eff. type {effective_type}"))})?;
+                                    e.add(ASTTypeCheckErroKind::Error, ASTIndex::none(), format!("lambda param gen type {generic_type}, eff. type {effective_type}"))})?;
 
                                 result.extend(inner_result).map_err(|it| {
                                     dedent!();
-                                    Self::type_check_error(it.clone())
+                                    Self::type_check_error(ASTTypeCheckErroKind::Error, it.clone())
                                 })?;
                             }
 
@@ -1324,16 +1400,16 @@ impl ASTTypeChecker {
                             let inner_result = Self::resolve_generic_types_from_effective_type(p_return_type, e_return_type)
                             .map_err(|e| {
                                 dedent!();
-                                e.add(ASTIndex::none(), format!("in return type gen type {generic_type}, eff. type {effective_type}"))})?;
+                                e.add(ASTTypeCheckErroKind::Error, ASTIndex::none(), format!("in return type gen type {generic_type}, eff. type {effective_type}"))})?;
 
                             result.extend(inner_result).map_err(|it| {
                                 dedent!();
-                                Self::type_check_error(it.clone())
+                                Self::type_check_error(ASTTypeCheckErroKind::Error, it.clone())
                             })?;
                         }
                         _ => {
                             dedent!();
-                            return Err(Self::type_check_error(format!("unmatched types, generic type is {generic_type}, real type is {effective_type}")));
+                            return Err(Self::type_check_error(ASTTypeCheckErroKind::Error, format!("unmatched types, generic type is {generic_type}, real type is {effective_type}")));
                         }
                     },
                 }
@@ -1361,9 +1437,10 @@ impl ASTTypeChecker {
                 } => {
                     if g_name != e_name {
                         dedent!();
-                        return Err(Self::type_check_error(format!(
-                            "unmatched custom type name {g_name} != {e_name}"
-                        )));
+                        return Err(Self::type_check_error(
+                            ASTTypeCheckErroKind::Error,
+                            format!("unmatched custom type name {g_name} != {e_name}"),
+                        ));
                     }
 
                     for (i, p_p) in g_param_types.iter().enumerate() {
@@ -1371,17 +1448,19 @@ impl ASTTypeChecker {
                             p
                         } else {
                             return Err(ASTTypeCheckError::new(
+                                ASTTypeCheckErroKind::Error,
                                 ASTIndex::none(),
                                 format!("Cannot find parameter {i}"),
                             ));
                         };
                         let inner_result = Self::resolve_generic_types_from_effective_type(p_p, e_p)
                             .map_err(|e| { dedent!();
-                        e.add(ASTIndex::none(), format!("in custom type gen type {generic_type} eff type {effective_type}"))})?;
+                        e.add(ASTTypeCheckErroKind::Error, ASTIndex::none(), format!("in custom type gen type {generic_type} eff type {effective_type}"))})?;
 
                         result.extend(inner_result).map_err(|it| {
                             dedent!();
                             ASTTypeCheckError::new(
+                                ASTTypeCheckErroKind::Error,
                                 ASTIndex::none(),
                                 format!(
                                     "{it}: in custom type gen type {generic_type} eff type {effective_type}"
@@ -1393,7 +1472,7 @@ impl ASTTypeChecker {
                 ASTType::Generic(_, _) => {}
                 _ => {
                     dedent!();
-                    return Err(Self::type_check_error(format!(
+                    return Err(Self::type_check_error(ASTTypeCheckErroKind::Error, format!(
                         "unmatched types, generic type is {generic_type}, real type is {effective_type}")));
                 }
             },
@@ -1405,8 +1484,8 @@ impl ASTTypeChecker {
         Ok(result)
     }
 
-    fn type_check_error(message: String) -> ASTTypeCheckError {
-        ASTTypeCheckError::new(ASTIndex::none(), message)
+    fn type_check_error(kind: ASTTypeCheckErroKind, message: String) -> ASTTypeCheckError {
+        ASTTypeCheckError::new(kind, ASTIndex::none(), message)
     }
 
     pub fn substitute(
@@ -1979,6 +2058,7 @@ mod tests {
             info.namespace(),
             info.id(),
             &container,
+            None,
         );
 
         if let Some(index) = index(&catalog, "../rasm/resources/test/lambda2.rasm", 2, 5) {
@@ -2040,6 +2120,7 @@ mod tests {
             info.namespace(),
             info.id(),
             &container,
+            None,
         );
 
         if let Some(entry) = res {
@@ -2138,6 +2219,7 @@ mod tests {
                 &info.module_namespace(),
                 &info.module_id(),
                 &cont,
+                None,
             );
             ftc.result
         })

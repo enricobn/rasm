@@ -287,6 +287,7 @@ impl IDEHelper {
                 &namespace,
                 &id,
                 &modules_container,
+                None,
             );
         }
 
