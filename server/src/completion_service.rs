@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::collections::HashSet;
 use std::fmt::Display;
 use std::io;
 use std::ops::Deref;
@@ -206,10 +207,22 @@ impl CompletionItem {
                     parameters,
                     return_type: _,
                 }) => {
+                    let mut all_names = HashSet::new();
+
                     let par_names = parameters
                         .iter()
                         .enumerate()
-                        .map(|(_pos, ast_type)| format!("{ast_type}"))
+                        .map(|(_pos, ast_type)| {
+                            let base_name = Self::type_base_name(ast_type);
+                            let mut name = base_name.clone();
+                            let mut i = 1;
+                            while all_names.contains(&name) {
+                                name = format!("{base_name}{i}");
+                                i += 1;
+                            }
+                            all_names.insert(name.clone());
+                            name
+                        })
                         .collect::<Vec<_>>()
                         .join(", ");
                     if par_names.is_empty() {
@@ -223,6 +236,34 @@ impl CompletionItem {
             .collect::<Vec<String>>()
             .join(", ");
         format!("{}({args});", function.name)
+    }
+
+    fn type_base_name(ast_type: &ASTType) -> String {
+        match ast_type {
+            ASTType::Builtin(kind) => match kind {
+                BuiltinTypeKind::Bool => "b".to_owned(),
+                BuiltinTypeKind::Char => "c".to_owned(),
+                BuiltinTypeKind::I32 => "i".to_owned(),
+                BuiltinTypeKind::F32 => "f".to_owned(),
+                BuiltinTypeKind::String => "s".to_owned(),
+                BuiltinTypeKind::Lambda {
+                    parameters: _,
+                    return_type: _,
+                } => "fun".to_owned(),
+            },
+            ASTType::Generic(_, _) => "gen".to_owned(),
+            ASTType::Custom {
+                name,
+                param_types: _,
+                position: _,
+            } => {
+                // from https://stackoverflow.com/questions/38406793/why-is-capitalizing-the-first-letter-of-a-string-so-convoluted-in-rust
+                let mut n = name.clone();
+                n[0..1].make_ascii_lowercase();
+                n
+            }
+            ASTType::Unit => "unit".to_owned(),
+        }
     }
 }
 
