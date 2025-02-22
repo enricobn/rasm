@@ -1171,7 +1171,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         }
         self.add_comment(
             definitions,
-            &format!("function {}", function_def.original_signature()),
+            &format!("function {}", function_def.original_signature(typed_module)),
             false,
         );
         self.function_def(definitions, function_def, statics);
