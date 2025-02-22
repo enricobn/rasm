@@ -46,13 +46,36 @@ pub struct ASTTypedFunctionDef {
 }
 
 impl ASTTypedFunctionDef {
-    pub fn original_signature(&self) -> String {
-        let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();
+    pub fn original_signature(&self, typed_module: &ASTTypedModule) -> String {
+        let pars: Vec<String> = self
+            .parameters
+            .iter()
+            .map(|it| Self::original_par(typed_module, it))
+            .collect();
         let mut result = format!("{}({})", self.original_name, pars.join(","));
         if self.return_type != ASTTypedType::Unit {
-            result.push_str(&format!(" -> {}", self.return_type));
+            result.push_str(&format!(
+                " -> {}",
+                Self::original_type(typed_module, &self.return_type)
+            ));
         }
         result
+    }
+
+    fn original_par(typed_module: &ASTTypedModule, par: &ASTTypedParameterDef) -> String {
+        format!(
+            "{}: {}",
+            par.name,
+            Self::original_type(typed_module, &par.ast_type)
+        )
+    }
+
+    fn original_type(typed_module: &ASTTypedModule, typed_type: &ASTTypedType) -> String {
+        if let Some(enh_type) = typed_module.get_type_from_typed_type(typed_type) {
+            format!("{enh_type}")
+        } else {
+            format!("{typed_type}")
+        }
     }
 }
 
