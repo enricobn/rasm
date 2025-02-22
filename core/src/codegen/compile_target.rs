@@ -468,7 +468,7 @@ impl CompileTarget {
                     "-std=c17".to_string(),
                     "-o".to_string(),
                     out_path.with_extension("").to_string_lossy().to_string(),
-                    //"-Wno-incompatible-pointer-types".to_string(),
+                    "-Wno-incompatible-pointer-types".to_string(), // TODO it happens where using $typeName(T) for a reference type, I think it should be struct RasmPointer_ *
                     "-Wno-int-conversion".to_string(),
                 ]);
                 if command_line_options.release {
