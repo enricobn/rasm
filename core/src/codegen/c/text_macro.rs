@@ -445,6 +445,18 @@ impl TextMacroEval for CTypeNameMacro {
             CLambdas::add_to_statics_if_lambda(&t, statics);
 
             CodeGenC::type_to_string(&t, statics)
+        } else if let MacroParam::Plain(name, _, _) = value {
+            if let Some(def) = function_def {
+                if let Some(t) = def.generic_types.get(name) {
+                    CLambdas::add_to_statics_if_lambda(&t, statics);
+
+                    CodeGenC::type_to_string(&t, statics)
+                } else {
+                    panic!("Cannot find generic type {name}.")
+                }
+            } else {
+                panic!("Cannot resolve generic type {name} without a function.")
+            }
         } else {
             panic!("First argument should be a reference to a value.")
         }
