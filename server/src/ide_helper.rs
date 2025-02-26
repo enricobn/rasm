@@ -26,6 +26,7 @@ use rasm_utils::OptionDisplay;
 use crate::ast_tree::{ASTElement, ASTTree};
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
 use crate::statement_finder::{ModulePosition, StatementFinder};
+use crate::text_lines::{CharAtResult, TextLines};
 
 pub enum IDESymbolKind {
     Struct,
@@ -153,25 +154,42 @@ impl IDESelectableItem {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum ItselfKind {
+    Param(String),
+    Type,
+}
+
+impl Display for ItselfKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ItselfKind::Param(name) => write!(f, "Param({})", name),
+            ItselfKind::Type => write!(f, "Type"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum IDESelectableItemTarget {
-    Ref(ASTIndex, Option<ASTType>),
+    Ref(ASTIndex, Option<ASTType>, String),
     Function(ASTIndex, ASTType, String),
     Type(Option<ASTIndex>, ASTType),
-    Itself(ASTType), // used for let or parameters
+    Itself(ItselfKind, ASTType),
 }
 
 impl Display for IDESelectableItemTarget {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let descr = match self {
-            IDESelectableItemTarget::Ref(index, t) => format!("Ref({index}, {})", OptionDisplay(t)),
+            IDESelectableItemTarget::Ref(index, t, name) => {
+                format!("Ref({index}, {}, {name})", OptionDisplay(t))
+            }
             IDESelectableItemTarget::Function(index, t, descr) => {
                 format!("Function({index}, {t}, {descr})")
             }
             IDESelectableItemTarget::Type(index, t) => {
                 format!("Type({}, {t})", OptionDisplay(index))
             }
-            IDESelectableItemTarget::Itself(t) => {
-                format!("Itself({t}")
+            IDESelectableItemTarget::Itself(kind, t) => {
+                format!("Itself({kind},{t}")
             }
         };
 
@@ -182,19 +200,19 @@ impl Display for IDESelectableItemTarget {
 impl IDESelectableItemTarget {
     pub fn index(&self) -> Option<ASTIndex> {
         match self {
-            IDESelectableItemTarget::Ref(index, _) => Some(index.clone()),
+            IDESelectableItemTarget::Ref(index, _, _) => Some(index.clone()),
             IDESelectableItemTarget::Function(index, _, _) => Some(index.clone()),
             IDESelectableItemTarget::Type(index, _) => index.clone(),
-            IDESelectableItemTarget::Itself(_) => None,
+            IDESelectableItemTarget::Itself(_, _) => None,
         }
     }
 
     pub fn completion_type(&self) -> Option<ASTType> {
         match self {
-            IDESelectableItemTarget::Ref(_, t) => t.clone(),
+            IDESelectableItemTarget::Ref(_, t, _) => t.clone(),
             IDESelectableItemTarget::Function(_, t, _) => Some(t.clone()),
             IDESelectableItemTarget::Type(_, t) => Some(t.clone()),
-            IDESelectableItemTarget::Itself(t) => Some(t.clone()),
+            IDESelectableItemTarget::Itself(_, t) => Some(t.clone()),
         }
     }
 }
@@ -209,13 +227,6 @@ pub enum IDECompletionTrigger {
 pub enum IDECompletionType {
     SelectableItem(ASTIndex, Option<String>),
     Identifier(String),
-}
-
-#[derive(PartialEq, Eq)]
-enum CharAtResult {
-    Char(char),
-    EndOfLine,
-    Outside,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -381,12 +392,15 @@ impl IDEHelper {
                     Some(IDESelectableItemTarget::Ref(
                         ref_index.clone(),
                         ast_type.clone(),
+                        name.clone(),
                     )),
                 )),
                 ASTTypeCheckInfo::Let(name, _is_const) => Some(IDESelectableItem::new(
                     index.clone(),
                     name.len(),
-                    ast_type.map(|it| IDESelectableItemTarget::Itself(it)),
+                    ast_type.map(|it| {
+                        IDESelectableItemTarget::Itself(ItselfKind::Param(name.clone()), it)
+                    }),
                 )),
                 ASTTypeCheckInfo::Value(len) => {
                     if let Some(ref t) = ast_type {
@@ -412,7 +426,9 @@ impl IDEHelper {
                 ASTTypeCheckInfo::Param(name) => Some(IDESelectableItem::new(
                     index.clone(),
                     name.len(),
-                    ast_type.map(|it| IDESelectableItemTarget::Itself(it)),
+                    ast_type.map(|it| {
+                        IDESelectableItemTarget::Itself(ItselfKind::Param(name.clone()), it)
+                    }),
                 )),
                 ASTTypeCheckInfo::Lambda => None,
             };
@@ -518,7 +534,7 @@ impl IDEHelper {
         trigger: &CompletionTrigger,
         module_info: &ModuleInfo,
     ) -> Result<CompletionResult, io::Error> {
-        let lines = module_content.lines().collect::<Vec<_>>();
+        let lines = TextLines::new(module_content.lines().collect::<Vec<_>>());
 
         let completion_type = match trigger {
             CompletionTrigger::Invoked => {
@@ -527,7 +543,7 @@ impl IDEHelper {
                 let mut completion_type = None;
 
                 loop {
-                    match Self::char_at_index(&lines, &index) {
+                    match lines.char_at_index(&index) {
                         CharAtResult::Char(c) => {
                             if c == '.' {
                                 // it could be a number
@@ -551,7 +567,7 @@ impl IDEHelper {
                         }
                     }
 
-                    if let Some(i) = Self::move_left(&lines, &index) {
+                    if let Some(i) = lines.move_left(&index) {
                         index = i.clone();
                     } else {
                         return Ok(CompletionResult::NotFound(
@@ -574,9 +590,12 @@ impl IDEHelper {
                     completion_type
                 } else {
                     return Ok(CompletionResult::NotFound(
-                        "Cannot find last identifier.".to_string(),
+                        "Cannot find valid dot completion.".to_string(),
                     ));
                 }
+            }
+            CompletionTrigger::Character(':') => {
+                return self.colon_completions(&lines, index, module_info);
             }
             CompletionTrigger::Character(c) => {
                 return Ok(CompletionResult::NotFound(format!(
@@ -637,22 +656,25 @@ impl IDEHelper {
 
     fn dot_completion(
         &self,
-        lines: &Vec<&str>,
+        lines: &TextLines,
         index: &ASTPosition,
         prefix: Option<String>,
         module_info: &ModuleInfo,
     ) -> Option<IDECompletionType> {
-        let index = if let Some(i) = Self::move_left(lines, index) {
+        let left_index = if let Some(i) = lines.move_left(index) {
             i
         } else {
             return None;
         };
-        if let Some(index) = Self::find_last_char_excluding(&lines, &index, &|c| !c.is_whitespace())
+        if let Some(index) = lines
+            .find_char_back_until(&left_index, &|c| !c.is_whitespace())
             .and_then(|it| {
-                if Self::char_at_index(lines, &it) == CharAtResult::Char('"') {
-                    Self::move_left(lines, &it)
+                if lines.char_at_index(&it) == CharAtResult::Char('"')
+                    || lines.char_at_index(&it) == CharAtResult::Char('\'')
+                {
+                    lines.move_left(&it)
                 } else {
-                    Self::find_last_char_excluding(&lines, &it, &|c| c.is_alphabetic())
+                    lines.find_char_back_until(&it, &|c| c.is_alphabetic())
                 }
             })
         {
@@ -666,6 +688,73 @@ impl IDEHelper {
             ))
         } else {
             None
+        }
+    }
+
+    fn colon_completions(
+        &self,
+        lines: &TextLines,
+        index: &ASTPosition,
+        module_info: &ModuleInfo,
+    ) -> Result<CompletionResult, io::Error> {
+        let end_index =
+            if let Some(i) = lines.find_char_back_until(&index.mv_left(1), &|it| it != ':') {
+                i.mv_right(1)
+            } else {
+                return Ok(CompletionResult::NotFound("Not a double colon.".to_owned()));
+            };
+
+        if end_index.row != index.row || index.column as i32 - end_index.column as i32 != 2 {
+            return Ok(CompletionResult::NotFound("Not a double colon.".to_owned()));
+        }
+
+        if let Some(start_index) = lines
+            .find_char_back_until(&end_index.mv_left(1), &|c| !c.is_alphanumeric())
+            .map(|it| it.mv_right(1))
+        {
+            if let Some(enum_name) = lines.substr_on_same_line(&start_index, &end_index) {
+                if let Some((enum_info, enum_def)) = self
+                    .container()
+                    .get_enum_def(module_info.namespace(), enum_name)
+                {
+                    let items = enum_def
+                        .variants
+                        .iter()
+                        .map(|it| {
+                            let insert = if it.parameters.is_empty() {
+                                None
+                            } else {
+                                Some(format!(
+                                    "{}({})",
+                                    it.name,
+                                    it.parameters
+                                        .iter()
+                                        .map(|p| p.name.clone())
+                                        .collect::<Vec<_>>()
+                                        .join(", ")
+                                ))
+                            };
+                            CompletionItem {
+                                value: format!("{it}"),
+                                descr: format!("{it}"),
+                                sort: None,
+                                insert,
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                    return Ok(CompletionResult::Found(items));
+                } else {
+                    return Ok(CompletionResult::NotFound(format!(
+                        "{enum_name} is not an enum."
+                    )));
+                }
+            } else {
+                return Ok(CompletionResult::NotFound(format!("Not on the same line.")));
+            }
+        } else {
+            return Ok(CompletionResult::NotFound(
+                "Cannot find an identifier".to_owned(),
+            ));
         }
     }
 
@@ -723,85 +812,6 @@ impl IDEHelper {
         return Ok(CompletionResult::Found(items));
     }
 
-    fn find_last_char_excluding(
-        lines: &Vec<&str>,
-        index: &ASTPosition,
-        find: &dyn Fn(char) -> bool,
-    ) -> Option<ASTPosition> {
-        let mut result = index.clone();
-        loop {
-            match Self::char_at_index(&lines, &result) {
-                CharAtResult::Char(c) => {
-                    if find(c) {
-                        return Some(result);
-                    } else if c == ')' {
-                        result =
-                            Self::find_open_bracket(&lines, &Self::move_left(&lines, &result)?)?;
-                        return Self::move_left(&lines, &result);
-                    }
-                    result = Self::move_left(lines, &result)?;
-                }
-                CharAtResult::EndOfLine => {
-                    return None;
-                }
-                CharAtResult::Outside => {
-                    return None;
-                }
-            }
-        }
-    }
-
-    fn char_at_index(lines: &Vec<&str>, index: &ASTPosition) -> CharAtResult {
-        if let Some(line) = lines.get(index.row - 1) {
-            if index.column == line.len() + 1 {
-                CharAtResult::EndOfLine
-            } else if let Some(c) = line.chars().nth(index.column - 1) {
-                CharAtResult::Char(c)
-            } else {
-                CharAtResult::Outside
-            }
-        } else {
-            CharAtResult::Outside
-        }
-    }
-
-    fn move_left(lines: &Vec<&str>, index: &ASTPosition) -> Option<ASTPosition> {
-        let mut row = index.row as i32;
-        let mut column = index.column as i32 - 1;
-
-        if column <= 0 {
-            row -= 1;
-            if row <= 0 {
-                return None;
-            }
-            column = (lines.get((row - 1) as usize).unwrap().len()) as i32;
-        }
-        Some(ASTPosition::new(row as usize, column as usize))
-    }
-
-    fn find_open_bracket(lines: &Vec<&str>, index: &ASTPosition) -> Option<ASTPosition> {
-        let mut result = index.clone();
-        let mut count = 0;
-        loop {
-            if let CharAtResult::Char(c) = Self::char_at_index(lines, &result) {
-                if c == ')' {
-                    count += 1;
-                } else if c == '(' {
-                    if count == 0 {
-                        break;
-                    } else {
-                        count -= 1;
-                    }
-                }
-                result = Self::move_left(lines, &result)?;
-            } else {
-                return None;
-            }
-        }
-
-        Some(result)
-    }
-
     pub fn references(&self, index: &ASTIndex) -> Vec<IDESelectableItem> {
         let mut items = self.find(index);
 
@@ -843,7 +853,7 @@ impl IDEHelper {
         let items = self.find(&index);
         if let Some(item) = items.first() {
             let root_index_o = if let Some(ref target) = item.target {
-                if matches!(target, IDESelectableItemTarget::Itself(_)) {
+                if matches!(target, IDESelectableItemTarget::Itself(_, _)) {
                     result.insert_same_line(item.start.clone(), item.len, new_name.to_owned());
                     Some(item.start.clone())
                 } else {
@@ -1387,7 +1397,7 @@ mod tests {
     };
     use rasm_parser::parser::Parser;
     use rasm_utils::test_utils::{init_minimal_log, read_chunk};
-    use rasm_utils::{reset_indent, OptionDisplay};
+    use rasm_utils::{reset_indent, OptionDisplay, SliceDisplay};
 
     use crate::completion_service::{CompletionResult, CompletionTrigger};
 
@@ -1809,7 +1819,7 @@ mod tests {
 
         let item = items.remove(0);
 
-        if let Some(IDESelectableItemTarget::Ref(index, _)) = item.target {
+        if let Some(IDESelectableItemTarget::Ref(index, _, _)) = item.target {
             assert_eq!(get_index(&project, "enums.rasm", 17, 21), index);
         } else {
             panic!("Found {:?}", item.target);
@@ -2004,6 +2014,40 @@ mod tests {
         );
 
         assert_eq!(vec!["f1".to_owned()], result.unwrap());
+    }
+
+    #[test]
+    fn enum_double_colon_completion() {
+        env::set_var("RASM_STDLIB", "../stdlib");
+
+        let values = get_completion_values(
+            Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
+            "types.rasm",
+            5,
+            22,
+            CompletionTrigger::Character(':'),
+        )
+        .unwrap();
+
+        assert_eq!(values, vec!["Some(value: T)", "None()"]);
+    }
+
+    #[test]
+    fn enum_not_double_colon_completion() {
+        env::set_var("RASM_STDLIB", "../stdlib");
+
+        let values = get_completion_values(
+            Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
+            "types.rasm",
+            5,
+            21,
+            CompletionTrigger::Character(':'),
+        );
+
+        match values {
+            Ok(_) => panic!("It should fail."),
+            Err(msg) => assert_eq!(msg, "Not a double colon."),
+        }
     }
 
     #[test]

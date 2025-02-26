@@ -10,6 +10,7 @@ pub mod ide_helper;
 pub mod selectable_item;
 pub mod server;
 pub mod statement_finder;
+pub mod text_lines;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RasmTextEdit {
