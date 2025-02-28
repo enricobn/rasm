@@ -134,6 +134,13 @@ impl ASTIndex {
             position,
         }
     }
+
+    pub fn equals_ignoring_builtin(&self, other: &ASTIndex) -> bool {
+        self.module_id == other.module_id
+            && self.module_namespace == other.module_namespace
+            && self.position.row == other.position.row
+            && self.position.column == other.position.column
+    }
 }
 
 impl Display for ASTIndex {

@@ -29,7 +29,7 @@ fn doSomething(value: Vec<AStruct>) {
 }
 
 fn lambda(structVec: Vec<AStruct>) -> Vec<AStruct> {
-    structVec.map(fn(it) {it;});
+    structVec.map(fn(aValue) {aValue;});
 }
 
 fn property() -> i32 {

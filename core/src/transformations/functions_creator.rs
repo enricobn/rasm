@@ -55,11 +55,13 @@ pub trait FunctionsCreator {
             let (parameters_names, parameters_positions, signature) =
                 BuiltinFunctions::struct_constructor_signature(struct_def);
 
+            let mut position = struct_def.position.clone();
+            position.builtin = Some(ASTBuiltinFunctionType::StructConstructor);
             let function_def = ASTFunctionDef::from_signature(
                 signature,
                 false,
                 struct_def.modifiers.public,
-                struct_def.position.clone(),
+                position,
                 parameters_names,
                 parameters_positions,
                 body,

@@ -2,8 +2,8 @@ let anI32 = 10;
 
 doSomething(anI32);
 
-fn doSomething(value: i32) {
-    println(value);
+fn doSomething(aValue: i32) {
+    println(aValue);
 }
 
 fn doSomething1() -> Option<i32> {

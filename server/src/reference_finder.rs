@@ -1444,7 +1444,13 @@ mod tests {
                     .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 6, 19,))
                     .unwrap()
             ),
-            vec![get_index(&project, "types.rasm", 1, 8)],
+            vec![get_index_with_builtin(
+                &project,
+                "types.rasm",
+                1,
+                8,
+                ASTBuiltinFunctionType::StructConstructor
+            )],
         );
     }
 
@@ -1674,7 +1680,7 @@ mod tests {
 
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
 
-        match finder.find(&EnhASTIndex::new(file_name.clone(), 32, 28)) {
+        match finder.find(&EnhASTIndex::new(file_name.clone(), 32, 34)) {
             Ok(mut selectable_items) => {
                 if selectable_items.len() == 1 {
                     let selectable_item = selectable_items.remove(0);
@@ -2073,6 +2079,18 @@ mod tests {
             row,
             column,
         )
+    }
+
+    fn get_index_with_builtin(
+        project: &RasmProject,
+        file_n: &str,
+        row: usize,
+        column: usize,
+        builtin: ASTBuiltinFunctionType,
+    ) -> EnhASTIndex {
+        let mut index = get_index(project, file_n, row, column);
+        index.builtin = Some(builtin);
+        index
     }
 
     fn format_collection_items(items: &[CompletionItem]) -> Vec<String> {
