@@ -1,0 +1,7 @@
+struct Pippo {
+    name: str
+}
+
+fn hello() {
+    
+}

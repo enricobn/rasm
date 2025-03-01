@@ -18,10 +18,10 @@ use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast::{
     ASTBuiltinFunctionType, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTModifiers,
-    ASTModule, ASTParameterDef, ASTPosition, ASTStatement, ASTType, BuiltinTypeKind, CustomTypeDef,
+    ASTParameterDef, ASTPosition, ASTStatement, ASTType, BuiltinTypeKind, CustomTypeDef,
 };
 use rasm_parser::parser::Parser;
-use rasm_utils::{OptionDisplay, SliceDisplay};
+use rasm_utils::OptionDisplay;
 
 use crate::ast_tree::{ASTElement, ASTTree};
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
@@ -539,23 +539,29 @@ impl IDEHelper {
         let completion_type = match trigger {
             CompletionTrigger::Invoked => {
                 let mut prefix = String::new();
-                let mut index = index.clone();
+                let mut current_index = index.clone();
                 let mut completion_type = None;
 
                 loop {
-                    match lines.char_at_index(&index) {
+                    match lines.char_at_index(&current_index) {
                         CharAtResult::Char(c) => {
                             if c == '.' {
                                 // TODO prefix could be a number
-                                completion_type =
-                                    self.dot_completion(&lines, &index, Some(prefix), module_info);
+                                completion_type = self.dot_completion(
+                                    &lines,
+                                    &current_index,
+                                    Some(prefix),
+                                    module_info,
+                                );
                                 break;
                             } else if c == ':' {
-                                return self.colon_completions(&lines, &index, module_info);
+                                return self.colon_completions(&lines, &current_index, module_info);
                             } else if c.is_whitespace() {
-                                // TODO prefix could be a number
-                                completion_type = Some(IDECompletionType::Identifier(prefix));
-                                break;
+                                if !prefix.is_empty() {
+                                    // TODO prefix could be a number
+                                    completion_type = Some(IDECompletionType::Identifier(prefix));
+                                    break;
+                                }
                             } else if c == '{' || c == ';' || c == '=' || c == '(' {
                                 // TODO prefix could be a number
                                 completion_type = Some(IDECompletionType::Identifier(prefix));
@@ -572,8 +578,8 @@ impl IDEHelper {
                         }
                     }
 
-                    if let Some(i) = lines.move_left(&index) {
-                        index = i.clone();
+                    if let Some(i) = lines.move_left(&current_index) {
+                        current_index = i.clone();
                     } else {
                         return Ok(CompletionResult::NotFound(
                             "Cannot find a completable expression.".to_string(),
@@ -810,25 +816,21 @@ impl IDEHelper {
         let mut items = Vec::new();
 
         if let Some(pos) = StatementFinder::module_position(index, modules_container) {
+            let id_index = index.mv_left(prefix.len());
             let mut references = Vec::new();
             match pos {
                 ModulePosition::Body(astmodule) => {
-                    references.append(&mut Self::get_references_until(astmodule, index));
+                    references.append(&mut Self::get_references_until(&astmodule.body, &id_index));
                 }
                 ModulePosition::Function(astmodule, astfunction_def) => {
-                    references = astfunction_def
-                        .parameters
-                        .iter()
-                        .map(|it| it.name.clone())
-                        .collect::<Vec<_>>();
-                    references.append(&mut Self::get_references_until(astmodule, index));
-
-                    /*
-                    println!(
-                        "found function body, references {}",
-                        SliceDisplay(&references)
-                    )
-                    */
+                    if let ASTFunctionBody::RASMBody(ref body) = astfunction_def.body {
+                        references = astfunction_def
+                            .parameters
+                            .iter()
+                            .map(|it| it.name.clone())
+                            .collect::<Vec<_>>();
+                        references.append(&mut Self::get_references_until(&body, &id_index));
+                    }
                 }
             }
             for reference in references.into_iter().filter(|it| it.starts_with(prefix)) {
@@ -856,15 +858,32 @@ impl IDEHelper {
         return Ok(CompletionResult::Found(items));
     }
 
-    fn get_references_until(module: &ASTModule, index: &ASTIndex) -> Vec<String> {
+    fn get_references_until(body: &Vec<ASTStatement>, index: &ASTIndex) -> Vec<String> {
         let mut references = Vec::new();
+        let tree = ASTTree::new(body);
+        println!(
+            "element {}",
+            OptionDisplay(&tree.get_element(index.position()))
+        );
 
-        for statement in module.body.iter() {
-            if statement.position().row >= index.position().row {
+        for statement in body.iter() {
+            if statement.position().after(index.position()) {
                 break;
             }
             match statement {
-                ASTStatement::Expression(astexpression) => {}
+                ASTStatement::Expression(expr) => match expr {
+                    ASTExpression::Lambda(lambda_def) => {
+                        references.extend(
+                            lambda_def
+                                .parameter_names
+                                .iter()
+                                .map(|it| it.0.clone())
+                                .collect::<Vec<_>>(),
+                        );
+                        references.extend(Self::get_references_until(&lambda_def.body, index));
+                    }
+                    _ => {}
+                },
                 ASTStatement::LetStatement(name, astexpression, _, astposition) => {
                     references.push(name.clone())
                 }
@@ -2152,14 +2171,34 @@ mod tests {
     }
 
     #[test]
+    fn test_incomplete_id_body() {
+        env::set_var("RASM_STDLIB", "../stdlib");
+
+        let result = get_completion_values(
+            Some(RasmProject::new(PathBuf::from(
+                "resources/test/incomplete_statements.rasm",
+            ))),
+            "incomplete_statements.rasm",
+            5,
+            4,
+            CompletionTrigger::Invoked,
+        )
+        .unwrap();
+
+        assert_eq!(result, vec!["anEnum"]);
+    }
+
+    #[test]
     fn test_incomplete_id_in_lambda() {
         env::set_var("RASM_STDLIB", "../stdlib");
 
         let result = get_completion_values(
-            Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
-            "types.rasm",
-            32,
-            34,
+            Some(RasmProject::new(PathBuf::from(
+                "resources/test/incomplete_statements.rasm",
+            ))),
+            "incomplete_statements.rasm",
+            8,
+            35,
             CompletionTrigger::Invoked,
         )
         .unwrap();

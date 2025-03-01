@@ -76,6 +76,10 @@ impl ASTPosition {
             builtin: self.builtin.clone(),
         }
     }
+
+    pub fn after(&self, position: &ASTPosition) -> bool {
+        self.row > position.row || (self.row == position.row && self.column > position.column)
+    }
 }
 
 impl Display for ASTPosition {

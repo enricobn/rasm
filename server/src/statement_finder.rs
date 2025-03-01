@@ -1,4 +1,3 @@
-use env_logger::filter;
 use rasm_core::type_check::ast_modules_container::ASTModulesContainer;
 use rasm_parser::{
     catalog::ASTIndex,
@@ -6,7 +5,6 @@ use rasm_parser::{
         ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTModule, ASTPosition, ASTStatement,
     },
 };
-use rasm_utils::OptionDisplay;
 
 enum SFExprResult {
     InExpr,

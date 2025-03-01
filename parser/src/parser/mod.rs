@@ -1,5 +1,6 @@
 use ast::ASTPosition;
 use lazy_static::lazy_static;
+use properties_parser::parse_properties;
 use std::fmt::{Display, Formatter};
 
 use crate::lexer::tokens::{
@@ -27,6 +28,7 @@ pub mod ast;
 pub mod builtin_functions;
 mod enum_parser;
 mod matchers;
+pub mod properties_parser;
 mod struct_parser;
 #[cfg(test)]
 mod test_utils;
@@ -333,26 +335,25 @@ impl Parser {
                 }
                 Some(StructDef) => {
                     if let Some(ParserData::StructDef(mut def)) = self.last_parser_data() {
-                        match STRUCT_PARSER.parse_properties(
+                        let (properties, errors, new_n) = parse_properties(
                             &self,
                             &def.type_parameters,
-                            &def.name,
                             0,
-                        ) {
-                            Ok(result) => {
-                                if let Some((properties, next_i)) = result {
-                                    def.properties = properties;
-                                    self.structs.push(def);
-                                    self.state.pop();
-                                    self.parser_data.pop();
-                                    self.i = next_i;
-                                    continue;
-                                } else {
-                                    self.add_error("Expected properties".to_string());
-                                }
-                            }
-                            Err(message) => self.add_error(message),
+                            TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close),
+                        );
+
+                        if properties.is_empty() {
+                            self.add_error("Expected properties".to_owned());
                         }
+
+                        self.errors.extend(errors);
+
+                        def.properties = properties;
+                        self.structs.push(def);
+                        self.state.pop();
+                        self.parser_data.pop();
+                        self.i += new_n;
+                        continue;
                     } else {
                         self.add_error("Expected struct data".to_string());
                     }
@@ -1371,11 +1372,20 @@ pub trait ParserTrait {
     fn wrap_error(&self, message: &str) -> String {
         format!("{message}: {}", self.get_position(0))
     }
+
+    fn error(&self, n: usize, message: String) -> ParserError {
+        ParserError {
+            position: self.get_position(n),
+            message,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+
+    use rasm_utils::SliceDisplay;
 
     use crate::lexer::Lexer;
     use crate::parser::ast::{
@@ -1499,6 +1509,15 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(vec!["fun1", "fun2", "fun3"], function_names);
+    }
+
+    #[test]
+    fn test_sruct() {
+        let (module, errors) = parse_with_errors("resources/test/test_struct.rasm");
+
+        println!("errors {}", SliceDisplay(&errors));
+        assert!(errors.is_empty());
+        assert!(!module.structs.is_empty());
     }
 
     #[test]
@@ -1648,6 +1667,17 @@ mod tests {
         let (_, errors) = parser.parse();
 
         assert!(errors.is_empty());
+    }
+
+    #[test]
+    fn incomplete_struct() {
+        init();
+
+        let (module, errors) = parse_with_errors("resources/test/incomplete_statements.rasm");
+
+        assert_eq!(module.structs.len(), 1);
+
+        assert!(!errors.is_empty());
     }
 
     fn parse(source: &str) -> ASTModule {

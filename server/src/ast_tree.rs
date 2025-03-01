@@ -16,6 +16,15 @@ impl<'a> ASTElement<'a> {
     }
 }
 
+impl<'a> Display for ASTElement<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ASTElement::Statement(statement) => writeln!(f, "stmt {statement}"),
+            ASTElement::Expression(expression) => writeln!(f, "expr {expression}"),
+        }
+    }
+}
+
 /// A structure to get some infomations, such as the "parent", the root statement,
 /// which is the last or the first statement, about the expressions and statements in a block,
 /// using the position.
@@ -27,10 +36,7 @@ pub struct ASTTree<'a> {
 impl<'a> Display for ASTTree<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for element in self.positions.values() {
-            match element {
-                ASTElement::Statement(statement) => writeln!(f, "stmt {statement}")?,
-                ASTElement::Expression(expression) => writeln!(f, "expr {expression}")?,
-            }
+            writeln!(f, "{element}")?
         }
         Ok(())
     }
@@ -125,6 +131,10 @@ impl<'a> ASTTree<'a> {
             .filter(|(_, parent)| parent == &position)
             .map(|(child, _)| child)
             .collect()
+    }
+
+    pub fn parent(&self, position: &ASTPosition) -> Option<&ASTPosition> {
+        self.parents.get(position)
     }
 
     fn add_statement(&mut self, statement: &'a ASTStatement) {

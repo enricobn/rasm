@@ -1,11 +1,10 @@
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
-use crate::parser::ast::{ASTModifiers, ASTStructPropertyDef};
+use crate::parser::ast::ASTModifiers;
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
 use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherTrait};
-use crate::parser::type_parser::TypeParser;
 use crate::parser::ParserTrait;
 
 pub struct StructParser {
@@ -62,96 +61,47 @@ impl StructParser {
         matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close));
         matcher
     }
-
-    pub fn parse_properties(
-        &self,
-        parser: &dyn ParserTrait,
-        generic_types: &[String],
-        name: &str,
-        n: usize,
-    ) -> Result<Option<(Vec<ASTStructPropertyDef>, usize)>, String> {
-        if let Some(result) = Self::properties_matcher("properties", Quantifier::One, generic_types)
-            .match_tokens(parser, n)
-        {
-            let parameters_tokens = result.group_tokens("parameter");
-            let type_result = result.group_results("parameter_type");
-
-            let mut parameters = Vec::new();
-            for i in 0..parameters_tokens.len() {
-                //println!("parsing parameter {}, n: {}", parameters_s.get(i).unwrap(), n);
-                let parser = *type_result.get(i).unwrap();
-                let type_parser = TypeParser::new(parser);
-                let token = parameters_tokens.get(i).unwrap().clone();
-                if let Some((ast_type, _next_i)) =
-                    type_parser.try_parse_ast_type(0, generic_types)?
-                {
-                    parameters.push(ASTStructPropertyDef {
-                        name: token.alpha().unwrap(),
-                        ast_type,
-                        position: token.position,
-                    });
-                } else {
-                    return Err(format!(
-                        "Cannot parse type for property {:?}: {}",
-                        token,
-                        parser.get_position(0)
-                    ));
-                }
-            }
-
-            Ok(Some((parameters, parser.get_i() + result.next_n())))
-        } else {
-            Err(format!(
-                "No properties for struct {name} : {}",
-                parser.get_position(n)
-            ))
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::lexer::tokens::{BracketKind, BracketStatus, TokenKind};
     use crate::parser::ast::ASTType::{Builtin, Generic};
     use crate::parser::ast::{
         ASTModifiers, ASTPosition, ASTStructDef, ASTStructPropertyDef, BuiltinTypeKind,
     };
+    use crate::parser::properties_parser::parse_properties;
     use crate::parser::struct_parser::StructParser;
     use crate::parser::test_utils::get_parser;
-    use crate::parser::ParserTrait;
+    use crate::parser::{ParserError, ParserTrait};
 
     impl StructParser {
         pub fn try_parse_struct(
             &self,
             parser: &dyn ParserTrait,
-        ) -> Result<Option<(ASTStructDef, usize)>, String> {
+        ) -> Option<(ASTStructDef, Vec<ParserError>, usize)> {
             if let Some((token, type_parameters, modifiers, next_i)) = self.try_parse(parser) {
                 if let Some(name) = token.alpha() {
-                    if let Some((properties, next_i)) = self.parse_properties(
+                    let (properties, errors, new_n) = parse_properties(
                         parser,
                         &type_parameters,
-                        &name,
                         next_i - parser.get_i(),
-                    )? {
-                        return Ok(Some((
-                            ASTStructDef {
-                                name,
-                                type_parameters,
-                                properties,
-                                position: token.position,
-                                modifiers,
-                            },
-                            next_i,
-                        )));
-                    }
-                } else {
-                    return Err(format!(
-                        "Expected alphanumeric, got {:?}: {}",
-                        token,
-                        parser.get_position(0)
+                        TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close),
+                    );
+                    return Some((
+                        ASTStructDef {
+                            name,
+                            type_parameters,
+                            properties,
+                            position: token.position,
+                            modifiers,
+                        },
+                        errors,
+                        new_n - parser.get_i(),
                     ));
                 }
             }
-            Ok(None)
+            None
         }
     }
 
@@ -176,19 +126,22 @@ mod tests {
             position: ASTPosition::new(3, 13),
         };
 
-        assert_eq!(
-            parse_result,
-            Some((
+        if let Some((struct_def, errors, n)) = parse_result {
+            assert_eq!(
+                struct_def,
                 ASTStructDef {
                     name: "Point".to_string(),
                     type_parameters: vec![],
                     properties: vec![x, y],
                     position: ASTPosition::new(1, 8),
                     modifiers: ASTModifiers::private()
-                },
-                11
-            ))
-        );
+                }
+            );
+            assert_eq!(n, 11);
+            assert!(errors.is_empty());
+        } else {
+            panic!();
+        }
     }
 
     #[test]
@@ -212,9 +165,9 @@ mod tests {
             position: ASTPosition::new(3, 13),
         };
 
-        assert_eq!(
-            parse_result,
-            Some((
+        if let Some((struct_def, errors, n)) = parse_result {
+            assert_eq!(
+                struct_def,
                 ASTStructDef {
                     name: "EnumerateEntry".to_string(),
                     type_parameters: vec!["T".into()],
@@ -222,16 +175,19 @@ mod tests {
                     position: ASTPosition::new(1, 8),
                     modifiers: ASTModifiers::private()
                 },
-                14
-            )),
-        );
+            );
+            assert_eq!(n, 14);
+            assert!(errors.is_empty());
+        } else {
+            panic!()
+        }
     }
 
-    fn try_parse_struct(source: &str) -> Option<(ASTStructDef, usize)> {
+    fn try_parse_struct(source: &str) -> Option<(ASTStructDef, Vec<ParserError>, usize)> {
         let parser = get_parser(source);
 
         let sut = StructParser::new();
 
-        sut.try_parse_struct(&parser).unwrap()
+        sut.try_parse_struct(&parser)
     }
 }
