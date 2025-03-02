@@ -566,10 +566,14 @@ impl Parser {
                 self.state.pop();
             } else {
                 self.add_error("Unexpected end of block.".to_string());
-                if matches!(self.last_parser_data(), Some(ParserData::Expression(_))) {
+                if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+                    self.state.pop();
                     self.parser_data.pop();
+                    self.parser_data
+                        .push(ParserData::Statement(ASTStatement::Expression(expr)));
+                } else {
+                    self.state.pop();
                 }
-                self.state.pop();
             }
         } else if let Some((name, next_i)) = self.try_parse_let(false)? {
             self.parser_data
@@ -583,13 +587,15 @@ impl Parser {
             self.state.push(ParserState::Let);
             self.state.push(ParserState::Expression);
             self.i = next_i;
-        } else if let Some(ParserData::Expression(_exp)) = self.last_parser_data() {
+        } else if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
             self.add_error(Self::token_message(
                 "Unexpected token",
                 self.get_token_kind(),
             ));
-            self.i += 1;
+            self.state.pop();
             self.parser_data.pop();
+            self.parser_data
+                .push(ParserData::Statement(ASTStatement::Expression(expr)));
         } else {
             self.state.push(ParserState::Expression);
         }
@@ -666,6 +672,9 @@ impl Parser {
         } else if let Some(kind) = self.get_token_kind() {
             return Err(format!("Expected expression, found {}", kind));
         } else {
+            if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
+                self.functions.push(def);
+            }
             return Err("Expected expression".into());
         }
         Ok(())
@@ -838,7 +847,23 @@ impl Parser {
                 return Err(format!("expected function call: {}", self.get_position(0)));
             }
         } else {
-            self.state.push(ParserState::Expression);
+            if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+                if let Some(ParserData::FunctionCall(call)) = self.before_last_parser_data() {
+                    self.parser_data.pop();
+                    self.add_parameter_to_call_and_update_parser_data(call, expr);
+                    if let Some(ParserData::FunctionCall(call)) = self.last_parser_data() {
+                        self.state.pop();
+                        self.parser_data.pop();
+                        self.parser_data.push(ParserData::Expression(
+                            ASTExpression::ASTFunctionCallExpression(call),
+                        ));
+                    }
+                } else {
+                    return Err(format!("expected function call: {}", self.get_position(0)));
+                }
+            } else {
+                self.state.push(ParserState::Expression);
+            }
         }
         Ok(())
     }
@@ -1385,6 +1410,7 @@ pub trait ParserTrait {
 mod tests {
     use std::path::Path;
 
+    use rasm_utils::test_utils::init_minimal_log;
     use rasm_utils::SliceDisplay;
 
     use crate::lexer::Lexer;
@@ -1600,7 +1626,9 @@ mod tests {
     fn test_old_lambda_syntax() {
         let (_, mut errors) = parse_with_errors("resources/test/test16.rasm");
 
-        assert_eq!(1, errors.len());
+        assert!(!errors.is_empty());
+
+        println!("errors {}", SliceDisplay(&errors));
 
         let error = errors.remove(0);
         assert_eq!(error.message, "Unexpected token `->`".to_string());
@@ -1635,8 +1663,7 @@ mod tests {
 
         assert!(!errors.is_empty());
 
-        // TODO I don't like this error, I would like an "expected expression" error
-        assert!(format!("{}", errors.get(0).unwrap()).contains("undefined parse error"));
+        assert!(format!("{}", errors.last().unwrap()).contains("Expected expression"));
     }
 
     #[test]
@@ -1670,12 +1697,14 @@ mod tests {
     }
 
     #[test]
-    fn incomplete_struct() {
+    fn test_incomplete_statements() {
+        init_minimal_log();
         init();
 
         let (module, errors) = parse_with_errors("resources/test/incomplete_statements.rasm");
 
         assert_eq!(module.structs.len(), 1);
+        assert_eq!(module.functions.len(), 1);
 
         assert!(!errors.is_empty());
     }
