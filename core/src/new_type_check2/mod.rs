@@ -322,6 +322,13 @@ impl<'a> TypeCheck<'a> {
                         .iter()
                         .cloned()
                         .filter(|it| it.parameters.len() == parameters.len())
+                        .filter(|it| {
+                            zip(it.parameters.iter(), parameters).all(|(a, b)| {
+                                return EnhTypeFilter::Exact(b.clone())
+                                    .almost_equal(&a.ast_type, module)
+                                    .unwrap_or(false);
+                            })
+                        })
                         .collect::<Vec<_>>();
                 }
 
@@ -1674,6 +1681,13 @@ impl<'a> TypeCheck<'a> {
                                 .iter()
                                 .cloned()
                                 .filter(|it| it.parameters.len() == parameters.len())
+                                .filter(|it| {
+                                    zip(it.parameters.iter(), parameters).all(|(a, b)| {
+                                        return EnhTypeFilter::Exact(b.clone())
+                                            .almost_equal(&a.ast_type, module)
+                                            .unwrap_or(false);
+                                    })
+                                })
                                 .collect::<Vec<_>>();
                         }
 

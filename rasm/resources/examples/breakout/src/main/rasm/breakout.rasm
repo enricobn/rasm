@@ -244,8 +244,8 @@ let win = sdlErrorIfNull(sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT), "
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
 
 sdlLoop(ren, initialState,
-    fn(event, state) { update(event, state);},
-    fn(sdlRen, state) { render(sdlRen, state);}
+    update,
+    render
 );
 
 sdlDestroyRenderer(ren);
