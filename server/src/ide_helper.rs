@@ -860,34 +860,41 @@ impl IDEHelper {
 
     fn get_references_until(body: &Vec<ASTStatement>, index: &ASTIndex) -> Vec<String> {
         let mut references = Vec::new();
-        let tree = ASTTree::new(body);
-        println!(
-            "element {}",
-            OptionDisplay(&tree.get_element(index.position()))
-        );
 
         for statement in body.iter() {
             if statement.position().after(index.position()) {
                 break;
             }
             match statement {
-                ASTStatement::Expression(expr) => match expr {
-                    ASTExpression::Lambda(lambda_def) => {
-                        references.extend(
-                            lambda_def
-                                .parameter_names
-                                .iter()
-                                .map(|it| it.0.clone())
-                                .collect::<Vec<_>>(),
-                        );
-                        references.extend(Self::get_references_until(&lambda_def.body, index));
-                    }
-                    _ => {}
-                },
-                ASTStatement::LetStatement(name, astexpression, _, astposition) => {
-                    references.push(name.clone())
+                ASTStatement::Expression(expr) => {
+                    references.append(&mut Self::get_references_until_expr(expr, index));
+                }
+                ASTStatement::LetStatement(name, _, _, _) => references.push(name.clone()),
+            }
+        }
+
+        references
+    }
+
+    fn get_references_until_expr(expr: &ASTExpression, index: &ASTIndex) -> Vec<String> {
+        let mut references = Vec::new();
+        match expr {
+            ASTExpression::ASTFunctionCallExpression(call) => {
+                for e in call.parameters.iter() {
+                    references.extend(Self::get_references_until_expr(e, index));
                 }
             }
+            ASTExpression::Lambda(lambda_def) => {
+                references.extend(
+                    lambda_def
+                        .parameter_names
+                        .iter()
+                        .map(|it| it.0.clone())
+                        .collect::<Vec<_>>(),
+                );
+                references.extend(Self::get_references_until(&lambda_def.body, index));
+            }
+            _ => {}
         }
 
         references
