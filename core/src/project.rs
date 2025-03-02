@@ -512,7 +512,7 @@ impl RasmProject {
             module_src = "println(\"No tests found!\");\n".to_string();
         } else {
             module_src.push_str(";\n");
-            module_src.push_str("if(tests.filter(fn(it){test.eq(\"_ALL_\").or(it.name.eq(test));}).foldLeft(false, fn(prev,it) {prev.or(it.run());}), { println(\"Errors\");}, {});\n");
+            module_src.push_str("if(tests.filter(fn(it){test.eq(\"_ALL_\").or(it.name.eq(test));}).foldLeft(false, fn(prev,it) {prev.or(it.run());}), { println(\"\\033[31mTests failed\\033[0m\");}, {});\n");
         }
 
         // let mut test_main_module_body = Vec::new();
