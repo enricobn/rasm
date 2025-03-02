@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use itertools::Itertools;
+use itertools::{cloned, Itertools};
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
@@ -300,6 +300,53 @@ impl<'a> TypeCheck<'a> {
                     strict,
                 )
                 .map(EnhASTExpression::Lambda),
+            EnhASTExpression::ValueRef(name, index) => {
+                if val_context.get(&name).is_some() || statics.get(&name).is_some() {
+                    return Ok(expression.clone());
+                } else if name.contains("_") {
+                    return Ok(expression.clone());
+                }
+                let mut function_references = module
+                    .functions()
+                    .iter()
+                    .cloned()
+                    .filter(|it| &it.name == name)
+                    .collect::<Vec<_>>();
+
+                if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                })) = expected_type
+                {
+                    function_references = function_references
+                        .iter()
+                        .cloned()
+                        .filter(|it| it.parameters.len() == parameters.len())
+                        .collect::<Vec<_>>();
+                }
+
+                if function_references.len() == 1 {
+                    // TODO optimize there's no need to clone the function if it exists in new_functions
+                    let mut new_function_def = function_references.remove(0).clone();
+                    println!("found function reference to {}", new_function_def);
+
+                    let new_function_name = Self::unique_function_name(&new_function_def, module);
+
+                    new_function_def.name = new_function_name.clone();
+
+                    if new_functions.iter().find(|it| it.0.name == new_function_name).is_none() {
+                        new_functions.push((new_function_def, self.stack.clone()));
+                    }
+                    Ok(EnhASTExpression::ValueRef(new_function_name, index.clone()))
+                } else {
+                    return Err(TypeCheckError::new_with_kind(
+                        index.clone(),
+                        format!("Cannot find reference to {name}"),
+                        self.stack.clone(),
+                        TypeCheckErrorKind::Important,
+                    ));
+                }
+            }
             _ => Ok(expression.clone()),
         } /*
           .map_err(|it| {
@@ -1605,13 +1652,81 @@ impl<'a> TypeCheck<'a> {
                     if let Some(c) = statics.get_const(name) {
                         EnhTypeFilter::Exact(c.ast_type.clone())
                     } else {
-                        dedent!();
-                        return Err(TypeCheckError::new_with_kind(
-                            index.clone(),
-                            format!("Cannot find reference to {name}"),
-                            self.stack.clone(),
-                            TypeCheckErrorKind::Important,
-                        ));
+                        let mut function_references = module
+                            .functions()
+                            .iter()
+                            .cloned()
+                            .filter(|it| &it.name == name)
+                            .collect::<Vec<_>>();
+                        function_references.extend(
+                            new_functions
+                                .iter()
+                                .map(|it| &it.0)
+                                .filter(|it| {
+                                    &it.name == name
+                                        && !function_references
+                                            .iter()
+                                            .find(|f| &f.name == name)
+                                            .is_some()
+                                })
+                                .collect::<Vec<_>>(),
+                        );
+
+                        if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+                            parameters,
+                            return_type,
+                        })) = expected_type
+                        {
+                            function_references = function_references
+                                .iter()
+                                .cloned()
+                                .filter(|it| it.parameters.len() == parameters.len())
+                                .collect::<Vec<_>>();
+                        }
+
+                        if function_references.len() == 1 {
+                            let new_function_def = function_references.remove(0);
+                            println!("found function reference to {}", new_function_def);
+
+                            /*
+                            let (i, n) = self.modules_catalog.catalog_info(&f.module_id).unwrap();
+
+                            let lambda = EnhBuiltinTypeKind::Lambda {
+                                parameters: f
+                                    .signature
+                                    .parameters_types
+                                    .iter()
+                                    .map(|it| EnhASTType::from_ast(n, i, it.clone()))
+                                    .collect::<Vec<_>>(),
+                                return_type: Box::new(EnhASTType::from_ast(
+                                    n,
+                                    i,
+                                    f.signature.return_type.clone(),
+                                )),
+                            };
+                            */
+
+                            let lambda = EnhBuiltinTypeKind::Lambda {
+                                parameters: new_function_def
+                                    .parameters
+                                    .iter()
+                                    .map(|it| it.ast_type.clone())
+                                    .collect(),
+                                return_type: Box::new(new_function_def.return_type.clone()),
+                            };
+
+                            //new_functions.push((new_function_def, self.stack.clone()));
+
+                            EnhTypeFilter::Exact(EnhASTType::Builtin(lambda))
+                        } else {
+                            dedent!();
+                            return Err(TypeCheckError::new_with_kind(
+                                index.clone(),
+                                format!("Cannot find reference to {name}"),
+                                self.stack.clone(),
+                                TypeCheckErrorKind::Important,
+                            ));
+                        }
                     }
                 }
                 Some(EnhValKind::LetRef(_, t, _index)) => EnhTypeFilter::Exact(t.clone()),
@@ -1883,6 +1998,12 @@ mod tests {
     #[test]
     pub fn let1() {
         let project = dir_to_project("../rasm/resources/test/let1.rasm");
+        test_project(project).unwrap_or_else(|e| panic!("{e}"))
+    }
+
+    #[test]
+    pub fn function_reference() {
+        let project = dir_to_project("../rasm/resources/test/function_reference.rasm");
         test_project(project).unwrap_or_else(|e| panic!("{e}"))
     }
 
@@ -2225,7 +2346,7 @@ mod tests {
 
         let default_functions = target.get_default_functions(false);
 
-        let _ = convert_to_typed_module(
+        if let Err(e) = convert_to_typed_module(
             module,
             false,
             mandatory_functions,
@@ -2236,7 +2357,9 @@ mod tests {
             ASTTypeChecker::from_modules_container(&container).0,
             &catalog,
             &container,
-        );
+        ) {
+            panic!("{e}");
+        }
 
         //print_typed_module(&typed_module.0);
         Ok(())

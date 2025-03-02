@@ -1247,11 +1247,22 @@ pub fn get_type_of_typed_expression(
             } else if let Some(entry) = statics.get_typed_const(name) {
                 entry.ast_typed_type.clone()
             } else {
-                dedent!();
-                return Err(verify::verify_error(
-                    index.clone(),
-                    format!("Unknown val {name}"),
-                ));
+                if let Some(f) = module.functions_by_name.get(name) {
+                    ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                        parameters: f
+                            .parameters
+                            .iter()
+                            .map(|it| it.ast_type.clone())
+                            .collect::<Vec<_>>(),
+                        return_type: Box::new(f.return_type.clone()),
+                    })
+                } else {
+                    dedent!();
+                    return Err(verify::verify_error(
+                        index.clone(),
+                        format!("Unknown val {name}"),
+                    ));
+                }
             }
         }
         ASTTypedExpression::Value(val_type, _) => value_type_to_typed_type(val_type),

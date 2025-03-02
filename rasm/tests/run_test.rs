@@ -652,6 +652,11 @@ fn test_match() {
     run_test("match", vec![], "A\n");
 }
 
+#[test]
+fn test_function_reference() {
+    run_test("function_reference", vec![], "11,12\n101,102\n");
+}
+
 // Compile tests
 
 #[test]

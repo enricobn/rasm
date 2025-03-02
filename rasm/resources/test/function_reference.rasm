@@ -1,0 +1,12 @@
+let l = range(1, 3);
+
+println(l.map(addTen));
+println(l.map(addContext.curry(100)));
+
+fn addTen(a: i32) -> i32 {
+    a.add(10);
+}
+
+fn addContext(context: i32, a: i32) -> i32 {
+    a.add(context);
+}

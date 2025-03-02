@@ -264,10 +264,8 @@ impl FunctionCallParameters for CFunctionCallParameters {
         module: &ASTTypedModule,
         stack_vals: &StackVals,
         lambda_in_stack: bool,
-        function_def: &ASTTypedFunctionDef,
         param_type: &ASTTypedType,
         name: &str,
-        param_index: usize,
     ) -> LambdaSpace {
         // for malloc
         CInclude::add_to_statics(statics, "<stdlib.h>".to_string());

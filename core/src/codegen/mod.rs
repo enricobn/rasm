@@ -526,6 +526,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             index,
                             statics,
                             typed_module,
+                            &mut *id,
+                            &mut lambda_calls,
                         );
                     }
                     ASTTypedExpression::Lambda(lambda_def) => {
@@ -596,10 +598,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                             typed_module,
                             stack_vals,
                             lambda_in_stack,
-                            function_def,
                             &param_type,
                             &name,
-                            param_index,
                         );
 
                         let lambda_call = LambdaCall {
@@ -1093,8 +1093,10 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         error_msg: &str,
         stack_vals: &StackVals,
         ast_index: &EnhASTIndex,
-        statics: &Statics,
+        statics: &mut Statics,
         typed_module: &ASTTypedModule,
+        id: &mut usize,
+        lambda_calls: &mut Vec<LambdaCall>,
     ) {
         if let Some(val_kind) = context.get(val_name) {
             match val_kind {
@@ -1139,7 +1141,46 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                 statics,
             )
         } else {
-            panic!("Error adding val {}: {}", param_name, error_msg);
+            let mut def = typed_module
+                .functions_by_name
+                .get(val_name)
+                .unwrap()
+                .clone();
+
+            let name = format!("lambda_{}", id);
+            def.name = name.clone();
+
+            let lambda_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                parameters: def
+                    .parameters
+                    .iter()
+                    .map(|it| it.ast_type.clone())
+                    .collect::<Vec<_>>(),
+                return_type: Box::new(def.return_type.clone()),
+            });
+
+            let lambda_space = call_parameters.add_lambda(
+                &mut def,
+                None,
+                context,
+                Some(&format!("reference to function {val_name}")),
+                statics,
+                typed_module,
+                stack_vals,
+                false,
+                &lambda_type,
+                &name,
+            );
+            let lambda_call = LambdaCall {
+                def,
+                space: lambda_space,
+            };
+
+            lambda_calls.push(lambda_call);
+
+            *id += 1;
+
+            //panic!("Error adding val {}: {}", param_name, error_msg);
         }
     }
 
@@ -1277,6 +1318,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                         index,
                                         statics,
                                         typed_module,
+                                        &mut *id,
+                                        &mut lambda_calls,
                                     );
 
                                     before.push_str(&parameters.before());
@@ -1346,10 +1389,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                             typed_module,
                                             &stack,
                                             false,
-                                            function_def,
                                             &function_def.return_type,
                                             &name,
-                                            0, // TODO
                                         );
 
                                         before.push_str(&parameters.before());

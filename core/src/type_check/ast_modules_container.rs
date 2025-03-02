@@ -99,6 +99,14 @@ impl ASTFunctionSignatureEntry {
             0
         }
     }
+
+    pub fn index(&self) -> ASTIndex {
+        ASTIndex::new(
+            self.namespace.clone(),
+            self.module_id.clone(),
+            self.position.clone(),
+        )
+    }
 }
 
 impl Display for ASTFunctionSignatureEntry {

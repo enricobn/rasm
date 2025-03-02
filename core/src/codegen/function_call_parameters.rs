@@ -58,10 +58,8 @@ pub trait FunctionCallParameters {
         module: &ASTTypedModule,
         stack_vals: &StackVals,
         lambda_in_stack: bool,
-        function_def: &ASTTypedFunctionDef,
         param_type: &ASTTypedType,
         name: &str,
-        param_index: usize,
     ) -> LambdaSpace;
 
     fn add_parameter_ref(
@@ -374,10 +372,8 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         module: &ASTTypedModule,
         stack_vals: &StackVals,
         lambda_in_stack: bool,
-        function_def: &ASTTypedFunctionDef,
         param_type: &ASTTypedType,
         name: &str,
-        param_index: usize,
     ) -> LambdaSpace {
         //let optimize = false;
         let sbp = self.backend.stack_base_pointer();
