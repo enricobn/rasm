@@ -301,7 +301,7 @@ impl<'a> TypeCheck<'a> {
                 )
                 .map(EnhASTExpression::Lambda),
             EnhASTExpression::ValueRef(name, index) => {
-                if val_context.get(&name).is_some() || statics.get(&name).is_some() {
+                if val_context.get(&name).is_some() || statics.get_const(&name).is_some() {
                     return Ok(expression.clone());
                 } else if name.contains("_") {
                     return Ok(expression.clone());
@@ -328,13 +328,16 @@ impl<'a> TypeCheck<'a> {
                 if function_references.len() == 1 {
                     // TODO optimize there's no need to clone the function if it exists in new_functions
                     let mut new_function_def = function_references.remove(0).clone();
-                    println!("found function reference to {}", new_function_def);
 
                     let new_function_name = Self::unique_function_name(&new_function_def, module);
 
                     new_function_def.name = new_function_name.clone();
 
-                    if new_functions.iter().find(|it| it.0.name == new_function_name).is_none() {
+                    if new_functions
+                        .iter()
+                        .find(|it| it.0.name == new_function_name)
+                        .is_none()
+                    {
                         new_functions.push((new_function_def, self.stack.clone()));
                     }
                     Ok(EnhASTExpression::ValueRef(new_function_name, index.clone()))
@@ -348,17 +351,7 @@ impl<'a> TypeCheck<'a> {
                 }
             }
             _ => Ok(expression.clone()),
-        } /*
-          .map_err(|it| {
-              it.add(
-                  expression.get_index(),
-                  format!(
-                      "converting expression, expected_type {}",
-                      OptionDisplay(&expected_type),
-                  ),
-                  self.stack.clone(),
-              )
-          })*/
+        }
     }
 
     fn transform_call(
@@ -1686,25 +1679,6 @@ impl<'a> TypeCheck<'a> {
 
                         if function_references.len() == 1 {
                             let new_function_def = function_references.remove(0);
-                            println!("found function reference to {}", new_function_def);
-
-                            /*
-                            let (i, n) = self.modules_catalog.catalog_info(&f.module_id).unwrap();
-
-                            let lambda = EnhBuiltinTypeKind::Lambda {
-                                parameters: f
-                                    .signature
-                                    .parameters_types
-                                    .iter()
-                                    .map(|it| EnhASTType::from_ast(n, i, it.clone()))
-                                    .collect::<Vec<_>>(),
-                                return_type: Box::new(EnhASTType::from_ast(
-                                    n,
-                                    i,
-                                    f.signature.return_type.clone(),
-                                )),
-                            };
-                            */
 
                             let lambda = EnhBuiltinTypeKind::Lambda {
                                 parameters: new_function_def
