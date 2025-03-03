@@ -306,31 +306,8 @@ impl<'a> TypeCheck<'a> {
                 } else if name.contains("_") {
                     return Ok(expression.clone());
                 }
-                let mut function_references = module
-                    .functions()
-                    .iter()
-                    .cloned()
-                    .filter(|it| &it.name == name)
-                    .collect::<Vec<_>>();
-
-                if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
-                    parameters,
-                    return_type,
-                })) = expected_type
-                {
-                    function_references = function_references
-                        .iter()
-                        .cloned()
-                        .filter(|it| it.parameters.len() == parameters.len())
-                        .filter(|it| {
-                            zip(it.parameters.iter(), parameters).all(|(a, b)| {
-                                return EnhTypeFilter::Exact(b.clone())
-                                    .almost_equal(&a.ast_type, module)
-                                    .unwrap_or(false);
-                            })
-                        })
-                        .collect::<Vec<_>>();
-                }
+                let mut function_references =
+                    functions_referenced_by_name(module, expected_type, name, &new_functions);
 
                 if function_references.len() == 1 {
                     // TODO optimize there's no need to clone the function if it exists in new_functions
@@ -1652,44 +1629,12 @@ impl<'a> TypeCheck<'a> {
                     if let Some(c) = statics.get_const(name) {
                         EnhTypeFilter::Exact(c.ast_type.clone())
                     } else {
-                        let mut function_references = module
-                            .functions()
-                            .iter()
-                            .cloned()
-                            .filter(|it| &it.name == name)
-                            .collect::<Vec<_>>();
-                        function_references.extend(
-                            new_functions
-                                .iter()
-                                .map(|it| &it.0)
-                                .filter(|it| {
-                                    &it.name == name
-                                        && !function_references
-                                            .iter()
-                                            .find(|f| &f.name == name)
-                                            .is_some()
-                                })
-                                .collect::<Vec<_>>(),
+                        let mut function_references = functions_referenced_by_name(
+                            module,
+                            expected_type,
+                            name,
+                            &new_functions,
                         );
-
-                        if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
-                            parameters,
-                            return_type,
-                        })) = expected_type
-                        {
-                            function_references = function_references
-                                .iter()
-                                .cloned()
-                                .filter(|it| it.parameters.len() == parameters.len())
-                                .filter(|it| {
-                                    zip(it.parameters.iter(), parameters).all(|(a, b)| {
-                                        return EnhTypeFilter::Exact(b.clone())
-                                            .almost_equal(&a.ast_type, module)
-                                            .unwrap_or(false);
-                                    })
-                                })
-                                .collect::<Vec<_>>();
-                        }
 
                         if function_references.len() == 1 {
                             let new_function_def = function_references.remove(0);
@@ -1944,6 +1889,54 @@ impl<'a> TypeCheck<'a> {
         }
         Ok(())
     }
+}
+
+fn functions_referenced_by_name<'a>(
+    module: &'a EnhancedASTModule,
+    expected_type: Option<&EnhASTType>,
+    name: &str,
+    new_functions: &'a Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+) -> Vec<&'a EnhASTFunctionDef> {
+    let mut function_references = module
+        .functions()
+        .iter()
+        .cloned()
+        .filter(|it| &it.name == name)
+        .collect::<Vec<_>>();
+
+    function_references.extend(
+        new_functions
+            .iter()
+            .map(|it| &it.0)
+            .filter(|it| {
+                &it.name == name
+                    && !function_references
+                        .iter()
+                        .find(|f| &f.name == name)
+                        .is_some()
+            })
+            .collect::<Vec<_>>(),
+    );
+
+    if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+        parameters,
+        return_type,
+    })) = expected_type
+    {
+        function_references = function_references
+            .iter()
+            .cloned()
+            .filter(|it| it.parameters.len() == parameters.len())
+            .filter(|it| {
+                zip(it.parameters.iter(), parameters).all(|(a, b)| {
+                    return EnhTypeFilter::Exact(b.clone())
+                        .almost_equal(&a.ast_type, module)
+                        .unwrap_or(false);
+                })
+            })
+            .collect::<Vec<_>>();
+    }
+    function_references
 }
 
 #[cfg(test)]
