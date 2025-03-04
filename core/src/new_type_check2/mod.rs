@@ -1908,13 +1908,7 @@ fn functions_referenced_by_name<'a>(
         new_functions
             .iter()
             .map(|it| &it.0)
-            .filter(|it| {
-                &it.name == name
-                    && !function_references
-                        .iter()
-                        .find(|f| &f.name == name)
-                        .is_some()
-            })
+            .filter(|it| &it.name == name)
             .collect::<Vec<_>>(),
     );
 
