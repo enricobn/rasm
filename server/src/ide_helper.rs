@@ -1952,6 +1952,18 @@ mod tests {
     }
 
     #[test]
+    fn rename_reference_to_function_breakout() {
+        test_rename(
+            "../rasm/resources/examples/breakout",
+            "newFunctionName",
+            247,
+            7,
+            Ok(vec![(247, 5, 6), (255, 4, 6)]),
+            "src/main/rasm/breakout.rasm",
+        );
+    }
+
+    #[test]
     fn rename() {
         test_rename(
             "resources/test/references.rasm",

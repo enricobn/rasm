@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
+    iter::zip,
     time::Instant,
 };
 
@@ -610,11 +611,72 @@ impl ASTTypeChecker {
                         ),
                     );
                 } else {
-                    self.errors.push(ASTTypeCheckError::new(
-                        ASTTypeCheckErroKind::Error,
-                        index.clone(),
-                        format!("Cannot find value referencing {name}"),
-                    ));
+                    let mut function_references = modules_container.signatures();
+
+                    function_references = function_references
+                        .iter()
+                        .cloned()
+                        .filter(|it| &it.signature.name == name)
+                        .collect_vec();
+
+                    if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        parameters,
+                        return_type,
+                    })) = expected_expression_type
+                    {
+                        function_references = function_references
+                            .iter()
+                            .cloned()
+                            .filter(|it| it.signature.parameters_types.len() == parameters.len())
+                            .filter(|it| {
+                                zip(it.signature.parameters_types.iter(), parameters).all(
+                                    |(a, b)| {
+                                        return ASTTypeFilter::Exact(
+                                            b.clone(),
+                                            ModuleInfo::new(
+                                                module_namespace.clone(),
+                                                module_id.clone(),
+                                            ),
+                                        )
+                                        .is_compatible(&a, &it.namespace, modules_container);
+                                    },
+                                )
+                            })
+                            .collect::<Vec<_>>();
+                    }
+
+                    if function_references.len() == 1 {
+                        let fun_ref = function_references.remove(0);
+
+                        let lambda = BuiltinTypeKind::Lambda {
+                            parameters: fun_ref.signature.parameters_types.clone(),
+                            return_type: Box::new(fun_ref.signature.return_type.clone()),
+                        };
+
+                        self.result.insert(
+                            index.clone(),
+                            ASTTypeCheckEntry::reference(
+                                ASTTypeFilter::exact(
+                                    ASTType::Builtin(lambda),
+                                    module_namespace,
+                                    module_id,
+                                    modules_container,
+                                ),
+                                name.to_owned(),
+                                ASTIndex::new(
+                                    fun_ref.namespace.clone(),
+                                    fun_ref.module_id.clone(),
+                                    fun_ref.position.clone(),
+                                ),
+                            ),
+                        );
+                    } else if expected_expression_type.is_some() {
+                        self.errors.push(ASTTypeCheckError::new(
+                            ASTTypeCheckErroKind::Error,
+                            index.clone(),
+                            format!("Cannot find value referencing {name}"),
+                        ));
+                    }
                 }
             }
             ASTExpression::Value(value_type, _position) => {

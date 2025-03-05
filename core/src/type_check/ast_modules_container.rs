@@ -107,6 +107,10 @@ impl ASTFunctionSignatureEntry {
             self.position.clone(),
         )
     }
+
+    pub fn module_info(&self) -> ModuleInfo {
+        ModuleInfo::new(self.namespace.clone(), self.module_id.clone())
+    }
 }
 
 impl Display for ASTFunctionSignatureEntry {
