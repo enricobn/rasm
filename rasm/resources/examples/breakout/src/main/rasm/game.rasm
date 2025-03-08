@@ -59,7 +59,7 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
     let newBall = update(ball, actualTime);
     let collision = collision(bricks, newBall);
     let newScore = match(collision, fn(b) { add(world.score, 10);}, { world.score;});
-    let newBricks = match(collision, fn(b1) { filter(bricks, fn(b2) { not(eq(b1, b2)); }); }, { bricks; });
+    let newBricks = match(collision, fn(b1) { filter(bricks, neq.curry(b1)); }, { bricks; });
 
     if(collides(newBall, newBar.x), {
         let newBall2 = update(Ball(ball.x, ball.y, ball.xDir, flip(ball.yDir), actualTime), actualTime);
@@ -80,7 +80,7 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
 }
 
 fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
-    first(filter(bricks, fn(brick) { collides(ball, brick); }));
+    filter(bricks, collides.curry(ball)).first;
 }
 
 pub fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {

@@ -265,7 +265,7 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
           keyState.match({
             vecOf(key);
           }, {
-            keys.filter(fn(k) { not(k.eq(key));});
+            keys.filter(neq.curry(key));
           });
       }, { keys; });
 
@@ -317,7 +317,7 @@ fn loadHighScores() -> Vec<HighScore> {
                 });
             }).flatten.toList;
         }).toVec;
-    }, { Vec();});
+    }, Vec);
 }
 
 fn printHighScores(highScores: Vec<HighScore>) {
@@ -373,5 +373,5 @@ fn indexOf<T>(list: List<EnumerateEntry<T>>, what: T) -> Option<i32> {
     list
         .filter(fn(entry) { entry.value.eq(what); })
         .first
-        .map(fn(entry) { entry.index;});
+        .map(index);
 }

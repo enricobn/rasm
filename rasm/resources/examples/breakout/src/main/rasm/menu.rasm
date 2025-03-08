@@ -3,7 +3,7 @@ pub struct MenuState {
 }
 
 pub fn update(resources: Resources, keys: Vec<i32>, menuState: MenuState) -> Stage {
-    let spacePressed = count(keys, fn(k) { eq(k, 44);});
+    let spacePressed = count(keys, eq.curry(44));
 
     if(eq(spacePressed, 0), {
         Stage::Menu(menuState);
