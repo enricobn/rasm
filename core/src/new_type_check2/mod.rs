@@ -162,6 +162,10 @@ impl<'a> TypeCheck<'a> {
 
                 let mut function = self.new_functions.get(&function_name).unwrap().clone();
 
+                if function_name == "stdlib_print_println_str_f32_Unit" {
+                    println!("generating {function}");
+                }
+
                 let mut new_functions = Vec::new();
                 match self
                     .transform_function(&module, statics, &function, &mut new_functions)
@@ -306,24 +310,92 @@ impl<'a> TypeCheck<'a> {
                 } else if name.contains("_") {
                     return Ok(expression.clone());
                 }
-                let mut function_references =
-                    functions_referenced_by_name(module, expected_type, name, &new_functions);
+                let mut function_references = self.functions_referenced_by_name(
+                    module,
+                    expected_type,
+                    name,
+                    &new_functions,
+                    namespace,
+                    index,
+                );
 
                 if function_references.len() == 1 {
+                    /*
+                    if name == "println" {
+                        println!("println");
+                    }
+                    */
                     // TODO optimize there's no need to clone the function if it exists in new_functions
                     let mut new_function_def = function_references.remove(0).clone();
+                    if let Some(et) = expected_type {
+                        if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+                            parameters,
+                            return_type,
+                        }) = et
+                        {
+                            let mut unresolved_generic_types = false;
+                            let new_parameters = zip(new_function_def.parameters, parameters)
+                                .map(|(p, t)| {
+                                    if p.ast_type.is_generic() && !t.is_generic() {
+                                        /*
+                                        if name == "println" {
+                                            println!("println {} {t}", p.ast_type);
+                                        }
+                                        */
+                                        let mut new_p = p.clone();
+                                        new_p.ast_type = t.clone();
+                                        new_p
+                                    } else {
+                                        if p.ast_type.is_generic() {
+                                            unresolved_generic_types = true;
+                                        }
+                                        p
+                                    }
+                                })
+                                .collect::<Vec<_>>();
+                            new_function_def.parameters = new_parameters;
+
+                            if new_function_def.return_type.is_generic()
+                                && !return_type.is_generic()
+                            {
+                                new_function_def.return_type = return_type.as_ref().clone();
+                            } else if new_function_def.return_type.is_generic() {
+                                unresolved_generic_types = true;
+                            }
+                            if unresolved_generic_types {
+                                return Err(TypeCheckError::new_with_kind(
+                                    index.clone(),
+                                    format!("Unresolved generic types in reference to {name}"),
+                                    self.stack.clone(),
+                                    TypeCheckErrorKind::Important,
+                                ));
+                            }
+                            new_function_def.generic_types = Vec::new(); // TODO check if there are remaining generic types
+                        } else {
+                            return Err(TypeCheckError::new_with_kind(
+                                index.clone(),
+                                format!("Expected lambda but found {et} in reference to {name}"),
+                                self.stack.clone(),
+                                TypeCheckErrorKind::Important,
+                            ));
+                        }
+                    }
 
                     let new_function_name = Self::unique_function_name(&new_function_def, module);
 
                     new_function_def.name = new_function_name.clone();
 
-                    if new_functions
+                    if !new_functions
                         .iter()
-                        .find(|it| it.0.name == new_function_name)
-                        .is_none()
+                        .any(|it| it.0.name == new_function_name)
+                        && !self.new_functions.contains_key(&new_function_name)
                     {
+                        if new_function_name == "stdlib_print_println_str_f32_Unit" {
+                            println!("adding stdlib_print_println_str_f32_Unit {new_function_def}");
+                        }
                         new_functions.push((new_function_def, self.stack.clone()));
                     }
+
                     Ok(EnhASTExpression::ValueRef(new_function_name, index.clone()))
                 } else {
                     return Err(TypeCheckError::new_with_kind(
@@ -704,6 +776,21 @@ impl<'a> TypeCheck<'a> {
             indent!();
 
             let mut resolved_generic_types = ResolvedGenericTypes::new();
+            /*
+            let mut resolved_generic_types = {
+                if let Some(ee) = expected_return_type {
+                    if let Ok(rgt) =
+                        resolve_generic_types_from_effective_type(&function.return_type, ee)
+                    {
+                        rgt
+                    } else {
+                        ResolvedGenericTypes::new()
+                    }
+                } else {
+                    ResolvedGenericTypes::new()
+                }
+            };
+            */
 
             if !call.generics.is_empty() {
                 if call.generics.len() != function.generic_types.len() {
@@ -1540,6 +1627,17 @@ impl<'a> TypeCheck<'a> {
         );
         indent!();
 
+        if namespace.safe_name().contains("reference") {
+            if let EnhASTExpression::ValueRef(name, _) = typed_expression {
+                if name == "add" {
+                    println!(
+                        "type_of_expression {typed_expression} expected type {}",
+                        OptionDisplay(&expected_type)
+                    );
+                }
+            }
+        }
+
         if let Some(enh_index) = typed_expression.get_index() {
             if let Some(t) = self.get_type_check_entry(enh_index, namespace) {
                 if let Some(f) = t.filter() {
@@ -1629,11 +1727,13 @@ impl<'a> TypeCheck<'a> {
                     if let Some(c) = statics.get_const(name) {
                         EnhTypeFilter::Exact(c.ast_type.clone())
                     } else {
-                        let mut function_references = functions_referenced_by_name(
+                        let mut function_references = self.functions_referenced_by_name(
                             module,
                             expected_type,
                             name,
                             &new_functions,
+                            namespace,
+                            index,
                         );
 
                         if function_references.len() == 1 {
@@ -1889,48 +1989,73 @@ impl<'a> TypeCheck<'a> {
         }
         Ok(())
     }
-}
 
-fn functions_referenced_by_name<'a>(
-    module: &'a EnhancedASTModule,
-    expected_type: Option<&EnhASTType>,
-    name: &str,
-    new_functions: &'a Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
-) -> Vec<&'a EnhASTFunctionDef> {
-    let mut function_references = module
-        .functions()
-        .iter()
-        .cloned()
-        .filter(|it| &it.name == name)
-        .collect::<Vec<_>>();
-
-    function_references.extend(
-        new_functions
-            .iter()
-            .map(|it| &it.0)
-            .filter(|it| &it.name == name)
-            .collect::<Vec<_>>(),
-    );
-
-    if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
-        parameters,
-        return_type,
-    })) = expected_type
-    {
-        function_references = function_references
+    fn functions_referenced_by_name(
+        &self,
+        module: &'a EnhancedASTModule,
+        expected_type: Option<&EnhASTType>,
+        name: &str,
+        new_functions: &'a Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        namespace: &EnhASTNameSpace,
+        index: &EnhASTIndex,
+    ) -> Vec<&'a EnhASTFunctionDef> {
+        let mut function_references = module
+            .functions()
             .iter()
             .cloned()
-            .filter(|it| it.parameters.len() == parameters.len())
-            .filter(|it| {
-                zip(it.parameters.iter(), parameters).all(|(a, b)| {
-                    return EnhTypeFilter::Exact(b.clone())
-                        .almost_equal(&a.ast_type, module)
-                        .unwrap_or(false);
-                })
-            })
+            .filter(|it| &it.name == name)
             .collect::<Vec<_>>();
+
+        function_references.extend(
+            new_functions
+                .iter()
+                .map(|it| &it.0)
+                .filter(|it| &it.name == name)
+                .collect::<Vec<_>>(),
+        );
+
+        if let Some(t) = self.get_type_check_entry(index, namespace) {
+            if let ASTTypeCheckInfo::Ref(_, ref_index) = t.info() {
+                let (eh_id, _) = self
+                    .modules_catalog
+                    .catalog_info(ref_index.module_id())
+                    .unwrap();
+
+                function_references = function_references
+                    .into_iter()
+                    .filter(|it| {
+                        &it.index.id() == eh_id
+                            && it.index.row == ref_index.position().row
+                            && it.index.column == ref_index.position().column
+                    })
+                    .collect::<Vec<_>>();
+
+                if function_references.len() == 1 {
+                    return function_references;
+                }
+            }
+        }
+
+        if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+            parameters,
+            return_type,
+        })) = expected_type
+        {
+            function_references = function_references
+                .iter()
+                .cloned()
+                .filter(|it| it.parameters.len() == parameters.len())
+                .filter(|it| {
+                    zip(it.parameters.iter(), parameters).all(|(a, b)| {
+                        return EnhTypeFilter::Exact(b.clone())
+                            .almost_equal(&a.ast_type, module)
+                            .unwrap_or(false);
+                    })
+                })
+                .collect::<Vec<_>>();
+        }
+        function_references
     }
-    function_references
 }
 
 #[cfg(test)]
@@ -1978,7 +2103,7 @@ mod tests {
 
     #[test]
     pub fn function_reference() {
-        let project = dir_to_project("../rasm/resources/test/function_reference.rasm");
+        let project = dir_to_project("resources/test/ast_type_checker/function_reference.rasm");
         test_project(project).unwrap_or_else(|e| panic!("{e}"))
     }
 

@@ -1,5 +1,5 @@
 pub inline native tof32(n: i32) -> f32 /{
-    ((float) $n)
+    return ((float) $n);
 }/
 
 pub native toi32(n: f32) -> Option<i32> /{
@@ -10,59 +10,59 @@ pub native toi32(n: f32) -> Option<i32> /{
 }/
 
 pub inline native divf(n1: i32, n2: i32) -> f32 /{
-    (((float)$n1) / ((float) $n2))
+    return (((float)$n1) / ((float) $n2));
 }/
 
 pub inline native sub(a: f32, b: f32) -> f32 /{
-    ($a - $b)
+    return ($a - $b);
 }/
 
 pub inline native add(a: f32, b: f32) -> f32 /{
-    ($a + $b)
+    return ($a + $b);
 }/
 
 pub inline native add(a: f32, b: i32) -> f32 /{
-    ($a + $b)
+    return ($a + $b);
 }/
 
 pub inline native mul(a: f32, b: f32) -> f32 /{
-    ($a * $b)
+    return ($a * $b);
 }/
 
 pub inline native div(a: f32, b: f32) -> f32 /{
-    ($a / $b)
+    return ($a / $b);
 }/
 
 pub inline native sub(a: f32, b: i32) -> f32 /{
-    ($a - $b)
+    return ($a - $b);
 }/
 
 pub inline native sub(a: i32, b: f32) -> f32 /{
-    ($a - $b)
+    return ($a - $b);
 }/
 
 pub inline native greater(a: f32, b: f32) -> bool /{
-    ($a > $b)
+    return ($a > $b);
 }/
 
 pub inline native greater(a: f32, b: i32) -> bool /{
-    ($a > $b)
+    return ($a > $b);
 }/
 
 pub inline native less(a: f32, b: f32) -> bool /{
-    ($a < $b)
+    return ($a < $b);
 }/
 
 pub inline native less(a: f32, b: i32) -> bool /{
-    ($a < $b)
+    return ($a < $b);
 }/
 
 pub inline native mul(f1: f32, n2: i32) -> f32 /{
-    ($f1 * $n2)
+    return ($f1 * $n2);
 }/
 
 pub inline native div(a: f32, b: i32) -> f32 /{
-    ($a / $b)
+    return ($a / $b);
 }/
 
 // from https://stackoverflow.com/questions/8257714/how-can-i-convert-an-int-to-a-string-in-c

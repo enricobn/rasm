@@ -1,6 +1,6 @@
 pub inline native STDOut() -> File /{
     $include(<stdio.h>)
-    stdout
+    return stdout;
 }/
 
 native optIOError() -> Option<IOError> /{

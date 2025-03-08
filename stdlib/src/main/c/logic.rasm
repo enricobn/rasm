@@ -1,11 +1,11 @@
 pub inline native or(a: bool, b: bool) -> bool /{
-    ($a || $b)
+    return ($a || $b);
 }/
 
 pub inline native and(a: bool, b: bool) -> bool /{
-    ($a && $b)
+    return ($a && $b);
 }/
 
 pub inline native not(a: bool) -> bool /{
-    (!$a)
+    return (!$a);
 }/

@@ -282,9 +282,9 @@ impl FunctionsCreator for CFunctionsCreator {
         let mut result = String::new();
 
         self.code_manipulator
-            .add(&mut result, &format!("(($typeName($v)"), None, false);
+            .add(&mut result, &format!("return (($typeName($v)"), None, false);
         self.code_manipulator
-            .add(&mut result, &format!(")$v->address)->{name}"), None, false);
+            .add(&mut result, &format!(")$v->address)->{name};"), None, false);
         (result, true)
     }
 

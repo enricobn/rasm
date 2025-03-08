@@ -48,7 +48,6 @@ pub struct CFunctionCallParameters {
     current: String,
     after: Vec<String>,
     code_manipulator: CCodeManipulator,
-    inline: bool,
     stack_vals: StackVals,
     immediate: bool,
     code_gen_c: CodeGenC,
@@ -57,7 +56,6 @@ pub struct CFunctionCallParameters {
 impl CFunctionCallParameters {
     pub fn new(
         parameters: Vec<ASTTypedParameterDef>,
-        inline: bool,
         stack_vals: StackVals,
         immediate: bool,
     ) -> Self {
@@ -68,7 +66,6 @@ impl CFunctionCallParameters {
             current: String::new(),
             after: Vec::new(),
             code_manipulator: CCodeManipulator,
-            inline,
             stack_vals,
             immediate,
             code_gen_c: CodeGenC::new(COptions::default(), false),

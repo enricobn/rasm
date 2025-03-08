@@ -420,20 +420,25 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             .map(|(name, value)| (value.as_str(), None))
             .collect::<Vec<_>>();
         let lambda_type = CodeGenC::real_type_to_string(ast_type_type, statics);
-        let casted_lambda = if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-            parameters,
-            return_type,
-        }) = &ast_type_type
-        {
-            let lambda_type_name =
-                CLambdas::find_name_in_statics(statics, parameters, return_type.as_ref()).unwrap();
-            format!(
-                "((struct {}*)((struct RasmPointer_*)lambda_space->{})->address)",
-                lambda_type_name, function_call.function_name
-            )
-        } else {
-            panic!();
-        };
+        let (casted_lambda, return_type) =
+            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                parameters,
+                return_type,
+            }) = &ast_type_type
+            {
+                let lambda_type_name =
+                    CLambdas::find_name_in_statics(statics, parameters, return_type.as_ref())
+                        .unwrap();
+                (
+                    format!(
+                        "((struct {}*)((struct RasmPointer_*)lambda_space->{})->address)",
+                        lambda_type_name, function_call.function_name
+                    ),
+                    CodeGenC::real_type_to_string(&return_type.as_ref(), statics),
+                )
+            } else {
+                panic!();
+            };
 
         let arg = format!("lambda_space->{}", function_call.function_name);
 
@@ -442,7 +447,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         if return_value {
             self.add(
                 before,
-                &format!("{lambda_type} return_value_ = "),
+                &format!("{return_type} return_value_ =  // CodgenC.call_lambda"),
                 None,
                 true,
             );
@@ -494,7 +499,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     ) -> Box<CFunctionCallParameters> {
         Box::new(CFunctionCallParameters::new(
             parameters.clone(),
-            inline,
             stack_vals.clone(),
             immediate,
         ))
@@ -710,7 +714,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         // probably sometimes we need to add the lambda def here
         CLambdas::add_to_statics_if_lambda(&function_def.return_type, statics);
 
-        let inline = &function_def.name == "addRef" || &function_def.name == "deref";
+        let inline =
+            function_def.inline || &function_def.name == "addRef" || &function_def.name == "deref";
 
         let inline_str = if inline { " inline " } else { "" };
 
@@ -1249,6 +1254,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             ASTValueType::Char(v) => format!("\"{}\"", CodeGenC::escape_string(&v.to_string())),
             ASTValueType::F32(v) => format!("{v}"),
         }
+    }
+
+    fn create_function_definition(&self, function_def: &ASTTypedFunctionDef) -> bool {
+        true
+    }
+
+    fn replace_inline_call_includng_source(&self) -> bool {
+        false
     }
 }
 

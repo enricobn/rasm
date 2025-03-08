@@ -1,7 +1,7 @@
 pub inline native eq(a: char, b: char) -> bool /{
     $include(<string.h>)
 
-    (strcmp($a, $b) == 0)
+    return (strcmp($a, $b) == 0);
 }/
 
 // from https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
@@ -56,21 +56,21 @@ pub native toi32(s: str) -> Option<i32> /{
 pub inline native eq(a: str, b: str) -> bool /{
     $include(<string.h>)
 
-    (strcmp($a, $b) == 0)
+    return (strcmp($a, $b) == 0);
 }/
 
 // TODO does it work for UTF-8?
 pub inline native less(a: str, b: str) -> bool /{
     $include(<string.h>)
 
-    (strcmp($a, $b) < 0)
+    return (strcmp($a, $b) < 0);
 }/
 
 // TODO does it work for UTF-8?
 pub inline native greater(a: str, b: str) -> bool /{
     $include(<string.h>)
 
-    (strcmp($a, $b) > 0)
+    return (strcmp($a, $b) > 0);
 }/
 
 pub native len(s: str) -> i32 /{
@@ -125,9 +125,9 @@ pub native substr(s: str, pos: i32, len: i32) -> Option<str> /{
 }/
 
 pub inline native isAlpha(c: char) -> bool /{
-    (($c[0] >= 'a' && $c[0] <= 'z') || ($c[0] >= 'A' && $c[0] <= 'Z'))
+    return (($c[0] >= 'a' && $c[0] <= 'z') || ($c[0] >= 'A' && $c[0] <= 'Z'));
 }/
 
 pub inline native isNumber(c: char) -> bool /{
-    ($c[0] >= '0' && $c[0] <= '9')
+    return ($c[0] >= '0' && $c[0] <= '9');
 }/

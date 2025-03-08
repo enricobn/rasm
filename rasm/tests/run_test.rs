@@ -654,7 +654,12 @@ fn test_match() {
 
 #[test]
 fn test_function_reference() {
-    run_test("function_reference", vec![], "11,12\n101,102\n");
+    run_test_with_target(
+        "function_reference",
+        vec![],
+        "101.199996948,102.199996948\n101,102\ni32: 1.100000024\ni32: 2.099999905\nf32: 1\nf32: 2\n",
+        CompileTarget::C(COptions::default()),
+    );
 }
 
 // Compile tests

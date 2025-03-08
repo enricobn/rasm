@@ -617,7 +617,7 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
         let string = call_parameters.before();
         before.push_str(&string);
 
-        if inline {
+        if inline && self.replace_inline_call_includng_source() {
             if let Some(ASTTypedFunctionBody::NativeBody(body)) = &body {
                 current.push_str(
                     &call_parameters.resolve_native_parameters(
@@ -1333,13 +1333,17 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
                                         return_type,
                                     }) = &function_def.return_type
                                     {
+                                        /*
                                         let rt = if return_type.deref() != &ASTTypedType::Unit {
                                             return_type.deref().clone()
                                         } else {
+                                            // TODO this error must be returned
                                             panic!(
-                                                "Expected a return type from lambda but got None"
+                                                "Expected a return type from lambda but got None : {}", lambda_def.index
                                             );
                                         };
+                                        */
+                                        let rt = return_type.deref().clone();
 
                                         let lambda_parameters = zip(
                                             lambda_def.parameter_names.iter(),
@@ -1785,7 +1789,8 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
 
         for function_def in typed_module.functions_by_name.values() {
             // ValContext ???
-            if !function_def.inline {
+            //if !function_def.inline {
+            if self.create_function_definition(function_def) {
                 let mut definitions = String::new();
                 let mut body = String::new();
 
@@ -2107,6 +2112,10 @@ pub trait CodeGen<'a, FUNCTION_CALL_PARAMETERS: FunctionCallParameters> {
     fn add_statics(&self, statics: &mut Statics);
 
     fn value_to_string(&self, value_type: &ASTValueType) -> String;
+
+    fn create_function_definition(&self, function_def: &ASTTypedFunctionDef) -> bool;
+
+    fn replace_inline_call_includng_source(&self) -> bool;
 }
 
 pub fn get_reference_type_name(
@@ -3766,6 +3775,14 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         evaluators.insert("printRef".into(), Box::new(print_ref_macro));
 
         TextMacroEvaluator::new(evaluators, Box::new(CodeManipulatorNasm::new()))
+    }
+
+    fn create_function_definition(&self, function_def: &ASTTypedFunctionDef) -> bool {
+        !function_def.inline
+    }
+
+    fn replace_inline_call_includng_source(&self) -> bool {
+        true
     }
 }
 

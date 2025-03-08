@@ -1,21 +1,21 @@
 pub inline native add(n1: i32, n2: i32) -> i32 /{
-    ($n1 + $n2)
+    return ($n1 + $n2);
 }/
 
 pub inline native sub(n1: i32, n2: i32) -> i32 /{
-    ($n1 - $n2)
+    return ($n1 - $n2);
 }/
 
 pub inline native mul(n1: i32, n2: i32) -> i32 /{
-    ($n1 * $n2)
+    return ($n1 * $n2);
 }/
 
 pub inline native div(n1: i32, n2: i32) -> i32 /{
-    ($n1 / $n2)
+    return ($n1 / $n2);
 }/
 
 pub inline native negate(n: i32) -> i32 /{
-    (-$n)
+    return (-$n);
 }/
 
 // from https://stackoverflow.com/questions/8257714/how-can-i-convert-an-int-to-a-string-in-c
@@ -36,7 +36,7 @@ pub native toString(n: i32) -> str /{
  *  false = 0 true = 1
  **/
 pub inline native lessOrEqual(a: i32, b: i32) -> bool /{
-    ($a <= $b)
+    return ($a <= $b);
 }/
 
 /**
@@ -44,7 +44,7 @@ pub inline native lessOrEqual(a: i32, b: i32) -> bool /{
  *  false = 0 true = 1
  **/
 pub inline native less(a: i32, b: i32) -> bool /{
-    ($a < $b)
+    return ($a < $b);
 }/
 
 /**
@@ -52,7 +52,7 @@ pub inline native less(a: i32, b: i32) -> bool /{
  *  false = 0 true = 1
  **/
 pub inline native greater(a: i32, b: i32) -> bool /{
-    ($a > $b)
+    return ($a > $b);
 }/
 
 /**
@@ -60,5 +60,5 @@ pub inline native greater(a: i32, b: i32) -> bool /{
  *  false = 0 true = 1
  **/
 pub inline native eq(a: i32, b: i32) -> bool /{
-    ($a == $b)
+    return ($a == $b);
 }/

@@ -8,7 +8,11 @@ use std::{
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use log::info;
-use rasm_utils::{debug_i, dedent, indent, LinkedHashMapDisplay, OptionDisplay, SliceDisplay};
+use rasm_utils::{
+    debug_i,
+    debug_indent::{enable_log, log_enabled},
+    dedent, indent, LinkedHashMapDisplay, OptionDisplay, SliceDisplay,
+};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::codegen::val_context::ValContext;
@@ -303,10 +307,13 @@ impl ASTTypeChecker {
             );
         }
 
+        let log_enabled = log_enabled();
+
         let functions_ast_type_checkers = modules_container
             .modules()
             .par_iter()
             .flat_map(|(id, namespace, module)| {
+                enable_log(log_enabled);
                 module.functions.par_iter().map(|function| {
                     let mut ftc = ASTTypeChecker::new();
                     let start = Instant::now();
@@ -611,6 +618,14 @@ impl ASTTypeChecker {
                         ),
                     );
                 } else {
+                    /*
+                    if name == "println" {
+                        println!(
+                            "expected_expression_type {}",
+                            OptionDisplay(&expected_expression_type)
+                        );
+                    }
+                    */
                     let mut function_references = modules_container.signatures();
 
                     function_references = function_references
@@ -624,6 +639,11 @@ impl ASTTypeChecker {
                         return_type,
                     })) = expected_expression_type
                     {
+                        /*
+                        if name == "println" {
+                            println!("found println");
+                        }
+                        */
                         function_references = function_references
                             .iter()
                             .cloned()
@@ -844,6 +864,16 @@ impl ASTTypeChecker {
             "add_call {call} expected_expression_type {} : {index}",
             OptionDisplay(&expected_expression_type)
         );
+
+        /*
+        if call.function_name == "curry" {
+            let msg = format!(
+                "curry expected_expression_type {}",
+                OptionDisplay(&expected_expression_type)
+            );
+            println!("{msg}");
+        }
+        */
 
         indent!();
 
@@ -1197,6 +1227,16 @@ impl ASTTypeChecker {
                 //self.errors.extend(p_errors);
             }
         }
+        if let Some(eet) = expected_expression_type {
+            if function_signature.return_type.is_generic() {
+                if let Ok(rgt) = Self::resolve_generic_types_from_effective_type(
+                    &function_signature.return_type,
+                    eet,
+                ) {
+                    resolved_generic_types.extend(rgt);
+                }
+            }
+        }
 
         loop {
             if call.parameters.is_empty() {
@@ -1322,6 +1362,7 @@ impl ASTTypeChecker {
                 ),
             );
         }
+        enable_log(false);
         dedent!();
     }
 
@@ -1668,10 +1709,7 @@ mod tests {
         str::FromStr,
     };
 
-    use rasm_utils::{
-        test_utils::{init_log, init_minimal_log},
-        OptionDisplay, SliceDisplay,
-    };
+    use rasm_utils::{test_utils::init_minimal_log, OptionDisplay, SliceDisplay};
 
     use crate::{
         codegen::{
@@ -2043,20 +2081,46 @@ mod tests {
     }
 
     #[test]
+    fn test_function_reference() {
+        init_minimal_log();
+
+        test_single_file(
+            "resources/test/ast_type_checker/function_reference.rasm",
+            3,
+            15,
+            "fn (f32,f32) -> f32",
+        );
+    }
+
+    #[test]
+    fn test_function_reference1() {
+        init_minimal_log();
+
+        test_single_file(
+            "resources/test/ast_type_checker/function_reference.rasm",
+            7,
+            16,
+            "fn (i32,i32) -> i32",
+        );
+    }
+
+    #[test]
+    fn test_function_reference2() {
+        init_minimal_log();
+
+        test_single_file(
+            "resources/test/ast_type_checker/function_reference.rasm",
+            9,
+            11,
+            "fn (stdlib_print_println:T1,stdlib_print_println:T2) -> ()",
+        );
+    }
+
+    #[test]
     fn test_type_check_lambda2() {
-        init_log();
+        init_minimal_log();
 
-        let (type_checker, catalog, _) = check_project("../rasm/resources/test/lambda2.rasm");
-
-        if let Some(index) = index(&catalog, "../rasm/resources/test/lambda2.rasm", 4, 6) {
-            if let Some(entry) = type_checker.result.get(&index) {
-                if let Some((t, _)) = entry.exact() {
-                    assert_eq!("Option<i32>", &format!("{t}"));
-                    return;
-                }
-            }
-        }
-        panic!();
+        test_single_file("../rasm/resources/test/lambda2.rasm", 4, 6, "Option<i32>");
     }
 
     #[test]
@@ -2217,6 +2281,20 @@ mod tests {
             }
         }
         panic!()
+    }
+
+    fn test_single_file(path: &str, row: usize, column: usize, expected: &str) {
+        let (type_checker, catalog, _) = check_project(path);
+
+        if let Some(index) = index(&catalog, path, row, column) {
+            if let Some(entry) = type_checker.result.get(&index) {
+                if let Some((t, _)) = entry.exact() {
+                    assert_eq!(expected, &format!("{t}"));
+                    return;
+                }
+            }
+        }
+        panic!();
     }
 
     fn index(

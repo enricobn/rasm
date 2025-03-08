@@ -521,7 +521,13 @@ impl ASTModulesContainer {
                     false
                 }
             }
-            ASTType::Unit => matches!(with_type, ASTType::Unit),
+            ASTType::Unit => {
+                /*
+                let msg = format!("ASTType::Unit {with_type}");
+                println!("{msg}");
+                */
+                matches!(with_type, ASTType::Unit) || matches!(with_type, ASTType::Generic(_, _))
+            }
         }
     }
 
