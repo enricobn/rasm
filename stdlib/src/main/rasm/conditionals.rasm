@@ -19,6 +19,6 @@ pub fn if<T>(cond: bool, trueValue: T, elseIfCond: bool, valueElseIf: T, valueEl
     if(cond, trueValue, if(elseIfCond, valueElseIf, valueElse));
 }
 
-fn neq<T>(a: T, b: T) -> bool {
+pub fn neq<T>(a: T, b: T) -> bool {
     eq(a, b).not;
 }

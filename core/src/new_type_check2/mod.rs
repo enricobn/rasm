@@ -2003,7 +2003,7 @@ impl<'a> TypeCheck<'a> {
             .functions()
             .iter()
             .cloned()
-            .filter(|it| &it.name == name)
+            .filter(|it| &it.name == name && (&it.namespace == namespace || it.modifiers.public))
             .collect::<Vec<_>>();
 
         function_references.extend(

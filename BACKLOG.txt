@@ -1,7 +1,8 @@
 Doing
 ------
-- ReferenceFinder rename and references
-- ASTTypeChecker
+- function reference
+  - add reference to enum variants constructors, or think to eliminate :: 
+- inline for fn (inline fn)
 
 Major
 -----
@@ -60,6 +61,8 @@ Major
 - threads
 - create and use Result in standard library
 - standardize compiler errors with source
+- tests: there should not be a particular code generation of the compiler, it could be another source root that dependes on main,
+  and there should be a library to define a test Suite and add tests (with a function reference?)
 
 MINOR
 - Vec

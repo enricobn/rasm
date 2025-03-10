@@ -631,7 +631,11 @@ impl ASTTypeChecker {
                     function_references = function_references
                         .iter()
                         .cloned()
-                        .filter(|it| &it.signature.name == name)
+                        .filter(|it| {
+                            &it.signature.name == name
+                                && (&it.namespace == module_namespace
+                                    || it.signature.modifiers.public)
+                        })
                         .collect_vec();
 
                     if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
