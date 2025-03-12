@@ -1,8 +1,8 @@
 pub fn endsWith<T>(o: Option<T>, f: fn(T) -> T) -> Option<T> {
     o.match(fn(inner) {
         let v = f(inner);
-        Option::Some(v);
+        Some(v);
     }, { 
-        Option::None(); 
+        None(); 
     });
 }

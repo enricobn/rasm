@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use itertools::{cloned, Itertools};
+use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
@@ -161,10 +161,6 @@ impl<'a> TypeCheck<'a> {
                 }
 
                 let mut function = self.new_functions.get(&function_name).unwrap().clone();
-
-                if function_name == "stdlib_print_println_str_f32_Unit" {
-                    println!("generating {function}");
-                }
 
                 let mut new_functions = Vec::new();
                 match self
@@ -337,11 +333,6 @@ impl<'a> TypeCheck<'a> {
                             let new_parameters = zip(new_function_def.parameters, parameters)
                                 .map(|(p, t)| {
                                     if p.ast_type.is_generic() && !t.is_generic() {
-                                        /*
-                                        if name == "println" {
-                                            println!("println {} {t}", p.ast_type);
-                                        }
-                                        */
                                         let mut new_p = p.clone();
                                         new_p.ast_type = t.clone();
                                         new_p
@@ -390,9 +381,6 @@ impl<'a> TypeCheck<'a> {
                         .any(|it| it.0.name == new_function_name)
                         && !self.new_functions.contains_key(&new_function_name)
                     {
-                        if new_function_name == "stdlib_print_println_str_f32_Unit" {
-                            println!("adding stdlib_print_println_str_f32_Unit {new_function_def}");
-                        }
                         new_functions.push((new_function_def, self.stack.clone()));
                     }
 
@@ -741,6 +729,18 @@ impl<'a> TypeCheck<'a> {
                         true
                     }
                 })
+                .filter(|it| {
+                    call.target
+                        .as_ref()
+                        .map(|t| {
+                            if let Some(target) = &it.target {
+                                t == target
+                            } else {
+                                false
+                            }
+                        })
+                        .unwrap_or(true)
+                })
                 .sorted_by(|fn1, fn2| fn1.rank.cmp(&fn2.rank))
                 .collect::<Vec<_>>();
         }
@@ -1019,7 +1019,7 @@ impl<'a> TypeCheck<'a> {
             // we must disambiguate, but it should not happen because we break when we found a valid function.
             // TODO we don't consider when two functions have the same coefficient...
             // We get the function that has the minimal rank, if there's only one with that coefficient.
-            panic!();
+            panic!("There are more functions for call {call} : {}", call.index);
             let min = valid_functions.iter().map(|it| it.1).min().unwrap();
 
             let mut dis_valid_functions = valid_functions
@@ -1282,12 +1282,17 @@ impl<'a> TypeCheck<'a> {
                 )?;
                 Some(EnhASTFunctionBody::RASMBody(new_statements))
             }
-            EnhASTFunctionBody::NativeBody(asm_body) => {
+            EnhASTFunctionBody::NativeBody(native_body) => {
                 let type_def_provider = DummyTypeDefProvider::new();
 
                 let evaluator = self.target.get_evaluator(self.debug);
                 let text_macro_names = evaluator
-                    .get_macros(None, Some(new_function_def), asm_body, &type_def_provider)
+                    .get_macros(
+                        None,
+                        Some(new_function_def),
+                        native_body,
+                        &type_def_provider,
+                    )
                     .map_err(|it| {
                         dedent!();
                         TypeCheckError::new(
@@ -1337,7 +1342,7 @@ impl<'a> TypeCheck<'a> {
                     .called_functions(
                         None,
                         Some(new_function_def),
-                        asm_body,
+                        native_body,
                         &val_context,
                         &type_def_provider,
                         statics,
@@ -1357,8 +1362,10 @@ impl<'a> TypeCheck<'a> {
                 if called_functions.is_empty() {
                     None
                 } else {
-                    let mut lines: Vec<String> =
-                        asm_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
+                    let mut lines: Vec<String> = native_body
+                        .lines()
+                        .map(|it| it.to_owned())
+                        .collect::<Vec<_>>();
 
                     for (_m, f) in called_functions.iter() {
                         let call = f.to_call(new_function_def);
@@ -2066,6 +2073,7 @@ mod tests {
 
     use env_logger::Builder;
 
+    use crate::codegen::c::options::COptions;
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enh_ast::{
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
@@ -2092,19 +2100,19 @@ mod tests {
     #[test]
     pub fn breakout() {
         let project = dir_to_project("../rasm/resources/examples/breakout");
-        test_project(project).unwrap_or_else(|e| panic!("{e}"))
+        test_project(project).unwrap();
     }
 
     #[test]
     pub fn let1() {
         let project = dir_to_project("../rasm/resources/test/let1.rasm");
-        test_project(project).unwrap_or_else(|e| panic!("{e}"))
+        test_project(project).unwrap();
     }
 
     #[test]
     pub fn function_reference() {
         let project = dir_to_project("resources/test/ast_type_checker/function_reference.rasm");
-        test_project(project).unwrap_or_else(|e| panic!("{e}"))
+        test_project(project).unwrap();
     }
 
     #[test]
@@ -2211,6 +2219,7 @@ mod tests {
             modifiers: ASTModifiers::private(),
             namespace: EnhASTNameSpace::global(),
             rank: 0,
+            target: None,
         }
     }
 
@@ -2413,7 +2422,14 @@ mod tests {
      */
 
     fn test_project(project: RasmProject) -> Result<(), TypeCheckError> {
-        let target = CompileTarget::Nasmi386(AsmOptions::default());
+        test_project_with_target(&project, CompileTarget::Nasmi386(AsmOptions::default()))?;
+        test_project_with_target(&project, CompileTarget::C(COptions::default()))
+    }
+
+    fn test_project_with_target(
+        project: &RasmProject,
+        target: CompileTarget,
+    ) -> Result<(), TypeCheckError> {
         let mut statics = Statics::new();
 
         let run_type = RasmProjectRunType::Main;

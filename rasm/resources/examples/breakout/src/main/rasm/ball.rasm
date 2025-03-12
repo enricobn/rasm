@@ -7,7 +7,7 @@ pub struct Ball {
 }
 
 pub fn initialBall(now: TimeVal) -> Ball {
-    Ball(500.0, 200.0, XDirection::Right(), YDirection::Down(), now);
+    Ball(500.0, 200.0, Right(), Down(), now);
 }
 
 pub fn update(ball: Ball, actualTime: TimeVal) -> Ball {

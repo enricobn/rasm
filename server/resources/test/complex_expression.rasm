@@ -1,5 +1,5 @@
-test(true, Option::Some(0));
-test2(true, Option::Some(0));
+test(true, Some(0));
+test2(true, Some(0));
 
 fn test<T>(value: bool, o: Option<T>) {
     let n = if(true, {"1";})

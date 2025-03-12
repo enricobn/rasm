@@ -7,5 +7,5 @@ fn doSomething(aValue: i32) {
 }
 
 fn doSomething1() -> Option<i32> {
-    Option::Some(10);
+    Some(10);
 }

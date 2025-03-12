@@ -1,4 +1,4 @@
-let o = Option::Some(1);
+let o = Some(1);
 
 o.match(fn(v) {
     print("Some ");

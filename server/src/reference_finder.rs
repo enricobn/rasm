@@ -1309,7 +1309,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_target_index(
                 finder
-                    .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 10, 15,))
+                    .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 10, 7,))
                     .unwrap()
             ),
             vec![EnhASTIndex::new(

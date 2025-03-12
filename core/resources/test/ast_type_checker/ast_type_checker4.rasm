@@ -1,1 +1,1 @@
-let r = if(true, Option::None(), Option::Some(10));
+let r = if(true, None(), Some(10));

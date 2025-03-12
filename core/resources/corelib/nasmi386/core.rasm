@@ -71,7 +71,7 @@ pub native argv(i: i32) -> Option<str> /{
     mul ecx
     add ebx,eax
     mov eax,[ebx]
-    $call(Option::Some, eax)
+    $call(Some, eax)
     jmp .end
 .notFound:
     mov     dword eax, [_enum_stdlib_option_Option_None]

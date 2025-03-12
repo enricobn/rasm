@@ -150,7 +150,7 @@ impl<'a> ASTTree<'a> {
     fn add_expr(&mut self, expr: &'a ASTExpression) {
         match expr {
             ASTExpression::ASTFunctionCallExpression(function_call) => {
-                for e in function_call.parameters.iter() {
+                for e in function_call.parameters().iter() {
                     self.internal_add(ASTElement::Expression(e), Some(expr.position()));
                     self.add_expr(e);
                 }

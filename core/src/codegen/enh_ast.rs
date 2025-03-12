@@ -165,6 +165,7 @@ pub struct EnhASTFunctionDef {
     /// of <T> is higher than Option<T> that is higher than Option<List<T>>
     /// So less is the rank, best suited is the function
     pub rank: usize,
+    pub target: Option<String>,
 }
 
 pub struct EnhASTFunctionSignature {
@@ -297,6 +298,7 @@ impl EnhASTFunctionDef {
             modifiers: function.modifiers,
             namespace: namespace.clone(),
             rank: 0,
+            target: function.target,
         }
     }
 }
@@ -895,6 +897,7 @@ pub struct EnhASTFunctionCall {
     pub parameters: Vec<EnhASTExpression>,
     pub index: EnhASTIndex,
     pub generics: Vec<EnhASTType>,
+    pub target: Option<String>,
 }
 
 impl EnhASTFunctionCall {
@@ -916,15 +919,16 @@ impl EnhASTFunctionCall {
     pub fn from_ast(id: &EnhModuleId, namespace: &EnhASTNameSpace, call: ASTFunctionCall) -> Self {
         Self {
             namespace: namespace.clone(),
-            original_function_name: call.function_name.clone(),
-            function_name: call.function_name,
+            original_function_name: call.function_name().clone(),
+            function_name: call.function_name().clone(),
             parameters: call
-                .parameters
-                .into_iter()
-                .map(|it| EnhASTExpression::from_ast(id, namespace, it))
+                .parameters()
+                .iter()
+                .map(|it| EnhASTExpression::from_ast(id, namespace, it.clone()))
                 .collect(),
-            index: EnhASTIndex::from_position(id.path(), &call.position),
-            generics: EnhASTType::from_asts(namespace, id, call.generics),
+            index: EnhASTIndex::from_position(id.path(), &call.position().clone()),
+            generics: EnhASTType::from_asts(namespace, id, call.generics().clone()),
+            target: call.target().clone(),
         }
     }
 }
@@ -1071,7 +1075,6 @@ impl ASTValueType {
 }
     */
 
-// TODO can we do partialeq? It depends on ASTIndex
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnhASTExpression {
     ASTFunctionCallExpression(EnhASTFunctionCall),
@@ -1328,14 +1331,6 @@ impl Display for EnhASTEnumDef {
 }
 
 impl EnhASTEnumDef {
-    pub fn variant_function_name(&self, variant: &EnhASTEnumVariantDef) -> String {
-        let mut result = String::new();
-        result.push_str(&self.name);
-        result.push_str("::");
-        result.push_str(&variant.name);
-        result
-    }
-
     pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
         let mut result = self.clone();
         result.variants = self
@@ -1655,6 +1650,7 @@ mod tests {
                 path: "".to_string(),
             },
             rank: 0,
+            target: None,
         };
 
         assert_eq!(format!("{def}"), "fn aFun<T>(aPar: List<Option<T>>) -> T");

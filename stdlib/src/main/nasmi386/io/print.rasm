@@ -339,5 +339,5 @@ native sysPrint(file: File, s: i32, len: i32) -> Option<IOError> /{
 
 fn someIOError(msg: str) -> Option<IOError> {
     let error = IOError(msg);
-    Option::Some(error);
+    Some(error);
 }

@@ -14,7 +14,7 @@ impl BuiltinFunctions {
         enum_def: &ASTEnumDef,
         variant: &ASTEnumVariantDef,
     ) -> (Vec<String>, Vec<ASTPosition>, ASTFunctionSignature) {
-        let name = enum_def.name.clone() + "::" + &variant.name.clone();
+        let name = variant.name.clone();
 
         let (parameters_types, parameters_names, parameters_positions) =
             Self::split_parameters(&variant.parameters);

@@ -7,24 +7,24 @@ pub struct Bar {
 pub fn update(bar: Bar, actualTime: TimeVal, keys: Vec<i32>) -> Bar {
     let elapsed = elapsedTime(actualTime, bar.lastUpdate);
 
-    let left = negate(count(keys, eq.curry(80)));
-    let right = count(keys, eq.curry(79));
+    let left = keys.count(eq.curry(80)).negate;
+    let right = keys.count(eq.curry(79));
 
-    let leftOrRight = add(left, right);
+    let leftOrRight = left.add(right);
 
     let newVelocity = if(eq(leftOrRight, 0), {
-        toi32(div(tof32(bar.velocity), 1.03), 0);
+        bar.velocity.tof32.div(1.03).toi32(0);
     }, {
-        add(bar.velocity, mul(leftOrRight, 30));
+        bar.velocity.add(leftOrRight.mul(30));
     });
 
     let realVelocity = between(newVelocity, -1000, 1000);
 
-    let seconds = div(tof32(elapsed), 1000000);
+    let seconds = elapsed.tof32.div(1000000);
 
-    let diff = mul(seconds, newVelocity);
+    let diff = seconds.mul(newVelocity);
 
-    let newBarPos = add(bar.x, diff);
+    let newBarPos = bar.x.add(diff);
 
     Bar(newBarPos, realVelocity, actualTime);
 }

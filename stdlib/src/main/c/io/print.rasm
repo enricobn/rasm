@@ -13,7 +13,7 @@ native optIOError() -> Option<IOError> /{
     } else {
         char *message = strerror(errno);
         void *error = $call(IOError, message: str); //"Error writing to file.");
-        return $call(Option::Some, error: IOError);
+        return $call(Some, error: IOError);
     }
 }/
 

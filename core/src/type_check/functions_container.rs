@@ -878,6 +878,7 @@ mod tests {
             ],
             index: EnhASTIndex::none(),
             generics: Vec::new(),
+            target: None,
         };
 
         let project = RasmProject {
@@ -962,6 +963,7 @@ mod tests {
             modifiers: ASTModifiers::private(),
             namespace: EnhASTNameSpace::global(),
             rank: 0,
+            target: None,
         }
     }
 
@@ -987,6 +989,7 @@ mod tests {
             modifiers: ASTModifiers::private(),
             namespace: EnhASTNameSpace::global(),
             rank: 0,
+            target: None,
         }
     }
 
@@ -1015,6 +1018,7 @@ mod tests {
             modifiers: ASTModifiers::private(),
             namespace: EnhASTNameSpace::global(),
             rank: 0,
+            target: None,
         }
     }
 }

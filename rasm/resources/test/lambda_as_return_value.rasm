@@ -19,10 +19,10 @@ fn getSub() -> fn(i32) -> i32 {
 }
 
 fn getOption() -> fn(i32) -> Option<i32> {
-    let o = Option::Some(1);
+    let o = Some(1);
     fn(n) {
         // don't remove it, it's used to allocate memory inside a lambda to be sure that "o" memory is not reused
-        let b = Option::Some(2);
+        let b = Some(2);
         o;
     };
 }

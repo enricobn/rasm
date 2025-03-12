@@ -1776,6 +1776,7 @@ mod tests {
             modifiers: ASTModifiers::private(),
             namespace: EnhASTNameSpace::global(),
             rank: 0,
+            target: None,
         };
 
         let result = code_gen.get_text_macro_evaluator().get_macros(

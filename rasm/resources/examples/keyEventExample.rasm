@@ -23,7 +23,7 @@ fn m() {
     }, { });
 
     forEach(event, fn(e) {
-        let key = KeyEvent::key(e);
+        let key = e.key;
         if(eq(key, 41), {
         }, {
             println(e);

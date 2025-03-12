@@ -4,12 +4,12 @@ enum Animal {
     Cow
 }
 
-Animal::Dog().matchDog(
+Dog().matchDog(
     { println("Found"); },
     { println("NotFound"); }
 );
 
-Animal::Cow().matchDog(
+Cow().matchDog(
     { println("Found"); },
     { println("NotFound"); }
 );

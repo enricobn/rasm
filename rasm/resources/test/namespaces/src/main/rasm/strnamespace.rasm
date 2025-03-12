@@ -3,7 +3,7 @@ struct TestModel {
 }
 
 fn getstr() -> Result<TestModel,str> {
-    Result::Ok(TestModel("value"));
+    Ok(TestModel("value"));
 }
 
 pub fn printstr() {
@@ -11,7 +11,7 @@ pub fn printstr() {
 }
 
 fn getstr2() -> Result<TestModel,str> {
-    if(true, { Result::Ok(TestModel("value"));}).else({ Result::Error("error");}).call();
+    if(true, { Ok(TestModel("value"));}).else({ Error("error");}).call();
 }
 
 pub fn printstr2() {

@@ -1,4 +1,4 @@
-Option::Some("hello")
+Some("hello")
 .forEach(fn(it) {
     println(it);
 });

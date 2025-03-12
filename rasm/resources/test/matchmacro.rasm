@@ -54,8 +54,8 @@ fn matchVariant1(def: ASTEnumDef, variant: ASTEnumVariantDef) -> str {
     .add(def.name)
     .add("<T> {\n")
     .add("    enumValue.match").append(variant.name).append("(\n")
-    .add("        { Match").append(def.name).append("(enumValue, Option::Some(f()));},\n")
-    .add("        { Match").append(def.name).append("(enumValue, Option::None());}\n")
+    .add("        { Match").append(def.name).append("(enumValue, Some(f()));},\n")
+    .add("        { Match").append(def.name).append("(enumValue, None());}\n")
     .add("    );\n}\n");
 }
 
@@ -67,7 +67,7 @@ fn matchVariant2(def: ASTEnumDef, variant: ASTEnumVariantDef) -> str {
     .add(def.name)
     .add("<T> {\n")
     .add("    matchValue.enumValue.match").append(variant.name).append("(\n")
-    .add("        { matchValue.value(Option::Some(f()));},\n")
+    .add("        { matchValue.value(Some(f()));},\n")
     .add("        { matchValue;}\n")
     .add("    );\n}\n");
 }
@@ -84,7 +84,7 @@ enum ABC {
     C
 }
 
-let abc = ABC::B();
+let abc = B();
 
 abc.matchA({ println("A"); })
    .matchB({ println("B"); })

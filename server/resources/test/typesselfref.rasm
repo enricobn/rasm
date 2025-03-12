@@ -3,4 +3,4 @@ struct AStruct {
 }
 
 
-let v = AStruct(Option::None());
+let v = AStruct(None());

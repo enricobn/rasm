@@ -98,6 +98,7 @@ pub struct ASTFunctionDef {
     pub generic_types: Vec<String>,
     pub position: ASTPosition,
     pub modifiers: ASTModifiers,
+    pub target: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -219,6 +220,7 @@ impl ASTFunctionDef {
         parameters_names: Vec<String>,
         parameters_positions: Vec<ASTPosition>,
         body: ASTFunctionBody,
+        target: Option<String>,
     ) -> Self {
         assert_eq!(signature.parameters_types.len(), parameters_names.len());
         assert_eq!(signature.parameters_types.len(), parameters_positions.len());
@@ -241,6 +243,7 @@ impl ASTFunctionDef {
             generic_types: signature.generics,
             position,
             modifiers: ASTModifiers { public: is_public },
+            target,
         }
     }
 
@@ -557,10 +560,54 @@ impl Display for ASTStructPropertyDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTFunctionCall {
-    pub function_name: String,
-    pub parameters: Vec<ASTExpression>,
-    pub position: ASTPosition,
-    pub generics: Vec<ASTType>,
+    function_name: String,
+    parameters: Vec<ASTExpression>,
+    position: ASTPosition,
+    generics: Vec<ASTType>,
+    target: Option<String>,
+}
+
+impl ASTFunctionCall {
+    pub fn new(
+        function_name: String,
+        parameters: Vec<ASTExpression>,
+        position: ASTPosition,
+        generics: Vec<ASTType>,
+        target: Option<String>,
+    ) -> Self {
+        Self {
+            function_name,
+            parameters,
+            position,
+            generics,
+            target,
+        }
+    }
+
+    pub fn function_name(&self) -> &String {
+        &self.function_name
+    }
+
+    pub fn parameters(&self) -> &Vec<ASTExpression> {
+        &self.parameters
+    }
+
+    pub fn position(&self) -> &ASTPosition {
+        &self.position
+    }
+
+    pub fn generics(&self) -> &Vec<ASTType> {
+        &self.generics
+    }
+
+    // TODO I don't like it
+    pub fn push_parameter(&mut self, expr: ASTExpression) {
+        self.parameters.push(expr);
+    }
+
+    pub fn target(&self) -> &Option<String> {
+        &self.target
+    }
 }
 
 impl Display for ASTFunctionCall {
@@ -811,16 +858,6 @@ impl Display for ASTEnumDef {
     }
 }
 
-impl ASTEnumDef {
-    pub fn variant_function_name(&self, variant: &ASTEnumVariantDef) -> String {
-        let mut result = String::new();
-        result.push_str(&self.name);
-        result.push_str("::");
-        result.push_str(&variant.name);
-        result
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTEnumVariantDef {
     pub name: String,
@@ -966,6 +1003,7 @@ mod tests {
             generic_types: vec!["T".to_string()],
             position: ASTPosition::none(),
             modifiers: ASTModifiers::private(),
+            target: None,
         };
 
         assert_eq!(format!("{def}"), "fn aFun<T>(aPar: List<Option<T>>) -> T");

@@ -129,10 +129,10 @@ impl StatementFinder {
         }
         match expr {
             ASTExpression::ASTFunctionCallExpression(call) => {
-                if position == &call.position {
+                if position == call.position() {
                     SFExprResult::InExpr
                 } else {
-                    for e in call.parameters.iter() {
+                    for e in call.parameters().iter() {
                         match Self::find_expr(position, e) {
                             SFExprResult::InExpr => return SFExprResult::InExpr,
                             SFExprResult::NotInExpr => {}
@@ -171,10 +171,10 @@ impl StatementFinder {
     fn real_position(expr: &ASTExpression) -> ASTPosition {
         if let ASTExpression::ASTFunctionCallExpression(call) = expr {
             // due to dot notation, we calculate the "real" call position
-            let mut positions = vec![call.position.clone()];
+            let mut positions = vec![call.position().clone()];
             positions.append(
                 &mut call
-                    .parameters
+                    .parameters()
                     .iter()
                     .map(|it| it.position())
                     .collect::<Vec<_>>(),

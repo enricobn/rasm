@@ -1,7 +1,7 @@
-let o = Option::Some(10);
+let o = Some(10);
 println(o.iter);
 
-let o1 = Option::None<i32>();
+let o1 = None<i32>();
 println(o1.iter);
 
 let l = range(0, 2).iter;

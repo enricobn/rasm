@@ -648,19 +648,30 @@ impl ASTTypeChecker {
                             println!("found println");
                         }
                         */
+
+                        let module_info =
+                            ModuleInfo::new(module_namespace.clone(), module_id.clone());
                         function_references = function_references
                             .iter()
                             .cloned()
                             .filter(|it| it.signature.parameters_types.len() == parameters.len())
                             .filter(|it| {
+                                ASTTypeFilter::Exact(
+                                    return_type.as_ref().clone(),
+                                    module_info.clone(),
+                                )
+                                .is_compatible(
+                                    &it.signature.return_type,
+                                    &it.namespace,
+                                    modules_container,
+                                )
+                            })
+                            .filter(|it| {
                                 zip(it.signature.parameters_types.iter(), parameters).all(
                                     |(a, b)| {
                                         return ASTTypeFilter::Exact(
                                             b.clone(),
-                                            ModuleInfo::new(
-                                                module_namespace.clone(),
-                                                module_id.clone(),
-                                            ),
+                                            module_info.clone(),
                                         )
                                         .is_compatible(&a, &it.namespace, modules_container);
                                     },
@@ -861,7 +872,7 @@ impl ASTTypeChecker {
         let index = ASTIndex::new(
             module_namespace.clone(),
             module_id.clone(),
-            call.position.clone(),
+            call.position().clone(),
         );
 
         debug_i!(
@@ -912,7 +923,7 @@ impl ASTTypeChecker {
 
         let mut tmp = ASTTypeChecker::new();
 
-        for e in &call.parameters {
+        for e in call.parameters().iter() {
             let e_index = ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
             if self.result.get(&e_index).is_none() {
                 // it's almost impossible to determine the right type of lambda without knowing the expected type,
@@ -958,7 +969,7 @@ impl ASTTypeChecker {
 
         let mut parameter_types_filters = Vec::new();
 
-        for e in &call.parameters {
+        for e in call.parameters().iter() {
             let e_index = ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
             if let Some(ast_type) = self.result.get(&e_index).and_then(|it| it.filter.clone()) {
                 parameter_types_filters.push(ast_type.clone());
@@ -972,7 +983,7 @@ impl ASTTypeChecker {
         }
 
         if let Some((lambda_return_type, parameters_types)) =
-            val_context.get_lambda(&call.function_name)
+            val_context.get_lambda(call.function_name())
         {
             let return_type = lambda_return_type.as_ref().clone();
             let parameters_types = parameters_types.clone();
@@ -988,7 +999,7 @@ impl ASTTypeChecker {
                 .collect::<Vec<_>>();
 
             let lambda_signature = ASTFunctionSignature {
-                name: call.function_name.clone(),
+                name: call.function_name().clone(),
                 parameters_types,
                 return_type,
                 generics,
@@ -999,7 +1010,8 @@ impl ASTTypeChecker {
                 lambda_signature,
                 module_namespace.clone(),
                 module_id.clone(),
-                call.position.clone(),
+                call.position().clone(),
+                None,
             );
 
             self.process_function_signature(
@@ -1040,8 +1052,9 @@ impl ASTTypeChecker {
         }
 
         let mut functions = modules_container.find_call_vec(
-            &call.function_name,
-            &call.position,
+            call.function_name(),
+            call.position(),
+            call.target(),
             &parameter_types_filters,
             expected_expression_type,
             module_namespace,
@@ -1060,7 +1073,7 @@ impl ASTTypeChecker {
                 index.clone(),
                 format!(
                     "no functions for {}({})",
-                    call.function_name,
+                    call.function_name(),
                     SliceDisplay(&parameter_types_filters)
                 ),
             ));
@@ -1103,7 +1116,7 @@ impl ASTTypeChecker {
                     index.clone(),
                     format!(
                         "found more than one function for {}\n{functions_msg}",
-                        call.function_name
+                        call.function_name()
                     ),
                 ));
 
@@ -1128,7 +1141,7 @@ impl ASTTypeChecker {
                     ASTTypeCheckEntry::new(
                         filter,
                         ASTTypeCheckInfo::Call(
-                            call.function_name.clone(),
+                            call.function_name().clone(),
                             functions
                                 .into_iter()
                                 .map(|it| {
@@ -1212,7 +1225,7 @@ impl ASTTypeChecker {
         let index = ASTIndex::new(
             call_module_namespace.clone(),
             call_module_id.clone(),
-            call.position.clone(),
+            call.position().clone(),
         );
 
         let mut resolved_generic_types = ASTResolvedGenericTypes::new();
@@ -1243,7 +1256,7 @@ impl ASTTypeChecker {
         }
 
         loop {
-            if call.parameters.is_empty() {
+            if call.parameters().is_empty() {
                 break;
             }
             debug_i!("loop  {}", resolved_generic_types);
@@ -1251,7 +1264,7 @@ impl ASTTypeChecker {
             let resolved_generic_types_len = resolved_generic_types.len();
             let mut loop_errors = Vec::new();
 
-            for (i, e) in call.parameters.iter().enumerate() {
+            for (i, e) in call.parameters().iter().enumerate() {
                 let e_index = ASTIndex::new(
                     call_module_namespace.clone(),
                     call_module_id.clone(),
@@ -1353,7 +1366,7 @@ impl ASTTypeChecker {
                         modules_container,
                     )),
                     ASTTypeCheckInfo::Call(
-                        call.function_name.clone(),
+                        call.function_name().clone(),
                         vec![(
                             function_signature.clone(),
                             ASTIndex::new(
@@ -1866,7 +1879,7 @@ mod tests {
         let none_value = types_map.get(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
-            ASTPosition::new(1, 36),
+            ASTPosition::new(1, 28),
         ));
 
         assert_eq!(
@@ -2027,7 +2040,7 @@ mod tests {
         let r_value = types_map.get(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
-            ASTPosition::new(4, 22),
+            ASTPosition::new(4, 14),
         ));
 
         assert_eq!(
@@ -2156,12 +2169,13 @@ mod tests {
 
         let i = ASTExpression::Value(ASTValueType::I32(10), ASTPosition::new(2, 29));
 
-        let some = ASTFunctionCall {
-            function_name: "Option::Some".to_owned(),
-            parameters: vec![i],
-            position: ASTPosition::new(2, 16),
-            generics: Vec::new(),
-        };
+        let some = ASTFunctionCall::new(
+            "Some".to_owned(),
+            vec![i],
+            ASTPosition::new(2, 16),
+            Vec::new(),
+            None,
+        );
         let o = ASTExpression::ASTFunctionCallExpression(some);
 
         let l = ASTExpression::Lambda(ASTLambdaDef {
@@ -2172,12 +2186,13 @@ mod tests {
 
         let t = ASTExpression::Value(ASTValueType::Boolean(true), ASTPosition::new(2, 8));
 
-        let call = ASTFunctionCall {
-            function_name: "if".to_owned(),
-            parameters: vec![t, l],
-            position: ASTPosition::new(2, 5),
-            generics: Vec::new(),
-        };
+        let call = ASTFunctionCall::new(
+            "if".to_owned(),
+            vec![t, l],
+            ASTPosition::new(2, 5),
+            Vec::new(),
+            None,
+        );
 
         type_checker.add_call(
             &call,
@@ -2231,12 +2246,13 @@ mod tests {
 
         let i = ASTExpression::Value(ASTValueType::I32(10), ASTPosition::new(2, 29));
 
-        let some = ASTFunctionCall {
-            function_name: "Option::Some".to_owned(),
-            parameters: vec![i],
-            position: ASTPosition::new(2, 16),
-            generics: Vec::new(),
-        };
+        let some = ASTFunctionCall::new(
+            "Some".to_owned(),
+            vec![i],
+            ASTPosition::new(2, 16),
+            Vec::new(),
+            None,
+        );
         let o = ASTExpression::ASTFunctionCallExpression(some);
 
         let body = vec![ASTStatement::Expression(o)];

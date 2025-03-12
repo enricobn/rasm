@@ -85,7 +85,7 @@ pub native toi32(n: f32) -> Option<i32> /{
     jz      .positive
     $call(negate, eax)
 .positive:
-    $call(Option::Some, eax)
+    $call(Some, eax)
 .end:
     pop     edx
     pop     ecx

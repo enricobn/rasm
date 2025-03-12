@@ -1,5 +1,5 @@
 printWith(15);
 
 fn printWith(v1: i32) {
-    println(map(List::Full(10, List::Full(20, List::Empty())), fn(v) { add(v, v1);}));
+    println(map(Full(10, Full(20, Empty())), fn(v) { add(v, v1);}));
 }

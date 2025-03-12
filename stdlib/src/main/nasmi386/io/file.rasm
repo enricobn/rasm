@@ -59,11 +59,11 @@ pub fn fileFlags(flags: Vec<FileFlag>) -> i32 {
 }
 
 pub fn createFile(path: str) -> File {
-    sysOpen(path, fileFlags(vecOf(FileFlag::Create(), FileFlag::Truncate(), FileFlag::WriteOnly())),
+    sysOpen(path, fileFlags(vecOf(Create(), Truncate(), WriteOnly())),
         fileMode(FileMode(
-            vecOf(FilePermission::Read(), FilePermission::Write()),
-            vecOf(FilePermission::Read(), FilePermission::Write()),
-            vecOf(FilePermission::Read(), FilePermission::Write())
+            vecOf(Read(), Write()),
+            vecOf(Read(), Write()),
+            vecOf(Read(), Write())
         ))
     );
 }
@@ -71,9 +71,9 @@ pub fn createFile(path: str) -> File {
 pub fn createFile(path: str, flags: Vec<FileFlag>) -> File {
     sysOpen(path, fileFlags(flags),
         fileMode(FileMode(
-            vecOf(FilePermission::Read(), FilePermission::Write()),
-            vecOf(FilePermission::Read(), FilePermission::Write()),
-            vecOf(FilePermission::Read(), FilePermission::Write())
+            vecOf(Read(), Write()),
+            vecOf(Read(), Write()),
+            vecOf(Read(), Write())
         ))
     );
 }

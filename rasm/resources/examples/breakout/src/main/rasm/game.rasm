@@ -18,7 +18,7 @@ enum GameStage {
 }
 
 pub fn initialGameState() -> GameState {
-    GameState(GameStage::Run(), initialWorld(), FPS(0, now(), 0));
+    GameState(Run(), initialWorld(), FPS(0, now(), 0));
 }
 
 fn initialWorld() -> World {
@@ -44,7 +44,7 @@ pub fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> Gam
     let lives = lives(newWorld);
     let score = score(newWorld);
 
-    if(eq(lives, 0), { GameResult::End(score);}, { GameResult::Play(newGameState);});
+    if(eq(lives, 0), { End(score);}, { Play(newGameState);});
 }
 
 fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {

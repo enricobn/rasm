@@ -1,1 +1,1 @@
-let r = Option::Some(10).match(fn(it) {Option::Some(it);}, {Option::None();});
+let r = Some(10).match(fn(it) {Some(it);}, {None();});

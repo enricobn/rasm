@@ -65,6 +65,7 @@ pub trait FunctionsCreator {
                 parameters_names,
                 parameters_positions,
                 body,
+                Some(struct_def.name.clone()),
             );
 
             module.add_function(function_def);
@@ -90,6 +91,7 @@ pub trait FunctionsCreator {
             parameters_names,
             parameters_positions,
             function_body,
+            Some(enum_def.name.clone()),
         );
 
         debug_i!("created function {function_def}");
@@ -118,6 +120,7 @@ pub trait FunctionsCreator {
             parameters_names,
             parameters_positions,
             function_body,
+            Some(enum_def.name.clone()),
         );
 
         debug_i!("created function {function_def}");
@@ -156,6 +159,7 @@ pub trait FunctionsCreator {
                 lambda_parameters_names,
                 lambda_parameters_positions,
                 ASTFunctionBody::RASMBody(body),
+                None,
             ));
         }
 
@@ -189,6 +193,7 @@ pub trait FunctionsCreator {
             parameters_names,
             parameters_positions,
             ASTFunctionBody::NativeBody(native_body),
+            Some(struct_def.name.clone()),
         )
     }
 
@@ -209,6 +214,7 @@ pub trait FunctionsCreator {
             parameters_names,
             parameters_positions,
             ASTFunctionBody::NativeBody(self.struct_setter_body(i, &property_def.name)),
+            Some(struct_def.name.clone()),
         )
     }
 
@@ -232,6 +238,7 @@ pub trait FunctionsCreator {
             parameters_names,
             parameters_positions,
             ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(i, &property_def.name)),
+            Some(struct_def.name.clone()),
         )
     }
 
@@ -243,48 +250,54 @@ pub trait FunctionsCreator {
         vec![
             ASTStatement::LetStatement(
                 "_f".to_owned(),
-                ASTExpression::ASTFunctionCallExpression(ASTFunctionCall {
-                    function_name: format!("{}", property_def.name),
-                    parameters: vec![ASTExpression::ValueRef(
+                ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
+                    format!("{}", property_def.name),
+                    vec![ASTExpression::ValueRef(
                         "v".to_owned(),
                         ASTPosition::builtin(
                             &property_def.position,
                             ASTBuiltinFunctionType::Other("v ref".to_owned()),
                         ),
                     )],
-                    position: ASTPosition::builtin(
+                    ASTPosition::builtin(
                         &property_def.position,
                         ASTBuiltinFunctionType::Other("_f let call".to_owned()),
                     ),
-                    generics: Vec::new(),
-                }),
+                    Vec::new(),
+                    None,
+                )),
                 false,
                 ASTPosition::builtin(
                     &property_def.position,
                     ASTBuiltinFunctionType::Other("_f let".to_owned()),
                 ),
             ),
-            ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(ASTFunctionCall {
-                function_name: "_f".to_owned(),
-                parameters: parameters
-                    .iter()
-                    .enumerate()
-                    .map(|(index, _it)| {
-                        ASTExpression::ValueRef(
-                            format!("p{index}"),
-                            ASTPosition::builtin(
-                                &property_def.position,
-                                ASTBuiltinFunctionType::Other(format!("_f call ref to p{index}")),
-                            ),
-                        )
-                    })
-                    .collect(),
-                position: ASTPosition::builtin(
-                    &property_def.position,
-                    ASTBuiltinFunctionType::Other("_f call".to_owned()),
+            ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(
+                ASTFunctionCall::new(
+                    "_f".to_owned(),
+                    parameters
+                        .iter()
+                        .enumerate()
+                        .map(|(index, _it)| {
+                            ASTExpression::ValueRef(
+                                format!("p{index}"),
+                                ASTPosition::builtin(
+                                    &property_def.position,
+                                    ASTBuiltinFunctionType::Other(format!(
+                                        "_f call ref to p{index}"
+                                    )),
+                                ),
+                            )
+                        })
+                        .collect(),
+                    ASTPosition::builtin(
+                        &property_def.position,
+                        ASTBuiltinFunctionType::Other("_f call".to_owned()),
+                    ),
+                    Vec::new(),
+                    None,
                 ),
-                generics: Vec::new(),
-            })),
+            )),
         ]
     }
 
@@ -329,6 +342,7 @@ pub trait FunctionsCreator {
                 parameters_names,
                 parameters_positions,
                 body,
+                Some(enum_def.name.clone()),
             );
             debug_i!("created function {function_def}");
 
@@ -483,6 +497,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
                 ASTBuiltinFunctionType::Other(name.to_owned()),
             ),
             modifiers: ASTModifiers::public(),
+            target: None,
         };
 
         module.add_function(
@@ -518,6 +533,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
                 ASTBuiltinFunctionType::Other(name.to_owned()),
             ),
             modifiers: ASTModifiers::public(),
+            target: None,
         };
 
         module.add_function(

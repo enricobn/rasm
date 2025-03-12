@@ -1,12 +1,12 @@
 
-println(Option::Some(1).fmap(fn(v) { Option::Some("value = 2");}));
+println(Some(1).fmap(fn(v) { Some("value = 2");}));
 
-println(or(Option::None(), Option::Some(10)));
+println(or(None(), Some(10)));
 
-println(or(Option::Some(1), Option::Some(10)));
+println(or(Some(1), Some(10)));
 
-println(orElse(Option::None(), { Option::Some(10);}));
+println(orElse(None(), { Some(10);}));
 
-println(orElse(Option::Some(1), { Option::Some(10);}));
+println(orElse(Some(1), { Some(10);}));
 
-Option::Some(10).forEach(fn(v) { println(v);});
+Some(10).forEach(fn(v) { println(v);});

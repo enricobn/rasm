@@ -43,7 +43,7 @@ let font = sdlErrorIfNull(sdlOpenFont(resource("DejaVuSerif.ttf"), 24), "cannot 
 let quads = vecRange(0, QUADS).map(fn(it) {
                     let x = random(WIDTH);
                     let y = random(HEIGHT);
-                    let xDir = if(random(2).eq(0), XDirection::Right(), XDirection::Left());
+                    let xDir = if(random(2).eq(0), Right(), Left());
                     let yDir = if(random(2).eq(0), YDirection::Up(), YDirection::Down());
                     Quad(x, y, xDir, yDir);
                 });

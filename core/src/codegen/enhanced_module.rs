@@ -320,8 +320,11 @@ impl EnhancedASTModule {
                         && zip(it.parameters.iter(), function.parameters.iter()).all(|(p1, p2)| {
                             EnhTypeFilter::Exact(p1.ast_type.clone())
                                 .almost_equal(&p2.ast_type, self)
-                                .unwrap()
+                                .unwrap_or(false)
                         })
+                        && EnhTypeFilter::Exact(it.return_type.clone())
+                            .almost_equal(&function.return_type, self)
+                            .unwrap_or(false)
                         && it.rank == function.rank
                         && (it.modifiers.public
                             || function.modifiers.public

@@ -880,7 +880,7 @@ impl IDEHelper {
         let mut references = Vec::new();
         match expr {
             ASTExpression::ASTFunctionCallExpression(call) => {
-                for e in call.parameters.iter() {
+                for e in call.parameters().iter() {
                     references.extend(Self::get_references_until_expr(e, index));
                 }
             }
@@ -1390,11 +1390,11 @@ impl IDEHelper {
             ASTExpression::ASTFunctionCallExpression(function_call) => {
                 let mut result = LinkedHashMap::new();
                 if let Some(ValKind::ParameterRef(_, par)) =
-                    val_context.get(&function_call.function_name)
+                    val_context.get(function_call.function_name())
                 {
-                    result.insert(function_call.function_name.clone(), par.position.clone());
+                    result.insert(function_call.function_name().clone(), par.position.clone());
                 }
-                for e in function_call.parameters.iter() {
+                for e in function_call.parameters().iter() {
                     result.extend(Self::extract_vals_expr(e, excluding, val_context));
                 }
                 result
@@ -1435,14 +1435,14 @@ impl IDEHelper {
         let element = tree.previous_element(index.position())?;
 
         if let Some(call) = tree.enclosing_call(element) {
-            let mut items = self.find(&index.with_position(call.position.clone()));
+            let mut items = self.find(&index.with_position(call.position().clone()));
 
             if items.len() == 1 {
                 let item = items.remove(0);
 
                 if let Some(IDESelectableItemTarget::Function(function_index, _, _)) = item.target {
                     if let Some(function) = self.modules_container.function(&function_index) {
-                        let mut children = tree.children(&call.position);
+                        let mut children = tree.children(call.position());
 
                         children.sort();
 
@@ -1548,7 +1548,7 @@ mod tests {
                 &project,
                 "simple.rasm",
                 10,
-                15,
+                7,
             ))),
             vec![get_index(
                 &std_lib_project,
@@ -2468,7 +2468,7 @@ mod tests {
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(start_code + 91, 93),
+                ASTPosition::new(start_code + 91, 86),
             );
 
             let code = read_code(path, &start_index, &end_index);
@@ -2481,7 +2481,7 @@ mod tests {
                 assert_eq!("\n\nfn newFunction(highScores: Vec<HighScore>, score: i32, resources: Resources, newKeys: Vec<i32>) -> State {
 let newHighScores = highScores.add(score);
             writeHighScores(newHighScores);
-            State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
+            State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
 }", edit.text);
                 let edit = result.remove(0);
                 assert_eq!(
@@ -2513,7 +2513,7 @@ let newHighScores = highScores.add(score);
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(start_code + 91, 76),
+                ASTPosition::new(start_code + 91, 69),
             );
             let code = &read_code(path, &start_index, &end_index);
             if let Some(result) =
@@ -2523,7 +2523,7 @@ let newHighScores = highScores.add(score);
                 let edit = result.remove(0);
                 assert_eq!(
                     "\n\nfn newFunction(newHighScores: Vec<HighScore>) -> Stage {
-Stage::Menu(MenuState(newHighScores));
+Menu(MenuState(newHighScores));
 }",
                     edit.text
                 );
@@ -2554,7 +2554,7 @@ Stage::Menu(MenuState(newHighScores));
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(start_code + 91, 93),
+                ASTPosition::new(start_code + 91, 86),
             );
             let code = &read_code(path, &start_index, &end_index);
             if let Some(result) =
@@ -2564,7 +2564,7 @@ Stage::Menu(MenuState(newHighScores));
                 let edit = result.remove(0);
                 assert_eq!(
                     "\n\nfn newFunction(resources: Resources, newKeys: Vec<i32>, newHighScores: Vec<HighScore>) -> State {
-State(resources, newKeys, Stage::Menu(MenuState(newHighScores)), newHighScores);
+State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
 }", edit.text
                 );
                 let edit = result.remove(0);

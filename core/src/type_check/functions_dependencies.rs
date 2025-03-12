@@ -219,7 +219,7 @@ fn function_dependencies_inner(
         let call_index = ASTIndex::new(
             module_namespace.clone(),
             module_id.clone(),
-            call.position.clone(),
+            call.position().clone(),
         );
         let mut call_result = ASTFunctionsDependencies::new();
         if let Some(call_type_check_entry) = ast_type_check.result.get(&call_index) {
@@ -232,7 +232,7 @@ fn function_dependencies_inner(
                         if let Some(inner_function) =
                             modules_container.function(inner_signature_index)
                         {
-                            for (call_expr_i, call_expr) in call.parameters.iter().enumerate() {
+                            for (call_expr_i, call_expr) in call.parameters().iter().enumerate() {
                                 debug_i!("evaluating expr {call_expr}");
                                 indent!();
                                 let call_expr_index = ASTIndex::new(
@@ -423,7 +423,7 @@ fn function_dependencies_inner_2(
             if let Some(call_type_check_entry) = ast_type_check.result.get(&ASTIndex::new(
                 module_namespace.clone(),
                 module_id.clone(),
-                call.position.clone(),
+                call.position().clone(),
             )) {
                 match call_type_check_entry.info() {
                     ASTTypeCheckInfo::Call(_, vec) => {
@@ -431,7 +431,7 @@ fn function_dependencies_inner_2(
                             debug_i!("call to function {signature}");
                             indent!();
 
-                            for (i, e) in call.parameters.iter().enumerate() {
+                            for (i, e) in call.parameters().iter().enumerate() {
                                 let parameter_type = signature.parameters_types.get(i).unwrap();
                                 /*parameter
                                     .ast_type
@@ -675,7 +675,7 @@ fn expr_calls<'a>(
         ASTExpression::ASTFunctionCallExpression(call) => {
             calls.push(call);
 
-            for expr in call.parameters.iter() {
+            for expr in call.parameters().iter() {
                 expr_calls(calls, expr, module_namespace, module_id, ast_type_check);
             }
         }

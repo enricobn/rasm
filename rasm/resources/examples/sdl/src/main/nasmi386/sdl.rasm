@@ -152,7 +152,7 @@ pub native keyEvent() -> Option<KeyEvent> /{
     $call(KeyEvent, [ebx + 16], [_enum_sdl_sdl_KeyState_Down]: KeyState)
     $addRef(eax:KeyEvent)
     push    eax
-    $call(Option::Some, eax: KeyEvent)
+    $call(Some, eax: KeyEvent)
     pop     ebx
     $deref(ebx:KeyEvent)
     jmp     .end
@@ -162,7 +162,7 @@ pub native keyEvent() -> Option<KeyEvent> /{
     $call(KeyEvent, [ebx + 16], [_enum_sdl_sdl_KeyState_Up]: KeyState)
     $addRef(eax:KeyEvent)
     push    eax
-    $call(Option::Some, eax: KeyEvent)
+    $call(Some, eax: KeyEvent)
     pop     ebx
     $deref(ebx:KeyEvent)
     jmp     .end

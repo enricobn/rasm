@@ -3,8 +3,8 @@ enum Operation {
     Two(f: fn(i32) -> i32)
 }
 
-do(10, Operation::One(fn(n) { add(n, 1);}));
-do(10, Operation::Two(fn(n) { sub(n, 1);}));
+do(10, One(fn(n) { add(n, 1);}));
+do(10, Two(fn(n) { sub(n, 1);}));
 
 fn do(v: i32, op: Operation) {
     match(op, fn(f) { println("One ", f(v));}, fn(f) { println("Two ", f(v));});

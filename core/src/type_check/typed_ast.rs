@@ -505,16 +505,6 @@ impl Display for ASTTypedEnumDef {
     }
 }
 
-impl ASTTypedEnumDef {
-    pub fn variant_function_name(&self, variant: &ASTTypedEnumVariantDef) -> String {
-        let mut result = String::new();
-        result.push_str(&self.name);
-        result.push_str("::");
-        result.push_str(&variant.name);
-        result
-    }
-}
-
 impl CustomTypedTypeDef for ASTTypedEnumDef {
     fn modifiers(&self) -> &ASTModifiers {
         &self.modifiers
@@ -2012,6 +2002,7 @@ impl DefaultFunction {
                 .collect(),
             index: EnhASTIndex::none(),
             generics: Vec::new(),
+            target: None,
         }
     }
 }

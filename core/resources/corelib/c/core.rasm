@@ -14,7 +14,7 @@ pub native argv(i: i32) -> Option<str> /{
         return result;
     } else {
         return
-        $call(Option::Some, argv_[$i]:str)
+        $call(Some, argv_[$i]:str)
         ;
     }
 

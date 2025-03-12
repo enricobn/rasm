@@ -180,7 +180,7 @@ impl TokensMatcherResult {
 
 impl ParserTrait for TokensMatcherResult {
     fn get_i(&self) -> usize {
-        self.next_n // TODO is correct?
+        self.next_n // TODO is it correct?
     }
 
     fn get_token_n(&self, n: usize) -> Option<&Token> {

@@ -109,7 +109,7 @@ impl Display for ParserData {
                 write!(f, "EnumDef({}): {}", e.name, e.position)
             }
             ParserData::FunctionCall(call) => {
-                write!(f, "FunctionCall({}): {}", call, call.position)
+                write!(f, "FunctionCall({}): {}", call, call.position())
             }
             ParserData::FunctionDef(def) => {
                 write!(f, "FunctionDef({}): {}", def, def.position)
@@ -217,16 +217,17 @@ impl Parser {
             if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
                 if let TokenKind::Punctuation(PunctuationKind::Dot) = token.kind {
                     self.i += 1;
-                    if let Some((function_name, generics, next_i, function_name_i)) =
+                    if let Some((function_name, generics, next_i, function_name_i, target)) =
                         self.try_parse_function_call()
                     {
                         self.parser_data.pop();
-                        let call = ASTFunctionCall {
+                        let call = ASTFunctionCall::new(
                             function_name,
-                            parameters: vec![expr],
-                            position: self.get_position(function_name_i),
+                            vec![expr],
+                            self.get_position(function_name_i),
                             generics,
-                        };
+                            target,
+                        );
                         self.parser_data.push(ParserData::FunctionCall(call));
                         self.state.push(ParserState::FunctionCall);
                         self.i = next_i;
@@ -235,12 +236,13 @@ impl Parser {
                         self.get_token_kind().cloned()
                     {
                         self.parser_data.pop();
-                        let call = ASTFunctionCall {
-                            function_name: name.clone(),
-                            parameters: vec![expr],
-                            position: self.get_position(0),
-                            generics: Vec::new(),
-                        };
+                        let call = ASTFunctionCall::new(
+                            name.clone(),
+                            vec![expr],
+                            self.get_position(0),
+                            Vec::new(),
+                            None,
+                        );
                         self.parser_data
                             .push(ParserData::Expression(ASTFunctionCallExpression(call)));
                         self.i += 1;
@@ -474,6 +476,7 @@ impl Parser {
                 generic_types,
                 position: name_token.position,
                 modifiers,
+                target: None,
             };
             self.parser_data.push(ParserData::FunctionDef(function_def));
             self.state.push(ParserState::FunctionDef);
@@ -492,6 +495,7 @@ impl Parser {
                 generic_types: param_types,
                 position: name_token.position.clone(),
                 modifiers,
+                target: None,
             };
             self.parser_data.push(ParserData::FunctionDef(function_def));
             self.state.push(ParserState::FunctionDef);
@@ -618,15 +622,16 @@ impl Parser {
         {
             self.state.pop();
             self.i += 1;
-        } else if let Some((function_name, generics, next_i, function_name_index)) =
+        } else if let Some((function_name, generics, next_i, function_name_index, target)) =
             self.try_parse_function_call()
         {
-            let call = ASTFunctionCall {
+            let call = ASTFunctionCall::new(
                 function_name,
-                parameters: Vec::new(),
-                position: self.get_position(function_name_index),
+                Vec::new(),
+                self.get_position(function_name_index),
                 generics,
-            };
+                target,
+            );
             self.parser_data.push(ParserData::FunctionCall(call));
             self.state.push(ParserState::FunctionCall);
             self.i = next_i;
@@ -695,6 +700,7 @@ impl Parser {
             generic_types: Vec::new(),
             position: ASTPosition::none(),
             modifiers: ASTModifiers::public(),
+            target: None,
         };
         self.parser_data
             .push(ParserData::FunctionDef(fake_function_def));
@@ -939,7 +945,7 @@ impl Parser {
         mut call: ASTFunctionCall,
         ast_expression: ASTExpression,
     ) {
-        call.parameters.push(ast_expression);
+        call.push_parameter(ast_expression);
         let l = self.parser_data.len();
         self.parser_data[l - 1] = ParserData::FunctionCall(call);
     }
@@ -983,13 +989,15 @@ impl Parser {
         debug_i!("");
     }
 
-    fn try_parse_function_call(&mut self) -> Option<(String, Vec<ASTType>, usize, usize)> {
+    fn try_parse_function_call(
+        &mut self,
+    ) -> Option<(String, Vec<ASTType>, usize, usize, Option<String>)> {
         if let Some(TokenKind::AlphaNumeric(ref f_name)) = self.get_token_kind() {
-            let (function_name, next_n, function_name_n) =
-                if let Some((variant, next_n)) = self.try_parse_enum_constructor() {
-                    (f_name.clone() + "::" + &variant, next_n, next_n - 4)
+            let (function_name, next_n, function_name_n, target) =
+                if let Some((function_name, next_n)) = self.try_parse_call_with_target() {
+                    (function_name, next_n, next_n - 1, Some(f_name.clone()))
                 } else {
-                    (f_name.clone(), 1, 0)
+                    (f_name.clone(), 1, 0, None)
                 };
             let context_generic_types =
                 if let Some(function_def) = self.last_parser_data_function_def() {
@@ -1040,10 +1048,11 @@ impl Parser {
                 self.get_token_kind_n(n)
             {
                 return Some((
-                    function_name.clone(),
+                    function_name,
                     generic_types,
                     self.i + n + 1,
                     function_name_n,
+                    target,
                 ));
             }
         }
@@ -1065,17 +1074,17 @@ impl Parser {
         }
     }
 
-    fn try_parse_enum_constructor(&self) -> Option<(String, usize)> {
+    fn try_parse_call_with_target(&self) -> Option<(String, usize)> {
         if let (
             Some(TokenKind::Punctuation(PunctuationKind::Colon)),
             Some(TokenKind::Punctuation(PunctuationKind::Colon)),
-            Some(TokenKind::AlphaNumeric(variant)),
+            Some(TokenKind::AlphaNumeric(name)),
         ) = (
             self.get_token_kind_n(1),
             self.get_token_kind_n(2),
             self.get_token_kind_n(3),
         ) {
-            Some((variant.clone(), 4))
+            Some((name.clone(), 4))
         } else {
             None
         }
@@ -1460,19 +1469,19 @@ mod tests {
             };
 
         assert!(!module.body.is_empty());
-        assert_eq!(1, par.unwrap().parameters.len());
+        assert_eq!(1, par.unwrap().parameters().len());
 
-        let nprint_parameter = par.unwrap().parameters.get(0);
+        let nprint_parameter = par.unwrap().parameters().get(0);
 
         if let Some(ASTExpression::ASTFunctionCallExpression(call)) = nprint_parameter {
-            assert_eq!("add", call.function_name);
-            assert_eq!(2, call.parameters.len());
-            if let Some(ASTExpression::Value(ASTValueType::I32(n), _)) = call.parameters.get(0) {
+            assert_eq!("add", call.function_name());
+            assert_eq!(2, call.parameters().len());
+            if let Some(ASTExpression::Value(ASTValueType::I32(n), _)) = call.parameters().get(0) {
                 assert_eq!(10, *n);
             } else {
                 panic!();
             }
-            if let Some(ASTExpression::Value(ASTValueType::I32(n), _)) = call.parameters.get(1) {
+            if let Some(ASTExpression::Value(ASTValueType::I32(n), _)) = call.parameters().get(1) {
                 assert_eq!(20, *n);
             } else {
                 panic!();
@@ -1509,6 +1518,7 @@ mod tests {
             generic_types: vec!["T".into(), "T1".into()],
             position: ASTPosition::new(1, 4),
             modifiers: ASTModifiers::private(),
+            target: None,
         };
 
         assert_eq!(module.functions, vec![function_def]);
@@ -1554,15 +1564,16 @@ mod tests {
 
         let (module, _errors) = parser.parse();
 
-        let function_call = ASTFunctionCall {
-            function_name: "println".to_string(),
-            parameters: vec![ASTExpression::Value(
+        let function_call = ASTFunctionCall::new(
+            "println".to_string(),
+            vec![ASTExpression::Value(
                 ASTValueType::I32(20),
                 ASTPosition::new(1, 14),
             )],
-            generics: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
-            position: ASTPosition::new(1, 1),
-        };
+            ASTPosition::new(1, 1),
+            vec![ASTType::Builtin(BuiltinTypeKind::I32)],
+            None,
+        );
 
         assert_eq!(
             module.body.first().unwrap(),
@@ -1578,15 +1589,16 @@ mod tests {
 
         let (module, _) = parser.parse();
 
-        let function_call = ASTFunctionCall {
-            function_name: "println".to_string(),
-            parameters: vec![ASTExpression::ValueRef(
+        let function_call = ASTFunctionCall::new(
+            "println".to_string(),
+            vec![ASTExpression::ValueRef(
                 "it".to_string(),
                 ASTPosition::new(1, 36),
             )],
-            generics: vec![ASTType::Generic(ASTPosition::new(1, 34), "T".to_string())],
-            position: ASTPosition::new(1, 25),
-        };
+            ASTPosition::new(1, 25),
+            vec![ASTType::Generic(ASTPosition::new(1, 34), "T".to_string())],
+            None,
+        );
 
         if let ASTFunctionBody::RASMBody(ref body) = module.functions.first().unwrap().body {
             assert_eq!(
@@ -1600,21 +1612,22 @@ mod tests {
 
     #[test]
     fn enum_constructor() {
-        let lexer = Lexer::new("Option::Some(20);".into());
+        let lexer = Lexer::new("Some(20);".into());
 
         let parser = Parser::new(lexer);
 
         let (module, _errors) = parser.parse();
 
-        let function_call = ASTFunctionCall {
-            function_name: "Option::Some".to_string(),
-            parameters: vec![ASTExpression::Value(
+        let function_call = ASTFunctionCall::new(
+            "Some".to_string(),
+            vec![ASTExpression::Value(
                 ASTValueType::I32(20),
-                ASTPosition::new(1, 14),
+                ASTPosition::new(1, 6),
             )],
-            generics: Vec::new(),
-            position: ASTPosition::new(1, 1),
-        };
+            ASTPosition::new(1, 1),
+            Vec::new(),
+            None,
+        );
 
         assert_eq!(
             module.body.first().unwrap(),

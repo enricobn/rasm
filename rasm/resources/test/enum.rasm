@@ -3,11 +3,11 @@ enum Test {
     T2(v1: i32, o: Option<str>)
 }
 
-printOption(Option::Some("a value"));
-printOption(Option::None());
+printOption(Some("a value"));
+printOption(None());
 
-printTest(Test::T1(10, 20, Option::Some("a value 2")));
-printTest(Test::T2(10, Option::Some("a value 3")));
+printTest(T1(10, 20, Some("a value 2")));
+printTest(T2(10, Some("a value 3")));
 
 fn printTest(test: Test) {
     match(

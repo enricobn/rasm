@@ -15,7 +15,7 @@ let l = Loop(
             {
                 let x = x(model);
                 let y = y(model);
-                Option::Some(Model(add(x, 1), add(y, 1)));
+                Some(Model(add(x, 1), add(y, 1)));
             });
     },
     fn(model) {
@@ -35,5 +35,5 @@ fn loop<T>(time: i32, model: T, l: Loop<T>) {
 }
 
 fn NoneModel() -> Option<Model> {
-    Option::None();
+    None();
 }

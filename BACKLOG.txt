@@ -1,13 +1,18 @@
 Doing
 ------
 - function reference
-  - add reference to enum variants constructors, or think to eliminate :: 
-- inline for fn (inline fn)
+  - fix ASTTypeChecker
 
 Major
 -----
-- rename const to "pub let", but are not reliable: if a const is defined with a function call, that uses a const that is defined after, 
-  then it will compile, but it will crash at runtime!!!
+- populate target for ASTFunctionDef, for regular functions (not builtin), with the name of the type of the first parameter, 
+  even if generic when not completely generic (Option<T>)? Adjust code completion
+- inline for fn (inline fn)
+- const:
+  - by default, as for all, const must be private, so they can be defined in multiple modules
+  - rename const? 
+  - are not reliable: if a const is defined with a function call, that uses a const that is defined after, 
+    then it will compile, but it will crash at runtime!!!
 - "Universal Polymorphism" can create an infinite recursion, for example:
   we declare a function like
     add<T>(o1: str, o2: T) -> str {
@@ -62,7 +67,8 @@ Major
 - create and use Result in standard library
 - standardize compiler errors with source
 - tests: there should not be a particular code generation of the compiler, it could be another source root that dependes on main,
-  and there should be a library to define a test Suite and add tests (with a function reference?)
+  and there should be a library to define a test Suite, add tests (with a lambda that can be replaced by a function reference?) 
+  or suites then run them an return the result that can be rendered in various formats, by default printed to the console
 
 MINOR
 - Vec

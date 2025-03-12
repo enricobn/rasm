@@ -1,5 +1,5 @@
 
-printOption(Option::Some(Option::Some("1")));
+printOption(Some(Some("1")));
 
 
 //printAllocated();

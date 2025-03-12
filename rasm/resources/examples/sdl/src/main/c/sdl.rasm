@@ -155,13 +155,11 @@ pub native keyEvent() -> Option<KeyEvent> /{
         void * state = NULL;
 
         if (event.type == SDL_KEYDOWN) {
-            state =
-                $call(KeyState::Down)
-            ;
+            $enumSimple(tmp_state, Down, KeyState)
+            state = tmp_state;
         } else if (event.type == SDL_KEYUP) {
-            state =
-                $call(KeyState::Up)
-            ;
+            $enumSimple(tmp_state, Up, KeyState)
+            state = tmp_state;
         }
 
         if (state != NULL) {
@@ -171,7 +169,7 @@ pub native keyEvent() -> Option<KeyEvent> /{
             ;
             $addRef(keyEvent:KeyEvent)
             void *result = 
-            $call(Option::Some, keyEvent: KeyEvent)
+            $call(Some, keyEvent: KeyEvent)
             ;
             $deref(keyEvent:KeyEvent)
             $deref(state:KeyState)

@@ -3,7 +3,7 @@ pub struct If<T> {
 }
 
 pub fn if<T>(cond: bool, trueValue: T) -> If<T> {
-    If(if(cond, Option::Some(trueValue), Option::None()));
+    If(if(cond, Some(trueValue), None()));
 }
 
 pub fn elseIf<T>(ifValue: If<T>, cond: bool, trueValue: T) -> If<T> {
@@ -23,7 +23,7 @@ struct IfLambda<T> {
 }
 
 fn if<T>(cond: bool, trueValue: fn() -> T) -> IfLambda<T> {
-    if(cond, IfLambda(Option::Some(trueValue)), IfLambda(Option::None()));
+    if(cond, IfLambda(Some(trueValue)), IfLambda(None()));
 }
 
 fn elseIf<T>(ifValue: IfLambda<T>, cond: bool, trueValue: fn() -> T) -> IfLambda<T> {

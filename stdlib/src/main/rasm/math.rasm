@@ -14,5 +14,5 @@ pub fn between<T>(actual: T, minValue: T, maxValue: T) -> T {
 }
 
 pub fn cmp<T>(a: T, b: T) -> Compare {
-    if(less(a, b), Compare::Less(), if(eq(a, b), Compare::Equal(), Compare::Greater()));
+    if(less(a, b), Less(), if(eq(a, b), Equal(), Greater()));
 }

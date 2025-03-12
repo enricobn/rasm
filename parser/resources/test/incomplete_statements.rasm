@@ -1,7 +1,7 @@
 struct AStruct {
     anOption: Opt
 
-let anEnum = Option::Some(10);
+let anEnum = Some(10);
 anE
 
 fn lambda(structVec: Vec<AStruct>) -> Vec<AStruct> {

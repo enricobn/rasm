@@ -84,7 +84,7 @@ pub fn toVec<T>(l: List<T>) -> Vec<T> {
 
 // TODO slow
 pub fn toList<T>(v: Vec<T>) -> List<T> {
-    v.foldLeft(List::Empty<T>(), fn(prev, o) { prev.push(o); });
+    v.foldLeft(Empty<T>(), fn(prev, o) { prev.push(o); });
 }
 
 // TODO slow

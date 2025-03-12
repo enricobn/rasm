@@ -2,5 +2,5 @@
 newStrList();
 
 fn newStrList() -> List<str> {
-    List::Empty();
+    Empty();
 }

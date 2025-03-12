@@ -32,7 +32,7 @@ println(foldLeft(vecRange(0, 5), 0, fn(prev, act) { add(prev, act);}));
 
 println(first(Vec<i32>()));
 
-let vecOfOpt = vecOf(Option::Some("Hello"));
+let vecOfOpt = vecOf(Some("Hello"));
 
 println(first(vecOfOpt));
 

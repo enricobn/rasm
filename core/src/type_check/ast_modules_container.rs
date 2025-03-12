@@ -25,6 +25,7 @@ pub struct ASTFunctionSignatureEntry {
     pub module_id: ModuleId,
     pub position: ASTPosition,
     pub rank: usize,
+    pub target: Option<String>,
 }
 
 impl ASTFunctionSignatureEntry {
@@ -33,6 +34,7 @@ impl ASTFunctionSignatureEntry {
         namespace: ModuleNamespace,
         module_id: ModuleId,
         position: ASTPosition,
+        target: Option<String>,
     ) -> Self {
         let rank = Self::signature_precedence_coeff(&signature);
         Self {
@@ -41,6 +43,7 @@ impl ASTFunctionSignatureEntry {
             module_id,
             position,
             rank,
+            target,
         }
     }
 
@@ -163,6 +166,7 @@ impl ASTModulesContainer {
                         namespace.clone(),
                         module_id.clone(),
                         ASTPosition::builtin(&position, ft),
+                        Some(enum_def.name.clone()),
                     ));
                 }
             }
@@ -179,6 +183,7 @@ impl ASTModulesContainer {
                         namespace.clone(),
                         module_id.clone(),
                         ASTPosition::builtin(&position, tf),
+                        Some(struct_def.name.clone()),
                     ));
                 }
             }
@@ -228,6 +233,7 @@ impl ASTModulesContainer {
                 namespace.clone(),
                 module_id.clone(),
                 function.position.clone(),
+                function.target.clone(),
             ));
             let index = ASTIndex::new(
                 namespace.clone(),
@@ -271,6 +277,7 @@ impl ASTModulesContainer {
         &self,
         function_to_call: &str,
         position: &ASTPosition,
+        target: &Option<String>,
         parameter_types_filter: &Vec<ASTTypeFilter>,
         return_type_filter: Option<&ASTType>,
         function_call_module_namespace: &ModuleNamespace,
@@ -298,6 +305,18 @@ impl ASTModulesContainer {
                 zip(parameter_types_filter, &entry.signature.parameters_types).all(
                     |(filter, parameter)| filter.is_compatible(&parameter, &entry.namespace, self),
                 )
+            })
+            .filter(|it| {
+                target
+                    .as_ref()
+                    .map(|t| {
+                        if let Some(target) = &it.target {
+                            t == target
+                        } else {
+                            false
+                        }
+                    })
+                    .unwrap_or(true)
             })
             .collect::<Vec<_>>();
 
@@ -748,6 +767,7 @@ mod tests {
         let functions = container.find_call_vec(
             "add",
             &ASTPosition::none(),
+            &None,
             &vec![
                 exact_builtin(BuiltinTypeKind::I32),
                 exact_builtin(BuiltinTypeKind::I32),
@@ -766,6 +786,7 @@ mod tests {
         let functions = container.find_call_vec(
             "match",
             &ASTPosition::none(),
+            &None,
             &vec![
                 exact_custom("Option", vec![ASTType::Builtin(BuiltinTypeKind::I32)]),
                 exact_builtin(BuiltinTypeKind::Lambda {

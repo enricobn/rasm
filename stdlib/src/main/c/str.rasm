@@ -44,7 +44,7 @@ pub native toi32(s: str) -> Option<i32> /{
 
     if (errno == 0 && $s && !*end) {
         return
-        $call(Option::Some, result)
+        $call(Some, result)
         ;
     } else {
         // a "typed" None based on the typed return value of the function
@@ -121,7 +121,7 @@ pub native substr(s: str, pos: i32, len: i32) -> Option<str> /{
     strncpy(dest, $s + pos, len);
     dest[len] = '\0'; // place the null terminator
 
-    return $call(Option::Some, dest:str);
+    return $call(Some, dest:str);
 }/
 
 pub inline native isAlpha(c: char) -> bool /{

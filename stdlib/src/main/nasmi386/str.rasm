@@ -25,7 +25,7 @@ pub native toi32(s: str) -> Option<i32> /{
     mov     dword eax, [_enum_stdlib_option_Option_None]
     jmp     .end
 .done:
-    $call(Option::Some, eax)
+    $call(Some, eax)
 .end:
     pop    edx
     pop    ecx
@@ -112,7 +112,7 @@ pub native substr(s: str, pos: i32, len: i32) -> Option<str> /{
 
     $call(memcopy, ebx, ecx, $len)
 
-    $call(Option::Some, eax: str)
+    $call(Some, eax: str)
     pop     ebx
     $deref(ebx: str)
 .end:

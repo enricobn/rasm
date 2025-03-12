@@ -4,7 +4,7 @@ pub enum Option<T> {
 }
 
 pub fn toList<T>(o: Option<T>) -> List<T> {
-    match(o, fn(v) {listOf(v);}, {List::Empty();});
+    match(o, fn(v) {listOf(v);}, {Empty();});
 }
 
 pub fn print<T>(file: File, o: Option<T>) -> Option<IOError> {
@@ -20,11 +20,11 @@ pub fn forEach<T>(o: Option<T>, f: fn(T) -> ()) {
 }
 
 pub fn map<T,T1>(o: Option<T>, f: fn(T) -> T1) -> Option<T1> {
-    match(o, fn(v) {Option::Some(f(v)); }, {Option::None();});
+    match(o, fn(v) {Some(f(v)); }, {None();});
 }
 
 pub fn flatten<T>(o: Option<Option<T>>) -> Option<T> {
-    match(o, fn(v) {v;}, {Option::None(); });
+    match(o, fn(v) {v;}, {None(); });
 }
 
 pub fn fmap<T,T1>(o: Option<T>, f: fn(T) -> Option<T1>) -> Option<T1> {

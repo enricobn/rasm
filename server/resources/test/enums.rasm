@@ -12,6 +12,6 @@ enum MyOption<T> {
     None
 }
 
-let aStruct = MyStruct(MyOption::Some(10));
+let aStruct = MyStruct(MySome(10));
 
 aStruct.op.match(fn(value) {println(value);}, {println("None");});
