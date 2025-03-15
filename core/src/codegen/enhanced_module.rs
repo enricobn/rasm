@@ -84,6 +84,8 @@ impl EnhancedASTModule {
             body_namespace,
         };
 
+        // TODO it is already done in RasmProject::container_and_catalog, but here we haven't get
+        // the modules from the container
         add_folder(
             &mut enhanced_module,
             "RASMRESOURCEFOLDER",

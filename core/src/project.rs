@@ -45,8 +45,8 @@ use crate::codegen::statics::Statics;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::transformations::enrich_module;
 use rasm_parser::lexer::Lexer;
-use rasm_parser::parser::ast::ASTExpression::ASTFunctionCallExpression;
-use rasm_parser::parser::ast::{ASTModule, ASTStatement, ASTType};
+use rasm_parser::parser::ast::ASTExpression::{self, ASTFunctionCallExpression};
+use rasm_parser::parser::ast::{ASTModule, ASTPosition, ASTStatement, ASTType, ASTValueType};
 use rasm_parser::parser::Parser;
 
 #[derive(Debug, Clone)]
@@ -60,10 +60,29 @@ pub struct RasmProject {
 #[folder = "../core/resources/corelib/rasm"]
 pub struct RasmCoreLibAssets;
 
+#[derive(PartialEq, Eq)]
 pub enum RasmProjectRunType {
     Main,
     Test,
     All,
+}
+
+impl RasmProjectRunType {
+    pub fn main(&self) -> bool {
+        match self {
+            RasmProjectRunType::Main => true,
+            RasmProjectRunType::Test => false,
+            RasmProjectRunType::All => true,
+        }
+    }
+
+    pub fn test(&self) -> bool {
+        match self {
+            RasmProjectRunType::Main => false,
+            RasmProjectRunType::Test => true,
+            RasmProjectRunType::All => true,
+        }
+    }
 }
 
 impl RasmProject {
@@ -398,7 +417,36 @@ impl RasmProject {
     ) {
         let mut catalog = RasmProjectCatalog::new();
         let mut container = ASTModulesContainer::new();
-        let (modules, errors) = self.get_all_modules(statics, run_type, target, debug, options);
+        let (mut modules, errors) = self.get_all_modules(statics, run_type, target, debug, options);
+
+        let mut resources_body = Vec::new();
+
+        Self::add_folder(
+            &mut resources_body,
+            "RASMRESOURCEFOLDER",
+            self.main_resources_folder(),
+        );
+        Self::add_folder(
+            &mut resources_body,
+            "RASMTESTRESOURCEFOLDER",
+            self.test_resources_folder(),
+        );
+
+        let resources_module = ASTModule {
+            body: resources_body,
+            functions: Vec::new(),
+            enums: Vec::new(),
+            structs: Vec::new(),
+            types: Vec::new(),
+        };
+
+        modules.push((
+            resources_module,
+            EnhModuleInfo::new(
+                EnhModuleId::Other("resources".to_owned()),
+                EnhASTNameSpace::global(),
+            ),
+        ));
 
         for (module, info) in modules {
             container.add(
@@ -895,6 +943,21 @@ impl RasmProject {
                 .collect::<Vec<_>>(),
             EnhModuleInfo::new(EnhModuleId::Path(main_path.to_path_buf()), namespace),
         )
+    }
+
+    fn add_folder(statements: &mut Vec<ASTStatement>, name: &str, folder: PathBuf) {
+        let path = if folder.exists() {
+            folder.canonicalize().unwrap().to_string_lossy().to_string()
+        } else {
+            String::new()
+        };
+        let stmt = ASTStatement::LetStatement(
+            name.to_owned(),
+            ASTExpression::Value(ASTValueType::String(path), ASTPosition::none()),
+            true,
+            ASTPosition::none(),
+        );
+        statements.push(stmt);
     }
 }
 
