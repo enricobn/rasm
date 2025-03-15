@@ -489,9 +489,9 @@ impl ASTType {
                 result.insert(name.clone());
             }
             ASTType::Custom {
-                name,
+                name: _,
                 param_types,
-                position,
+                position: _,
             } => {
                 for t in param_types.iter() {
                     result.extend(t.generics());

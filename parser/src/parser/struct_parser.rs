@@ -1,10 +1,7 @@
-use crate::lexer::tokens::{
-    BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
-};
+use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, Token, TokenKind};
 use crate::parser::ast::ASTModifiers;
-use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
-use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherTrait};
+use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::ParserTrait;
 
 pub struct StructParser {
@@ -43,23 +40,6 @@ impl StructParser {
                 parser.get_i() + result.next_n(),
             )
         })
-    }
-
-    fn properties_matcher(
-        name: &str,
-        quantifier: Quantifier,
-        type_parameters: &[String],
-    ) -> TokensMatcher {
-        let mut matcher = TokensMatcher::new(name, quantifier);
-        matcher.start_group("parameter_list", Quantifier::One);
-        matcher.add_matcher(EnumParser::parameter_matcher(type_parameters));
-        matcher.end_group();
-        matcher.start_group("parameter_list", Quantifier::ZeroOrMore);
-        matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Comma));
-        matcher.add_matcher(EnumParser::parameter_matcher(type_parameters));
-        matcher.end_group();
-        matcher.add_kind(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close));
-        matcher
     }
 }
 

@@ -190,7 +190,7 @@ mod tests {
     fn test_parse_properties_one() {
         let parser = get_parser("name: Pippo");
 
-        let (mut properties, errors, n) = parse_properties(
+        let (mut properties, _errors, n) = parse_properties(
             &parser,
             &[],
             0,
@@ -199,8 +199,6 @@ mod tests {
 
         assert_eq!(properties.len(), 1);
         assert_eq!(properties.remove(0).name, "name");
-        //println!("errors {}", SliceDisplay(&errors));
-        //assert!(errors.is_empty());
         assert_eq!(3, n);
     }
 
