@@ -341,7 +341,12 @@ impl ASTModulesContainer {
                         for (filter, t) in
                             zip(parameter_types_filter, &it.signature.parameters_types)
                         {
-                            match ASTTypeChecker::resolve_type_filter(t, filter) {
+                            let t = if let Some(new_t) = ASTTypeChecker::substitute(t, &resolver) {
+                                new_t
+                            } else {
+                                t.clone()
+                            };
+                            match ASTTypeChecker::resolve_type_filter(&t, filter) {
                                 Ok(t_resolver) => {
                                     if resolver.extend(t_resolver).is_err() {
                                         compatible = false;

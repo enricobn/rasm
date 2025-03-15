@@ -353,15 +353,6 @@ impl ASTTypeChecker {
     ) {
         let mut val_context = ValContext::new(None);
 
-        /*
-        let (mut result, mut return_type, mut errors) = self.get_body_type_map(
-            &mut val_context,
-            statics,
-            &self.enhanced_ast_module.body,
-            None,
-        );
-        */
-
         let generics_prefix = function.signature().generics_prefix(&module_namespace.0);
 
         for par in &function.parameters {
@@ -420,12 +411,6 @@ impl ASTTypeChecker {
     ) -> Option<ASTTypeCheckEntry> {
         let mut return_type = None;
         let inner_val_context = &mut ValContext::new(Some(val_context));
-        /*
-        println!(
-            "get_body_type_map expected_last_statement_type {}",
-            OptionDisplay(&expected_last_statement_type)
-        );
-        */
 
         for (i, statement) in body.iter().enumerate() {
             match statement {
@@ -542,8 +527,6 @@ impl ASTTypeChecker {
                 }
             }
         }
-
-        //println!("return_type {}", OptionDisplay(&return_type));
 
         return_type
     }
@@ -898,16 +881,6 @@ impl ASTTypeChecker {
             OptionDisplay(&expected_expression_type)
         );
 
-        /*
-        if call.function_name == "curry" {
-            let msg = format!(
-                "curry expected_expression_type {}",
-                OptionDisplay(&expected_expression_type)
-            );
-            println!("{msg}");
-        }
-        */
-
         indent!();
 
         if let Some(t) = self.result.get(&index) {
@@ -917,25 +890,6 @@ impl ASTTypeChecker {
                 return;
             }
         }
-        /*
-        if let Some(kind) = val_context.get(&call.function_name) {
-            self.result.insert(
-                index,
-                ASTTypeCheckEntry::reference(
-                    ASTTypeFilter::exact(
-                        kind.ast_type(),
-                        module_namespace,
-                        module_id,
-                        modules_container,
-                    ),
-                    call.function_name.clone(),
-                    kind.index(module_namespace, module_id),
-                ),
-            );
-            dedent!();
-            return;
-        }
-        */
 
         let mut first_try_of_map = HashMap::new();
 
@@ -1050,24 +1004,6 @@ impl ASTTypeChecker {
                 function,
             );
 
-            /*
-            let kind = val_context.get(&call.function_name).unwrap();
-
-            self.result.insert(
-                index,
-                ASTTypeCheckEntry::reference(
-                    ASTTypeFilter::exact(
-                        kind.ast_type(),
-                        module_namespace,
-                        module_id,
-                        modules_container,
-                    ),
-                    call.function_name.clone(),
-                    kind.index(module_namespace, module_id),
-                ),
-            );
-            */
-
             dedent!();
 
             return;
@@ -1082,12 +1018,6 @@ impl ASTTypeChecker {
         );
 
         if functions.is_empty() {
-            // println!("no functions for {} : {}", call.function_name, index);
-            // println!("filters {}", SliceDisplay(&parameter_types_filters));
-            /*println!(
-                "expected_expression_type {}",
-                OptionDisplay(&expected_expression_type)
-            );*/
             self.errors.push(ASTTypeCheckError::new(
                 ASTTypeCheckErroKind::Error,
                 index.clone(),
@@ -1098,29 +1028,7 @@ impl ASTTypeChecker {
                 ),
             ));
         } else {
-            /*
             if functions.len() > 1 {
-                let min = functions.iter().map(|it| it.rank).min().unwrap();
-
-                functions = functions
-                    .into_iter()
-                    .filter(|it| it.rank == min)
-                    .collect::<Vec<_>>();
-            }
-            */
-
-            if functions.len() > 1 {
-                /*
-                print!(
-                    "found more than one function for {} : {} -> ",
-                    call.function_name, index
-                );
-                println!("{}", SliceDisplay(&parameter_types_filters));
-                for fun in functions.iter() {
-                    println!("  function {}", fun.signature);
-                }
-                */
-
                 let functions_msg = functions
                     .iter()
                     .map(|it| {
@@ -1183,28 +1091,8 @@ impl ASTTypeChecker {
                         ),
                     ),
                 );
-
-                // self.result.extend(first_try_of_map);
             } else {
                 let found_function = functions.remove(0);
-
-                /*
-                for (e, t) in zip(&call.parameters, &found_function.signature.parameters_types) {
-                    let e_index =
-                        ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
-
-                    self.result.remove(&e_index);
-
-                    self.get_expr_type_map(
-                        e,
-                        val_context,
-                        statics,
-                        Some(t),
-                        module_namespace,
-                        module_id,
-                    );
-                }
-                */
 
                 self.process_function_signature(
                     &found_function,
