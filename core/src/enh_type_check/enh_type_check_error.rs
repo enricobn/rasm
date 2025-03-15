@@ -20,25 +20,25 @@ use crate::codegen::enh_ast::EnhASTIndex;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TypeCheckErrorKind {
+pub enum EnhTypeCheckErrorKind {
     Standard,
     Ignorable,
     Important,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TypeCheckError {
-    pub kind: TypeCheckErrorKind,
+pub struct EnhTypeCheckError {
+    pub kind: EnhTypeCheckErrorKind,
     pub main: (EnhASTIndex, String, Vec<EnhASTIndex>),
     pub messages: Vec<(EnhASTIndex, String, Vec<EnhASTIndex>)>,
-    children: Vec<TypeCheckError>,
+    children: Vec<EnhTypeCheckError>,
     dummy: bool,
 }
 
-impl TypeCheckError {
+impl EnhTypeCheckError {
     pub fn new(index: EnhASTIndex, message: String, stack: Vec<EnhASTIndex>) -> Self {
-        TypeCheckError {
-            kind: TypeCheckErrorKind::Standard,
+        EnhTypeCheckError {
+            kind: EnhTypeCheckErrorKind::Standard,
             main: (index, message, stack),
             messages: Vec::new(),
             children: Vec::new(),
@@ -50,9 +50,9 @@ impl TypeCheckError {
         index: EnhASTIndex,
         message: String,
         stack: Vec<EnhASTIndex>,
-        kind: TypeCheckErrorKind,
+        kind: EnhTypeCheckErrorKind,
     ) -> Self {
-        TypeCheckError {
+        EnhTypeCheckError {
             kind,
             main: (index, message, stack),
             messages: Vec::new(),
@@ -62,8 +62,8 @@ impl TypeCheckError {
     }
 
     pub fn dummy() -> Self {
-        TypeCheckError {
-            kind: TypeCheckErrorKind::Ignorable,
+        EnhTypeCheckError {
+            kind: EnhTypeCheckErrorKind::Ignorable,
             main: (EnhASTIndex::none(), "Dummy".to_string(), Vec::new()),
             messages: Vec::new(),
             children: Vec::new(),
@@ -78,7 +78,7 @@ impl TypeCheckError {
         result
     }
 
-    pub fn add_errors(self, errors: Vec<TypeCheckError>) -> Self {
+    pub fn add_errors(self, errors: Vec<EnhTypeCheckError>) -> Self {
         let mut result = self.clone();
 
         result.children.extend(errors);
@@ -93,7 +93,7 @@ impl TypeCheckError {
     ) -> std::fmt::Result {
         let spaces = " ".repeat(indent * 2);
 
-        let kind = if self.kind == TypeCheckErrorKind::Important {
+        let kind = if self.kind == EnhTypeCheckErrorKind::Important {
             "!"
         } else {
             ""
@@ -104,7 +104,7 @@ impl TypeCheckError {
             self.main.1, self.main.0
         ))?;
 
-        if matches!(self.kind, TypeCheckErrorKind::Ignorable) {
+        if matches!(self.kind, EnhTypeCheckErrorKind::Ignorable) {
             //f.write_str(&format!("{spaces}  ignored\n"))?;
             // return Ok(());
         }
@@ -161,8 +161,8 @@ impl TypeCheckError {
         self.dummy
     }
 
-    pub fn important(&self) -> Vec<&TypeCheckError> {
-        if self.kind == TypeCheckErrorKind::Important {
+    pub fn important(&self) -> Vec<&EnhTypeCheckError> {
+        if self.kind == EnhTypeCheckErrorKind::Important {
             vec![self]
         } else {
             self.children.iter().flat_map(|it| it.important()).collect()
@@ -170,7 +170,7 @@ impl TypeCheckError {
     }
 }
 
-impl Display for TypeCheckError {
+impl Display for EnhTypeCheckError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.write_one(f, 0, &Vec::new())
     }

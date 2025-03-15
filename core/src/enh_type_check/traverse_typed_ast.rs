@@ -17,7 +17,7 @@
  */
 
 use crate::codegen::enh_ast::EnhASTIndex;
-use crate::type_check::typed_ast::{
+use crate::enh_type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedStatement,
 };

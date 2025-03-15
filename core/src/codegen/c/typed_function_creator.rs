@@ -26,12 +26,12 @@ use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen};
-use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
-use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-use crate::type_check::typed_ast::{
+use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
+use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedStructDef, ASTTypedType,
     ASTTypedTypeDef,
 };
+use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
 
 use super::any::{CLambdas, CStructs};
 use super::code_gen_c::CodeGenC;
@@ -267,7 +267,7 @@ impl TypedFunctionsCreatorC {
         self.create_function(
             &EnhASTNameSpace::global(),
             &fun_name,
-            crate::type_check::typed_ast::ASTTypedType::Type {
+            crate::enh_type_check::typed_ast::ASTTypedType::Type {
                 namespace: EnhASTNameSpace::global(),
                 name: "CTargetLambda".to_string(),
                 native_type: Some("void **".to_string()),
@@ -623,7 +623,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                 false,
             );
 
-            function.resolved_generic_types = ResolvedGenericTypes::new();
+            function.resolved_generic_types = EnhResolvedGenericTypes::new();
             for (name, t) in type_def.generic_types.iter() {
                 function.resolved_generic_types.insert(
                     name.clone(),

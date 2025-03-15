@@ -14,12 +14,12 @@ use crate::codegen::enh_ast::{
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm};
-use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-use crate::type_check::substitute;
-use crate::type_check::typed_ast::{
+use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
+use crate::enh_type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind,
     DefaultFunctionCall,
 };
+use crate::type_check::substitute;
 use rasm_parser::lexer::tokens::Token;
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast;
@@ -333,7 +333,7 @@ impl TextMacroEvaluator {
                         par_typed_type,
                         type_def_provider,
                         &context_generic_types,
-                        &ResolvedGenericTypes::new(),
+                        &EnhResolvedGenericTypes::new(),
                         &f.index.id(),
                     )?;
                     if !f.parameters.iter().any(|it| it.name == par_name) {
@@ -380,7 +380,7 @@ impl TextMacroEvaluator {
                     None,
                     type_def_provider,
                     &context_generic_types,
-                    &ResolvedGenericTypes::new(),
+                    &EnhResolvedGenericTypes::new(),
                     &EnhModuleId::Other(String::new()), // TODO is it correct?
                 )?
             };
@@ -480,7 +480,7 @@ impl TextMacroEvaluator {
         typed_type: Option<ASTTypedType>,
         type_def_provider: &dyn TypeDefProvider,
         context_generic_types: &[String],
-        resolved_generic_types: &ResolvedGenericTypes,
+        resolved_generic_types: &EnhResolvedGenericTypes,
         id: &EnhModuleId,
     ) -> Result<(String, Option<EnhASTType>, Option<ASTTypedType>), String> {
         //println!("parse_typed_argument namespace {namespace}, p {p}");
@@ -1518,8 +1518,8 @@ mod tests {
     use crate::codegen::statics::{MemoryValue, Statics};
     use crate::codegen::text_macro::{MacroParam, TextMacro};
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
-    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-    use crate::type_check::typed_ast::{
+    use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
+    use crate::enh_type_check::typed_ast::{
         ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
         BuiltinTypedTypeKind,
     };
@@ -1772,7 +1772,7 @@ mod tests {
             return_type: EnhASTType::Unit,
             inline: false,
             index: EnhASTIndex::none(),
-            resolved_generic_types: ResolvedGenericTypes::new(),
+            resolved_generic_types: EnhResolvedGenericTypes::new(),
             modifiers: ASTModifiers::private(),
             namespace: EnhASTNameSpace::global(),
             rank: 0,

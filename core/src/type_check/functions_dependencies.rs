@@ -709,9 +709,9 @@ mod tests {
 
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget},
+        test_utils::project_and_container,
         type_check::{
             ast_type_checker::ASTTypeChecker, functions_dependencies::function_dependencies,
-            test_utils::project_and_container,
         },
     };
 

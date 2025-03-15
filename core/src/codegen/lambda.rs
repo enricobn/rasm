@@ -2,7 +2,7 @@ use linked_hash_map::{Iter, LinkedHashMap};
 
 use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::TypedValKind;
-use crate::type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedType};
+use crate::enh_type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedType};
 
 #[derive(Debug, Clone)]
 pub struct LambdaCall {

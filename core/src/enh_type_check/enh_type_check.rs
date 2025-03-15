@@ -1,59 +1,47 @@
-/*
- *     RASM compiler.
- *     Copyright (C) 2022-2023  Enrico Benedetti
- *
- *     This program is free software: you can redistribute it and/or modify
- *     it under the terms of the GNU General Public License as published by
- *     the Free Software Foundation, either version 3 of the License, or
- *     (at your option) any later version.
- *
- *     This program is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     GNU General Public License for more details.
- *
- *     You should have received a copy of the GNU General Public License
- *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
+use std::{collections::HashMap, iter::zip, ops::Deref};
 
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
-use rasm_parser::catalog::modules_catalog::ModulesCatalog;
-use rasm_parser::catalog::{ASTIndex, ModuleInfo};
-use rasm_parser::parser::ast::{ASTPosition, ASTType, BuiltinTypeKind};
-use std::collections::HashMap;
-use std::iter::zip;
-use std::ops::Deref;
-
-use crate::codegen::c::code_gen_c::value_type_to_enh_type;
-use crate::codegen::compile_target::CompileTarget;
-use crate::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
-use crate::type_check::ast_type_checker::{ASTTypeCheckEntry, ASTTypeCheckInfo, ASTTypeChecker};
 use log::info;
-
-use crate::codegen::enh_ast::{
-    EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex,
-    EnhASTLambdaDef, EnhASTNameSpace, EnhASTParameterDef, EnhASTStatement, EnhASTType,
-    EnhBuiltinTypeKind, EnhModuleId, EnhModuleInfo,
+use rasm_parser::{
+    catalog::{modules_catalog::ModulesCatalog, ASTIndex, ModuleInfo},
+    parser::ast::{ASTPosition, ASTType, BuiltinTypeKind},
 };
-use crate::codegen::enh_val_context::EnhValContext;
-use crate::codegen::enhanced_module::EnhancedASTModule;
-use crate::codegen::statics::Statics;
-use crate::codegen::typedef_provider::DummyTypeDefProvider;
-use crate::codegen::EnhValKind;
-use crate::errors::{CompilationError, CompilationErrorKind};
-use crate::type_check::functions_container::{EnhTypeFilter, FunctionsContainer};
-use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-use crate::type_check::type_check_error::{TypeCheckError, TypeCheckErrorKind};
-use crate::type_check::typed_ast::DefaultFunction;
-use crate::type_check::{resolve_generic_types_from_effective_type, substitute};
 use rasm_utils::{debug_i, dedent, indent, OptionDisplay, SliceDisplay};
 
-type InputModule = EnhancedASTModule;
-type OutputModule = EnhancedASTModule;
+use crate::{
+    codegen::{
+        c::code_gen_c::value_type_to_enh_type,
+        compile_target::CompileTarget,
+        enh_ast::{
+            EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef,
+            EnhASTIndex, EnhASTLambdaDef, EnhASTNameSpace, EnhASTParameterDef, EnhASTStatement,
+            EnhASTType, EnhBuiltinTypeKind, EnhModuleId, EnhModuleInfo,
+        },
+        enh_val_context::EnhValContext,
+        enhanced_module::EnhancedASTModule,
+        statics::Statics,
+        typedef_provider::DummyTypeDefProvider,
+        EnhValKind,
+    },
+    enh_type_check::enh_functions_container::EnhTypeFilter,
+    errors::{CompilationError, CompilationErrorKind},
+    type_check::{
+        ast_modules_container::{ASTModulesContainer, ASTTypeFilter},
+        ast_type_checker::{ASTTypeCheckEntry, ASTTypeCheckInfo, ASTTypeChecker},
+        resolve_generic_types_from_effective_type, substitute,
+    },
+};
 
-pub struct TypeCheck<'a> {
+use super::{
+    enh_functions_container::EnhFunctionsContainer,
+    enh_resolved_generic_types::EnhResolvedGenericTypes,
+    enh_type_check_error::{EnhTypeCheckError, EnhTypeCheckErrorKind},
+    typed_ast::DefaultFunction,
+};
+
+pub struct EnhTypeCheck<'a> {
     target: CompileTarget,
     debug: bool,
     stack: Vec<EnhASTIndex>,
@@ -64,7 +52,10 @@ pub struct TypeCheck<'a> {
     modules_container: &'a ASTModulesContainer,
 }
 
-impl<'a> TypeCheck<'a> {
+type InputModule = EnhancedASTModule;
+type OutputModule = EnhancedASTModule;
+
+impl<'a> EnhTypeCheck<'a> {
     pub fn new(
         target: CompileTarget,
         debug: bool,
@@ -197,7 +188,7 @@ impl<'a> TypeCheck<'a> {
 
         let mut typed_module = EnhancedASTModule {
             body: new_body,
-            functions_by_name: FunctionsContainer::new(),
+            functions_by_name: EnhFunctionsContainer::new(),
             enums: module.enums,
             structs: module.structs,
             types: module.types,
@@ -229,7 +220,7 @@ impl<'a> TypeCheck<'a> {
         inside_function: Option<&EnhASTFunctionDef>,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<EnhASTStatement, TypeCheckError> {
+    ) -> Result<EnhASTStatement, EnhTypeCheckError> {
         match statement {
             EnhASTStatement::Expression(e) => self
                 .transform_expression(
@@ -272,7 +263,7 @@ impl<'a> TypeCheck<'a> {
         inside_function: Option<&EnhASTFunctionDef>,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<EnhASTExpression, TypeCheckError> {
+    ) -> Result<EnhASTExpression, EnhTypeCheckError> {
         match expression {
             EnhASTExpression::ASTFunctionCallExpression(call) => self
                 .transform_call(
@@ -354,20 +345,20 @@ impl<'a> TypeCheck<'a> {
                                 unresolved_generic_types = true;
                             }
                             if unresolved_generic_types {
-                                return Err(TypeCheckError::new_with_kind(
+                                return Err(EnhTypeCheckError::new_with_kind(
                                     index.clone(),
                                     format!("Unresolved generic types in reference to {name}"),
                                     self.stack.clone(),
-                                    TypeCheckErrorKind::Important,
+                                    EnhTypeCheckErrorKind::Important,
                                 ));
                             }
                             new_function_def.generic_types = Vec::new(); // TODO check if there are remaining generic types
                         } else {
-                            return Err(TypeCheckError::new_with_kind(
+                            return Err(EnhTypeCheckError::new_with_kind(
                                 index.clone(),
                                 format!("Expected lambda but found {et} in reference to {name}"),
                                 self.stack.clone(),
-                                TypeCheckErrorKind::Important,
+                                EnhTypeCheckErrorKind::Important,
                             ));
                         }
                     }
@@ -386,11 +377,11 @@ impl<'a> TypeCheck<'a> {
 
                     Ok(EnhASTExpression::ValueRef(new_function_name, index.clone()))
                 } else {
-                    return Err(TypeCheckError::new_with_kind(
+                    return Err(EnhTypeCheckError::new_with_kind(
                         index.clone(),
                         format!("Cannot find reference to {name}"),
                         self.stack.clone(),
-                        TypeCheckErrorKind::Important,
+                        EnhTypeCheckErrorKind::Important,
                     ));
                 }
             }
@@ -409,7 +400,7 @@ impl<'a> TypeCheck<'a> {
         inside_function: Option<&EnhASTFunctionDef>,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<EnhASTFunctionCall, TypeCheckError> {
+    ) -> Result<EnhASTFunctionCall, EnhTypeCheckError> {
         debug_i!(
             "transform_call {call} expected_return_type {}",
             OptionDisplay(&expected_return_type)
@@ -441,7 +432,7 @@ impl<'a> TypeCheck<'a> {
                             strict,
                         )
                     })
-                    .collect::<Result<Vec<_>, TypeCheckError>>()
+                    .collect::<Result<Vec<_>, EnhTypeCheckError>>()
                     .map_err(|it| {
                         dedent!();
                         self.stack.pop();
@@ -492,7 +483,7 @@ impl<'a> TypeCheck<'a> {
                     if strict {
                         self.stack.pop();
                         dedent!();
-                        let result = Err(TypeCheckError::new(
+                        let result = Err(EnhTypeCheckError::new(
                             p.ast_index.clone(),
                             format!(
                                 "Unresolved generic type {} : {resolved_generic_types}",
@@ -520,7 +511,7 @@ impl<'a> TypeCheck<'a> {
                     dedent!();
                     self.stack.pop();
 
-                    let result = Err(TypeCheckError::new(
+                    let result = Err(EnhTypeCheckError::new(
                         new_function_def.index.clone(),
                         format!(
                             "Unresolved generic return type {}, expected return type {}",
@@ -657,10 +648,10 @@ impl<'a> TypeCheck<'a> {
     ) -> Result<
         (
             EnhASTFunctionDef,
-            ResolvedGenericTypes,
+            EnhResolvedGenericTypes,
             Vec<EnhASTExpression>,
         ),
-        TypeCheckError,
+        EnhTypeCheckError,
     > {
         debug_i!(
             "get_valid_function call {call} expected_return_type {}: {}",
@@ -672,7 +663,7 @@ impl<'a> TypeCheck<'a> {
         let mut valid_functions: Vec<(
             EnhASTFunctionDef,
             usize,
-            ResolvedGenericTypes,
+            EnhResolvedGenericTypes,
             Vec<EnhASTExpression>,
         )> = Vec::new();
         let mut errors = Vec::new();
@@ -748,11 +739,11 @@ impl<'a> TypeCheck<'a> {
         if original_functions.is_empty() {
             dedent!();
 
-            return Err(TypeCheckError::new_with_kind(
+            return Err(EnhTypeCheckError::new_with_kind(
                 call.index.clone(),
                 Self::invalid_function_message(namespace, first_type, call, expected_return_type),
                 self.stack.clone(),
-                TypeCheckErrorKind::Standard,
+                EnhTypeCheckErrorKind::Standard,
             ));
         }
 
@@ -775,7 +766,7 @@ impl<'a> TypeCheck<'a> {
 
             indent!();
 
-            let mut resolved_generic_types = ResolvedGenericTypes::new();
+            let mut resolved_generic_types = EnhResolvedGenericTypes::new();
             /*
             let mut resolved_generic_types = {
                 if let Some(ee) = expected_return_type {
@@ -794,7 +785,7 @@ impl<'a> TypeCheck<'a> {
 
             if !call.generics.is_empty() {
                 if call.generics.len() != function.generic_types.len() {
-                    errors.push(TypeCheckError::new(
+                    errors.push(EnhTypeCheckError::new(
                         function.index.clone(),
                         format!(
                             "Not matching generics expected {} but got {}",
@@ -830,7 +821,7 @@ impl<'a> TypeCheck<'a> {
                         it.clone()
                     })?
                 {
-                    errors.push(TypeCheckError::new(
+                    errors.push(EnhTypeCheckError::new(
                         function.index.clone(),
                         format!(
                             "Function {function}, unmatching return type expected {rt} but got {} : {}",
@@ -848,7 +839,7 @@ impl<'a> TypeCheck<'a> {
                         resolve_generic_types_from_effective_type(&function.return_type, rt)
                     {
                         if let Err(e) = resolved_generic_types.extend(result) {
-                            errors.push(TypeCheckError::new(
+                            errors.push(EnhTypeCheckError::new(
                                 function.index.clone(),
                                 format!(
                                     "{e} resolving generic type {} with {rt}",
@@ -877,7 +868,7 @@ impl<'a> TypeCheck<'a> {
                 result = zip(call.parameters.iter(), function.parameters.iter())
                     .map(|(expr, param)| {
                         if !valid {
-                            return Err(TypeCheckError::dummy());
+                            return Err(EnhTypeCheckError::dummy());
                         }
                         let resolved_count = resolved_generic_types.len();
                         debug_i!("expr {expr}");
@@ -921,11 +912,11 @@ impl<'a> TypeCheck<'a> {
                         debug_i!("filter {t}");
                         if !t.almost_equal(param_type, module)? {
                             valid = false;
-                            return Err(TypeCheckError::new_with_kind(
+                            return Err(EnhTypeCheckError::new_with_kind(
                                 expr.get_index().unwrap_or(&EnhASTIndex::none()).clone(),
                                 format!("not matching type expected {t} got {param_type}"),
                                 self.stack.clone(),
-                                TypeCheckErrorKind::Ignorable,
+                                EnhTypeCheckErrorKind::Ignorable,
                             ));
                         }
                         Ok(e)
@@ -937,21 +928,21 @@ impl<'a> TypeCheck<'a> {
 
             let result = result
                 .into_iter()
-                .collect::<Result<Vec<_>, TypeCheckError>>();
+                .collect::<Result<Vec<_>, EnhTypeCheckError>>();
 
             if let Err(e) = result {
                 debug_i!("ignored function due to {e}");
 
-                let error = if matches!(e.kind, TypeCheckErrorKind::Ignorable) {
-                    TypeCheckError::new_with_kind(
+                let error = if matches!(e.kind, EnhTypeCheckErrorKind::Ignorable) {
+                    EnhTypeCheckError::new_with_kind(
                         call.index.clone(),
                         format!("ignoring function {function} : {}", function.index),
                         self.stack.clone(),
-                        TypeCheckErrorKind::Ignorable,
+                        EnhTypeCheckErrorKind::Ignorable,
                     )
                     .add_errors(vec![e])
                 } else {
-                    TypeCheckError::new(
+                    EnhTypeCheckError::new(
                         call.index.clone(),
                         format!("ignoring function {function} : {}", function.index),
                         self.stack.clone(),
@@ -978,7 +969,7 @@ impl<'a> TypeCheck<'a> {
                 if let Some((old_function, _, _, _)) = valid_functions.get(0) {
                     if old_function.rank == function.rank {
                         dedent!();
-                        let error = TypeCheckError::new(
+                        let error = EnhTypeCheckError::new(
                             call.index.clone(),
                             format!("ignoring function {function} : {} because it has the same ranking of {old_function} : {}", function.index, old_function.index),
                             self.stack.clone(),
@@ -1007,7 +998,7 @@ impl<'a> TypeCheck<'a> {
 
         if valid_functions.is_empty() {
             dedent!();
-            let result = Err(TypeCheckError::new(
+            let result = Err(EnhTypeCheckError::new(
                 call.index.clone(),
                 Self::invalid_function_message(namespace, first_type, call, expected_return_type),
                 self.stack.clone(),
@@ -1031,7 +1022,7 @@ impl<'a> TypeCheck<'a> {
                 //self.stack.pop();
                 // I think it should not happen
                 dedent!();
-                return Err(TypeCheckError::new(
+                return Err(EnhTypeCheckError::new(
                     call.index.clone(),
                     format!("call {call} cannot find a valid function",),
                     self.stack.clone(),
@@ -1039,7 +1030,7 @@ impl<'a> TypeCheck<'a> {
             } else if dis_valid_functions.len() > 1 {
                 //self.stack.pop();
                 dedent!();
-                return Err(TypeCheckError::new(
+                return Err(EnhTypeCheckError::new(
                     call.index.clone(),
                     format!(
                         "call {call}\nfound more than one valid function {}",
@@ -1141,14 +1132,14 @@ impl<'a> TypeCheck<'a> {
         module: &InputModule,
         val_context: &EnhValContext,
         statics: &mut Statics,
-        resolved_generic_types: &mut ResolvedGenericTypes,
+        resolved_generic_types: &mut EnhResolvedGenericTypes,
         expr: &EnhASTExpression,
         param_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
         inside_function: Option<&EnhASTFunctionDef>,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<(EnhTypeFilter, EnhASTExpression), TypeCheckError> {
+    ) -> Result<(EnhTypeFilter, EnhASTExpression), EnhTypeCheckError> {
         let e = self.transform_expression(
             module,
             expr,
@@ -1177,7 +1168,7 @@ impl<'a> TypeCheck<'a> {
                     resolved_generic_types
                         .extend(resolve_generic_types_from_effective_type(pt, et)?)
                         .map_err(|it| {
-                            TypeCheckError::new(
+                            EnhTypeCheckError::new(
                                 expr.get_index().unwrap_or(&EnhASTIndex::none()).clone(),
                                 format!("cannot resolve {pt} with {et}, {it}"),
                                 self.stack.clone(),
@@ -1186,7 +1177,7 @@ impl<'a> TypeCheck<'a> {
                 }
             }
         } else if let EnhTypeFilter::Lambda(_, Some(lrt)) = &t {
-            if let EnhTypeFilter::Exact(et) = lrt.deref() {
+            if let EnhTypeFilter::Exact(ref et) = lrt.deref() {
                 if !et.is_generic() {
                     if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                         parameters: _,
@@ -1199,7 +1190,7 @@ impl<'a> TypeCheck<'a> {
                                 et,
                             )?)
                             .map_err(|it| {
-                                TypeCheckError::new(
+                                EnhTypeCheckError::new(
                                     expr.get_index().unwrap_or(&EnhASTIndex::none()).clone(),
                                     format!("cannot resolve {return_type} with {et}, {it}"),
                                     self.stack.clone(),
@@ -1246,7 +1237,7 @@ impl<'a> TypeCheck<'a> {
         statics: &mut Statics,
         new_function_def: &EnhASTFunctionDef,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
-    ) -> Result<Option<EnhASTFunctionBody>, TypeCheckError> {
+    ) -> Result<Option<EnhASTFunctionBody>, EnhTypeCheckError> {
         debug_i!("transform_function {new_function_def}");
         debug_i!(
             "generic_types {}",
@@ -1263,7 +1254,11 @@ impl<'a> TypeCheck<'a> {
             val_context
                 .insert_par(parameter.name.clone(), parameter.clone())
                 .map_err(|e| {
-                    TypeCheckError::new(parameter.ast_index.clone(), e.clone(), self.stack.clone())
+                    EnhTypeCheckError::new(
+                        parameter.ast_index.clone(),
+                        e.clone(),
+                        self.stack.clone(),
+                    )
                 })?;
         }
 
@@ -1295,7 +1290,7 @@ impl<'a> TypeCheck<'a> {
                     )
                     .map_err(|it| {
                         dedent!();
-                        TypeCheckError::new(
+                        EnhTypeCheckError::new(
                             new_function_def.index.clone(),
                             format!("Error getting macros for {new_function_def}, {it}"),
                             self.stack.clone(),
@@ -1310,7 +1305,7 @@ impl<'a> TypeCheck<'a> {
                         .default_function_calls(&text_macro_name)
                         .map_err(|it| {
                             dedent!();
-                            TypeCheckError::new(
+                            EnhTypeCheckError::new(
                                 new_function_def.index.clone(),
                                 format!("Error getting macros for {new_function_def}, {it}"),
                                 self.stack.clone(),
@@ -1350,7 +1345,7 @@ impl<'a> TypeCheck<'a> {
                     )
                     .map_err(|it| {
                         dedent!();
-                        TypeCheckError::new(
+                        EnhTypeCheckError::new(
                             new_function_def.index.clone(),
                             format!(
                                 "Error determining function calls for {new_function_def}, {it}"
@@ -1412,7 +1407,7 @@ impl<'a> TypeCheck<'a> {
         inside_function: Option<&EnhASTFunctionDef>,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<Vec<EnhASTStatement>, TypeCheckError> {
+    ) -> Result<Vec<EnhASTStatement>, EnhTypeCheckError> {
         debug_i!(
             "transform_statements expected_return_type {}",
             OptionDisplay(&expected_return_type)
@@ -1460,11 +1455,11 @@ impl<'a> TypeCheck<'a> {
                             val_context
                                 .insert_let(name.clone(), ast_type, index)
                                 .map_err(|it| {
-                                    TypeCheckError::new(index.clone(), it, self.stack.clone())
+                                    EnhTypeCheckError::new(index.clone(), it, self.stack.clone())
                                 })?;
                         }
                     } else {
-                        return Err(TypeCheckError::new(
+                        return Err(EnhTypeCheckError::new(
                             index.clone(),
                             format!("Cannot determine type of {expr}, type_of_epr {type_of_expr}"),
                             self.stack.clone(),
@@ -1474,7 +1469,7 @@ impl<'a> TypeCheck<'a> {
 
                 new_statement
             })
-            .collect::<Result<Vec<_>, TypeCheckError>>();
+            .collect::<Result<Vec<_>, EnhTypeCheckError>>();
         dedent!();
         result.map_err(|it| {
             it.add(
@@ -1627,7 +1622,7 @@ impl<'a> TypeCheck<'a> {
         namespace: &EnhASTNameSpace,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<EnhTypeFilter, TypeCheckError> {
+    ) -> Result<EnhTypeFilter, EnhTypeCheckError> {
         debug_i!(
             "type_of_expression {typed_expression} expected type {}",
             OptionDisplay(&expected_type)
@@ -1675,7 +1670,7 @@ impl<'a> TypeCheck<'a> {
                             return Ok(EnhTypeFilter::Exact(return_type.deref().clone()));
                         } else {
                             dedent!();
-                            return Err(TypeCheckError::new(
+                            return Err(EnhTypeCheckError::new(
                                 call.index.clone(),
                                 "It should not happen!!!".to_string(),
                                 self.stack.clone(),
@@ -1760,11 +1755,11 @@ impl<'a> TypeCheck<'a> {
                             EnhTypeFilter::Exact(EnhASTType::Builtin(lambda))
                         } else {
                             dedent!();
-                            return Err(TypeCheckError::new_with_kind(
+                            return Err(EnhTypeCheckError::new_with_kind(
                                 index.clone(),
                                 format!("Cannot find reference to {name}"),
                                 self.stack.clone(),
-                                TypeCheckErrorKind::Important,
+                                EnhTypeCheckErrorKind::Important,
                             ));
                         }
                     }
@@ -1817,7 +1812,7 @@ impl<'a> TypeCheck<'a> {
                         if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
                             if *is_cons {
                                 dedent!();
-                                return Err(TypeCheckError::new(
+                                return Err(EnhTypeCheckError::new(
                                     index.clone(),
                                     format!("Const not allowed here {expr}"),
                                     self.stack.clone(),
@@ -1826,7 +1821,11 @@ impl<'a> TypeCheck<'a> {
                                 lambda_val_context
                                     .insert_let(name.clone(), ast_type, index)
                                     .map_err(|it| {
-                                        TypeCheckError::new(index.clone(), it, self.stack.clone())
+                                        EnhTypeCheckError::new(
+                                            index.clone(),
+                                            it,
+                                            self.stack.clone(),
+                                        )
                                     })?;
                             }
                         } else {
@@ -1898,7 +1897,7 @@ impl<'a> TypeCheck<'a> {
         inside_function: Option<&EnhASTFunctionDef>,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         strict: bool,
-    ) -> Result<EnhASTLambdaDef, TypeCheckError> {
+    ) -> Result<EnhASTLambdaDef, EnhTypeCheckError> {
         let mut new_lambda = lambda_def.clone();
 
         let mut val_context = EnhValContext::new(Some(val_context));
@@ -1915,7 +1914,7 @@ impl<'a> TypeCheck<'a> {
             } else if let EnhASTType::Generic(_, _name) = et {
                 Ok(None)
             } else {
-                Err(TypeCheckError::new(
+                Err(EnhTypeCheckError::new(
                     lambda_def.index.clone(),
                     format!("Expected lambda but got {et}"),
                     self.stack.clone(),
@@ -1945,7 +1944,7 @@ impl<'a> TypeCheck<'a> {
         lambda_def: &EnhASTLambdaDef,
         expected_type: &Option<&EnhASTType>,
         val_context: &mut EnhValContext,
-    ) -> Result<(), TypeCheckError> {
+    ) -> Result<(), EnhTypeCheckError> {
         if !lambda_def.parameter_names.is_empty() {
             if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                 parameters,
@@ -1964,7 +1963,7 @@ impl<'a> TypeCheck<'a> {
                             },
                         )
                         .map_err(|e| {
-                            TypeCheckError::new(index.clone(), e.clone(), self.stack.clone())
+                            EnhTypeCheckError::new(index.clone(), e.clone(), self.stack.clone())
                         })?;
                 }
             } else {
@@ -1982,7 +1981,7 @@ impl<'a> TypeCheck<'a> {
                             },
                         )
                         .map_err(|e| {
-                            TypeCheckError::new(index.clone(), e.clone(), self.stack.clone())
+                            EnhTypeCheckError::new(index.clone(), e.clone(), self.stack.clone())
                         })?;
                 }
                 /*
@@ -2083,12 +2082,12 @@ mod tests {
     use crate::codegen::statics::Statics;
     use crate::codegen::AsmOptions;
     use crate::commandline::CommandLineOptions;
-    use crate::new_type_check2::TypeCheck;
+    use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
+    use crate::enh_type_check::enh_type_check::EnhTypeCheck;
+    use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
+    use crate::enh_type_check::typed_ast::convert_to_typed_module;
     use crate::project::{RasmProject, RasmProjectRunType};
     use crate::type_check::ast_type_checker::ASTTypeChecker;
-    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-    use crate::type_check::type_check_error::TypeCheckError;
-    use crate::type_check::typed_ast::convert_to_typed_module;
     use rasm_parser::parser::ast::ASTModifiers;
 
     #[test]
@@ -2119,7 +2118,10 @@ mod tests {
     pub fn test_generic_type_coeff() {
         assert_eq!(
             usize::MAX / 100,
-            TypeCheck::generic_type_coeff(&EnhASTType::Generic(EnhASTIndex::none(), "".to_owned()))
+            EnhTypeCheck::generic_type_coeff(&EnhASTType::Generic(
+                EnhASTIndex::none(),
+                "".to_owned()
+            ))
         );
     }
 
@@ -2127,7 +2129,7 @@ mod tests {
     pub fn test_generic_type_coeff_1() {
         assert_eq!(
             0,
-            TypeCheck::generic_type_coeff(&EnhASTType::Builtin(EnhBuiltinTypeKind::I32))
+            EnhTypeCheck::generic_type_coeff(&EnhASTType::Builtin(EnhBuiltinTypeKind::I32))
         );
     }
 
@@ -2135,7 +2137,7 @@ mod tests {
     pub fn test_generic_type_coeff_2() {
         assert_eq!(
             0,
-            TypeCheck::generic_type_coeff(&EnhASTType::Custom {
+            EnhTypeCheck::generic_type_coeff(&EnhASTType::Custom {
                 namespace: EnhASTNameSpace::global(),
                 param_types: vec![EnhASTType::Builtin(EnhBuiltinTypeKind::I32)],
                 name: "".to_owned(),
@@ -2148,7 +2150,7 @@ mod tests {
     pub fn test_generic_type_coeff_3() {
         assert_eq!(
             usize::MAX / 100 / 100,
-            TypeCheck::generic_type_coeff(&EnhASTType::Custom {
+            EnhTypeCheck::generic_type_coeff(&EnhASTType::Custom {
                 namespace: EnhASTNameSpace::global(),
                 param_types: vec![EnhASTType::Generic(EnhASTIndex::none(), "".to_owned())],
                 name: "".to_owned(),
@@ -2175,8 +2177,8 @@ mod tests {
             false,
         );
 
-        let coeff1 = TypeCheck::function_precedence_coeff(&function1);
-        let coeff2 = TypeCheck::function_precedence_coeff(&function2);
+        let coeff1 = EnhTypeCheck::function_precedence_coeff(&function1);
+        let coeff2 = EnhTypeCheck::function_precedence_coeff(&function2);
 
         assert!(coeff1 > coeff2)
     }
@@ -2193,8 +2195,8 @@ mod tests {
             true,
         );
 
-        let coeff1 = TypeCheck::function_precedence_coeff(&function1);
-        let coeff2 = TypeCheck::function_precedence_coeff(&function2);
+        let coeff1 = EnhTypeCheck::function_precedence_coeff(&function1);
+        let coeff2 = EnhTypeCheck::function_precedence_coeff(&function2);
 
         assert!(coeff1 > coeff2)
     }
@@ -2214,7 +2216,7 @@ mod tests {
             },
             inline: false,
             generic_types: vec![],
-            resolved_generic_types: ResolvedGenericTypes::new(),
+            resolved_generic_types: EnhResolvedGenericTypes::new(),
             index: EnhASTIndex::none(),
             modifiers: ASTModifiers::private(),
             namespace: EnhASTNameSpace::global(),
@@ -2421,7 +2423,7 @@ mod tests {
 
      */
 
-    fn test_project(project: RasmProject) -> Result<(), TypeCheckError> {
+    fn test_project(project: RasmProject) -> Result<(), EnhTypeCheckError> {
         test_project_with_target(&project, CompileTarget::Nasmi386(AsmOptions::default()))?;
         test_project_with_target(&project, CompileTarget::C(COptions::default()))
     }
@@ -2429,7 +2431,7 @@ mod tests {
     fn test_project_with_target(
         project: &RasmProject,
         target: CompileTarget,
-    ) -> Result<(), TypeCheckError> {
+    ) -> Result<(), EnhTypeCheckError> {
         let mut statics = Statics::new();
 
         let run_type = RasmProjectRunType::Main;

@@ -9,10 +9,10 @@ use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::new_type_check2::TypeCheck;
+use crate::enh_type_check::enh_type_check::EnhTypeCheck;
 use crate::project::RasmProject;
 
-use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
+use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
 
 use rasm_parser::parser::ast::{
     ASTBuiltinFunctionType, ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody,
@@ -156,7 +156,7 @@ pub struct EnhASTFunctionDef {
     pub body: EnhASTFunctionBody,
     pub inline: bool,
     pub generic_types: Vec<String>,
-    pub resolved_generic_types: ResolvedGenericTypes,
+    pub resolved_generic_types: EnhResolvedGenericTypes,
     pub index: EnhASTIndex,
     pub modifiers: ASTModifiers,
     pub namespace: EnhASTNameSpace,
@@ -212,7 +212,7 @@ impl Display for EnhASTFunctionDef {
 
 impl EnhASTFunctionDef {
     pub fn update_calculated_properties(&mut self) {
-        self.rank = TypeCheck::function_precedence_coeff(self);
+        self.rank = EnhTypeCheck::function_precedence_coeff(self);
     }
 
     pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
@@ -293,7 +293,7 @@ impl EnhASTFunctionDef {
             },
             inline: function.inline,
             generic_types: function.generic_types,
-            resolved_generic_types: ResolvedGenericTypes::new(),
+            resolved_generic_types: EnhResolvedGenericTypes::new(),
             index: EnhASTIndex::from_position(id.path(), &function.position),
             modifiers: function.modifiers,
             namespace: namespace.clone(),
@@ -1593,7 +1593,7 @@ mod tests {
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
         EnhASTType, EnhBuiltinTypeKind,
     };
-    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
+    use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
     use rasm_parser::parser::ast::ASTModifiers;
 
     #[test]
@@ -1642,7 +1642,7 @@ mod tests {
             body: EnhASTFunctionBody::RASMBody(vec![]),
             inline: false,
             generic_types: vec!["T".to_string()],
-            resolved_generic_types: ResolvedGenericTypes::new(),
+            resolved_generic_types: EnhResolvedGenericTypes::new(),
             index: EnhASTIndex::none(),
             modifiers: ASTModifiers::private(),
             namespace: EnhASTNameSpace {

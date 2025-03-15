@@ -10,10 +10,10 @@ use crate::codegen::enh_ast::{
     EnhBuiltinTypeKind,
 };
 use crate::codegen::enhanced_module::EnhancedASTModule;
-use crate::type_check::type_check_error::TypeCheckError;
+use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct FunctionsContainer {
+pub struct EnhFunctionsContainer {
     functions_by_name: LinkedHashMap<String, Vec<EnhASTFunctionDef>>,
 }
 
@@ -30,8 +30,8 @@ impl EnhTypeFilter {
         &self,
         ast_type: &EnhASTType,
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<bool, TypeCheckError> {
-        FunctionsContainer::almost_same_type(
+    ) -> Result<bool, EnhTypeCheckError> {
+        EnhFunctionsContainer::almost_same_type(
             ast_type,
             self,
             &mut LinkedHashMap::new(),
@@ -54,7 +54,7 @@ impl Display for EnhTypeFilter {
     }
 }
 
-impl FunctionsContainer {
+impl EnhFunctionsContainer {
     pub fn new() -> Self {
         Self {
             functions_by_name: LinkedHashMap::new(),
@@ -164,7 +164,7 @@ impl FunctionsContainer {
         filter_on_name: bool,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<Option<&EnhASTFunctionDef>, TypeCheckError> {
+    ) -> Result<Option<&EnhASTFunctionDef>, EnhTypeCheckError> {
         if let Some(functions) = self.functions_by_name.get(original_function_name) {
             if functions.is_empty() {
                 panic!(
@@ -212,7 +212,7 @@ impl FunctionsContainer {
         index: &EnhASTIndex,
         functions: &'a [EnhASTFunctionDef],
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<Vec<&'a EnhASTFunctionDef>, TypeCheckError> {
+    ) -> Result<Vec<&'a EnhASTFunctionDef>, EnhTypeCheckError> {
         let lambda = |it: &&EnhASTFunctionDef| {
             debug_i!(
                 "testing function {it}, filters {}, return type {}",
@@ -274,7 +274,7 @@ impl FunctionsContainer {
         return_type_filter: Option<&EnhASTType>,
         filter_only_on_name: bool,
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<Vec<&EnhASTFunctionDef>, TypeCheckError> {
+    ) -> Result<Vec<&EnhASTFunctionDef>, EnhTypeCheckError> {
         debug_i!(
             "find_call_vec {call} return type {} filter {}",
             OptionDisplay(&return_type_filter),
@@ -356,7 +356,7 @@ impl FunctionsContainer {
         name: String,
         parameter_types_filter: Vec<EnhASTType>,
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<Option<EnhASTFunctionDef>, TypeCheckError> {
+    ) -> Result<Option<EnhASTFunctionDef>, EnhTypeCheckError> {
         if let Some(functions) = self.functions_by_name.get(&name) {
             if functions.is_empty() {
                 panic!(
@@ -390,7 +390,7 @@ impl FunctionsContainer {
                 let result = functions
                     .iter()
                     .map(lambda)
-                    .collect::<Result<Vec<_>, TypeCheckError>>()?
+                    .collect::<Result<Vec<_>, EnhTypeCheckError>>()?
                     .into_iter()
                     .filter(|(_f, b)| *b)
                     .map(|it| it.0)
@@ -419,7 +419,7 @@ impl FunctionsContainer {
         resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<bool, TypeCheckError> {
+    ) -> Result<bool, EnhTypeCheckError> {
         let result = if parameter_types.len() != parameter_types_filter.len() {
             debug_i!("not matching parameter length");
             false
@@ -441,7 +441,7 @@ impl FunctionsContainer {
         resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<bool, TypeCheckError> {
+    ) -> Result<bool, EnhTypeCheckError> {
         let result = zip(parameter_types.iter(), parameter_types_filter.iter())
             .map(|(parameter_type, parameter_type_filter)| {
                 Self::almost_same_type(
@@ -452,7 +452,7 @@ impl FunctionsContainer {
                     enhanced_astmodule,
                 )
             })
-            .collect::<Result<Vec<bool>, TypeCheckError>>()?
+            .collect::<Result<Vec<bool>, EnhTypeCheckError>>()?
             .iter()
             .all(|it| *it);
         debug_i!("match_parameters: {result}");
@@ -465,7 +465,7 @@ impl FunctionsContainer {
         resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<bool, TypeCheckError> {
+    ) -> Result<bool, EnhTypeCheckError> {
         Self::almost_same_type_internal(
             actual_return_type,
             &EnhTypeFilter::Exact(expected_return_type.clone()),
@@ -482,7 +482,7 @@ impl FunctionsContainer {
         resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<bool, TypeCheckError> {
+    ) -> Result<bool, EnhTypeCheckError> {
         Self::almost_same_type_internal(
             parameter_type,
             parameter_type_filter,
@@ -499,11 +499,11 @@ impl FunctionsContainer {
         index: &EnhASTIndex,
         return_type: bool,
         enhanced_astmodule: &EnhancedASTModule,
-    ) -> Result<bool, TypeCheckError> {
+    ) -> Result<bool, EnhTypeCheckError> {
         debug_i!("almost_same_type {parameter_type} filter {parameter_type_filter} return_type: {return_type}");
         indent!();
         let result: bool = match parameter_type_filter {
-            EnhTypeFilter::Any => Ok::<bool, TypeCheckError>(true),
+            EnhTypeFilter::Any => Ok::<bool, EnhTypeCheckError>(true),
             EnhTypeFilter::Exact(filter_type) => {
                 if filter_type == parameter_type {
                     dedent!();
@@ -534,7 +534,7 @@ impl FunctionsContainer {
                                                 enhanced_astmodule,
                                             )
                                         })
-                                        .collect::<Result<Vec<_>, TypeCheckError>>()?
+                                        .collect::<Result<Vec<_>, EnhTypeCheckError>>()?
                                         .into_iter()
                                         .all(|it| it);
 
@@ -635,11 +635,11 @@ impl FunctionsContainer {
                                                     enhanced_astmodule,
                                                 )
                                             })
-                                            .collect::<Result<Vec<_>, TypeCheckError>>()?
+                                            .collect::<Result<Vec<_>, EnhTypeCheckError>>()?
                                             .into_iter()
                                             .all(|it| it))
                                 } else {
-                                    Err(TypeCheckError::new(
+                                    Err(EnhTypeCheckError::new(
                                         index.clone(),
                                         format!(
                                             "Cannot find custom type definition for {type_name}"
@@ -716,7 +716,7 @@ impl FunctionsContainer {
         Ok(result)
     }
 
-    fn unit_type_is_not_allowed_here(_index: &EnhASTIndex) -> Result<bool, TypeCheckError> {
+    fn unit_type_is_not_allowed_here(_index: &EnhASTIndex) -> Result<bool, EnhTypeCheckError> {
         //Err(format!("Unit type is not allowed here: {index}").into())
         Ok(false)
     }
@@ -814,16 +814,16 @@ mod tests {
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
     use crate::codegen::AsmOptions;
+    use crate::enh_type_check::enh_functions_container::EnhFunctionsContainer;
+    use crate::enh_type_check::enh_functions_container::EnhTypeFilter::Exact;
+    use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
     use crate::project::{RasmConfig, RasmPackage, RasmProject};
-    use crate::type_check::functions_container::EnhTypeFilter::Exact;
-    use crate::type_check::functions_container::FunctionsContainer;
-    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
     use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
     use std::path::PathBuf;
 
     #[test]
     fn test_2() {
-        let mut sut = FunctionsContainer::new();
+        let mut sut = EnhFunctionsContainer::new();
 
         let function_def = create_function("AModule::toString_0", "n", EnhBuiltinTypeKind::I32);
 
@@ -839,7 +839,7 @@ mod tests {
 
     #[test]
     fn test_3() {
-        let mut sut = FunctionsContainer::new();
+        let mut sut = EnhFunctionsContainer::new();
 
         let function_def = create_function("toString_0", "n", EnhBuiltinTypeKind::I32);
 
@@ -858,7 +858,7 @@ mod tests {
 
     #[test]
     fn test_4() {
-        let mut sut = FunctionsContainer::new();
+        let mut sut = EnhFunctionsContainer::new();
 
         let function_def = create_add_function("n", EnhBuiltinTypeKind::I32);
 
@@ -920,7 +920,7 @@ mod tests {
 
     #[test]
     fn test_5() {
-        let mut functions_container = FunctionsContainer::new();
+        let mut functions_container = EnhFunctionsContainer::new();
 
         functions_container.add_function("aFun".to_string(), simple_function_def("aFun_0"));
 
@@ -957,7 +957,7 @@ mod tests {
             return_type: EnhASTType::Unit,
             inline: false,
             generic_types: Vec::new(),
-            resolved_generic_types: ResolvedGenericTypes::new(),
+            resolved_generic_types: EnhResolvedGenericTypes::new(),
             original_name: name.into(),
             index: EnhASTIndex::none(),
             modifiers: ASTModifiers::private(),
@@ -982,7 +982,7 @@ mod tests {
                 ast_index: EnhASTIndex::none(),
             }],
             inline: false,
-            resolved_generic_types: ResolvedGenericTypes::new(),
+            resolved_generic_types: EnhResolvedGenericTypes::new(),
             return_type: EnhASTType::Builtin(EnhBuiltinTypeKind::String),
             original_name: name.into(),
             index: EnhASTIndex::none(),
@@ -1011,7 +1011,7 @@ mod tests {
                 },
             ],
             inline: false,
-            resolved_generic_types: ResolvedGenericTypes::new(),
+            resolved_generic_types: EnhResolvedGenericTypes::new(),
             return_type: EnhASTType::Builtin(param_kind),
             original_name: "add".into(),
             index: EnhASTIndex::none(),

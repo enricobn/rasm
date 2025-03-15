@@ -21,13 +21,13 @@ use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::TypedValKind;
-use crate::errors::CompilationError;
-use crate::errors::CompilationErrorKind::Verify;
-use crate::type_check::typed_ast;
-use crate::type_check::typed_ast::{
+use crate::enh_type_check::typed_ast;
+use crate::enh_type_check::typed_ast::{
     get_type_of_typed_expression, ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
+use crate::errors::CompilationError;
+use crate::errors::CompilationErrorKind::Verify;
 use rasm_utils::OptionDisplay;
 use rasm_utils::{debug_i, dedent, indent};
 use std::iter::zip;

@@ -5,7 +5,7 @@ use std::time::Instant;
 use auto_impl::auto_impl;
 use log::info;
 
-use crate::type_check::typed_ast::ASTTypedType;
+use crate::enh_type_check::typed_ast::ASTTypedType;
 
 #[auto_impl(Box)]
 pub trait Backend: Send + Sync {

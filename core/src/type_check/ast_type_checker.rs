@@ -1760,10 +1760,10 @@ mod tests {
         },
         commandline::CommandLineOptions,
         project::{RasmProject, RasmProjectRunType},
+        test_utils::project_and_container,
         type_check::{
             ast_modules_container::ASTModulesContainer,
             ast_type_checker::{ASTTypeCheckErroKind, ASTTypeCheckInfo},
-            test_utils::project_and_container,
         },
     };
     use rasm_parser::{

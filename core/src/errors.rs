@@ -20,7 +20,7 @@ use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 
 use crate::codegen::enh_ast::EnhASTIndex;
-use crate::type_check::type_check_error::TypeCheckError;
+use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use rasm_parser::parser::ParserError;
 
 #[derive(Clone, Debug)]
@@ -43,7 +43,7 @@ pub enum CompilationErrorKind {
     Generic(String),
     Lexer(String),
     Parser(String),
-    TypeCheck(String, Vec<TypeCheckError>),
+    TypeCheck(String, Vec<EnhTypeCheckError>),
     Verify(String),
 }
 

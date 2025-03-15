@@ -21,8 +21,8 @@ use std::fmt::Display;
 use std::io;
 
 use rasm_core::codegen::enh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
-use rasm_core::new_type_check2;
-use rasm_core::type_check::typed_ast::ASTTypedType;
+use rasm_core::enh_type_check::enh_type_check::EnhTypeCheck;
+use rasm_core::enh_type_check::typed_ast::ASTTypedType;
 use rasm_parser::parser::ast::{ASTFunctionSignature, ASTType, BuiltinTypeKind};
 use rasm_utils::OptionDisplay;
 
@@ -53,7 +53,7 @@ impl CompletionItem {
             return None;
         }
         let parameter_type = &function.parameters.get(0).unwrap().ast_type;
-        let coeff = new_type_check2::TypeCheck::generic_type_coeff(parameter_type);
+        let coeff = EnhTypeCheck::generic_type_coeff(parameter_type);
         let sort_value = format!("{:0>20}{}", coeff, function.original_name);
 
         Some(CompletionItem {
@@ -297,7 +297,7 @@ mod tests {
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
         EnhASTType, EnhBuiltinTypeKind,
     };
-    use rasm_core::type_check::resolved_generic_types::ResolvedGenericTypes;
+    use rasm_core::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
     use rasm_parser::parser::ast::ASTModifiers;
 
     use crate::completion_service::CompletionItem;
@@ -316,7 +316,7 @@ mod tests {
             body: EnhASTFunctionBody::RASMBody(vec![]),
             inline: false,
             generic_types: vec![],
-            resolved_generic_types: ResolvedGenericTypes::new(),
+            resolved_generic_types: EnhResolvedGenericTypes::new(),
             index: EnhASTIndex::none(),
             modifiers: ASTModifiers::private(),
             namespace: test_namespace(), // HENRY

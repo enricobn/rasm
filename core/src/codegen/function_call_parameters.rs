@@ -10,9 +10,9 @@ use crate::codegen::stack::StackVals;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm, TypedValKind};
-use crate::type_check::typed_ast::{
+use crate::enh_type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
+    ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
 use rasm_parser::parser::ast::ASTValueType;
 
@@ -322,7 +322,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             label,
             value.to_string(),
             comment,
-            &ASTTypedType::Builtin(crate::type_check::typed_ast::BuiltinTypedTypeKind::String),
+            &ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
             &statics,
         );
     }

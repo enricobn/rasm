@@ -39,8 +39,8 @@ use crate::ide_helper::IDEHelper;
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
+use rasm_core::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use rasm_core::project::{RasmProject, RasmProjectRunType};
-use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_parser::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 use rasm_parser::lexer::Lexer;
 
@@ -92,7 +92,7 @@ struct ServerState {
 }
 
 impl ServerState {
-    fn new(project: RasmProject) -> Result<Self, TypeCheckError> {
+    fn new(project: RasmProject) -> Result<Self, EnhTypeCheckError> {
         let mut statics = Statics::new();
         let target = CompileTarget::Nasmi386(AsmOptions::default());
 

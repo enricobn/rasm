@@ -4,9 +4,8 @@ use crate::{
     codegen::{compile_target::CompileTarget, statics::Statics},
     commandline::CommandLineOptions,
     project::{RasmProject, RasmProjectRunType},
+    type_check::ast_modules_container::ASTModulesContainer,
 };
-
-use super::ast_modules_container::ASTModulesContainer;
 
 pub fn project_and_container(
     target: &CompileTarget,

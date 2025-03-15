@@ -35,6 +35,13 @@ use crate::codegen::text_macro::{
     RefType, TextMacro, TextMacroEval, TextMacroEvaluator,
 };
 use crate::codegen::typedef_provider::TypeDefProvider;
+use crate::enh_type_check::typed_ast::{
+    convert_to_typed_module, get_type_of_typed_expression, ASTTypedExpression,
+    ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
+    ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
+    DefaultFunctionCall,
+};
+use crate::enh_type_check::used_functions::UsedFunctions;
 use crate::errors::CompilationError;
 use crate::transformations::typed_functions_creator::{
     enum_has_references, struct_has_references, type_has_references,
@@ -42,13 +49,6 @@ use crate::transformations::typed_functions_creator::{
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::get_new_native_call;
-use crate::type_check::typed_ast::{
-    convert_to_typed_module, get_type_of_typed_expression, ASTTypedExpression,
-    ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
-    DefaultFunctionCall,
-};
-use crate::type_check::used_functions::UsedFunctions;
 use rasm_parser::parser::ast::ASTValueType;
 
 pub mod backend;

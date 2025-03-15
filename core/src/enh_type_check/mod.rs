@@ -16,23 +16,11 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pub struct CallStack {
-    stack: Vec<String>,
-}
-
-impl CallStack {
-    pub fn new() -> Self {
-        Self { stack: Vec::new() }
-    }
-    pub fn stack(&self) -> &Vec<String> {
-        &self.stack
-    }
-
-    pub fn push(&mut self, message: String) {
-        self.stack.push(message);
-    }
-
-    pub fn pop(&mut self) {
-        assert!(self.stack.pop().is_some());
-    }
-}
+pub mod enh_functions_container;
+pub mod enh_resolved_generic_types;
+pub mod enh_type_check;
+pub mod enh_type_check_error;
+pub mod traverse_typed_ast;
+pub mod typed_ast;
+pub mod used_functions;
+pub mod verify;

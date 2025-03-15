@@ -15,13 +15,14 @@ use rasm_core::codegen::enh_val_context::EnhValContext;
 use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::EnhValKind;
-use rasm_core::new_type_check2::TypeCheck;
+
+use rasm_core::enh_type_check::enh_functions_container::EnhTypeFilter;
+use rasm_core::enh_type_check::enh_type_check::EnhTypeCheck;
+use rasm_core::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use rasm_core::project::RasmProject;
 use rasm_core::type_check::ast_modules_container::ASTModulesContainer;
 use rasm_core::type_check::ast_type_checker::ASTTypeChecker;
-use rasm_core::type_check::functions_container::EnhTypeFilter;
 use rasm_core::type_check::substitute;
-use rasm_core::type_check::type_check_error::TypeCheckError;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::parser::ast::ASTValueType;
 use rasm_utils::OptionDisplay;
@@ -44,7 +45,7 @@ impl ReferenceFinder {
         debug: bool,
         modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
         modules_container: &ASTModulesContainer,
-    ) -> Result<Self, TypeCheckError> {
+    ) -> Result<Self, EnhTypeCheckError> {
         let path = ast_module.path.clone();
         let selectable_items = Self::process_module(
             module,
@@ -435,14 +436,14 @@ impl ReferenceFinder {
         debug: bool,
         modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
         modules_container: &ASTModulesContainer,
-    ) -> Result<Vec<SelectableItem>, TypeCheckError> {
+    ) -> Result<Vec<SelectableItem>, EnhTypeCheckError> {
         let mut reference_context = ReferenceContext::new(None);
         let mut reference_static_context = ReferenceContext::new(None);
         let mut val_context = EnhValContext::new(None);
         let mut statics = Statics::new();
 
         // TOD do we need a real ASTTypeChecker?
-        let mut type_check = TypeCheck::new(
+        let mut type_check = EnhTypeCheck::new(
             compile_target.clone(),
             debug,
             ASTTypeChecker::new(),
@@ -514,7 +515,7 @@ impl ReferenceFinder {
         let mut reference_context = ReferenceContext::new(None);
         let mut val_context = EnhValContext::new(None);
         // TOD do we need a real ASTTypeChecker?
-        let mut type_check = TypeCheck::new(
+        let mut type_check = EnhTypeCheck::new(
             compile_target,
             debug,
             ASTTypeChecker::new(),
@@ -547,9 +548,9 @@ impl ReferenceFinder {
         reference_static_context: &ReferenceContext,
         val_context: &mut EnhValContext,
         statics: &mut Statics,
-        type_check: &mut TypeCheck,
+        type_check: &mut EnhTypeCheck,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
-    ) -> Result<Vec<SelectableItem>, TypeCheckError> {
+    ) -> Result<Vec<SelectableItem>, EnhTypeCheckError> {
         let mut result = Vec::new();
         result.push(SelectableItem::new(
             function.index.clone(),
@@ -569,7 +570,7 @@ impl ReferenceFinder {
             val_context
                 .insert_par(par.name.clone(), par.clone())
                 .map_err(|err| {
-                    TypeCheckError::new(par.ast_index.clone(), err.clone(), Vec::new())
+                    EnhTypeCheckError::new(par.ast_index.clone(), err.clone(), Vec::new())
                 })?;
             Self::process_type(&function.namespace, module, &par.ast_type, &mut result);
         }
@@ -667,9 +668,9 @@ impl ReferenceFinder {
         statics: &mut Statics,
         expected_return_type: Option<&EnhASTType>,
         inside_function: Option<&EnhASTFunctionDef>,
-        type_check: &mut TypeCheck,
+        type_check: &mut EnhTypeCheck,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
-    ) -> Result<(), TypeCheckError> {
+    ) -> Result<(), EnhTypeCheckError> {
         for (i, stmt) in statements.iter().enumerate() {
             let expected_type = if i == statements.len() - 1 {
                 expected_return_type
@@ -707,8 +708,8 @@ impl ReferenceFinder {
         statics: &mut Statics,
         expected_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
-        type_check: &mut TypeCheck,
-    ) -> Result<EnhTypeFilter, TypeCheckError> {
+        type_check: &mut EnhTypeCheck,
+    ) -> Result<EnhTypeFilter, EnhTypeCheckError> {
         let mut new_functions = Vec::new();
         type_check.type_of_expression(
             enhanced_ast_module,
@@ -732,9 +733,9 @@ impl ReferenceFinder {
         statics: &mut Statics,
         expected_type: Option<&EnhASTType>,
         inside_function: Option<&EnhASTFunctionDef>,
-        type_check: &mut TypeCheck,
+        type_check: &mut EnhTypeCheck,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
-    ) -> Result<Vec<SelectableItem>, TypeCheckError> {
+    ) -> Result<Vec<SelectableItem>, EnhTypeCheckError> {
         match stmt {
             EnhASTStatement::Expression(expr) => Self::process_expression(
                 expr,
@@ -784,7 +785,7 @@ impl ReferenceFinder {
                     val_context
                         .insert_let(name.clone(), ast_type.clone(), index)
                         .map_err(|err| {
-                            TypeCheckError::new(index.clone(), err.clone(), Vec::new())
+                            EnhTypeCheckError::new(index.clone(), err.clone(), Vec::new())
                         })?;
                 } else {
                     val_context
@@ -794,7 +795,7 @@ impl ReferenceFinder {
                             index,
                         )
                         .map_err(|err| {
-                            TypeCheckError::new(index.clone(), err.clone(), Vec::new())
+                            EnhTypeCheckError::new(index.clone(), err.clone(), Vec::new())
                         })?;
                 }
 
@@ -826,9 +827,9 @@ impl ReferenceFinder {
         statics: &mut Statics,
         expected_type: Option<&EnhASTType>,
         inside_function: Option<&EnhASTFunctionDef>,
-        type_check: &mut TypeCheck,
+        type_check: &mut EnhTypeCheck,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
-    ) -> Result<Vec<SelectableItem>, TypeCheckError> {
+    ) -> Result<Vec<SelectableItem>, EnhTypeCheckError> {
         let mut result = Vec::new();
         match expr {
             EnhASTExpression::ASTFunctionCallExpression(call) => {
@@ -925,9 +926,9 @@ impl ReferenceFinder {
         expected_type: Option<&EnhASTType>,
         result: &mut Vec<SelectableItem>,
         def: &EnhASTLambdaDef,
-        type_check: &mut TypeCheck,
+        type_check: &mut EnhTypeCheck,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
-    ) -> Result<(), TypeCheckError> {
+    ) -> Result<(), EnhTypeCheckError> {
         let mut lambda_reference_context = ReferenceContext::new(Some(reference_context));
         let mut lambda_val_context = EnhValContext::new(Some(val_context));
         let mut lambda_result = Vec::new();
@@ -950,7 +951,7 @@ impl ReferenceFinder {
                     lambda_val_context
                         .insert_par(par_name.clone(), par)
                         .map_err(|err| {
-                            TypeCheckError::new(par_index.clone(), err.clone(), Vec::new())
+                            EnhTypeCheckError::new(par_index.clone(), err.clone(), Vec::new())
                         })?;
                     lambda_reference_context.add(
                         par_name.clone(),
@@ -982,7 +983,9 @@ impl ReferenceFinder {
                             ),
                         },
                     )
-                    .map_err(|err| TypeCheckError::new(index.clone(), err.clone(), Vec::new()))?;
+                    .map_err(|err| {
+                        EnhTypeCheckError::new(index.clone(), err.clone(), Vec::new())
+                    })?;
                 lambda_reference_context.add(name.clone(), index.clone(), EnhTypeFilter::Any);
             }
             None
@@ -1018,9 +1021,9 @@ impl ReferenceFinder {
         call: &EnhASTFunctionCall,
         expected_return_type: Option<&EnhASTType>,
         inside_function: Option<&EnhASTFunctionDef>,
-        type_check: &mut TypeCheck,
+        type_check: &mut EnhTypeCheck,
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
-    ) -> Result<(), TypeCheckError> {
+    ) -> Result<(), EnhTypeCheckError> {
         if let Some(val_kind) = val_context.get(&call.function_name) {
             let (index, ast_type) = match val_kind {
                 EnhValKind::ParameterRef(_, par) => {

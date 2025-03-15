@@ -1,5 +1,7 @@
 use linked_hash_map::LinkedHashMap;
-use rasm_core::{codegen::enh_ast::EnhASTIndex, type_check::functions_container::EnhTypeFilter};
+use rasm_core::{
+    codegen::enh_ast::EnhASTIndex, enh_type_check::enh_functions_container::EnhTypeFilter,
+};
 
 pub struct ReferenceContext {
     pub value_to_address: LinkedHashMap<String, ReferenceKind>,

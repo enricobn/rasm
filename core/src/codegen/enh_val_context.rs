@@ -3,7 +3,7 @@ use rasm_utils::debug_i;
 
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTParameterDef, EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::{EnhValKind, TypedValKind};
-use crate::type_check::typed_ast::{ASTTypedParameterDef, ASTTypedType};
+use crate::enh_type_check::typed_ast::{ASTTypedParameterDef, ASTTypedType};
 
 #[derive(Clone, Debug)]
 pub struct EnhValContext {

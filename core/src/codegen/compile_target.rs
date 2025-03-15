@@ -51,10 +51,10 @@ use crate::transformations::typed_functions_creator::{
     TypedFunctionsCreator, TypedFunctionsCreatorNasmi386,
 };
 
-use crate::type_check::ast_type_checker::ASTTypeChecker;
-use crate::type_check::typed_ast::{
+use crate::enh_type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, DefaultFunction, DefaultFunctionCall,
 };
+use crate::type_check::ast_type_checker::ASTTypeChecker;
 
 use super::c::typed_function_creator::TypedFunctionsCreatorC;
 

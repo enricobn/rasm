@@ -20,17 +20,17 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::TypedValKind;
+use crate::enh_type_check::enh_functions_container::EnhTypeFilter;
+use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
+use crate::enh_type_check::enh_type_check::EnhTypeCheck;
+use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
+use crate::enh_type_check::verify;
 use crate::errors::{CompilationError, CompilationErrorKind};
-use crate::new_type_check2::TypeCheck;
-use crate::type_check::functions_container::EnhTypeFilter;
-use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-use crate::type_check::type_check_error::TypeCheckError;
-use crate::type_check::{get_new_native_call, substitute, verify};
+use crate::type_check::ast_modules_container::ASTModulesContainer;
+use crate::type_check::ast_type_checker::ASTTypeChecker;
+use crate::type_check::{get_new_native_call, substitute};
 use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
 use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
-
-use super::ast_modules_container::ASTModulesContainer;
-use super::ast_type_checker::ASTTypeChecker;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -719,7 +719,7 @@ impl<'a> ConvContext<'a> {
                 */
 
                 let cloned_param_types = param_types.clone();
-                let mut generic_to_type = ResolvedGenericTypes::new();
+                let mut generic_to_type = EnhResolvedGenericTypes::new();
                 for (i, p) in enum_def.type_parameters.iter().enumerate() {
                     generic_to_type.insert(p.clone(), cloned_param_types.get(i).unwrap().clone());
                 }
@@ -800,7 +800,7 @@ impl<'a> ConvContext<'a> {
                 index: _,
             } => {
                 let cloned_param_types = param_types.clone();
-                let mut generic_to_type = ResolvedGenericTypes::new();
+                let mut generic_to_type = EnhResolvedGenericTypes::new();
                 for (i, p) in struct_def.type_parameters.iter().enumerate() {
                     generic_to_type.insert(
                         p.clone(),
@@ -962,7 +962,7 @@ pub fn convert_to_typed_module(
     modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     modules_container: &ASTModulesContainer,
 ) -> Result<ASTTypedModule, CompilationError> {
-    let type_check = TypeCheck::new(
+    let type_check = EnhTypeCheck::new(
         target.clone(),
         debug,
         ast_type_checker,
@@ -1057,8 +1057,11 @@ pub fn convert_to_typed_module(
                             ),
                         )
                         .map_err(|e| {
-                            let tce =
-                                TypeCheckError::new(par.ast_index.clone(), e.clone(), Vec::new());
+                            let tce = EnhTypeCheckError::new(
+                                par.ast_index.clone(),
+                                e.clone(),
+                                Vec::new(),
+                            );
                             CompilationError {
                                 index: par.ast_index.clone(),
                                 error_kind: CompilationErrorKind::TypeCheck(e.clone(), vec![tce]),
@@ -1160,7 +1163,7 @@ pub fn convert_to_typed_module(
 fn compilation_error(
     index: EnhASTIndex,
     message: String,
-    errors: Vec<TypeCheckError>,
+    errors: Vec<EnhTypeCheckError>,
 ) -> CompilationError {
     CompilationError {
         index,
@@ -1355,7 +1358,7 @@ fn struct_property(
     namespace: &EnhASTNameSpace,
     conv_context: &mut ConvContext,
     property: &EnhASTStructPropertyDef,
-    generic_to_type: &ResolvedGenericTypes,
+    generic_to_type: &EnhResolvedGenericTypes,
 ) -> ASTTypedStructPropertyDef {
     if let Some(new_type) = substitute(&property.ast_type, generic_to_type) {
         ASTTypedStructPropertyDef {
@@ -1375,7 +1378,7 @@ pub fn function_def(
     def: &EnhASTFunctionDef,
     _module: &EnhancedASTModule,
     _statics: &mut Statics,
-) -> Result<ASTTypedFunctionDef, TypeCheckError> {
+) -> Result<ASTTypedFunctionDef, EnhTypeCheckError> {
     if !def.generic_types.is_empty() {
         panic!("function def has generics: {def}");
     }
@@ -1418,8 +1421,6 @@ pub fn function_def(
     };
 
     /*
-    let mut call_stack = CallStack::new();
-
     match &typed_function_def.body {
         ASTTypedFunctionBody::RASMBody(_) => {}
         ASTTypedFunctionBody::NativeBody(body) => {
@@ -1641,7 +1642,7 @@ fn enum_variant(
     namespace: &EnhASTNameSpace,
     conv_context: &mut ConvContext,
     variant: &EnhASTEnumVariantDef,
-    generic_to_type: &ResolvedGenericTypes,
+    generic_to_type: &EnhResolvedGenericTypes,
     enum_type: &EnhASTType,
     enum_typed_type: &ASTTypedType,
     message: &str,
@@ -2013,8 +2014,8 @@ mod tests {
         EnhASTEnumDef, EnhASTIndex, EnhASTNameSpace, EnhASTStructDef, EnhASTType,
     };
     use crate::codegen::enhanced_module::EnhancedASTModule;
-    use crate::type_check::functions_container::FunctionsContainer;
-    use crate::type_check::typed_ast::{typed_type, ASTTypedType, ConvContext};
+    use crate::enh_type_check::enh_functions_container::EnhFunctionsContainer;
+    use crate::enh_type_check::typed_ast::{typed_type, ASTTypedType, ConvContext};
     use linked_hash_map::LinkedHashMap;
     use rasm_parser::parser::ast::ASTModifiers;
 
@@ -2123,7 +2124,7 @@ mod tests {
 
         EnhancedASTModule {
             body: vec![],
-            functions_by_name: FunctionsContainer::new(),
+            functions_by_name: EnhFunctionsContainer::new(),
             enums: vec![result_type_def.clone()],
             structs: vec![
                 simple_struct_def("TestModel", &first_namespace),

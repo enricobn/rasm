@@ -1,25 +1,13 @@
-use type_check_error::TypeCheckError;
-
 use crate::codegen::enh_ast::EnhASTIndex;
 use crate::codegen::enh_ast::{EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::text_macro::{MacroParam, TextMacro};
-use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
+use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
+use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use rasm_utils::{debug_i, dedent, indent};
-
-pub mod call_stack;
-pub mod functions_container;
-pub mod resolved_generic_types;
-pub mod type_check_error;
-pub mod typed_ast;
 
 pub mod ast_modules_container;
 pub mod ast_type_checker;
 pub mod functions_dependencies;
-#[cfg(test)]
-pub mod test_utils;
-pub mod traverse_typed_ast;
-pub mod used_functions;
-pub mod verify;
 
 pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
     let p = m
@@ -65,8 +53,8 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
 pub fn resolve_generic_types_from_effective_type(
     generic_type: &EnhASTType,
     effective_type: &EnhASTType,
-) -> Result<ResolvedGenericTypes, TypeCheckError> {
-    let mut result = ResolvedGenericTypes::new();
+) -> Result<EnhResolvedGenericTypes, EnhTypeCheckError> {
+    let mut result = EnhResolvedGenericTypes::new();
     if generic_type == effective_type || !generic_type.is_generic() {
         return Ok(result);
     }
@@ -170,7 +158,7 @@ pub fn resolve_generic_types_from_effective_type(
                     let e_p = if let Some(p) = e_param_types.get(i) {
                         p
                     } else {
-                        return Err(TypeCheckError::new(
+                        return Err(EnhTypeCheckError::new(
                             EnhASTIndex::none(),
                             format!("Cannot find parameter {i}"),
                             Vec::new(),
@@ -180,7 +168,7 @@ pub fn resolve_generic_types_from_effective_type(
                         .map_err(|e| e.add(EnhASTIndex::none(), format!("in custom type gen type {generic_type} eff type {effective_type}"), Vec::new()))?;
 
                     result.extend(inner_result).map_err(|it| {
-                        TypeCheckError::new(
+                        EnhTypeCheckError::new(
                             EnhASTIndex::none(),
                             format!(
                                 "{it}: in custom type gen type {generic_type} eff type {effective_type}"
@@ -205,13 +193,13 @@ pub fn resolve_generic_types_from_effective_type(
     Ok(result)
 }
 
-fn type_check_error(message: String) -> TypeCheckError {
-    TypeCheckError::new(EnhASTIndex::none(), message, Vec::new())
+fn type_check_error(message: String) -> EnhTypeCheckError {
+    EnhTypeCheckError::new(EnhASTIndex::none(), message, Vec::new())
 }
 
 pub fn substitute(
     ast_type: &EnhASTType,
-    resolved_param_types: &ResolvedGenericTypes,
+    resolved_param_types: &EnhResolvedGenericTypes,
 ) -> Option<EnhASTType> {
     if !ast_type.is_generic() {
         return None;
@@ -298,7 +286,7 @@ pub fn substitute(
 
 fn substitute_types(
     types: &[EnhASTType],
-    resolved_param_types: &ResolvedGenericTypes,
+    resolved_param_types: &EnhResolvedGenericTypes,
 ) -> Option<Vec<EnhASTType>> {
     let mut something_substituted = false;
     let new_types = types
@@ -323,17 +311,17 @@ fn substitute_types(
 #[cfg(test)]
 mod tests {
     use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
+    use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
+    use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
     use crate::type_check::resolve_generic_types_from_effective_type;
-    use crate::type_check::resolved_generic_types::ResolvedGenericTypes;
-    use crate::type_check::type_check_error::TypeCheckError;
 
     #[test]
-    fn test_extract_generic_types_from_effective_type_simple() -> Result<(), TypeCheckError> {
+    fn test_extract_generic_types_from_effective_type_simple() -> Result<(), EnhTypeCheckError> {
         let generic_type = generic("T");
         let effective_type = i32();
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
-        let mut expected_result = ResolvedGenericTypes::new();
+        let mut expected_result = EnhResolvedGenericTypes::new();
         expected_result.insert("T".into(), i32());
 
         assert_eq!(result, expected_result);
@@ -342,7 +330,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_generic_types_from_effective_type_custom() -> Result<(), TypeCheckError> {
+    fn test_extract_generic_types_from_effective_type_custom() -> Result<(), EnhTypeCheckError> {
         let generic_type = EnhASTType::Custom {
             namespace: EnhASTNameSpace::global(),
             name: "List".into(),
@@ -358,7 +346,7 @@ mod tests {
 
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
-        let mut expected_result = ResolvedGenericTypes::new();
+        let mut expected_result = EnhResolvedGenericTypes::new();
         expected_result.insert("T".into(), i32());
 
         assert_eq!(result, expected_result);
@@ -367,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_generic_types_from_effective_type_lambda() -> Result<(), TypeCheckError> {
+    fn test_extract_generic_types_from_effective_type_lambda() -> Result<(), EnhTypeCheckError> {
         let generic_type = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
             parameters: vec![generic("T")],
             return_type: Box::new(generic("T")),
@@ -380,7 +368,7 @@ mod tests {
 
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
-        let mut expected_result = ResolvedGenericTypes::new();
+        let mut expected_result = EnhResolvedGenericTypes::new();
         expected_result.insert("T".into(), i32());
 
         assert_eq!(result, expected_result);
@@ -389,7 +377,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_generic_types_from_effective_type_lambda1() -> Result<(), TypeCheckError> {
+    fn test_extract_generic_types_from_effective_type_lambda1() -> Result<(), EnhTypeCheckError> {
         let generic_type = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
             parameters: vec![generic("T")],
             return_type: Box::new(generic("T")),
@@ -402,7 +390,7 @@ mod tests {
 
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
-        let mut expected_result = ResolvedGenericTypes::new();
+        let mut expected_result = EnhResolvedGenericTypes::new();
         expected_result.insert("T".into(), i32());
 
         assert_eq!(result, expected_result);

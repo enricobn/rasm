@@ -21,7 +21,7 @@ use linked_hash_map::LinkedHashMap;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
-use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
+use crate::enh_type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -282,7 +282,7 @@ impl CStructs {
 mod tests {
     use crate::codegen::c::any::{CLambda, CLambdas};
     use crate::codegen::statics::Statics;
-    use crate::type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
+    use crate::enh_type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 
     #[test]
     fn unique_c_lambda() {

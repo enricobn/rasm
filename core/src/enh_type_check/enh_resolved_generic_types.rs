@@ -23,11 +23,11 @@ use linked_hash_map::{IntoIter, Iter, LinkedHashMap};
 use crate::{codegen::enh_ast::EnhASTType, codegen::enhanced_module::EnhancedASTModule};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ResolvedGenericTypes {
+pub struct EnhResolvedGenericTypes {
     map: LinkedHashMap<String, EnhASTType>,
 }
 
-impl ResolvedGenericTypes {
+impl EnhResolvedGenericTypes {
     pub fn new() -> Self {
         Self {
             map: LinkedHashMap::new(),
@@ -38,7 +38,7 @@ impl ResolvedGenericTypes {
         self.map.get(key)
     }
 
-    pub fn extend(&mut self, other: ResolvedGenericTypes) -> Result<(), String> {
+    pub fn extend(&mut self, other: EnhResolvedGenericTypes) -> Result<(), String> {
         for (key, new_type) in other.into_iter() {
             if let Some(prev_type) = self.get(&key) {
                 if &new_type != prev_type && new_type.is_generic() {
@@ -52,7 +52,7 @@ impl ResolvedGenericTypes {
         Ok(())
     }
 
-    pub fn check(&self, other: &ResolvedGenericTypes) -> Option<String> {
+    pub fn check(&self, other: &EnhResolvedGenericTypes) -> Option<String> {
         for (key, t) in other.iter() {
             if let Some(et) = self.get(key) {
                 if t != et {
@@ -111,7 +111,7 @@ impl ResolvedGenericTypes {
     }
 }
 
-impl Display for ResolvedGenericTypes {
+impl Display for EnhResolvedGenericTypes {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let s = self
             .iter()

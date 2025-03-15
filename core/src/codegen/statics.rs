@@ -3,7 +3,7 @@ use linked_hash_map::LinkedHashMap;
 
 use crate::codegen::enh_ast::EnhASTType;
 use crate::codegen::statics::MemoryValue::Mem;
-use crate::type_check::typed_ast::ASTTypedType;
+use crate::enh_type_check::typed_ast::ASTTypedType;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MemoryValue {

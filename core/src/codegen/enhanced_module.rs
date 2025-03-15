@@ -11,10 +11,10 @@ use crate::codegen::enh_ast::{
     EnhASTIndex, EnhASTModule, EnhASTNameSpace, EnhASTStatement, EnhASTStructDef, EnhASTType,
     EnhASTTypeDef,
 };
+use crate::enh_type_check::enh_functions_container::{EnhFunctionsContainer, EnhTypeFilter};
+use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use crate::project::RasmProject;
 use crate::transformations::globals_creator::add_folder;
-use crate::type_check::functions_container::{EnhTypeFilter, FunctionsContainer};
-use crate::type_check::type_check_error::TypeCheckError;
 use rasm_parser::parser::ast;
 
 use super::enh_ast::EnhModuleInfo;
@@ -22,7 +22,7 @@ use super::enh_ast::EnhModuleInfo;
 #[derive(Clone, Debug)]
 pub struct EnhancedASTModule {
     pub body: Vec<EnhASTStatement>,
-    pub functions_by_name: FunctionsContainer,
+    pub functions_by_name: EnhFunctionsContainer,
     pub enums: Vec<EnhASTEnumDef>,
     pub structs: Vec<EnhASTStructDef>,
     pub types: Vec<EnhASTTypeDef>,
@@ -60,7 +60,7 @@ impl EnhancedASTModule {
         let mut structs = Vec::new();
         let mut types = Vec::new();
 
-        let mut container = FunctionsContainer::new();
+        let mut container = EnhFunctionsContainer::new();
 
         for module in modules {
             module.functions.into_iter().for_each(|mut it| {
@@ -169,7 +169,7 @@ impl EnhancedASTModule {
         parameter_types_filter: &Vec<EnhTypeFilter>,
         return_type_filter: Option<&EnhASTType>,
         index: &EnhASTIndex,
-    ) -> Result<Option<&EnhASTFunctionDef>, TypeCheckError> {
+    ) -> Result<Option<&EnhASTFunctionDef>, EnhTypeCheckError> {
         self.functions_by_name.find_call(
             function_name,
             original_function_name,
@@ -186,7 +186,7 @@ impl EnhancedASTModule {
         call: &EnhASTFunctionCall,
         parameter_types_filter: &Vec<EnhTypeFilter>,
         return_type_filter: Option<&EnhASTType>,
-    ) -> Result<Vec<&EnhASTFunctionDef>, TypeCheckError> {
+    ) -> Result<Vec<&EnhASTFunctionDef>, EnhTypeCheckError> {
         debug_i!("find call vec for module");
         self.functions_by_name.find_call_vec(
             call,
@@ -201,7 +201,7 @@ impl EnhancedASTModule {
         &self,
         name: String,
         parameter_types_filter: Vec<EnhASTType>,
-    ) -> Result<Option<EnhASTFunctionDef>, TypeCheckError> {
+    ) -> Result<Option<EnhASTFunctionDef>, EnhTypeCheckError> {
         self.functions_by_name
             .find_default_call(name, parameter_types_filter, self)
     }

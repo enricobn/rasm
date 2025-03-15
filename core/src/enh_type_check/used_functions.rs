@@ -17,8 +17,8 @@
  */
 
 use crate::codegen::enh_ast::EnhASTIndex;
-use crate::type_check::traverse_typed_ast::TraverseTypedAST;
-use crate::type_check::typed_ast::{ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule};
+use crate::enh_type_check::traverse_typed_ast::TraverseTypedAST;
+use crate::enh_type_check::typed_ast::{ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule};
 use lazy_static::lazy_static;
 use linked_hash_set::LinkedHashSet;
 use regex::Regex;
