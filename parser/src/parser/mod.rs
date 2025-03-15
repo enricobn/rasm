@@ -7,7 +7,7 @@ use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
 use crate::lexer::Lexer;
-use crate::parser::asm_def_parser::AsmDefParser;
+use crate::parser::asm_def_parser::NativeFnParser;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
 use crate::parser::ast::{
@@ -483,7 +483,7 @@ impl Parser {
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
         } else if let Some((name_token, inline, param_types, modifiers, next_i)) =
-            AsmDefParser::new(self).try_parse()?
+            NativeFnParser::new(self).try_parse()?
         {
             let name = name_token.alpha().unwrap();
             let function_def = ASTFunctionDef {

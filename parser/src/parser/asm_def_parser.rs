@@ -3,11 +3,11 @@ use crate::parser::ast::ASTModifiers;
 use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::ParserTrait;
 
-pub struct AsmDefParser<'a> {
+pub struct NativeFnParser<'a> {
     parser: &'a dyn ParserTrait,
 }
 
-impl<'a> AsmDefParser<'a> {
+impl<'a> NativeFnParser<'a> {
     pub fn new(parser: &'a dyn ParserTrait) -> Self {
         Self { parser }
     }
@@ -100,7 +100,7 @@ mod tests {
     fn try_parse(source: &str) -> Option<(Token, bool, Vec<String>, ASTModifiers, usize)> {
         let parser = get_parser(source);
 
-        let sut = AsmDefParser::new(&parser);
+        let sut = NativeFnParser::new(&parser);
 
         sut.try_parse().unwrap()
     }
