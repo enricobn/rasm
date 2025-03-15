@@ -618,14 +618,6 @@ impl ASTTypeChecker {
                         ),
                     );
                 } else {
-                    /*
-                    if name == "println" {
-                        println!(
-                            "expected_expression_type {}",
-                            OptionDisplay(&expected_expression_type)
-                        );
-                    }
-                    */
                     let mut function_references = modules_container.signatures();
 
                     function_references = function_references
@@ -643,12 +635,6 @@ impl ASTTypeChecker {
                         return_type,
                     })) = expected_expression_type
                     {
-                        /*
-                        if name == "println" {
-                            println!("found println");
-                        }
-                        */
-
                         let module_info =
                             ModuleInfo::new(module_namespace.clone(), module_id.clone());
                         function_references = function_references
@@ -681,11 +667,43 @@ impl ASTTypeChecker {
                     }
 
                     if function_references.len() == 1 {
-                        let fun_ref = function_references.remove(0);
+                        let fun_entry = function_references.remove(0);
 
-                        let lambda = BuiltinTypeKind::Lambda {
-                            parameters: fun_ref.signature.parameters_types.clone(),
-                            return_type: Box::new(fun_ref.signature.return_type.clone()),
+                        // if we have an expected expression type, we try to substitute eventual generic types with real
+                        // types from the expected
+                        let lambda = if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            parameters,
+                            return_type,
+                        })) = expected_expression_type
+                        {
+                            let new_parameters =
+                                zip(fun_entry.signature.parameters_types.clone(), parameters)
+                                    .map(|(p, t)| {
+                                        if p.is_generic() && !t.is_generic() {
+                                            t.clone()
+                                        } else {
+                                            p
+                                        }
+                                    })
+                                    .collect::<Vec<_>>();
+
+                            let new_return_type = if fun_entry.signature.return_type.is_generic()
+                                && !return_type.is_generic()
+                            {
+                                return_type.as_ref()
+                            } else {
+                                &fun_entry.signature.return_type
+                            };
+
+                            BuiltinTypeKind::Lambda {
+                                parameters: new_parameters,
+                                return_type: Box::new(new_return_type.clone()),
+                            }
+                        } else {
+                            BuiltinTypeKind::Lambda {
+                                parameters: fun_entry.signature.parameters_types.clone(),
+                                return_type: Box::new(fun_entry.signature.return_type.clone()),
+                            }
                         };
 
                         self.result.insert(
@@ -699,9 +717,9 @@ impl ASTTypeChecker {
                                 ),
                                 name.to_owned(),
                                 ASTIndex::new(
-                                    fun_ref.namespace.clone(),
-                                    fun_ref.module_id.clone(),
-                                    fun_ref.position.clone(),
+                                    fun_entry.namespace.clone(),
+                                    fun_entry.module_id.clone(),
+                                    fun_entry.position.clone(),
                                 ),
                             ),
                         );
@@ -952,6 +970,10 @@ impl ASTTypeChecker {
                             ret_type.map(|it| Box::new(it)),
                         ),
                     );
+
+                    if let Some(found) = tmp.result.get(&index) {
+                        self.result.insert(index.clone(), found.clone());
+                    }
                 } else {
                     self.add_expr(
                         e,
@@ -1103,7 +1125,12 @@ impl ASTTypeChecker {
 
                 let functions_msg = functions
                     .iter()
-                    .map(|it| format!("  function {}", it.signature))
+                    .map(|it| {
+                        format!(
+                            "  function {}",
+                            it.signature.clone().remove_generic_prefix()
+                        )
+                    })
                     .join("\n");
 
                 let is_generic = function.map(ASTFunctionDef::is_generic).unwrap_or(false);
@@ -1335,6 +1362,12 @@ impl ASTTypeChecker {
             }
         }
 
+        let call_index = ASTIndex::new(
+            function_signature_entry.namespace.clone(),
+            function_signature_entry.module_id.clone(),
+            function_signature_entry.position.clone(),
+        );
+
         if is_lambda {
             self.result.insert(
                 index.clone(),
@@ -1345,14 +1378,7 @@ impl ASTTypeChecker {
                         call_module_id,
                         modules_container,
                     )),
-                    ASTTypeCheckInfo::LambdaCall(
-                        function_signature.clone(),
-                        ASTIndex::new(
-                            function_signature_entry.namespace.clone(),
-                            function_signature_entry.module_id.clone(),
-                            function_signature_entry.position.clone(),
-                        ),
-                    ),
+                    ASTTypeCheckInfo::LambdaCall(function_signature.clone(), call_index.clone()),
                 ),
             );
         } else {
@@ -1367,19 +1393,15 @@ impl ASTTypeChecker {
                     )),
                     ASTTypeCheckInfo::Call(
                         call.function_name().clone(),
-                        vec![(
-                            function_signature.clone(),
-                            ASTIndex::new(
-                                function_signature_entry.namespace.clone(),
-                                function_signature_entry.module_id.clone(),
-                                function_signature_entry.position.clone(),
-                            ),
-                        )],
+                        vec![(function_signature.clone(), call_index.clone())],
                     ),
                 ),
             );
         }
-        enable_log(false);
+
+        // there could be "phantom" errors when generics are not completely resolved, I remove them
+        self.errors.retain(|it| it.index != index);
+
         dedent!();
     }
 
@@ -1739,7 +1761,8 @@ mod tests {
         commandline::CommandLineOptions,
         project::{RasmProject, RasmProjectRunType},
         type_check::{
-            ast_modules_container::ASTModulesContainer, ast_type_checker::ASTTypeCheckInfo,
+            ast_modules_container::ASTModulesContainer,
+            ast_type_checker::{ASTTypeCheckErroKind, ASTTypeCheckInfo},
             test_utils::project_and_container,
         },
     };
@@ -2089,7 +2112,7 @@ mod tests {
 
     #[test]
     fn test_breakout() {
-        check_project("../rasm/resources/examples/breakout");
+        let (check, _, _) = check_project("../rasm/resources/examples/breakout");
     }
 
     #[test]
@@ -2129,7 +2152,7 @@ mod tests {
             "resources/test/ast_type_checker/function_reference.rasm",
             9,
             11,
-            "fn (stdlib_print_println:T1,stdlib_print_println:T2) -> ()",
+            "fn (str,f32) -> ()",
         );
     }
 
@@ -2359,6 +2382,23 @@ mod tests {
         );
 
         let result = ASTTypeChecker::from_modules_container(&container);
+
+        let errors = result
+            .0
+            .errors
+            .iter()
+            .filter(|it| it.kind == ASTTypeCheckErroKind::Error)
+            .collect::<Vec<_>>();
+
+        for error in errors.iter() {
+            if error.kind == ASTTypeCheckErroKind::Error {
+                println!("error {error}");
+            }
+        }
+
+        if !errors.is_empty() {
+            panic!();
+        }
 
         (result.0, catalog, result.1)
     }

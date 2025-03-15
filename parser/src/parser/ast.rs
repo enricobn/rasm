@@ -158,6 +158,23 @@ impl ASTFunctionSignature {
         result
     }
 
+    pub fn remove_generic_prefix(self) -> Self {
+        let mut result = self;
+        result.parameters_types = result
+            .parameters_types
+            .into_iter()
+            .map(|it| it.remove_generic_prefix())
+            .collect();
+        result.return_type = result.return_type.remove_generic_prefix();
+        result.generics = result
+            .generics
+            .into_iter()
+            .map(|it| ASTType::remove_generic_prefix_from_str(&it).to_owned())
+            .collect();
+
+        result
+    }
+
     pub fn is_generic(&self) -> bool {
         !self.generics.is_empty()
     }
@@ -375,6 +392,9 @@ impl ASTType {
     }
 
     pub fn add_generic_prefix(self, prefix: &dyn Display) -> Self {
+        if format!("{prefix}").contains(":") {
+            panic!("unsupported prefix {prefix}");
+        }
         if let ASTType::Builtin(BuiltinTypeKind::Lambda {
             parameters,
             return_type,
@@ -422,10 +442,8 @@ impl ASTType {
                 return_type: Box::new(return_type.remove_generic_prefix()),
             });
         } else if let ASTType::Generic(ref position, ref name) = self {
-            if let Some(i) = name.find(':') {
-                let original_generic = name.clone().split_at(i + 1).1.to_owned();
-                //println!("found generic {s} -> {}", original_generic);
-                return ASTType::Generic(position.clone(), original_generic);
+            if let Some(original_generic) = Self::get_original_generic(name) {
+                return ASTType::Generic(position.clone(), original_generic.to_owned());
             }
         } else if let ASTType::Custom {
             name,
@@ -443,6 +461,16 @@ impl ASTType {
             };
         }
         self
+    }
+
+    pub fn get_original_generic(name: &str) -> Option<&str> {
+        name.find(':').map(|i| name.split_at(i + 1).1)
+    }
+
+    pub fn remove_generic_prefix_from_str(name: &str) -> &str {
+        name.find(':')
+            .map(|i| name.split_at(i + 1).1)
+            .unwrap_or(name)
     }
 
     pub fn generics(&self) -> HashSet<String> {
