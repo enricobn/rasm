@@ -1075,7 +1075,6 @@ impl ASTTypeChecker {
 
         let mut functions = modules_container.find_call_vec(
             call.function_name(),
-            call.position(),
             call.target(),
             &parameter_types_filters,
             expected_expression_type,

@@ -675,7 +675,7 @@ impl<'a> EnhTypeCheck<'a> {
                 if vec.len() == 1 {
                     let (f, index) = vec.first().unwrap();
 
-                    if let Some((eh_id, eh_ns)) =
+                    if let Some((eh_id, _eh_ns)) =
                         self.modules_catalog.catalog_info(index.module_id())
                     {
                         if let Some(f) = module

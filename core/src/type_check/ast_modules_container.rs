@@ -276,7 +276,6 @@ impl ASTModulesContainer {
     pub fn find_call_vec(
         &self,
         function_to_call: &str,
-        position: &ASTPosition,
         call_target: &Option<String>,
         parameter_types_filter: &Vec<ASTTypeFilter>,
         return_type_filter: Option<&ASTType>,
@@ -559,34 +558,25 @@ impl ASTModulesContainer {
                 }
             }
             ASTType::Unit => {
-                /*
-                let msg = format!("ASTType::Unit {with_type}");
-                println!("{msg}");
-                */
                 matches!(with_type, ASTType::Unit) || matches!(with_type, ASTType::Generic(_, _))
             }
         }
     }
 
-    pub fn custom_type_index(&self, namespace: &ModuleNamespace, name: &str) -> Option<ASTIndex> {
-        // TODO optimize
-        let e = self
-            .get_enum_def(namespace, name)
-            .map(|(info, def)| (info, &def.position));
-        let s = self
-            .get_struct_def(namespace, name)
-            .map(|(info, def)| (info, &def.position));
-        let t = self
-            .get_type_def(namespace, name)
-            .map(|(info, def)| (info, &def.position));
-
-        e.or(s.or(t)).map(|(info, position)| {
-            ASTIndex::new(
+    pub fn custom_type_index(
+        &self,
+        from_namespace: &ModuleNamespace,
+        name: &str,
+    ) -> Option<ASTIndex> {
+        if let Some((info, def)) = self.custom_type_def(from_namespace, name) {
+            Some(ASTIndex::new(
                 info.namespace().clone(),
                 info.id().clone(),
-                position.clone(),
-            )
-        })
+                def.position().clone(),
+            ))
+        } else {
+            None
+        }
     }
 
     pub fn custom_type_module_id(
@@ -832,7 +822,6 @@ mod tests {
 
         let functions = container.find_call_vec(
             "add",
-            &ASTPosition::none(),
             &None,
             &vec![
                 exact_builtin(BuiltinTypeKind::I32),
@@ -850,7 +839,6 @@ mod tests {
 
         let functions = container.find_call_vec(
             "match",
-            &ASTPosition::none(),
             &None,
             &vec![
                 exact_custom("Option", vec![ASTType::Builtin(BuiltinTypeKind::I32)]),
