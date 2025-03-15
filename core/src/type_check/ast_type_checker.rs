@@ -576,12 +576,7 @@ impl ASTTypeChecker {
                     self.result.insert(
                         index.clone(),
                         ASTTypeCheckEntry::reference(
-                            ASTTypeFilter::exact(
-                                kind.ast_type(),
-                                module_namespace,
-                                module_id,
-                                modules_container,
-                            ),
+                            ASTTypeFilter::exact(kind.ast_type(), module_namespace, module_id),
                             name.to_owned(),
                             kind.index(module_namespace, module_id),
                         ),
@@ -590,12 +585,7 @@ impl ASTTypeChecker {
                     self.result.insert(
                         index.clone(),
                         ASTTypeCheckEntry::reference(
-                            ASTTypeFilter::exact(
-                                kind.ast_type(),
-                                module_namespace,
-                                module_id,
-                                modules_container,
-                            ),
+                            ASTTypeFilter::exact(kind.ast_type(), module_namespace, module_id),
                             name.to_owned(),
                             kind.index(module_namespace, module_id),
                         ),
@@ -696,7 +686,6 @@ impl ASTTypeChecker {
                                     ASTType::Builtin(lambda),
                                     module_namespace,
                                     module_id,
-                                    modules_container,
                                 ),
                                 name.to_owned(),
                                 ASTIndex::new(
@@ -767,7 +756,6 @@ impl ASTTypeChecker {
                                             ast_type.clone(),
                                             module_namespace,
                                             module_id,
-                                            modules_container,
                                         ),
                                         name.to_owned(),
                                     ),
@@ -1063,7 +1051,6 @@ impl ASTTypeChecker {
                         (*return_types.iter().exactly_one().unwrap()).clone(),
                         module_namespace,
                         module_id,
-                        modules_container,
                     ))
                 } else {
                     None
@@ -1262,7 +1249,6 @@ impl ASTTypeChecker {
                         return_type,
                         call_module_namespace,
                         call_module_id,
-                        modules_container,
                     )),
                     ASTTypeCheckInfo::LambdaCall(function_signature.clone(), call_index.clone()),
                 ),
@@ -1275,7 +1261,6 @@ impl ASTTypeChecker {
                         return_type,
                         call_module_namespace,
                         call_module_id,
-                        modules_container,
                     )),
                     ASTTypeCheckInfo::Call(
                         call.function_name().clone(),

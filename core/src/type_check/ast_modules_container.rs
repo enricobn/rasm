@@ -717,23 +717,7 @@ impl ASTTypeFilter {
         ast_type: ASTType,
         module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
-        container: &ASTModulesContainer,
     ) -> Self {
-        /*
-        if let ASTType::Custom {
-            name,
-            param_types: _,
-            position: _,
-        } = &ast_type
-        {
-            if let Some(t) = container.custom_type_index(module_namespace, name) {
-                return ASTTypeFilter::Exact(
-                    ast_type,
-                    ModuleInfo::new(t.module_namespace().clone(), t.module_id().clone()),
-                );
-            }
-        }
-        */
         ASTTypeFilter::Exact(
             ast_type,
             ModuleInfo::new(module_namespace.clone(), module_id.clone()),
