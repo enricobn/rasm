@@ -66,7 +66,7 @@ pub fn collides(ball: Ball, barPos: f32) -> bool {
     xColl.and(yColl);
 }
 
-pub fn ballAfterCollision(ball: Ball, brick: Brick) -> Ball {
+pub fn afterCollision(ball: Ball, brick: Brick) -> Ball {
     let xDiff1 = ball.x.sub(brick.x);
     let xDiff2 = brick.x.add(BRICKWIDTH).sub(ball.x);
     let yDiff1 = ball.y.sub(brick.y);

@@ -30,21 +30,24 @@ fn initialWorld() -> World {
 }
 
 pub fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameResult {
-    let stage = stage(gameState);
+    let stage = gameState.stage;
     let fps = gameState.fps.update();
 
-    let newGameState = match(stage, { gameState.fps(fps);}, {
-        let newWorld = update(resources, keys, gameState.world);
+    let newGameState = stage.match(
+        { gameState.fps(fps); }, 
+        {
+            let newWorld = update(resources, keys, gameState.world);
 
-        // range(0, 100); // wait...
-        GameState(stage, newWorld, fps);
-    });
+            // range(0, 100); // wait...
+            GameState(stage, newWorld, fps);
+        }
+    );
 
-    let newWorld = world(newGameState);
-    let lives = lives(newWorld);
-    let score = score(newWorld);
+    let newWorld = newGameState.world;
+    let lives = newWorld.lives;
+    let score = newWorld.score;
 
-    if(eq(lives, 0), { End(score);}, { Play(newGameState);});
+    if(lives.eq(0), { End(score);}, { Play(newGameState);});
 }
 
 fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
@@ -55,23 +58,24 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
     let ball = world.ball;
     let bricks = world.bricks;
 
-    let newBar = update(world.bar, actualTime, keys);
-    let newBall = update(ball, actualTime);
-    let collision = collision(bricks, newBall);
-    let newScore = match(collision, fn(b) { add(world.score, 10);}, { world.score;});
-    let newBricks = match(collision, fn(b1) { filter(bricks, neq.curry(b1)); }, { bricks; });
+    let newBar = world.bar.update(actualTime, keys);
+    let newBall = ball.update(actualTime);
+    let collision = bricks.collision(newBall);
+    let newScore = collision.match(fn(b) { world.score.add(10);}, { world.score;});
+    let newBricks = collision.match(fn(b1) { bricks.filter(neq.curry(b1)); }, { bricks; });
 
-    if(collides(newBall, newBar.x), {
-        let newBall2 = update(Ball(ball.x, ball.y, ball.xDir, flip(ball.yDir), actualTime), actualTime);
+    if(newBall.collides(newBar.x), {
+        let ballAfterCollision = Ball(ball.x, ball.y, ball.xDir, ball.yDir.flip(), actualTime);
+        let newBall2 = ballAfterCollision.update(actualTime);
         World(newBricks, newBall2, newBar, newScore, lives);
     }, {
-        match(collision, fn(brick) {
-            let newBall2 = ballAfterCollision(ball, brick);
-             World(newBricks, newBall2, newBar, newScore, lives);
+        collision.match(fn(brick) {
+            let ballAfterCollision = ball.afterCollision(brick).lastUpdate(actualTime);
+             World(newBricks, ballAfterCollision, newBar, newScore, lives);
         },
         {
-            if(greater(ball.y, sub(HEIGHT, BALLSIZE)), {
-                World(newBricks, initialBall(actualTime), newBar, newScore, sub(lives, 1));
+            if(ball.y.greater(HEIGHT.sub(BALLSIZE)), {
+                World(newBricks, initialBall(actualTime), newBar, newScore, lives.sub(1));
             }, {
                 World(newBricks, newBall, newBar, newScore, lives);
             });
@@ -80,38 +84,39 @@ fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
 }
 
 fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
-    filter(bricks, collides.curry(ball)).first;
+    bricks.filter(collides.curry(ball)).first;
 }
 
 pub fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
-    match(gameState.stage, { }, {
-        render(ren, resources, gameState.world, gameState.fps.fps);
-    });
+    gameState.stage.match(
+        { }, 
+        { render(ren, resources, gameState.world, gameState.fps.fps); }
+    );
 }
 
 fn render(ren: SDLRenderer, resources: Resources, world: World, fps: i32) {
     let font = resources.font;
 
-    forEach(world.bricks, fn(brick) {
+    world.bricks.forEach(fn(brick) {
         sdlSetRenderDrawColor(ren, brick.color);
-        sdlRenderFillRect(ren, SDLRect(add(brick.x, 1), add(brick.y, 1), sub(BRICKWIDTH, 2), sub(BRICKHEIGHT, 2)));
+        sdlRenderFillRect(ren, SDLRect(brick.x.add(1), brick.y.add(1), BRICKWIDTH.sub(2), BRICKHEIGHT.sub(2)));
     });
 
     sdlSetRenderDrawColor(ren, WHITE);
 
-    sdlRenderFillRect(ren, SDLRect(toi32(world.bar.x, 0), sub(HEIGHT, BARHEIGHT), BARWIDTH, BARHEIGHT));
+    sdlRenderFillRect(ren, SDLRect(world.bar.x.toi32(0), HEIGHT.sub(BARHEIGHT), BARWIDTH, BARHEIGHT));
 
-    sdlRenderFillRect(ren, SDLRect(toi32(world.ball.x, 0), toi32(world.ball.y, 0), BALLSIZE, BALLSIZE));
+    sdlRenderFillRect(ren, SDLRect(world.ball.x.toi32(0), world.ball.y.toi32(0), BALLSIZE, BALLSIZE));
 
     sdlSetRenderDrawColor(ren, BLUE);
     sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
 
-    let scoreText = createSDLText(ren, font, add("Score: ", toString(world.score)), GREEN);
+    let scoreText = createSDLText(ren, font, "Score: ".append(world.score), GREEN);
     renderAndRelease(ren, scoreText, SDLRect(2, 2, 100, 24));
 
-    let livesText = createSDLText(ren, font, add("Lives: ", toString(world.lives)), GREEN);
+    let livesText = createSDLText(ren, font, "Lives: ".append(world.lives), GREEN);
     renderAndRelease(ren, livesText, SDLRect(200, 2, 100, 24));
 
-    let fpsText = createSDLText(ren, font, add("FPS: ", toString(fps)), GREEN);
+    let fpsText = createSDLText(ren, font, "FPS: ".append(fps), GREEN);
     renderAndRelease(ren, fpsText, SDLRect(400, 2, 100, 24));
 }
