@@ -2112,7 +2112,7 @@ mod tests {
 
     #[test]
     fn test_breakout() {
-        let (check, _, _) = check_project("../rasm/resources/examples/breakout");
+        check_project("../rasm/resources/examples/breakout");
     }
 
     #[test]
