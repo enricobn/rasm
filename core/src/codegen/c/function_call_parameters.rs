@@ -73,7 +73,6 @@ impl CFunctionCallParameters {
     }
 
     fn get_value_from_lambda_space(
-        statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
         i: usize,
         ast_typed_type: &ASTTypedType,
@@ -213,7 +212,6 @@ impl FunctionCallParameters for CFunctionCallParameters {
                     &type_name,
                     "",
                     module,
-                    statics,
                 );
             }
         }
@@ -238,7 +236,6 @@ impl FunctionCallParameters for CFunctionCallParameters {
                     &type_name,
                     &type_name,
                     module,
-                    statics,
                 );
             }
             self.add_on_top_of_after(&deref_code);
@@ -576,7 +573,6 @@ impl FunctionCallParameters for CFunctionCallParameters {
             if let Some(index_in_lambda_space) = ls.get_index(val_name) {
                 let ast_typed_type = ls.get_type(val_name).unwrap();
                 let value = Self::get_value_from_lambda_space(
-                    statics,
                     type_def_provider,
                     index_in_lambda_space - 1,
                     ast_typed_type,
@@ -634,7 +630,6 @@ impl FunctionCallParameters for CFunctionCallParameters {
         let value =
             if let Some(index_in_lambda) = lambda_space.and_then(|it| it.get_index(val_name)) {
                 let value_from_lambda_space = Self::get_value_from_lambda_space(
-                    statics,
                     type_def_provider,
                     index_in_lambda - 1,
                     lambda_space.unwrap().get_type(val_name).unwrap(),

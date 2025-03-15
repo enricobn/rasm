@@ -1523,12 +1523,12 @@ impl<'a> EnhTypeCheck<'a> {
             {
                 let (filter_module_id, filter_module_namespace) =
                     if let Some(ast_namespace) = self.modules_catalog.namespace(namespace) {
-                        if let Some(t) = self
+                        if let Some(ct_module_id) = self
                             .modules_container
-                            .custom_type_index(ast_namespace, &name)
+                            .custom_type_module_id(ast_namespace, &name)
                         {
                             if let Some((id, namespace)) =
-                                self.modules_catalog.catalog_info(t.module_id())
+                                self.modules_catalog.catalog_info(ct_module_id)
                             {
                                 (id, namespace)
                             } else {

@@ -1080,7 +1080,6 @@ impl ASTTypeChecker {
             &parameter_types_filters,
             expected_expression_type,
             module_namespace,
-            module_id,
         );
 
         if functions.is_empty() {

@@ -394,7 +394,6 @@ impl TextMacroEval for CAddRefMacro {
                             &type_name,
                             descr,
                             type_def_provider,
-                            statics,
                         );
                     }
                     RefType::AddRef => {
@@ -404,7 +403,6 @@ impl TextMacroEval for CAddRefMacro {
                             &type_name,
                             descr,
                             type_def_provider,
-                            statics,
                         );
                     }
                 }

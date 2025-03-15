@@ -11,7 +11,7 @@ use rasm_parser::{
     parser::{
         ast::{
             ASTEnumDef, ASTFunctionDef, ASTFunctionSignature, ASTModule, ASTPosition, ASTStructDef,
-            ASTType, ASTTypeDef, BuiltinTypeKind,
+            ASTType, ASTTypeDef, BuiltinTypeKind, CustomTypeDef,
         },
         builtin_functions::BuiltinFunctions,
     },
@@ -277,11 +277,10 @@ impl ASTModulesContainer {
         &self,
         function_to_call: &str,
         position: &ASTPosition,
-        target: &Option<String>,
+        call_target: &Option<String>,
         parameter_types_filter: &Vec<ASTTypeFilter>,
         return_type_filter: Option<&ASTType>,
         function_call_module_namespace: &ModuleNamespace,
-        function_call_module_id: &ModuleId,
     ) -> Vec<&ASTFunctionSignatureEntry> {
         debug_i!(
             "find_call_vec {function_to_call} {}",
@@ -307,14 +306,11 @@ impl ASTModulesContainer {
                 )
             })
             .filter(|it| {
-                target
+                call_target
                     .as_ref()
-                    .map(|t| {
-                        if let Some(target) = &it.target {
-                            t == target
-                        } else {
-                            false
-                        }
+                    .map(|t| match &it.target {
+                        Some(target) => t == target,
+                        _ => false,
                     })
                     .unwrap_or(true)
             })
@@ -353,7 +349,7 @@ impl ASTModulesContainer {
                                         break;
                                     }
                                 }
-                                Err(e) => {
+                                Err(_e) => {
                                     compatible = false;
                                     break;
                                 }
@@ -425,12 +421,12 @@ impl ASTModulesContainer {
 
     pub fn get_enum_def(
         &self,
-        from_module_id: &ModuleNamespace,
+        from_namespace: &ModuleNamespace,
         name: &str,
     ) -> Option<&(ModuleInfo, ASTEnumDef)> {
         self.enum_defs.get(name).and_then(|it| {
             find_one(it.iter(), |(info, e)| {
-                e.modifiers.public || info.namespace() == from_module_id
+                e.modifiers.public || info.namespace() == from_namespace
             })
         })
     }
@@ -485,9 +481,9 @@ impl ASTModulesContainer {
     fn is_compatible(
         &self,
         a_type: &ASTType,
-        an_id: &ModuleNamespace,
+        a_namespace: &ModuleNamespace,
         with_type: &ASTType,
-        with_id: &ModuleNamespace,
+        with_namespace: &ModuleNamespace,
     ) -> bool {
         match a_type {
             ASTType::Builtin(a_kind) => {
@@ -503,9 +499,10 @@ impl ASTModulesContainer {
                         } = with_kind
                         {
                             a_p.len() == w_p.len()
-                                && zip(a_p, w_p)
-                                    .all(|(a, w)| self.is_compatible(a, an_id, w, with_id))
-                                && self.is_compatible(a_rt, an_id, wrt, with_id)
+                                && zip(a_p, w_p).all(|(a, w)| {
+                                    self.is_compatible(a, a_namespace, w, with_namespace)
+                                })
+                                && self.is_compatible(a_rt, a_namespace, wrt, with_namespace)
                         } else {
                             false
                         }
@@ -518,7 +515,7 @@ impl ASTModulesContainer {
                     false
                 }
             }
-            ASTType::Generic(_, name) => true,
+            ASTType::Generic(_, _) => true,
             ASTType::Custom {
                 name: a_name,
                 param_types: a_param_types,
@@ -530,10 +527,31 @@ impl ASTModulesContainer {
                     position: _,
                 } = with_type
                 {
-                    a_name == with_name // TODO namespace
-                        && a_param_types.len() == with_param_types.len()
-                        && zip(a_param_types, with_param_types)
-                            .all(|(a_pt, w_pt)| self.is_compatible(a_pt, an_id, w_pt, with_id))
+                    if a_name != with_name || a_param_types.len() != with_param_types.len() {
+                        return false;
+                    }
+
+                    let a_real_ns =
+                        if let Some(i) = self.custom_type_module_namespace(a_namespace, &a_name) {
+                            i
+                        } else {
+                            return false;
+                        };
+                    let with_real_nf = if let Some(i) =
+                        self.custom_type_module_namespace(with_namespace, &with_name)
+                    {
+                        i
+                    } else {
+                        return false;
+                    };
+
+                    if a_real_ns != with_real_nf {
+                        return false;
+                    }
+
+                    zip(a_param_types, with_param_types).all(|(a_pt, w_pt)| {
+                        self.is_compatible(a_pt, a_namespace, w_pt, with_namespace)
+                    })
                 } else if let ASTType::Generic(_, _) = with_type {
                     true
                 } else {
@@ -551,6 +569,7 @@ impl ASTModulesContainer {
     }
 
     pub fn custom_type_index(&self, namespace: &ModuleNamespace, name: &str) -> Option<ASTIndex> {
+        // TODO optimize
         let e = self
             .get_enum_def(namespace, name)
             .map(|(info, def)| (info, &def.position));
@@ -568,6 +587,54 @@ impl ASTModulesContainer {
                 position.clone(),
             )
         })
+    }
+
+    pub fn custom_type_module_id(
+        &self,
+        from_namespace: &ModuleNamespace,
+        name: &str,
+    ) -> Option<&ModuleId> {
+        if let Some((info, _def)) = self.get_enum_def(from_namespace, name) {
+            return Some(info.id());
+        } else if let Some((info, _def)) = self.get_struct_def(from_namespace, name) {
+            return Some(info.id());
+        } else if let Some((info, _def)) = self.get_type_def(from_namespace, name) {
+            return Some(info.id());
+        } else {
+            return None;
+        }
+    }
+
+    pub fn custom_type_module_namespace(
+        &self,
+        from_namespace: &ModuleNamespace,
+        name: &str,
+    ) -> Option<&ModuleNamespace> {
+        if let Some((info, _def)) = self.get_enum_def(from_namespace, name) {
+            return Some(info.namespace());
+        } else if let Some((info, _def)) = self.get_struct_def(from_namespace, name) {
+            return Some(info.namespace());
+        } else if let Some((info, _def)) = self.get_type_def(from_namespace, name) {
+            return Some(info.namespace());
+        } else {
+            return None;
+        }
+    }
+
+    pub fn custom_type_def(
+        &self,
+        from_namespace: &ModuleNamespace,
+        name: &str,
+    ) -> Option<(&ModuleInfo, &dyn CustomTypeDef)> {
+        if let Some((info, def)) = self.get_enum_def(from_namespace, name) {
+            return Some((info, def));
+        } else if let Some((info, def)) = self.get_struct_def(from_namespace, name) {
+            return Some((info, def));
+        } else if let Some((info, def)) = self.get_type_def(from_namespace, name) {
+            return Some((info, def));
+        } else {
+            return None;
+        }
     }
 }
 
@@ -657,6 +724,7 @@ impl ASTTypeFilter {
         module_id: &ModuleId,
         container: &ASTModulesContainer,
     ) -> Self {
+        /*
         if let ASTType::Custom {
             name,
             param_types: _,
@@ -670,6 +738,7 @@ impl ASTTypeFilter {
                 );
             }
         }
+        */
         ASTTypeFilter::Exact(
             ast_type,
             ModuleInfo::new(module_namespace.clone(), module_id.clone()),
@@ -746,10 +815,7 @@ impl ASTTypeFilter {
 mod tests {
     use std::path::PathBuf;
 
-    use rasm_parser::{
-        catalog::ModuleId,
-        parser::ast::{ASTPosition, ASTType, BuiltinTypeKind},
-    };
+    use rasm_parser::parser::ast::{ASTPosition, ASTType, BuiltinTypeKind};
 
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
@@ -774,7 +840,6 @@ mod tests {
             ],
             None,
             &ModuleNamespace::global(),
-            &ModuleId::global(),
         );
         assert_eq!(1, functions.len());
     }
@@ -800,7 +865,6 @@ mod tests {
             ],
             None,
             &ModuleNamespace::global(),
-            &ModuleId::global(),
         );
         assert_eq!(1, functions.len());
     }

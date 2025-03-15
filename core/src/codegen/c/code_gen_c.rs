@@ -197,7 +197,6 @@ impl CodeGenC {
         type_name: &str,
         descr_for_debug: &str,
         type_def_provider: &dyn TypeDefProvider,
-        statics: &Statics,
     ) {
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
@@ -235,27 +234,12 @@ impl CodeGenC {
             // TODO handle str, for now it's not possible since there's no difference,
             //   between heap ans static allocated strings
             } else if "str" != type_name {
-                self.call_add_ref_simple(out, source, descr_for_debug, statics);
+                self.call_add_ref_simple(out, source, descr_for_debug);
             }
         }
     }
 
-    pub fn call_add_ref_simple(
-        &self,
-        out: &mut String,
-        source: &str,
-        descr_for_debug: &str,
-        statics: &Statics,
-    ) {
-        /*
-        self.add(
-            out,
-            &format!("printf(\"call_add_ref_simple {descr_for_debug}\\n\");"),
-            Some(descr_for_debug),
-            true,
-        );
-        */
-
+    pub fn call_add_ref_simple(&self, out: &mut String, source: &str, descr_for_debug: &str) {
         self.add(
             out,
             &format!("addRef({source});"),
@@ -271,7 +255,6 @@ impl CodeGenC {
         type_name: &str,
         descr_for_debug: &str,
         type_def_provider: &dyn TypeDefProvider,
-        statics: &Statics,
     ) {
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
@@ -309,27 +292,12 @@ impl CodeGenC {
             // TODO handle str, for now it's not possible since there's no difference,
             //   between heap ans static allocated strings
             } else if "str" != type_name {
-                self.call_deref_simple(out, source, descr_for_debug, statics);
+                self.call_deref_simple(out, source, descr_for_debug);
             }
         }
     }
 
-    pub fn call_deref_simple(
-        &self,
-        out: &mut String,
-        source: &str,
-        descr_for_debug: &str,
-        statics: &Statics,
-    ) {
-        /*
-        self.add(
-            out,
-            &format!("printf(\"call_deref_simple {descr_for_debug}\\n\");"),
-            Some(descr_for_debug),
-            true,
-        );
-        */
-
+    pub fn call_deref_simple(&self, out: &mut String, source: &str, descr_for_debug: &str) {
         self.add(
             out,
             &format!("deref({source});"),
@@ -531,7 +499,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         index: &EnhASTIndex,
         type_name: &String,
     ) {
-        self.call_add_ref(body, name, type_name, &type_name, typed_module, &statics);
+        self.call_add_ref(body, name, type_name, &type_name, typed_module);
     }
 
     fn call_deref_for_let_val(
@@ -556,7 +524,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 statics,
             );
         } else {
-            self.call_deref(&mut result, name, type_name, "", typed_module, statics);
+            self.call_deref(&mut result, name, type_name, "", typed_module);
         }
 
         result
@@ -584,7 +552,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 statics,
             );
         } else {
-            self.call_add_ref(before, name, type_name, "", typed_module, statics);
+            self.call_add_ref(before, name, type_name, "", typed_module);
         }
     }
 

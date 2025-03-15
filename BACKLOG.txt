@@ -5,6 +5,7 @@ Doing
 
 Major
 -----
+- C backend: addRef/deref of enums with only constants should be avoided
 - I don't like methods to handle generic prefix in AST, it should be handled outside the AST modules
 - populate target for ASTFunctionDef, for regular functions (not builtin), with the name of the type of the first parameter, 
   even if generic when not completely generic (Option<T>)? Adjust code completion

@@ -130,28 +130,24 @@ impl TypedFunctionsCreatorC {
         if function_name == "deref" {
             if !optimize_lambda_space {
                 self.code_gen
-                    .call_deref_simple(&mut body, "lambda_space_", c_lambda_name, statics);
+                    .call_deref_simple(&mut body, "lambda_space_", c_lambda_name);
                 self.code_gen
                     .add(&mut body, "if (lambda_space_->count == 0) {", None, true);
             }
             if !optimize_lambda {
                 self.code_gen
-                    .call_deref_simple(&mut body, "address", c_lambda_name, statics);
+                    .call_deref_simple(&mut body, "address", c_lambda_name);
             }
         } else {
             if !optimize_lambda_space {
-                self.code_gen.call_add_ref_simple(
-                    &mut body,
-                    "lambda_space_",
-                    c_lambda_name,
-                    statics,
-                );
+                self.code_gen
+                    .call_add_ref_simple(&mut body, "lambda_space_", c_lambda_name);
                 self.code_gen
                     .add(&mut body, "if (lambda_space_->count == 1) {", None, true);
             }
             if !optimize_lambda {
                 self.code_gen
-                    .call_add_ref_simple(&mut body, "address", c_lambda_name, statics);
+                    .call_add_ref_simple(&mut body, "address", c_lambda_name);
             }
         }
 
@@ -180,7 +176,6 @@ impl TypedFunctionsCreatorC {
                                 &type_name,
                                 &type_name,
                                 type_def_provider,
-                                statics,
                             );
                         } else {
                             self.code_gen.call_add_ref(
@@ -189,7 +184,6 @@ impl TypedFunctionsCreatorC {
                                 &type_name,
                                 &type_name,
                                 type_def_provider,
-                                statics,
                             );
                         }
                     }
@@ -231,9 +225,9 @@ impl TypedFunctionsCreatorC {
         };
 
         if function_name == "deref" {
-            code_gen.call_deref(body, &source, "_fn", "_fn", type_def_provider, statics);
+            code_gen.call_deref(body, &source, "_fn", "_fn", type_def_provider);
         } else {
-            code_gen.call_add_ref(body, &source, "_fn", "_fn", type_def_provider, statics);
+            code_gen.call_add_ref(body, &source, "_fn", "_fn", type_def_provider);
         }
         code_gen.add(body, "}", None, true);
     }
@@ -333,12 +327,12 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
 
         if function_name == "deref" {
             self.code_gen
-                .call_deref_simple(&mut body, "address", &struct_def.name, statics);
+                .call_deref_simple(&mut body, "address", &struct_def.name);
             self.code_gen
                 .add(&mut body, "if (address->count == 0) {", None, true);
         } else {
             self.code_gen
-                .call_add_ref_simple(&mut body, "address", &struct_def.name, statics);
+                .call_add_ref_simple(&mut body, "address", &struct_def.name);
             self.code_gen
                 .add(&mut body, "if (address->count == 1) {", None, true);
         }
@@ -367,7 +361,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                             &type_name,
                             "",
                             type_def_provider,
-                            statics,
                         );
                     } else {
                         self.code_gen.call_add_ref(
@@ -376,7 +369,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                             &type_name,
                             "",
                             type_def_provider,
-                            statics,
                         );
                     }
                 }
@@ -508,21 +500,13 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             */
 
             if function_name == "deref" {
-                self.code_gen.call_deref_simple(
-                    &mut body,
-                    "e->variant",
-                    &variant_type_name,
-                    statics,
-                );
+                self.code_gen
+                    .call_deref_simple(&mut body, "e->variant", &variant_type_name);
                 self.code_gen
                     .add(&mut body, "if (e->variant->count == 0) {", None, true);
             } else {
-                self.code_gen.call_add_ref_simple(
-                    &mut body,
-                    "e->variant",
-                    &variant_type_name,
-                    statics,
-                );
+                self.code_gen
+                    .call_add_ref_simple(&mut body, "e->variant", &variant_type_name);
                 self.code_gen
                     .add(&mut body, "if (e->variant->count == 1) {", None, true);
             }
@@ -552,7 +536,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                                 &type_name,
                                 &type_name,
                                 type_def_provider,
-                                statics,
                             );
                         } else {
                             self.code_gen.call_add_ref(
@@ -561,7 +544,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                                 &type_name,
                                 &type_name,
                                 type_def_provider,
-                                statics,
                             );
                         }
                     }
@@ -576,10 +558,10 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
 
         if function_name == "deref" {
             self.code_gen
-                .call_deref_simple(&mut body, "address", &enum_type_name, statics);
+                .call_deref_simple(&mut body, "address", &enum_type_name);
         } else {
             self.code_gen
-                .call_add_ref_simple(&mut body, "address", &enum_type_name, statics);
+                .call_add_ref_simple(&mut body, "address", &enum_type_name);
         }
 
         body
