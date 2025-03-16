@@ -7,18 +7,13 @@ use snailquote::unescape;
 
 use crate::{
     codegen::{
-        backend::{Backend, BackendAsm, BackendNasmi386},
         code_manipulator::{CodeManipulator, CodeManipulatorNasm},
         enh_ast::{EnhASTIndex, EnhASTNameSpace},
-        function_call_parameters::{FunctionCallParametersAsm, FunctionCallParametersAsmImpl},
         get_reference_type_name,
         lambda::LambdaSpace,
         stack::{StackEntryType, StackVals},
         statics::{MemoryUnit, MemoryValue, Statics},
-        text_macro::{
-            AddRefMacro, AsmCCallTextMacroEvaluator, AsmCallTextMacroEvaluator, PrintRefMacro,
-            RefType, TextMacroEval, TextMacroEvaluator,
-        },
+        text_macro::{AddRefMacro, PrintRefMacro, RefType, TextMacroEval, TextMacroEvaluator},
         typedef_provider::TypeDefProvider,
         CodeGen, TypedValKind,
     },
@@ -29,6 +24,12 @@ use crate::{
     transformations::typed_functions_creator::{
         enum_has_references, struct_has_references, type_has_references,
     },
+};
+
+use super::{
+    backend::{Backend, BackendAsm, BackendNasmi386},
+    function_call_parameters_asm::{FunctionCallParametersAsm, FunctionCallParametersAsmImpl},
+    text_macro_asm::{AsmCCallTextMacroEvaluator, AsmCallTextMacroEvaluator},
 };
 /// It's a marker that will be replaced by the code generator with the size (in bytes)
 /// of all the vals in the stack. We need it since we know the full size only at the end of a function

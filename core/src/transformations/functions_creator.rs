@@ -1,7 +1,7 @@
 use rasm_utils::debug_i;
 
+use crate::codegen::asm::backend::{Backend, BackendAsm, BackendNasmi386};
 use crate::codegen::asm::code_gen_asm::CodeGenAsm;
-use crate::codegen::backend::{Backend, BackendAsm, BackendNasmi386};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;

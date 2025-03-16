@@ -17,8 +17,8 @@
  */
 pub mod any;
 pub mod code_gen_c;
-pub mod function_call_parameters;
-pub mod functions_creator;
+pub mod function_call_parameters_c;
+pub mod functions_creator_c;
 pub mod options;
-mod text_macro;
-pub mod typed_function_creator;
+pub mod text_macro_c;
+pub mod typed_function_creator_c;

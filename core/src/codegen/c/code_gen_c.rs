@@ -17,9 +17,9 @@
  */
 
 use crate::codegen::c::any::{CConsts, CFunctionsDeclarations, CInclude, CLambdas, CStructs};
-use crate::codegen::c::function_call_parameters::CFunctionCallParameters;
+use crate::codegen::c::function_call_parameters_c::CFunctionCallParameters;
 use crate::codegen::c::options::COptions;
-use crate::codegen::c::text_macro::{
+use crate::codegen::c::text_macro_c::{
     CCallMacro, CEnumDeclarationMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
     CIncludeMacro, CStructDeclarationMacro, CStructTypeMacro,
 };
@@ -40,8 +40,8 @@ use crate::transformations::typed_functions_creator::struct_has_references;
 use linked_hash_map::LinkedHashMap;
 use rasm_parser::parser::ast::ASTValueType;
 
-use super::text_macro::{CAddRefMacro, CCastAddress, CEnumSimpleMacro, CTypeNameMacro};
-use super::typed_function_creator::TypedFunctionsCreatorC;
+use super::text_macro_c::{CAddRefMacro, CCastAddress, CEnumSimpleMacro, CTypeNameMacro};
+use super::typed_function_creator_c::TypedFunctionsCreatorC;
 
 #[derive(Clone)]
 pub struct CCodeManipulator;

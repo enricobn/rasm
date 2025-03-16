@@ -37,7 +37,7 @@ use rasm_parser::parser::ast::ASTValueType;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::any::CStructs;
-use super::typed_function_creator::TypedFunctionsCreatorC;
+use super::typed_function_creator_c::TypedFunctionsCreatorC;
 
 static ID: AtomicUsize = AtomicUsize::new(0);
 

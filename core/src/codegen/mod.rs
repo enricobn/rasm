@@ -39,7 +39,6 @@ use crate::type_check::get_new_native_call;
 use rasm_parser::parser::ast::ASTValueType;
 
 pub mod asm;
-pub mod backend;
 pub mod c;
 mod code_manipulator;
 pub mod compile_target;

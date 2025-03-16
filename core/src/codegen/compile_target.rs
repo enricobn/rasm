@@ -29,10 +29,10 @@ use walkdir::WalkDir;
 use rust_embed::{EmbeddedFile, RustEmbed};
 use toml::Value;
 
-use crate::codegen::backend::{log_command, Backend, BackendNasmi386};
+use crate::codegen::asm::backend::{log_command, Backend};
 use crate::codegen::c::any::CInclude;
 use crate::codegen::c::code_gen_c::CodeGenC;
-use crate::codegen::c::functions_creator::CFunctionsCreator;
+use crate::codegen::c::functions_creator_c::CFunctionsCreator;
 use crate::codegen::c::options::COptions;
 use crate::codegen::enh_ast::{
     EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind,
@@ -47,17 +47,17 @@ use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::CompilationError;
 use crate::project::{RasmProject, RasmProjectRunType};
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
-use crate::transformations::typed_functions_creator::{
-    TypedFunctionsCreator, TypedFunctionsCreatorNasmi386,
-};
+use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
 
 use crate::enh_type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, DefaultFunction, DefaultFunctionCall,
 };
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 
+use super::asm::backend::BackendNasmi386;
 use super::asm::code_gen_asm::CodeGenAsm;
-use super::c::typed_function_creator::TypedFunctionsCreatorC;
+use super::asm::typed_functions_creator_asm::TypedFunctionsCreatorNasmi386;
+use super::c::typed_function_creator_c::TypedFunctionsCreatorC;
 
 #[derive(RustEmbed)]
 #[folder = "../core/resources/corelib/nasmi386"]
