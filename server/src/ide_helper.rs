@@ -1956,9 +1956,9 @@ mod tests {
         test_rename(
             "../rasm/resources/examples/breakout",
             "newFunctionName",
-            247,
+            55,
             7,
-            Ok(vec![(247, 5, 6), (255, 4, 6)]),
+            Ok(vec![(55, 5, 6), (63, 4, 6)]),
             "src/main/rasm/breakout.rasm",
         );
     }
@@ -2069,17 +2069,15 @@ mod tests {
 
     #[test]
     fn rename_in_multiple_modules() {
-        let start_code = 191;
-
         test_rename_with_module_ns(
             "../rasm/resources/examples/breakout",
             "aName",
-            start_code + 50,
+            49,
             30,
             Ok(vec![
-                ("breakout.rasm".to_owned(), start_code + 7, 12, 9),
-                ("breakout.rasm".to_owned(), start_code + 17, 16, 9),
-                ("breakout.rasm".to_owned(), start_code + 50, 26, 9),
+                ("breakout.rasm".to_owned(), 6, 12, 9),
+                ("breakout.rasm".to_owned(), 16, 16, 9),
+                ("breakout.rasm".to_owned(), 49, 26, 9),
                 ("game.rasm".to_owned(), 32, 26, 9),
                 ("game.rasm".to_owned(), 53, 22, 9),
                 ("game.rasm".to_owned(), 90, 44, 9),
@@ -2427,8 +2425,6 @@ mod tests {
 
     #[test]
     fn test_statement_start_position_breakout() {
-        let start_code = 191;
-
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
         if let Some((_, _, info)) = project.get_module(
@@ -2438,10 +2434,10 @@ mod tests {
             let index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(start_code + 159, 31),
+                ASTPosition::new(158, 31),
             );
             if let Some(i) = helper.statement_start_position(&index) {
-                assert_eq!(ASTPosition::new(start_code + 159, 5), i);
+                assert_eq!(ASTPosition::new(158, 5), i);
             } else {
                 panic!("Cannot find statement.");
             }
@@ -2452,8 +2448,6 @@ mod tests {
 
     #[test]
     fn test_extract_function_breakout() {
-        let start_code = 191;
-
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
         let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
@@ -2463,12 +2457,12 @@ mod tests {
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(start_code + 89, 13),
+                ASTPosition::new(88, 13),
             );
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(start_code + 91, 86),
+                ASTPosition::new(90, 86),
             );
 
             let code = read_code(path, &start_index, &end_index);
@@ -2498,8 +2492,6 @@ let newHighScores = highScores.add(score);
 
     #[test]
     fn test_extract_function_breakout_1() {
-        let start_code = 191;
-
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
         let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
@@ -2508,12 +2500,12 @@ let newHighScores = highScores.add(score);
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(start_code + 91, 39),
+                ASTPosition::new(90, 39),
             );
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(start_code + 91, 69),
+                ASTPosition::new(90, 69),
             );
             let code = &read_code(path, &start_index, &end_index);
             if let Some(result) =
@@ -2539,8 +2531,6 @@ Menu(MenuState(newHighScores));
 
     #[test]
     fn test_extract_function_breakout_2() {
-        let start_code = 191;
-
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
         let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
@@ -2549,12 +2539,12 @@ Menu(MenuState(newHighScores));
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(start_code + 91, 13),
+                ASTPosition::new(90, 13),
             );
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(start_code + 91, 86),
+                ASTPosition::new(90, 86),
             );
             let code = &read_code(path, &start_index, &end_index);
             if let Some(result) =
@@ -2579,8 +2569,6 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
 
     #[test]
     fn test_signature_help_breakout() {
-        let start_code = 191;
-
         let (project, helper) = get_helper("../rasm/resources/examples/breakout");
 
         if let Some((_, _, info)) = project.get_module(
@@ -2590,7 +2578,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
             let index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(start_code + 91, 30),
+                ASTPosition::new(90, 30),
             );
             if let Some(result) = helper.signature_help(&index) {
                 assert_eq!("State", result.signature.name);
