@@ -190,15 +190,24 @@ impl CodeGenC {
         descr_for_debug: &str,
         type_def_provider: &dyn TypeDefProvider,
     ) {
-        let (has_references, is_type) =
+        let (has_references, is_type, is_static) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-                (struct_has_references(struct_def, type_def_provider), false)
+                (
+                    struct_has_references(struct_def, type_def_provider),
+                    false,
+                    false,
+                )
             } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                (Self::enum_has_parametric_variants(enum_def), false)
+                let enum_has_parametric_variants = Self::enum_has_parametric_variants(enum_def);
+                (
+                    enum_has_parametric_variants,
+                    false,
+                    !enum_has_parametric_variants,
+                )
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-                (type_def.is_ref, true)
+                (type_def.is_ref, true, false)
             } else if "str" == type_name || "_fn" == type_name {
-                (false, false)
+                (false, false, false)
             } else {
                 panic!("call_add_ref, cannot find type {type_name}");
             };
@@ -225,7 +234,7 @@ impl CodeGenC {
                 self.add(out, &source, None, true);
             // TODO handle str, for now it's not possible since there's no difference,
             //   between heap ans static allocated strings
-            } else if "str" != type_name {
+            } else if "str" != type_name && !is_static {
                 self.call_add_ref_simple(out, source, descr_for_debug);
             }
         }
@@ -252,15 +261,24 @@ impl CodeGenC {
         descr_for_debug: &str,
         type_def_provider: &dyn TypeDefProvider,
     ) {
-        let (has_references, is_type) =
+        let (has_references, is_type, is_static) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-                (struct_has_references(struct_def, type_def_provider), false)
+                (
+                    struct_has_references(struct_def, type_def_provider),
+                    false,
+                    false,
+                )
             } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                (Self::enum_has_parametric_variants(enum_def), false)
+                let enum_has_parametric_variants = Self::enum_has_parametric_variants(enum_def);
+                (
+                    enum_has_parametric_variants,
+                    false,
+                    !enum_has_parametric_variants,
+                )
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-                (type_def.is_ref, true)
+                (type_def.is_ref, true, false)
             } else if "str" == type_name || "_fn" == type_name {
-                (false, false)
+                (false, false, false)
             } else {
                 panic!("call_add_ref, cannot find type {type_name}");
             };
@@ -287,7 +305,7 @@ impl CodeGenC {
                 self.add(out, &source, None, true);
             // TODO handle str, for now it's not possible since there's no difference,
             //   between heap and static allocated strings
-            } else if "str" != type_name {
+            } else if "str" != type_name && !is_static {
                 self.call_deref_simple(out, source, descr_for_debug);
             }
         }

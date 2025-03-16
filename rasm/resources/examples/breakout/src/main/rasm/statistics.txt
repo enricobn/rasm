@@ -204,3 +204,9 @@ type check ended in 87.39312
 
 C target: removing unused lambda variable
 breakout.c size 686950
+
+C target: optimize lambda addref /deref creation where not needed
+breakout.c size 680592
+
+C target: optimize call to addref /deref for enum with only parameterless variants
+breakout.c size 676433
