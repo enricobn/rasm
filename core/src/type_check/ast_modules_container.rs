@@ -17,7 +17,9 @@ use rasm_parser::{
     },
 };
 
-use crate::type_check::ast_type_checker::{ASTResolvedGenericTypes, ASTTypeChecker};
+use crate::type_check::{
+    ast_generic_types_resolver::ASTResolvedGenericTypes, ast_type_checker::ASTTypeChecker,
+};
 
 pub struct ASTFunctionSignatureEntry {
     pub signature: ASTFunctionSignature,
@@ -341,7 +343,7 @@ impl ASTModulesContainer {
                         for (filter, t) in
                             zip(parameter_types_filter, &it.signature.parameters_types)
                         {
-                            let t = if let Some(new_t) = ASTTypeChecker::substitute(t, &resolver) {
+                            let t = if let Some(new_t) = resolver.substitute(t) {
                                 new_t
                             } else {
                                 t.clone()
@@ -363,7 +365,7 @@ impl ASTModulesContainer {
                         if compatible {
                             if let Some(rt) = return_type_filter {
                                 if let Ok(t_resolver) =
-                                    ASTTypeChecker::resolve_generic_types_from_effective_type(
+                                ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                                         rt, rt,
                                     )
                                 {

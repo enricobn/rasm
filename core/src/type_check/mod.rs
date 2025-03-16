@@ -5,6 +5,7 @@ use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
 use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use rasm_utils::{debug_i, dedent, indent};
 
+pub mod ast_generic_types_resolver;
 pub mod ast_modules_container;
 pub mod ast_type_checker;
 pub mod functions_dependencies;

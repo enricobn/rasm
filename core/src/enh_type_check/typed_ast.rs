@@ -193,8 +193,8 @@ impl ASTTypedType {
         }
         match self {
             ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                parameters,
-                return_type,
+                parameters: _,
+                return_type: _,
             }) => false,
             ASTTypedType::Enum { namespace: _, name } => {
                 if already_checked.contains(name) {
@@ -607,10 +607,10 @@ pub trait CustomTypedTypeDef: Display + Debug {
 
     fn custom_ast_type_name(&self) -> Option<String> {
         if let EnhASTType::Custom {
-            namespace,
+            namespace: _,
             name,
-            param_types,
-            index,
+            param_types: _,
+            index: _,
         } = self.ast_type()
         {
             Some(name.clone())

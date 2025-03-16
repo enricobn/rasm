@@ -12,7 +12,9 @@ use rasm_parser::{
 };
 use rasm_utils::{debug_i, dedent, indent, HashMapDisplay, OptionDisplay, SliceDisplay};
 
-use crate::type_check::ast_modules_container::ASTTypeFilter;
+use crate::type_check::{
+    ast_generic_types_resolver::ASTResolvedGenericTypes, ast_modules_container::ASTTypeFilter,
+};
 
 use super::{
     ast_modules_container::ASTModulesContainer,
@@ -325,7 +327,7 @@ fn call_expr_dependencies(
             ASTParameterDependencies::Precise(ref found_types) => {
                 for ft in found_types.iter() {
                     debug_i!("found_type {ft}");
-                    match ASTTypeChecker::resolve_generic_types_from_effective_type(
+                    match ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                         &call_expr_type,
                         ft,
                     ) {
@@ -336,7 +338,7 @@ fn call_expr_dependencies(
                                         &format!("{}_{}", module_namespace.0, function.name),
                                     );
                                     debug_i!("resolved generic types {rgt}");
-                                    if let Some(t) = ASTTypeChecker::substitute(&par_type, &rgt) {
+                                    if let Some(t) = rgt.substitute(&par_type) {
                                         call_result
                                             .or(par, ASTParameterDependencies::precise(vec![t]));
                                     } else {
@@ -451,7 +453,7 @@ fn function_dependencies_inner_2(
                                                     debug_i!("asttype generic {asttype}");
                                                     indent!();
 
-                                                    if let Ok(rgt) = ASTTypeChecker::resolve_generic_types_from_effective_type(&parameter_type, asttype) {
+                                                    if let Ok(rgt) = ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(&parameter_type, asttype) {
                                                         if rgt.len() > 0 {
                                                         debug_i!("resolved generic types {rgt}");
                                                         }
