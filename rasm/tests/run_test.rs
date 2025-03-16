@@ -2,9 +2,9 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 use ntest::timeout;
+use rasm_core::codegen::asm::code_gen_asm::AsmOptions;
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::{CompileTarget, C, NASMI386};
-use rasm_core::codegen::AsmOptions;
 use rasm_core::commandline::CommandLineAction;
 use tempdir::TempDir;
 

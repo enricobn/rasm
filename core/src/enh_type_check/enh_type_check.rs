@@ -2072,6 +2072,7 @@ mod tests {
 
     use env_logger::Builder;
 
+    use crate::codegen::asm::code_gen_asm::AsmOptions;
     use crate::codegen::c::options::COptions;
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enh_ast::{
@@ -2080,7 +2081,6 @@ mod tests {
     };
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
-    use crate::codegen::AsmOptions;
     use crate::commandline::CommandLineOptions;
     use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
     use crate::enh_type_check::enh_type_check::EnhTypeCheck;

@@ -2,6 +2,7 @@ use auto_impl::auto_impl;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 
+use crate::codegen::asm::code_gen_asm::STACK_VAL_SIZE_NAME;
 use crate::codegen::backend::BackendAsm;
 use crate::codegen::enh_ast::EnhASTIndex;
 use crate::codegen::enh_val_context::TypedValContext;
@@ -9,12 +10,15 @@ use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::stack::StackVals;
 use crate::codegen::statics::{MemoryUnit, MemoryValue, Statics};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm, TypedValKind};
+use crate::codegen::{get_reference_type_name, TypedValKind};
 use crate::enh_type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
 };
 use rasm_parser::parser::ast::ASTValueType;
+
+use super::asm::code_gen_asm::CodeGenAsm;
+use super::CodeGen;
 
 #[auto_impl(Box)]
 pub trait FunctionCallParameters {
@@ -794,7 +798,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
                     "{}-({})-{}",
                     (i - self.to_remove_from_stack() as i32) * word_len,
                     to_remove_from_stack,
-                    crate::codegen::STACK_VAL_SIZE_NAME
+                    STACK_VAL_SIZE_NAME
                 )
             } else {
                 format!("{}", (i + 2) * self.backend.word_len() as i32)

@@ -806,6 +806,7 @@ impl EnhFunctionsContainer {
 mod tests {
     use linked_hash_map::LinkedHashMap;
 
+    use crate::codegen::asm::code_gen_asm::AsmOptions;
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enh_ast::{
         EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex,
@@ -813,7 +814,6 @@ mod tests {
     };
     use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
-    use crate::codegen::AsmOptions;
     use crate::enh_type_check::enh_functions_container::EnhFunctionsContainer;
     use crate::enh_type_check::enh_functions_container::EnhTypeFilter::Exact;
     use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;

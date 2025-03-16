@@ -42,7 +42,7 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{get_typed_module, AsmOptions, CodeGen, CodeGenAsm};
+use crate::codegen::{get_typed_module, AsmOptions, CodeGen};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::CompilationError;
 use crate::project::{RasmProject, RasmProjectRunType};
@@ -56,6 +56,7 @@ use crate::enh_type_check::typed_ast::{
 };
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 
+use super::asm::code_gen_asm::CodeGenAsm;
 use super::c::typed_function_creator::TypedFunctionsCreatorC;
 
 #[derive(RustEmbed)]

@@ -1,13 +1,14 @@
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::debug_i;
 
+use crate::codegen::asm::code_gen_asm::CodeGenAsm;
 use crate::codegen::backend::Backend;
 use crate::codegen::backend::{BackendAsm, BackendNasmi386};
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm};
+use crate::codegen::{get_reference_type_name, CodeGen};
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
     ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
@@ -76,6 +77,9 @@ pub trait TypedFunctionsCreator {
         statics: &mut Statics,
         enum_def: &ASTTypedEnumDef,
     ) {
+        if enum_def.name.contains("Compare") {
+            println!("found Compare enum");
+        }
         if enum_has_references(enum_def, typed_module) {
             self.create_enum_free(enum_def, "deref", typed_module, functions_by_name, statics);
             self.create_enum_free(enum_def, "addRef", typed_module, functions_by_name, statics);

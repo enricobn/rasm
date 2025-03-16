@@ -33,8 +33,8 @@ use crate::codegen::text_macro::{RefType, TextMacroEval, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
 use crate::enh_type_check::typed_ast::{
-    ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
+    ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
+    ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
 };
 use crate::transformations::typed_functions_creator::struct_has_references;
 use linked_hash_map::LinkedHashMap;
@@ -201,8 +201,8 @@ impl CodeGenC {
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
                 (struct_has_references(struct_def, type_def_provider), false)
-            } else if let Some(_enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                (true, false)
+            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+                (Self::enum_has_parametric_variants(enum_def), false)
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (type_def.is_ref, true)
             } else if "str" == type_name || "_fn" == type_name {
@@ -248,6 +248,10 @@ impl CodeGenC {
         );
     }
 
+    fn enum_has_parametric_variants(enum_def: &ASTTypedEnumDef) -> bool {
+        enum_def.variants.iter().any(|it| !it.parameters.is_empty())
+    }
+
     pub fn call_deref(
         &self,
         out: &mut String,
@@ -259,8 +263,8 @@ impl CodeGenC {
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
                 (struct_has_references(struct_def, type_def_provider), false)
-            } else if let Some(_) = type_def_provider.get_enum_def_by_name(type_name) {
-                (true, false)
+            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+                (Self::enum_has_parametric_variants(enum_def), false)
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (type_def.is_ref, true)
             } else if "str" == type_name || "_fn" == type_name {
@@ -290,7 +294,7 @@ impl CodeGenC {
             if "_fn" == type_name {
                 self.add(out, &source, None, true);
             // TODO handle str, for now it's not possible since there's no difference,
-            //   between heap ans static allocated strings
+            //   between heap and static allocated strings
             } else if "str" != type_name {
                 self.call_deref_simple(out, source, descr_for_debug);
             }
@@ -1162,6 +1166,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                                 "((struct Enum *){variant_const_name}->address)->variant_num = {};",
                                 i
                             ),
+                            None,
+                            true,
+                        );
+                        self.add(
+                            &mut before,
+                            &format!("{variant_const_name}->count = 1;"),
                             None,
                             true,
                         );

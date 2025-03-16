@@ -3,7 +3,8 @@ use std::rc::Rc;
 
 use linked_hash_set::LinkedHashSet;
 
-use crate::codegen::{CodeGen, CodeGenAsm};
+use super::asm::code_gen_asm::CodeGenAsm;
+use super::CodeGen;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum StackEntryType {
@@ -231,8 +232,9 @@ impl StackVals {
 
 #[cfg(test)]
 mod tests {
+    use crate::codegen::asm::code_gen_asm::CodeGenAsm;
     use crate::codegen::stack::StackVals;
-    use crate::codegen::{AsmOptions, CodeGenAsm};
+    use crate::codegen::AsmOptions;
 
     #[test]
     fn find_relative_to_bp() {

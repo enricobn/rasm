@@ -1226,12 +1226,12 @@ mod tests {
 
     use env_logger::Builder;
 
+    use rasm_core::codegen::asm::code_gen_asm::AsmOptions;
     use rasm_core::codegen::c::options::COptions;
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTModule, EnhASTType};
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
-    use rasm_core::codegen::AsmOptions;
     use rasm_core::commandline::CommandLineOptions;
     use rasm_core::project::{RasmProject, RasmProjectRunType};
     use rasm_parser::parser::ast::ASTBuiltinFunctionType;

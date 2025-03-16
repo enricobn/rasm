@@ -11,9 +11,9 @@ use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::enh_ast::{
     EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind,
 };
+use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{get_reference_type_name, CodeGen, CodeGenAsm};
 use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
 use crate::enh_type_check::typed_ast::{
     ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind,
@@ -27,7 +27,9 @@ use rasm_parser::parser::type_parser::TypeParser;
 use rasm_parser::parser::ParserTrait;
 use rasm_utils::{OptionDisplay, SliceDisplay};
 
+use super::asm::code_gen_asm::CodeGenAsm;
 use super::enh_ast::EnhModuleId;
+use super::CodeGen;
 
 thread_local! {
     static COUNT : RefCell<usize> = RefCell::new(0);
@@ -1505,9 +1507,10 @@ impl PrintRefMacro {
 
 #[cfg(test)]
 mod tests {
+    use crate::codegen::asm::code_gen_asm::CodeGenAsm;
     use crate::codegen::c::code_gen_c::CodeGenC;
     use crate::codegen::c::options::COptions;
-    use crate::codegen::{AsmOptions, CodeGen, CodeGenAsm};
+    use crate::codegen::{AsmOptions, CodeGen};
     use linked_hash_map::LinkedHashMap;
     use rasm_parser::parser::ast::ASTModifiers;
 

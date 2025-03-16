@@ -380,7 +380,8 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         body
     }
 
-    // we override the default implementation that checks if the enum has references, we want to do it anyway, since
+    // we override the default implementation that checks if the enum has references,
+    // we want to do it anyway, unless variants are all parameterless, since
     // enum itself and variant are two separated allocations and we always have to addref/deref both
     fn for_enum(
         &self,
@@ -390,6 +391,11 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         statics: &mut Statics,
         enum_def: &ASTTypedEnumDef,
     ) {
+        // if there are no parameters in variants we don't need to create addref and deref
+        // because the are static
+        if enum_def.variants.iter().all(|it| it.parameters.is_empty()) {
+            return;
+        }
         self.create_enum_free(
             enum_def,
             "deref",

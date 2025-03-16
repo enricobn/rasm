@@ -444,7 +444,6 @@ impl ASTTypeChecker {
                                 let insert_result = if *is_const {
                                     statics.insert_let(key.clone(), ast_type.clone(), &index)
                                 } else {
-                                    // TODO error
                                     inner_val_context.insert_let(
                                         key.clone(),
                                         ast_type.clone(),
