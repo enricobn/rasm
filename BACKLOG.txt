@@ -1,7 +1,6 @@
 Doing
 ------
-- function reference
-  - fix ASTTypeChecker
+- optimize / refactor C target codegen
 
 Major
 -----

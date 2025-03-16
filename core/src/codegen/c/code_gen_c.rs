@@ -133,7 +133,7 @@ impl CodeGenC {
         }
     }
 
-    pub fn real_type_to_string(ast_type: &ASTTypedType, statics: &Statics) -> String {
+    pub fn real_type_to_string(ast_type: &ASTTypedType) -> String {
         match ast_type {
             ASTTypedType::Builtin(kind) => match kind {
                 BuiltinTypedTypeKind::String => "char*".to_string(),
@@ -142,17 +142,9 @@ impl CodeGenC {
                 BuiltinTypedTypeKind::Char => "char*".to_string(),
                 BuiltinTypedTypeKind::F32 => "float".to_string(),
                 BuiltinTypedTypeKind::Lambda {
-                    parameters,
-                    return_type,
-                } => {
-                    if let Some(_name) =
-                        CLambdas::find_name_in_statics(statics, parameters, return_type)
-                    {
-                        "struct RasmPointer_*".to_string()
-                    } else {
-                        panic!("Cannot find lambda def");
-                    }
-                }
+                    parameters: _,
+                    return_type: _,
+                } => "struct RasmPointer_*".to_string(),
             },
             ASTTypedType::Unit => "struct Void_*".to_string(),
             ASTTypedType::Struct {
@@ -354,7 +346,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 return_type,
             }) = kind.typed_type()
             {
-                let t = CodeGenC::real_type_to_string(&return_type.as_ref(), statics);
+                let t = CodeGenC::real_type_to_string(&return_type.as_ref());
                 self.add(before, &format!("{t} return_value_ = "), None, true);
             } else {
                 panic!("expected lambda : {}", function_call.index);
@@ -391,7 +383,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             .iter()
             .map(|(name, value)| (value.as_str(), None))
             .collect::<Vec<_>>();
-        let lambda_type = CodeGenC::real_type_to_string(ast_type_type, statics);
+        let lambda_type = CodeGenC::real_type_to_string(ast_type_type);
         let (casted_lambda, return_type) =
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                 parameters,
@@ -406,7 +398,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                         "((struct {}*)((struct RasmPointer_*)lambda_space->{})->address)",
                         lambda_type_name, function_call.function_name
                     ),
-                    CodeGenC::real_type_to_string(&return_type.as_ref(), statics),
+                    CodeGenC::real_type_to_string(&return_type.as_ref()),
                 )
             } else {
                 panic!();
@@ -486,11 +478,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     ) {
         code.insert_str(
             0,
-            &format!(
-                "{} {} = ",
-                Self::real_type_to_string(typed_type, statics),
-                name
-            ),
+            &format!("{} {} = ", Self::real_type_to_string(typed_type), name),
         );
     }
 
@@ -572,10 +560,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         // TODO should be const? But in this way I get a warning. Should all pointer be consts? But can we release them?
         CConsts::add_to_statics(
             statics,
-            format!(
-                "{} {name};",
-                CodeGenC::real_type_to_string(typed_type, statics)
-            ),
+            format!("{} {name};", CodeGenC::real_type_to_string(typed_type)),
         );
         self.add(before, &format!("{name} = ",), None, true);
     }
@@ -679,7 +664,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             // probably sometimes we need to add the lambda def here
             CLambdas::add_to_statics_if_lambda(&par.ast_type, statics);
 
-            let arg_type = Self::real_type_to_string(&par.ast_type, statics);
+            let arg_type = Self::real_type_to_string(&par.ast_type);
             args.push(format!("{arg_type} {}", par.name));
         }
 
@@ -695,7 +680,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             out,
             &format!(
                 "{inline_str}{} {}({}) {{",
-                Self::real_type_to_string(&function_def.return_type, statics),
+                Self::real_type_to_string(&function_def.return_type),
                 function_def.name,
                 args.join(", ")
             ),
@@ -707,7 +692,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             statics,
             format!(
                 "{} {}({});",
-                Self::real_type_to_string(&function_def.return_type, statics),
+                Self::real_type_to_string(&function_def.return_type),
                 function_def.name,
                 args.join(", ")
             ),
@@ -772,10 +757,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             let t = value_type_to_typed_type(value_type);
             self.code_manipulator.add(
                 before,
-                &format!(
-                    "{} return_value_ = {v};",
-                    CodeGenC::real_type_to_string(&t, statics)
-                ),
+                &format!("{} return_value_ = {v};", CodeGenC::real_type_to_string(&t)),
                 None,
                 true,
             );
@@ -866,10 +848,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
             if let Some(rt) = return_type {
                 self.add(
                     out,
-                    &format!(
-                        "{} return_value_ = ",
-                        CodeGenC::real_type_to_string(rt, statics)
-                    ),
+                    &format!("{} return_value_ = ", CodeGenC::real_type_to_string(rt)),
                     None,
                     true,
                 );
@@ -1015,7 +994,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                             &mut before,
                             &format!(
                                 "{} {};",
-                                CodeGenC::real_type_to_string(&property.ast_type, statics),
+                                CodeGenC::real_type_to_string(&property.ast_type),
                                 property.name
                             ),
                             None,
@@ -1044,7 +1023,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                     &mut before,
                     &format!(
                         "{} {};",
-                        CodeGenC::real_type_to_string(&property.ast_type, statics),
+                        CodeGenC::real_type_to_string(&property.ast_type),
                         property.name
                     ),
                     None,
@@ -1075,7 +1054,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                 let mut args = clambda
                     .args
                     .iter()
-                    .map(|it| Self::real_type_to_string(it, statics))
+                    .map(|it| Self::real_type_to_string(it))
                     .collect::<Vec<_>>()
                     .join(", ");
 
@@ -1087,7 +1066,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
                     &mut before,
                     &format!(
                         "{} (*functionPtr)({args}struct RasmPointer_*);",
-                        Self::real_type_to_string(&clambda.return_type, statics)
+                        Self::real_type_to_string(&clambda.return_type)
                     ),
                     None,
                     true,

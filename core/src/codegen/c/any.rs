@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 
 use crate::codegen::code_manipulator::CodeManipulator;
@@ -93,14 +94,20 @@ pub struct CLambda {
 
 impl PartialEq for CLambda {
     fn eq(&self, other: &Self) -> bool {
-        self.args == other.args && self.return_type == other.return_type
+        self.same(&other.args, &other.return_type)
     }
 }
 
 impl Hash for CLambda {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.args.hash(state);
-        self.return_type.hash(state);
+        let args = self
+            .args
+            .iter()
+            .map(|it| CodeGenC::real_type_to_string(it))
+            .join(",");
+        args.hash(state);
+        let rt = CodeGenC::real_type_to_string(&self.return_type);
+        rt.hash(state);
     }
 }
 
@@ -112,6 +119,21 @@ impl CLambda {
             return_type,
             name,
         }
+    }
+
+    fn same(&self, args: &Vec<ASTTypedType>, return_type: &ASTTypedType) -> bool {
+        let self_args = self
+            .args
+            .iter()
+            .map(|it| CodeGenC::real_type_to_string(it))
+            .join(",");
+        let other_args = args
+            .iter()
+            .map(|it| CodeGenC::real_type_to_string(it))
+            .join(",");
+        self_args == other_args
+            && CodeGenC::real_type_to_string(&self.return_type)
+                == CodeGenC::real_type_to_string(return_type)
     }
 }
 
@@ -126,7 +148,7 @@ impl CLambdas {
         }
     }
 
-    pub fn add(&mut self, clambda: CLambda) {
+    fn add(&mut self, clambda: CLambda) {
         self.lambdas.insert(clambda.clone(), clambda);
     }
 
@@ -143,7 +165,7 @@ impl CLambdas {
     fn find_name(&self, args: &Vec<ASTTypedType>, return_type: &ASTTypedType) -> Option<String> {
         self.lambdas
             .values()
-            .find(|it| &it.args == args && &it.return_type == return_type)
+            .find(|it| it.same(args, return_type))
             .map(|it| it.name.clone())
     }
 
@@ -262,7 +284,7 @@ impl CStructs {
         for (name, kind) in lambda_space.iter() {
             map.insert(
                 name.clone(),
-                CodeGenC::real_type_to_string(&kind.typed_type(), &statics),
+                CodeGenC::real_type_to_string(&kind.typed_type()),
             );
         }
 
@@ -322,7 +344,7 @@ mod tests {
         let new_name = CLambdas::add_to_statics(
             &mut statics,
             CLambda::new(
-                vec![ASTTypedType::Builtin(BuiltinTypedTypeKind::Char)],
+                vec![ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)],
                 ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
             ),
         );

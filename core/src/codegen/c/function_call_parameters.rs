@@ -137,7 +137,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 &mut self.current,
                 &format!(
                     "{} return_value_ = {value};",
-                    CodeGenC::real_type_to_string(typed_type, statics)
+                    CodeGenC::real_type_to_string(typed_type)
                 ),
                 None,
                 true,
@@ -187,7 +187,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             &mut self.before,
             &format!(
                 "{} {tmp_val_name} = {};",
-                CodeGenC::real_type_to_string(&param_type, statics),
+                CodeGenC::real_type_to_string(&param_type),
                 code.replace('\n', "")
             ),
             None,
@@ -585,7 +585,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                         &mut self.before,
                         &format!(
                             "{} return_value_ = {value};",
-                            CodeGenC::real_type_to_string(ast_typed_type, statics)
+                            CodeGenC::real_type_to_string(ast_typed_type)
                         ),
                         None,
                         true,
@@ -603,7 +603,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 &mut self.before,
                 &format!(
                     "{} return_value_ = {val_name};",
-                    CodeGenC::real_type_to_string(typed_type, statics)
+                    CodeGenC::real_type_to_string(typed_type)
                 ),
                 None,
                 true,
@@ -647,7 +647,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 &mut self.before,
                 &format!(
                     "{} return_value_ = {value};",
-                    CodeGenC::real_type_to_string(typed_type, statics)
+                    CodeGenC::real_type_to_string(typed_type)
                 ),
                 None,
                 true,
@@ -701,7 +701,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
                 if !matches!(rt, ASTTypedType::Unit) {
                     format!(
                         "{} return_value_ =  {body};",
-                        CodeGenC::real_type_to_string(rt, statics),
+                        CodeGenC::real_type_to_string(rt),
                     )
                 } else {
                     format!("{body};")

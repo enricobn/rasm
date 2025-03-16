@@ -193,6 +193,11 @@ type check ended in 87.39312
 */
 
 /*
-    removed addref/deref for enums with only constant variants
+    C target: removed addref/deref for enums with only constant variants
     breakout.c size 705258
+*/
+
+/*
+    C target: reusing lambda struct for lambdas that has the same signature considering native types
+    breakout.c size 688369
 */
