@@ -508,14 +508,12 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             if function_name == "deref" {
                 self.code_gen
                     .call_deref_simple(&mut body, "e->variant", &variant_type_name);
-                self.code_gen
-                    .add(&mut body, "if (e->variant->count == 0) {", None, true);
             } else {
                 self.code_gen
                     .call_add_ref_simple(&mut body, "e->variant", &variant_type_name);
-                self.code_gen
-                    .add(&mut body, "if (e->variant->count == 1) {", None, true);
             }
+
+            let mut inner_body = String::new();
 
             for parameter in &variant.parameters {
                 if let Some(type_name) =
@@ -537,7 +535,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                     } else {
                         if function_name == "deref" {
                             self.code_gen.call_deref(
-                                &mut body,
+                                &mut inner_body,
                                 &source,
                                 &type_name,
                                 &type_name,
@@ -545,7 +543,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                             );
                         } else {
                             self.code_gen.call_add_ref(
-                                &mut body,
+                                &mut inner_body,
                                 &source,
                                 &type_name,
                                 &type_name,
@@ -556,7 +554,17 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                 }
             }
 
-            self.code_gen.add(&mut body, "}", None, true);
+            if !inner_body.is_empty() {
+                if function_name == "deref" {
+                    self.code_gen
+                        .add(&mut body, "if (e->variant->count == 0) {", None, true);
+                } else {
+                    self.code_gen
+                        .add(&mut body, "if (e->variant->count == 1) {", None, true);
+                }
+                body.push_str(&inner_body);
+                self.code_gen.add(&mut body, "}", None, true);
+            }
             self.code_gen.add(&mut body, "}", None, true);
         }
 

@@ -210,3 +210,6 @@ breakout.c size 680592
 
 C target: optimize call to addref /deref for enum with only parameterless variants
 breakout.c size 676433
+
+C target: optimized addref /deref for enum when variant without reference types
+breakout.c size 675996
