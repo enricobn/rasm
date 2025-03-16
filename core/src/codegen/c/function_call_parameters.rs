@@ -286,7 +286,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         references.sort_by(|(name1, _), (name2, _)| name1.cmp(name2));
         references.dedup_by(|(name1, _), (name2, _)| name1 == name2);
 
-        let optimize_lambda_space = references.is_empty();
+        let no_references = references.is_empty();
 
         let no_ref_count_for_lambda_space = lambda_in_stack
             && references
@@ -353,7 +353,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
             true,
         );
 
-        if !optimize_lambda_space {
+        if !no_references {
             let lambda_space_struct_name =
                 CStructs::add_lambda_space_to_statics(statics, &lambda_space);
 
@@ -445,52 +445,63 @@ impl FunctionCallParameters for CFunctionCallParameters {
             }
         }
 
-        if !lambda_in_stack || !(optimize_lambda_space || no_ref_count_for_lambda_space) {
-            let typed_function_creator = TypedFunctionsCreatorC::new(self.code_gen_c.clone());
+        let optimize_lambda_space = no_references || no_ref_count_for_lambda_space;
 
-            let addref_function = typed_function_creator.create_lambda_free(
-                &c_lambda_name,
-                &lambda_space,
-                "addRef",
-                module,
-                statics,
-                lambda_in_stack,
-                optimize_lambda_space || no_ref_count_for_lambda_space,
-            );
+        let (add_ref_function_name, deref_function_name) =
+            if !lambda_in_stack && optimize_lambda_space {
+                ("addRef".to_owned(), "deref".to_owned())
+            } else if !lambda_in_stack || !optimize_lambda_space {
+                let typed_function_creator = TypedFunctionsCreatorC::new(self.code_gen_c.clone());
 
-            let deref_function = typed_function_creator.create_lambda_free(
-                &c_lambda_name,
-                &lambda_space,
-                "deref",
-                module,
-                statics,
-                lambda_in_stack,
-                optimize_lambda_space || no_ref_count_for_lambda_space,
-            );
+                let addref_function = typed_function_creator.create_lambda_free(
+                    &c_lambda_name,
+                    &lambda_space,
+                    "addRef",
+                    module,
+                    statics,
+                    lambda_in_stack,
+                    optimize_lambda_space,
+                );
 
+                let deref_function = typed_function_creator.create_lambda_free(
+                    &c_lambda_name,
+                    &lambda_space,
+                    "deref",
+                    module,
+                    statics,
+                    lambda_in_stack,
+                    optimize_lambda_space,
+                );
+
+                let result = (addref_function.name.clone(), deref_function.name.clone());
+
+                lambda_space.add_ref_function(addref_function);
+                lambda_space.add_ref_function(deref_function);
+
+                result
+            } else {
+                ("NULL".to_owned(), "NULL".to_owned())
+            };
+
+        self.code_manipulator.add(
+            &mut self.before,
+            &format!(
+                "{lambda_var_name}{pointer_operator}addref_function = {add_ref_function_name};"
+            ),
+            None,
+            true,
+        );
+
+        self.code_manipulator.add(
+            &mut self.before,
+            &format!("{lambda_var_name}{pointer_operator}deref_function = {deref_function_name};"),
+            None,
+            true,
+        );
+
+        //arg_values.push(format!("lambda{param_index}"));
+        if self.immediate {
             self.code_manipulator.add(
-                &mut self.before,
-                &format!(
-                    "{lambda_var_name}{pointer_operator}addref_function = {};",
-                    addref_function.name
-                ),
-                None,
-                true,
-            );
-
-            self.code_manipulator.add(
-                &mut self.before,
-                &format!(
-                    "{lambda_var_name}{pointer_operator}deref_function = {};",
-                    deref_function.name
-                ),
-                None,
-                true,
-            );
-
-            //arg_values.push(format!("lambda{param_index}"));
-            if self.immediate {
-                self.code_manipulator.add(
                     &mut self.current,
                     &format!(
                     "struct RasmPointer_ *return_value_ = {dereference_operator}{lambda_var_name}_; // return lambda"
@@ -498,60 +509,26 @@ impl FunctionCallParameters for CFunctionCallParameters {
                     None,
                     true,
                 );
-            } else {
+        } else {
+            if add_ref_function_name != "NULL" {
                 self.code_manipulator.add(
                     &mut self.before,
-                    &format!(
-                        "{}({dereference_operator}{lambda_var_name}_);",
-                        addref_function.name
-                    ),
+                    &format!("{add_ref_function_name}({dereference_operator}{lambda_var_name}_);"),
                     None,
                     true,
                 );
+            }
 
+            if deref_function_name != "NULL" {
                 self.add_on_top_of_after(&format!(
-                    "{}({dereference_operator}{lambda_var_name}_);",
-                    deref_function.name
+                    "{deref_function_name}({dereference_operator}{lambda_var_name}_);"
                 ));
-
-                self.parameters_values.insert(
-                    name.to_string(),
-                    format!("{dereference_operator}{lambda_var_name}_"),
-                );
             }
 
-            lambda_space.add_ref_function(addref_function);
-            lambda_space.add_ref_function(deref_function);
-        } else {
-            self.code_manipulator.add(
-                &mut self.before,
-                &format!("{lambda_var_name}{pointer_operator}addref_function = NULL;"),
-                None,
-                true,
+            self.parameters_values.insert(
+                name.to_string(),
+                format!("{dereference_operator}{lambda_var_name}_"),
             );
-
-            self.code_manipulator.add(
-                &mut self.before,
-                &format!("{lambda_var_name}{pointer_operator}deref_function = NULL;"),
-                None,
-                true,
-            );
-
-            if self.immediate {
-                self.code_manipulator.add(
-                    &mut self.current,
-                    &format!(
-                    "struct RasmPointer_ *return_value_ = {dereference_operator}{lambda_var_name}_; // return lambda"
-                ),
-                    None,
-                    true,
-                );
-            } else {
-                self.parameters_values.insert(
-                    name.to_string(),
-                    format!("{dereference_operator}{lambda_var_name}_"),
-                );
-            }
         }
 
         lambda_space
