@@ -60,14 +60,14 @@ impl TypedFunctionsCreatorC {
         let mut body = String::new();
 
         let lambda_type = format!("struct {}*", c_lambda_name);
-        self.code_gen.add(
-            &mut body,
-            &format!("{lambda_type} lambda_ = ({lambda_type}) address->address;"),
-            None,
-            true,
-        );
 
         if !optimize_lambda_space {
+            self.code_gen.add(
+                &mut body,
+                &format!("{lambda_type} lambda_ = ({lambda_type}) address->address;"),
+                None,
+                true,
+            );
             let lambda_space_type_name =
                 CStructs::add_lambda_space_to_statics(statics, lambda_space);
 

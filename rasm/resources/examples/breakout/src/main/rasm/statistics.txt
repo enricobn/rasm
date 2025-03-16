@@ -201,3 +201,6 @@ type check ended in 87.39312
     C target: reusing lambda struct for lambdas that has the same signature considering native types
     breakout.c size 688369
 */
+
+C target: removing unused lambda variable
+breakout.c size 686950

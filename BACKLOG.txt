@@ -9,7 +9,9 @@ Major
   even if generic when not completely generic (Option<T>)? Adjust code completion
 - try:
   string and number literals should be specific types (strLit, intLit, decLit) that have a string representation,
-  and let i64,i32,f64,f32 etc. be native types
+  and let i64,i32,f64,f32 etc. be native types, that can be constructed with those literals, but we 
+  need a way to check, at compile time, if the literal can be stored in that particular native type
+
 - inline for fn (inline fn)
 - const:
   - by default, as for all, const must be private, so they can be defined in multiple modules
