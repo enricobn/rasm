@@ -1435,8 +1435,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
 
     fn word_len(&self) -> usize;
 
-    fn stack_pointer(&self) -> &str;
-
     fn word_size(&self) -> &str;
 
     fn reserve_lambda_space(

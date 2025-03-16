@@ -721,10 +721,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         todo!()
     }
 
-    fn stack_pointer(&self) -> &str {
-        todo!()
-    }
-
     fn word_size(&self) -> &str {
         todo!()
     }

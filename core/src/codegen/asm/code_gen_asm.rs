@@ -13,7 +13,7 @@ use crate::{
         lambda::LambdaSpace,
         stack::{StackEntryType, StackVals},
         statics::{MemoryUnit, MemoryValue, Statics},
-        text_macro::{AddRefMacro, PrintRefMacro, RefType, TextMacroEval, TextMacroEvaluator},
+        text_macro::{AddRefMacro, RefType, TextMacroEval, TextMacroEvaluator},
         typedef_provider::TypeDefProvider,
         CodeGen, TypedValKind,
     },
@@ -29,6 +29,7 @@ use crate::{
 use super::{
     backend::{Backend, BackendAsm, BackendNasmi386},
     function_call_parameters_asm::{FunctionCallParametersAsm, FunctionCallParametersAsmImpl},
+    print_ref_macro_asm::AsmPrintRefMacro,
     text_macro_asm::{AsmCCallTextMacroEvaluator, AsmCallTextMacroEvaluator},
 };
 /// It's a marker that will be replaced by the code generator with the size (in bytes)
@@ -634,6 +635,10 @@ impl CodeGenAsm {
     pub fn return_register(&self) -> &str {
         "eax"
     }
+
+    pub fn stack_pointer(&self) -> &str {
+        self.backend.stack_pointer()
+    }
 }
 
 impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
@@ -1108,10 +1113,6 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
 
     fn word_len(&self) -> usize {
         self.backend.word_len()
-    }
-
-    fn stack_pointer(&self) -> &str {
-        self.backend.stack_pointer()
     }
 
     fn word_size(&self) -> &str {
@@ -1667,7 +1668,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                 self.options.dereference,
             )),
         );
-        let print_ref_macro = PrintRefMacro::new(self.clone());
+        let print_ref_macro = AsmPrintRefMacro::new(self.clone());
         evaluators.insert("printRef".into(), Box::new(print_ref_macro));
 
         TextMacroEvaluator::new(evaluators, Box::new(CodeManipulatorNasm::new()))
