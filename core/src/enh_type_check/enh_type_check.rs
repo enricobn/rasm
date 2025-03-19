@@ -2079,21 +2079,20 @@ mod tests {
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
         EnhASTType, EnhBuiltinTypeKind,
     };
-    use crate::codegen::enhanced_module::EnhancedASTModule;
     use crate::codegen::statics::Statics;
-    use crate::commandline::CommandLineOptions;
+
     use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
     use crate::enh_type_check::enh_type_check::EnhTypeCheck;
-    use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
-    use crate::enh_type_check::typed_ast::convert_to_typed_module;
-    use crate::project::{RasmProject, RasmProjectRunType};
-    use crate::type_check::ast_type_checker::ASTTypeChecker;
+    use crate::enh_type_check::typed_ast::ASTTypedModule;
+    use crate::errors::CompilationError;
+    use crate::project::RasmProject;
+    use crate::test_utils::project_to_ast_typed_module;
     use rasm_parser::parser::ast::ASTModifiers;
 
     #[test]
     pub fn fibonacci() {
         let project = file_to_project("fibonacci.rasm");
-        test_project(project).unwrap_or_else(|e| panic!("{e}"))
+        test_project(project).unwrap();
     }
 
     #[test]
@@ -2423,64 +2422,11 @@ mod tests {
 
      */
 
-    fn test_project(project: RasmProject) -> Result<(), EnhTypeCheckError> {
-        test_project_with_target(&project, CompileTarget::Nasmi386(AsmOptions::default()))?;
-        test_project_with_target(&project, CompileTarget::C(COptions::default()))
-    }
-
-    fn test_project_with_target(
-        project: &RasmProject,
-        target: CompileTarget,
-    ) -> Result<(), EnhTypeCheckError> {
-        let mut statics = Statics::new();
-
-        let run_type = RasmProjectRunType::Main;
-        let command_line_options = CommandLineOptions::default();
-
-        let (modules, _errors) = project.get_all_modules(
-            &mut statics,
-            &run_type,
-            &target,
-            false,
-            &command_line_options,
-        );
-
-        //resolved_module.print();
-
-        let mut statics_for_cc = Statics::new();
-
-        let (container, catalog, _) = project.container_and_catalog(
-            &mut statics_for_cc,
-            &run_type,
-            &target,
-            command_line_options.debug,
-            &command_line_options,
-        );
-
-        let (module, _) =
-            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
-
-        let mandatory_functions = target.get_mandatory_functions(&module);
-
-        let default_functions = target.get_default_functions(false);
-
-        if let Err(e) = convert_to_typed_module(
-            module,
-            false,
-            mandatory_functions,
-            &mut statics,
-            default_functions,
-            &target,
-            false,
-            ASTTypeChecker::from_modules_container(&container).0,
-            &catalog,
-            &container,
-        ) {
-            panic!("{e}");
-        }
-
-        //print_typed_module(&typed_module.0);
-        Ok(())
+    fn test_project(
+        project: RasmProject,
+    ) -> Result<(ASTTypedModule, Statics), Vec<CompilationError>> {
+        project_to_ast_typed_module(&project, CompileTarget::Nasmi386(AsmOptions::default()))?;
+        project_to_ast_typed_module(&project, CompileTarget::C(COptions::default()))
     }
 
     fn file_to_project(test_file: &str) -> RasmProject {

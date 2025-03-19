@@ -131,7 +131,11 @@ pub fn get_std_lib_path() -> Option<String> {
 pub trait CodeGen<'a, FCP: FunctionCallParameters> {
     fn options(&self) -> &AsmOptions;
 
-    fn generate(&'a self, typed_module: &ASTTypedModule, statics: Statics) -> String {
+    fn generate(
+        &'a self,
+        typed_module: &ASTTypedModule,
+        statics: Statics,
+    ) -> Vec<(String, String)> {
         let debug = self.debug();
         let mut statics = statics;
         let mut id: usize = 0;
@@ -284,7 +288,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
             generated_code.push_str(&defs);
         }
 
-        generated_code
+        vec![("main".to_owned(), generated_code)]
     }
 
     fn end_main(&self, code: &mut String);
@@ -2140,11 +2144,19 @@ fn can_lambda_be_in_stack_(
 #[cfg(test)]
 mod tests {
 
+    use std::path::PathBuf;
+
     use crate::codegen::asm::code_gen_asm::CodeGenAsm;
     use crate::codegen::enh_val_context::EnhValContext;
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::{AsmOptions, CodeGen};
+    use crate::project::RasmProject;
+    use crate::test_utils::project_to_ast_typed_module;
+
+    use super::c::code_gen_c::CodeGenC;
+    use super::c::options::COptions;
+    use super::compile_target::CompileTarget;
 
     #[test]
     fn called_functions_in_comment() {
@@ -2203,5 +2215,20 @@ mod tests {
             .name,
             "something".to_string()
         );
+    }
+
+    #[test]
+    fn breakout_codegenc() {
+        let options = COptions::default();
+        let sut = CodeGenC::new(options.clone(), false);
+
+        let project = RasmProject::new(PathBuf::from("../rasm/resources/examples/breakout"));
+
+        let (typed_module, statics) =
+            project_to_ast_typed_module(&project, CompileTarget::C(options)).unwrap();
+
+        let result = sut.generate(&typed_module, statics);
+
+        assert_eq!(1, result.len());
     }
 }

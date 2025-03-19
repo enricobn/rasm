@@ -131,7 +131,12 @@ impl CompileTarget {
         }
     }
 
-    fn generate(&self, statics: Statics, typed_module: &ASTTypedModule, debug: bool) -> String {
+    fn generate(
+        &self,
+        statics: Statics,
+        typed_module: &ASTTypedModule,
+        debug: bool,
+    ) -> Vec<(String, String)> {
         match self {
             CompileTarget::Nasmi386(options) => {
                 CodeGenAsm::new(options.clone(), debug).generate(typed_module, statics)
@@ -367,8 +372,10 @@ impl CompileTarget {
                 CommandLineAction::Build | CommandLineAction::Test => {
                     let start = Instant::now();
 
-                    let native_code =
-                        self.generate(statics, &typed_module, command_line_options.debug);
+                    let native_code = self
+                        .generate(statics, &typed_module, command_line_options.debug)
+                        .remove(0)
+                        .1;
 
                     info!("code generation ended in {:?}", start.elapsed());
 
@@ -450,7 +457,10 @@ impl CompileTarget {
                         }
                     });
 
-                let native_code = self.generate(statics, &typed_module, command_line_options.debug);
+                let native_code = self
+                    .generate(statics, &typed_module, command_line_options.debug)
+                    .remove(0)
+                    .1;
 
                 File::create(out_path)
                     .unwrap_or_else(|_| panic!("cannot create file {}", out_path.to_str().unwrap()))
