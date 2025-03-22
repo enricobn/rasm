@@ -55,7 +55,7 @@ pub fn project_and_container(
 
 pub fn project_to_ast_typed_module(
     project: &RasmProject,
-    target: CompileTarget,
+    target: &CompileTarget,
 ) -> Result<(ASTTypedModule, Statics), Vec<CompilationError>> {
     let mut statics = Statics::new();
 

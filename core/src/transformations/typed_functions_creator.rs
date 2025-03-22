@@ -74,9 +74,6 @@ pub trait TypedFunctionsCreator {
         statics: &mut Statics,
         enum_def: &ASTTypedEnumDef,
     ) {
-        if enum_def.name.contains("Compare") {
-            println!("found Compare enum");
-        }
         if enum_has_references(enum_def, typed_module) {
             self.create_enum_free(enum_def, "deref", typed_module, functions_by_name, statics);
             self.create_enum_free(enum_def, "addRef", typed_module, functions_by_name, statics);

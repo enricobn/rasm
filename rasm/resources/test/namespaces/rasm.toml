@@ -2,7 +2,6 @@
 name = "namespaces"
 version = "1.0.0"
 main = "namespaces.rasm"
-out = "namespaces"
 
 [dependencies]
 stdlib = { path = "../../../../stdlib" }

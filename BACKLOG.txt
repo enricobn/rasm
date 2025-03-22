@@ -4,6 +4,7 @@ Doing
 
 Major
 -----
+- stdlib: print and prinln go to stdout, the ones with file as input must be called writeln and write
 - I don't like methods to handle generic prefix in AST, it should be handled outside the AST modules
 - populate target for ASTFunctionDef, for regular functions (not builtin), with the name of the type of the first parameter, 
   even if generic when not completely generic (Option<T>)? Adjust code completion

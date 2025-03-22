@@ -56,12 +56,12 @@ fn main() {
         .arg(
             Arg::new("out")
                 .short('o')
-                .help("the output file to create")
+                .help("the output folder of generated artifacts, if not set, the \"target\" folder under the project's root")
                 .required(false),
         )
         .arg(
             Arg::new("compile")
-                .help("creates only .asm and .o files")
+                .help("creates only .asm/.c and .o files")
                 .long("compile")
                 .action(ArgAction::SetTrue)
                 .required(false),

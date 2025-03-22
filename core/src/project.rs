@@ -108,23 +108,22 @@ impl RasmProject {
             .map(|it| self.main_rasm_source_folder().join(Path::new(&it)))
     }
 
-    pub fn out_file(&self, is_test: bool) -> Option<PathBuf> {
+    pub fn out_folder(&self) -> PathBuf {
         if !self.root.is_dir() {
-            if is_test {
-                panic!("Unsupported option test when compiling a single file.")
-            }
-            return Some(PathBuf::from(
-                self.root.with_extension("").file_name().unwrap(),
-            ));
+            return PathBuf::from(".");
         }
 
         let target = self.root.join("target");
+
         if !target.exists() {
             fs::create_dir(&target).unwrap_or_else(|_| {
                 panic!("Error creating target folder {}", target.to_string_lossy())
             });
         }
 
+        target
+
+        /*
         if is_test {
             Some(target.join("test"))
         } else {
@@ -134,6 +133,7 @@ impl RasmProject {
                 .clone()
                 .map(|it| target.join(Path::new(&it)))
         }
+        */
     }
 
     pub fn main_rasm_source_folder(&self) -> PathBuf {
@@ -962,15 +962,16 @@ impl RasmProject {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct RasmPackage {
     pub name: String,
     pub version: String,
     pub main: Option<String>,
-    pub out: Option<String>,
     pub source_folder: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct RasmConfig {
     pub package: RasmPackage,
     pub dependencies: Option<Table>,
@@ -1017,7 +1018,6 @@ fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
             version: "1.0.0".to_owned(),
             source_folder: Some(parent.to_owned()),
             main: Some(main_name.to_string()),
-            out: Some(src_path.with_extension("").to_string_lossy().to_string()),
         },
         dependencies: Some(dependencies_map),
         natives: None,
@@ -1037,7 +1037,7 @@ fn get_rasm_config_from_directory(src_path: &Path) -> RasmConfig {
                 Err(err) => panic!("Error parsing rasm.toml:\n{}", err),
             }
         } else {
-            panic!("Cannot read rasm.toml");
+            panic!("Cannot parse rasm.toml");
         }
     } else {
         panic!("Cannot open rasm.toml");

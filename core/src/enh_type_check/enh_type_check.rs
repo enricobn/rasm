@@ -2425,8 +2425,8 @@ mod tests {
     fn test_project(
         project: RasmProject,
     ) -> Result<(ASTTypedModule, Statics), Vec<CompilationError>> {
-        project_to_ast_typed_module(&project, CompileTarget::Nasmi386(AsmOptions::default()))?;
-        project_to_ast_typed_module(&project, CompileTarget::C(COptions::default()))
+        project_to_ast_typed_module(&project, &CompileTarget::Nasmi386(AsmOptions::default()))?;
+        project_to_ast_typed_module(&project, &CompileTarget::C(COptions::default()))
     }
 
     fn file_to_project(test_file: &str) -> RasmProject {

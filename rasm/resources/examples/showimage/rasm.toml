@@ -2,7 +2,6 @@
 name = "showimage"
 version = "1.0.0"
 main = "showimage.rasm"
-out = "showimage"
 
 [dependencies]
 stdlib = { path = "../../../../stdlib" }

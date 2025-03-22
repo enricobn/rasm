@@ -33,6 +33,7 @@ use crate::enh_type_check::typed_ast::{
 };
 use crate::enh_type_check::used_functions::UsedFunctions;
 use crate::errors::CompilationError;
+use crate::project::RasmProject;
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::get_new_native_call;
@@ -133,6 +134,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
 
     fn generate(
         &'a self,
+        project: &RasmProject,
+        target: &CompileTarget,
         typed_module: &ASTTypedModule,
         statics: Statics,
     ) -> Vec<(String, String)> {
@@ -288,7 +291,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
             generated_code.push_str(&defs);
         }
 
-        vec![("main".to_owned(), generated_code)]
+        vec![(
+            format!("{}.{}", project.config.package.name, target.extension()),
+            generated_code,
+        )]
     }
 
     fn end_main(&self, code: &mut String);
@@ -2223,12 +2229,13 @@ mod tests {
         let sut = CodeGenC::new(options.clone(), false);
 
         let project = RasmProject::new(PathBuf::from("../rasm/resources/examples/breakout"));
+        let target = CompileTarget::C(options);
 
-        let (typed_module, statics) =
-            project_to_ast_typed_module(&project, CompileTarget::C(options)).unwrap();
+        let (typed_module, statics) = project_to_ast_typed_module(&project, &target).unwrap();
 
-        let result = sut.generate(&typed_module, statics);
+        let result = sut.generate(&project, &target, &typed_module, statics);
 
         assert_eq!(1, result.len());
+        assert_eq!("breakout.c", result.get(0).unwrap().0);
     }
 }

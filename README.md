@@ -53,10 +53,10 @@ Arguments:
 <file>    the project directory or a single source file
 
 Options:  
--o <out>                               sets the output file to create  
---compile                              creates only .asm and .o files  
+-o <out>                               sets the output folder, if not specified is "target" under the project's main folder
+--compile                              creates only .asm/.c and .o files  
 --message-format <message-format>      for vscode  
--d, --debug                            prints debug information at runtime (verbose)  
+-d, --debug                            prints debug information at runtime (very verbose)  
 -m, --memoryinfo                       prints memory informations  
 -p, --printcode                        prints code  
 -h, --help                             prints help  
@@ -87,13 +87,13 @@ you run it from the IDE itself.
 
 ### breakout
 
-`cargo run --release -- build rasm/resources/examples/breakout/ -o breakout`
+`cargo run --release -- build rasm/resources/examples/breakout/ -o .`
 
 a "breakout" executable file will be created in the current folder
 
 ### fibonacci
 
-`cargo run --release -- build rasm/resources/test/fibonacci.rasm -o fibonacci`  
+`cargo run --release -- build rasm/resources/test/fibonacci.rasm -o .`  
 `./fibonacci 40`  
 it should print the fortieth fibonacci number (102334155)
 

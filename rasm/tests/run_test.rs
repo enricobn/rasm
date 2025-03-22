@@ -734,7 +734,7 @@ fn run_test_with_target(
     }
 
     let executable = compile_with_target(&dir, &main, false, target);
-    execute(&executable.unwrap(), args, Some(expected_output));
+    execute(&executable, args, Some(expected_output));
 }
 
 fn run_test_no_verify(test_name: &str, args: Vec<&str>) {
@@ -747,16 +747,16 @@ fn run_test_no_verify(test_name: &str, args: Vec<&str>) {
     }
 
     let executable = compile(&dir, &main, false);
-    execute(&executable.unwrap(), args, None);
+    execute(&executable, args, None);
 }
 
 fn run(source: &str, args: Vec<&str>, expected_output: Option<&str>) {
     let dir = TempDir::new("rasm_int_test").unwrap();
     let executable = compile(&dir, source, false);
-    execute(&executable.unwrap(), args.clone(), expected_output);
+    execute(&executable, args.clone(), expected_output);
     let executable =
         compile_with_target(&dir, source, false, CompileTarget::C(COptions::default()));
-    execute(&executable.unwrap(), args, expected_output);
+    execute(&executable, args, expected_output);
 }
 
 fn compile_example(source: &str, only_compile: bool) {
@@ -775,7 +775,7 @@ fn compile_example_with_target(source: &str, only_compile: bool, target: Compile
     compile_with_target(&dir, source, only_compile, target);
 }
 
-fn compile(dir: &TempDir, source: &str, only_compile: bool) -> Option<String> {
+fn compile(dir: &TempDir, source: &str, only_compile: bool) -> String {
     compile_with_target(
         dir,
         source,
@@ -789,7 +789,7 @@ fn compile_with_target(
     source: &str,
     only_compile: bool,
     target: CompileTarget,
-) -> Option<String> {
+) -> String {
     compile_with_target_with_action(dir, source, only_compile, target, CommandLineAction::Build)
 }
 
@@ -799,14 +799,14 @@ fn compile_with_target_with_action(
     only_compile: bool,
     target: CompileTarget,
     action: CommandLineAction,
-) -> Option<String> {
+) -> String {
     let source_without_extension = Path::new(source).with_extension("");
     let file_name = source_without_extension
         .file_name()
         .unwrap()
         .to_str()
         .unwrap();
-    let dest = format!("{}/{}", dir.path().to_str().unwrap(), file_name);
+    let dest = dir.path().to_str().unwrap();
 
     let target_name = match target {
         CompileTarget::Nasmi386(_) => NASMI386,
@@ -817,7 +817,7 @@ fn compile_with_target_with_action(
         format!("{action}").to_lowercase(),
         source.to_owned(),
         "-o".to_string(),
-        dest.clone(),
+        dest.to_owned(),
         "-t".to_string(),
         target_name.to_string(),
     ];
@@ -844,7 +844,7 @@ fn compile_with_target_with_action(
 
     assert!(output.status.success());
 
-    Some(dest)
+    format!("{dest}/{file_name}")
 }
 
 fn execute(executable: &str, args: Vec<&str>, expected_output: Option<&str>) {

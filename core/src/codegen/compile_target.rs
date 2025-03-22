@@ -133,17 +133,24 @@ impl CompileTarget {
 
     fn generate(
         &self,
+        project: &RasmProject,
         statics: Statics,
         typed_module: &ASTTypedModule,
         debug: bool,
     ) -> Vec<(String, String)> {
         match self {
-            CompileTarget::Nasmi386(options) => {
-                CodeGenAsm::new(options.clone(), debug).generate(typed_module, statics)
-            }
-            CompileTarget::C(options) => {
-                CodeGenC::new(options.clone(), debug).generate(typed_module, statics)
-            }
+            CompileTarget::Nasmi386(options) => CodeGenAsm::new(options.clone(), debug).generate(
+                project,
+                &self,
+                typed_module,
+                statics,
+            ),
+            CompileTarget::C(options) => CodeGenC::new(options.clone(), debug).generate(
+                project,
+                &self,
+                typed_module,
+                statics,
+            ),
         }
     }
 
@@ -275,16 +282,20 @@ impl CompileTarget {
             panic!("unsupported action '{}'", command_line_options.action)
         }
 
-        let out = if let Some(o) = command_line_options.out.clone() {
+        let out_folder = if let Some(o) = command_line_options.out.clone() {
             Path::new(&o).to_path_buf()
         } else {
-            project
-                .out_file(command_line_options.action == CommandLineAction::Test)
-                .expect("undefined out in rasm.toml")
-        }
-        .with_extension(self.extension());
+            project.out_folder()
+        };
 
-        info!("out: {}", out.with_extension("").to_string_lossy());
+        if !out_folder.exists() {
+            panic!(
+                "out folder does not exist: {}",
+                out_folder.to_string_lossy()
+            );
+        } else {
+            info!("out folder: {}", out_folder.to_string_lossy());
+        }
 
         let start = Instant::now();
 
@@ -367,27 +378,42 @@ impl CompileTarget {
 
         info!("type check ended in {:?}", start.elapsed());
 
+        let start = Instant::now();
+
+        let mut additional_files =
+            self.generate_pre_compile_artifacts(&project, &out_folder, &mut statics);
+
+        let native_codes =
+            self.generate(&project, statics, &typed_module, command_line_options.debug);
+
+        info!("code generation ended in {:?}", start.elapsed());
+
+        let mut out_paths = Vec::new();
+
+        for (native_file, native_code) in native_codes.iter() {
+            let out_path = out_folder.as_path().join(&native_file);
+            File::create(&out_path)
+                .unwrap_or_else(|_| panic!("cannot create file {}", out_path.to_str().unwrap()))
+                .write_all(native_code.as_bytes())
+                .unwrap();
+
+            out_paths.push(out_path);
+        }
+
+        info!("code generation ended in {:?}", start.elapsed());
+
+        let executable = out_folder.join(project.config.package.name);
+
         match self {
             CompileTarget::Nasmi386(options) => match command_line_options.action {
                 CommandLineAction::Build | CommandLineAction::Test => {
-                    let start = Instant::now();
-
-                    let native_code = self
-                        .generate(statics, &typed_module, command_line_options.debug)
-                        .remove(0)
-                        .1;
-
-                    info!("code generation ended in {:?}", start.elapsed());
-
-                    let out_path = Path::new(&out);
-                    File::create(out_path)
-                        .unwrap_or_else(|_| {
-                            panic!("cannot create file {}", out_path.to_str().unwrap())
-                        })
-                        .write_all(native_code.as_bytes())
-                        .unwrap();
+                    if native_codes.len() != 1 {
+                        panic!("Only one native file to compile is supported!");
+                    }
 
                     let backend = BackendNasmi386::new(command_line_options.debug);
+
+                    let out = out_paths.remove(0);
 
                     if command_line_options.only_compile {
                         backend.compile(&out);
@@ -401,84 +427,20 @@ impl CompileTarget {
             },
             CompileTarget::C(options) => {
                 let start = Instant::now();
-
-                let out_path = Path::new(&out);
-                let parent_path = out_path.parent().unwrap();
-
-                let mut source_files_to_include = Vec::new();
-
-                project
-                    .get_all_dependencies()
-                    .iter()
-                    .for_each(|dependency| {
-                        if let Some(native_source_folder) =
-                            dependency.main_native_source_folder(self.folder())
-                        {
-                            if native_source_folder.exists() {
-                                WalkDir::new(native_source_folder)
-                                    .into_iter()
-                                    .filter_map(Result::ok)
-                                    .filter(|it| it.file_name().to_string_lossy().ends_with(".h"))
-                                    .for_each(|it| {
-                                        CInclude::add_to_statics(
-                                            &mut statics,
-                                            format!(
-                                                "\"{}\"",
-                                                it.clone().file_name().to_string_lossy()
-                                            ),
-                                        );
-
-                                        let dest = parent_path.to_path_buf().join(Path::new(
-                                            it.file_name().to_string_lossy().as_ref(),
-                                        ));
-
-                                        info!("including file {}", it.path().to_string_lossy());
-
-                                        fs::copy(it.clone().into_path(), dest).unwrap();
-                                    });
-                            }
-                        }
-                    });
-
-                CLibAssets::iter()
-                    .filter(|it| it.ends_with(".c") || it.ends_with(".h"))
-                    .for_each(|it| {
-                        let dest = parent_path.to_path_buf().join(it.to_string());
-                        info!("Including {}", dest.to_string_lossy());
-                        if it.ends_with(".h") {
-                            CInclude::add_to_statics(&mut statics, format!("\"{it}\""));
-                        } else {
-                            source_files_to_include.push(dest.to_string_lossy().to_string());
-                        }
-                        if let Some(asset) = CLibAssets::get(&it) {
-                            fs::write(dest, asset.data).unwrap();
-                        } else {
-                            panic!()
-                        }
-                    });
-
-                let native_code = self
-                    .generate(statics, &typed_module, command_line_options.debug)
-                    .remove(0)
-                    .1;
-
-                File::create(out_path)
-                    .unwrap_or_else(|_| panic!("cannot create file {}", out_path.to_str().unwrap()))
-                    .write_all(native_code.as_bytes())
-                    .unwrap();
-
-                info!("code generation ended in {:?}", start.elapsed());
-
-                let start = Instant::now();
-                info!("source file: {}", out_path.to_string_lossy());
                 let mut command = Command::new("gcc");
 
-                let mut args = vec![out_path.with_extension("c").to_string_lossy().to_string()];
-                args.append(&mut source_files_to_include);
+                if native_codes.len() != 1 {
+                    panic!("Only one native file to compile is supported!");
+                }
+
+                let out_path = out_paths.remove(0);
+
+                let mut args = vec![out_path.to_string_lossy().to_string()];
+                args.append(&mut additional_files);
                 args.append(&mut vec![
                     "-std=c17".to_string(),
                     "-o".to_string(),
-                    out_path.with_extension("").to_string_lossy().to_string(),
+                    executable.to_string_lossy().to_string(),
                     "-Wno-incompatible-pointer-types".to_string(), // TODO it happens where using $typeName(T) for a reference type, I think it should be struct RasmPointer_ *
                     "-Wno-int-conversion".to_string(),
                 ]);
@@ -655,6 +617,72 @@ impl CompileTarget {
 
         default_functions.sort_by(|a, b| a.name.cmp(&b.name));
         default_functions
+    }
+
+    fn generate_pre_compile_artifacts(
+        &self,
+        project: &RasmProject,
+        out_folder: &Path,
+        statics: &mut Statics,
+    ) -> Vec<String> {
+        match self {
+            CompileTarget::Nasmi386(asm_options) => Vec::new(),
+            CompileTarget::C(coptions) => {
+                let mut source_files_to_include = Vec::new();
+
+                project
+                    .get_all_dependencies()
+                    .iter()
+                    .for_each(|dependency| {
+                        if let Some(native_source_folder) =
+                            dependency.main_native_source_folder(self.folder())
+                        {
+                            if native_source_folder.exists() {
+                                WalkDir::new(native_source_folder)
+                                    .into_iter()
+                                    .filter_map(Result::ok)
+                                    .filter(|it| it.file_name().to_string_lossy().ends_with(".h"))
+                                    .for_each(|it| {
+                                        CInclude::add_to_statics(
+                                            statics,
+                                            format!(
+                                                "\"{}\"",
+                                                it.clone().file_name().to_string_lossy()
+                                            ),
+                                        );
+
+                                        let dest = out_folder.to_path_buf().join(Path::new(
+                                            it.file_name().to_string_lossy().as_ref(),
+                                        ));
+
+                                        info!("including file {}", it.path().to_string_lossy());
+
+                                        fs::copy(it.clone().into_path(), dest).unwrap();
+                                    });
+                            }
+                        }
+                    });
+
+                CLibAssets::iter()
+                    .filter(|it| it.ends_with(".c") || it.ends_with(".h"))
+                    .for_each(|it| {
+                        let dest = out_folder.to_path_buf().join(it.to_string());
+                        info!("Including {}", dest.to_string_lossy());
+                        if it.ends_with(".h") {
+                            CInclude::add_to_statics(statics, format!("\"{it}\""));
+                        } else {
+                            source_files_to_include.push(dest.to_string_lossy().to_string());
+                        }
+                        if let Some(asset) = CLibAssets::get(&it) {
+                            fs::write(dest, asset.data).unwrap();
+                        } else {
+                            panic!()
+                        }
+                    });
+
+                source_files_to_include
+            }
+        }
     }
 }
 

@@ -2,7 +2,6 @@
 name = "bouncing_quads"
 version = "1.0.0"
 main = "bouncing_quads.rasm"
-out = "breakout"
 
 [dependencies]
 stdlib = { path = "../../../../stdlib" }

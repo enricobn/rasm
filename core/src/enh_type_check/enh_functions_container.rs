@@ -888,7 +888,6 @@ mod tests {
                     name: "test".to_string(),
                     version: "".to_string(),
                     main: None,
-                    out: None,
                     source_folder: Some("".to_string()),
                 },
                 dependencies: None,

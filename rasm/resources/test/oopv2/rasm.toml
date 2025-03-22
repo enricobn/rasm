@@ -2,7 +2,6 @@
 name = "oopv2"
 version = "1.0.0"
 main = "oop.rasm"
-out = "oop"
 
 [dependencies]
 stdlib = { path = "../../../../stdlib" }
