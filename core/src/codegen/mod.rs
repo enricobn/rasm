@@ -154,60 +154,20 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         let mut after = String::new();
         let mut before = String::new();
 
-        let len = typed_module.body.len();
+        let a_body = &typed_module.body;
 
-        for (i, statement) in typed_module.body.iter().enumerate() {
-            match statement {
-                ASTTypedStatement::Expression(e) => match e {
-                    ASTTypedExpression::ASTFunctionCallExpression(call) => {
-                        let (bf, cur, af, mut lambda_calls) = self.generate_call_function(
-                            &call.namespace,
-                            call,
-                            &context,
-                            None,
-                            "0".into(),
-                            None,
-                            0,
-                            false,
-                            &stack,
-                            &mut id,
-                            &mut statics,
-                            typed_module,
-                            i == len - 1,
-                            false,
-                        );
-                        before.push_str(&bf);
-                        before.push_str(&cur);
-
-                        Self::insert_on_top(&af.join("\n"), &mut after);
-
-                        lambdas.append(&mut lambda_calls);
-                    }
-                    _ => {
-                        panic!("unsupported expression in body {e}");
-                    }
-                },
-                ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
-                    let mut new_lambda_calls = self.add_let(
-                        &expr.namespace(),
-                        &mut context,
-                        &stack,
-                        &mut after,
-                        &mut before,
-                        name,
-                        expr,
-                        None,
-                        None,
-                        *is_const,
-                        &mut statics,
-                        &mut body,
-                        &mut id,
-                        typed_module,
-                    );
-                    lambdas.append(&mut new_lambda_calls);
-                }
-            }
-        }
+        self.generate_body(
+            typed_module,
+            a_body,
+            &mut lambdas,
+            &mut context,
+            &stack,
+            &mut statics,
+            &mut before,
+            &mut after,
+            &mut body,
+            &mut id,
+        );
 
         body.push_str(&self.transform_before(&stack, before));
         body.push_str(&after);
@@ -295,6 +255,74 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
             format!("{}.{}", project.config.package.name, target.extension()),
             generated_code,
         )]
+    }
+
+    fn generate_body(
+        &'a self,
+        typed_module: &ASTTypedModule,
+        a_body: &Vec<ASTTypedStatement>,
+        lambdas: &mut Vec<LambdaCall>,
+        context: &mut TypedValContext,
+        stack: &StackVals,
+        statics: &mut Statics,
+        before: &mut String,
+        after: &mut String,
+        body: &mut String,
+        id: &mut usize,
+    ) {
+        let len = a_body.len();
+        for (i, statement) in a_body.iter().enumerate() {
+            match statement {
+                ASTTypedStatement::Expression(e) => match e {
+                    ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                        let (bf, cur, af, mut lambda_calls) = self.generate_call_function(
+                            &call.namespace,
+                            call,
+                            &context,
+                            None,
+                            "0".into(),
+                            None,
+                            0,
+                            false,
+                            &stack,
+                            id,
+                            statics,
+                            typed_module,
+                            i == len - 1,
+                            false,
+                        );
+                        before.push_str(&bf);
+                        before.push_str(&cur);
+
+                        Self::insert_on_top(&af.join("\n"), after);
+
+                        lambdas.append(&mut lambda_calls);
+                    }
+                    _ => {
+                        panic!("unsupported expression in body {e}");
+                    }
+                },
+                ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
+                    let mut new_lambda_calls = self.add_let(
+                        &expr.namespace(),
+                        context,
+                        &stack,
+                        after,
+                        before,
+                        name,
+                        expr,
+                        None,
+                        None,
+                        *is_const,
+                        statics,
+                        body,
+                        id,
+                        typed_module,
+                    );
+                    lambdas.append(&mut new_lambda_calls);
+                }
+            }
+        }
     }
 
     fn end_main(&self, code: &mut String);
