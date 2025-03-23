@@ -172,12 +172,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         body.push_str(&self.transform_before(&stack, before));
         body.push_str(&after);
 
-        // debug!("stack {:?}", stack);
-        //        assert_eq!(stack.size(), 0);
-
-        // TODO add a command line argument
-        //Parser::print(&self.module);
-
         let mut functions_generated_code =
             self.create_lambdas(lambdas, 0, &mut id, &mut statics, typed_module);
 
@@ -221,15 +215,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
             body.push_str(bd);
         }
 
-        /*
-        // TODO it seems that now all the functions are already translated
-
-        let new_body = self
-            .translate_body(&body, &mut statics, typed_module)
-            .unwrap();
-
-        generated_code.push_str(&new_body);
-        */
         generated_code.push_str(&body);
 
         generated_code.push('\n');
@@ -1244,187 +1229,22 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         let mut after = String::new();
 
         match &function_def.body {
-            ASTTypedFunctionBody::RASMBody(calls) => {
-                let len = calls.len();
-                for (i, statement) in calls.iter().enumerate() {
-                    match statement {
-                        ASTTypedStatement::Expression(expr) => {
-                            match expr {
-                                ASTTypedExpression::ASTFunctionCallExpression(call_expression) => {
-                                    let (bf, cur, af, mut lambda_calls_) = self
-                                        .generate_call_function(
-                                            &function_def.namespace,
-                                            call_expression,
-                                            &context,
-                                            Some(function_def),
-                                            "0".into(),
-                                            lambda_space,
-                                            indent + 1,
-                                            false,
-                                            &stack,
-                                            id,
-                                            statics,
-                                            typed_module,
-                                            i == len - 1,
-                                            false,
-                                        );
-
-                                    before.push_str(&bf);
-                                    before.push_str(&cur);
-
-                                    Self::insert_on_top(&af.join("\n"), &mut after);
-
-                                    lambda_calls.append(&mut lambda_calls_);
-                                }
-                                ASTTypedExpression::ValueRef(val, index) => {
-                                    // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
-
-                                    let mut parameters = self.function_call_parameters(
-                                        &Vec::new(),
-                                        function_def.inline,
-                                        true,
-                                        &stack,
-                                        *id,
-                                    );
-
-                                    *id += 1;
-
-                                    self.add_val(
-                                        &context,
-                                        &lambda_space,
-                                        &indent,
-                                        &mut parameters,
-                                        val,
-                                        val,
-                                        "",
-                                        &stack,
-                                        index,
-                                        statics,
-                                        typed_module,
-                                        &mut *id,
-                                        &mut lambda_calls,
-                                    );
-
-                                    before.push_str(&parameters.before());
-                                    before.push_str(&parameters.current());
-
-                                    Self::insert_on_top(&parameters.after().join("\n"), &mut after);
-                                }
-                                ASTTypedExpression::Lambda(lambda_def) => {
-                                    if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                                        parameters,
-                                        return_type,
-                                    }) = &function_def.return_type
-                                    {
-                                        /*
-                                        let rt = if return_type.deref() != &ASTTypedType::Unit {
-                                            return_type.deref().clone()
-                                        } else {
-                                            // TODO this error must be returned
-                                            panic!(
-                                                "Expected a return type from lambda but got None : {}", lambda_def.index
-                                            );
-                                        };
-                                        */
-                                        let rt = return_type.deref().clone();
-
-                                        let lambda_parameters = zip(
-                                            lambda_def.parameter_names.iter(),
-                                            parameters.iter(),
-                                        )
-                                        .map(|((name, index), typed_type)| ASTTypedParameterDef {
-                                            name: name.clone(),
-                                            ast_type: typed_type.clone(),
-                                            ast_index: index.clone(),
-                                        })
-                                        .collect::<Vec<_>>();
-
-                                        let name = format!("lambda{}", id);
-                                        let mut def = ASTTypedFunctionDef {
-                                            namespace: function_def.namespace.clone(),
-                                            //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
-                                            name: name.clone(),
-                                            original_name: name.clone(),
-                                            parameters: lambda_parameters, // parametrs are calculated later
-                                            return_type: rt,
-                                            body: ASTTypedFunctionBody::RASMBody(
-                                                lambda_def.clone().body,
-                                            ),
-                                            inline: false,
-                                            generic_types: LinkedHashMap::new(),
-                                            index: lambda_def.index.clone(),
-                                        };
-
-                                        *id += 1;
-
-                                        let mut parameters = self.function_call_parameters(
-                                            &Vec::new(),
-                                            function_def.inline,
-                                            true,
-                                            &stack,
-                                            *id,
-                                        );
-
-                                        *id += 1;
-
-                                        let new_lambda_space = parameters.add_lambda(
-                                            &mut def,
-                                            lambda_space,
-                                            &context,
-                                            None,
-                                            statics,
-                                            typed_module,
-                                            &stack,
-                                            false,
-                                            &function_def.return_type,
-                                            &name,
-                                        );
-
-                                        before.push_str(&parameters.before());
-                                        before.push_str(&parameters.current());
-
-                                        Self::insert_on_top(
-                                            &parameters.after().join("\n"),
-                                            &mut after,
-                                        );
-                                        lambda_calls.push(LambdaCall {
-                                            def,
-                                            space: new_lambda_space,
-                                        });
-                                    } else {
-                                        panic!("Expected lambda return type");
-                                    }
-                                }
-                                ASTTypedExpression::Value(value_type, _) => {
-                                    if let ASTValueType::String(s) = value_type {
-                                        self.string_literal_return(statics, &mut before, s);
-                                    } else {
-                                        self.value_as_return(&mut before, value_type, statics);
-                                    }
-                                }
-                            }
-                        }
-                        ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
-                            let mut new_lambda_calls = self.add_let(
-                                &function_def.namespace,
-                                &mut context,
-                                &stack,
-                                &mut after,
-                                &mut before,
-                                name,
-                                expr,
-                                Some(function_def),
-                                lambda_space,
-                                *is_const,
-                                statics,
-                                body,
-                                id,
-                                typed_module,
-                            );
-                            lambda_calls.append(&mut new_lambda_calls);
-                        }
-                    }
-                }
+            ASTTypedFunctionBody::RASMBody(statements) => {
+                self.generate_function_body(
+                    typed_module,
+                    function_def,
+                    statements,
+                    lambda_space,
+                    &mut lambda_calls,
+                    &mut context,
+                    &stack,
+                    statics,
+                    &mut before,
+                    &mut after,
+                    body,
+                    id,
+                    indent,
+                );
             }
             ASTTypedFunctionBody::NativeBody(body) => {
                 let function_call_parameters = self.function_call_parameters(
@@ -1462,6 +1282,196 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         self.function_end(definitions, true, Some(function_def));
 
         lambda_calls
+    }
+
+    fn generate_function_body(
+        &'a self,
+        typed_module: &ASTTypedModule,
+        function_def: &ASTTypedFunctionDef,
+        a_body: &Vec<ASTTypedStatement>,
+        lambda_space: Option<&LambdaSpace>,
+        lambda_calls: &mut Vec<LambdaCall>,
+        context: &mut TypedValContext,
+        stack: &StackVals,
+        statics: &mut Statics,
+        before: &mut String,
+        after: &mut String,
+        body: &mut String,
+        id: &mut usize,
+        indent: usize,
+    ) {
+        let len = a_body.len();
+        for (i, statement) in a_body.iter().enumerate() {
+            match statement {
+                ASTTypedStatement::Expression(expr) => {
+                    match expr {
+                        ASTTypedExpression::ASTFunctionCallExpression(call_expression) => {
+                            let (bf, cur, af, mut lambda_calls_) = self.generate_call_function(
+                                &function_def.namespace,
+                                call_expression,
+                                &context,
+                                Some(function_def),
+                                "0".into(),
+                                lambda_space,
+                                indent + 1,
+                                false,
+                                &stack,
+                                id,
+                                statics,
+                                typed_module,
+                                i == len - 1,
+                                false,
+                            );
+
+                            before.push_str(&bf);
+                            before.push_str(&cur);
+
+                            Self::insert_on_top(&af.join("\n"), after);
+
+                            lambda_calls.append(&mut lambda_calls_);
+                        }
+                        ASTTypedExpression::ValueRef(val, index) => {
+                            // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
+
+                            let mut parameters = self.function_call_parameters(
+                                &Vec::new(),
+                                function_def.inline,
+                                true,
+                                &stack,
+                                *id,
+                            );
+
+                            *id += 1;
+
+                            self.add_val(
+                                &context,
+                                &lambda_space,
+                                &indent,
+                                &mut parameters,
+                                val,
+                                val,
+                                "",
+                                &stack,
+                                index,
+                                statics,
+                                typed_module,
+                                id,
+                                lambda_calls,
+                            );
+
+                            before.push_str(&parameters.before());
+                            before.push_str(&parameters.current());
+
+                            Self::insert_on_top(&parameters.after().join("\n"), after);
+                        }
+                        ASTTypedExpression::Lambda(lambda_def) => {
+                            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                                parameters,
+                                return_type,
+                            }) = &function_def.return_type
+                            {
+                                /*
+                                let rt = if return_type.deref() != &ASTTypedType::Unit {
+                                    return_type.deref().clone()
+                                } else {
+                                    // TODO this error must be returned
+                                    panic!(
+                                        "Expected a return type from lambda but got None : {}", lambda_def.index
+                                    );
+                                };
+                                */
+                                let rt = return_type.deref().clone();
+
+                                let lambda_parameters =
+                                    zip(lambda_def.parameter_names.iter(), parameters.iter())
+                                        .map(|((name, index), typed_type)| ASTTypedParameterDef {
+                                            name: name.clone(),
+                                            ast_type: typed_type.clone(),
+                                            ast_index: index.clone(),
+                                        })
+                                        .collect::<Vec<_>>();
+
+                                let name = format!("lambda{}", id);
+                                let mut def = ASTTypedFunctionDef {
+                                    namespace: function_def.namespace.clone(),
+                                    //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
+                                    name: name.clone(),
+                                    original_name: name.clone(),
+                                    parameters: lambda_parameters, // parametrs are calculated later
+                                    return_type: rt,
+                                    body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
+                                    inline: false,
+                                    generic_types: LinkedHashMap::new(),
+                                    index: lambda_def.index.clone(),
+                                };
+
+                                *id += 1;
+
+                                let mut parameters = self.function_call_parameters(
+                                    &Vec::new(),
+                                    function_def.inline,
+                                    true,
+                                    &stack,
+                                    *id,
+                                );
+
+                                *id += 1;
+
+                                let new_lambda_space = parameters.add_lambda(
+                                    &mut def,
+                                    lambda_space,
+                                    &context,
+                                    None,
+                                    statics,
+                                    typed_module,
+                                    &stack,
+                                    false,
+                                    &function_def.return_type,
+                                    &name,
+                                );
+
+                                before.push_str(&parameters.before());
+                                before.push_str(&parameters.current());
+
+                                Self::insert_on_top(&parameters.after().join("\n"), after);
+                                lambda_calls.push(LambdaCall {
+                                    def,
+                                    space: new_lambda_space,
+                                });
+                            } else {
+                                panic!("Expected lambda return type");
+                            }
+                        }
+                        ASTTypedExpression::Value(value_type, _) => {
+                            if let ASTValueType::String(s) = value_type {
+                                self.string_literal_return(statics, before, s);
+                            } else {
+                                self.value_as_return(before, value_type, statics);
+                            }
+                        }
+                    }
+                }
+                ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
+                    let mut new_lambda_calls = self.add_let(
+                        &function_def.namespace,
+                        context,
+                        stack,
+                        after,
+                        before,
+                        name,
+                        expr,
+                        Some(function_def),
+                        lambda_space,
+                        *is_const,
+                        statics,
+                        body,
+                        id,
+                        typed_module,
+                    );
+                    lambda_calls.append(&mut new_lambda_calls);
+                }
+            }
+        }
     }
 
     fn function_def(
