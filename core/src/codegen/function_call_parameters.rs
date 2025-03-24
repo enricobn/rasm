@@ -4,7 +4,6 @@ use linked_hash_map::LinkedHashMap;
 use crate::codegen::enh_ast::EnhASTIndex;
 use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::lambda::LambdaSpace;
-use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::TypedValKind;
@@ -15,7 +14,7 @@ use crate::enh_type_check::typed_ast::{
 use rasm_parser::parser::ast::ASTValueType;
 
 #[auto_impl(Box)]
-pub trait FunctionCallParameters {
+pub trait FunctionCallParameters<CTX> {
     fn add_label(
         &mut self,
         param_name: &str,
@@ -54,7 +53,7 @@ pub trait FunctionCallParameters {
         comment: Option<&str>,
         statics: &mut Statics,
         module: &ASTTypedModule,
-        stack_vals: &StackVals,
+        stack_vals: &CTX,
         lambda_in_stack: bool,
         param_type: &ASTTypedType,
         name: &str,
@@ -67,7 +66,7 @@ pub trait FunctionCallParameters {
         index_in_context: usize,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
-        stack_vals: &StackVals,
+        stack_vals: &CTX,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
         typed_type: &ASTTypedType,
@@ -80,7 +79,7 @@ pub trait FunctionCallParameters {
         index_in_context: Option<usize>,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
-        stack_vals: &StackVals,
+        stack_vals: &CTX,
         ast_index: &EnhASTIndex,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,

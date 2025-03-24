@@ -15,7 +15,7 @@ use crate::{
         statics::{MemoryUnit, MemoryValue, Statics},
         text_macro::{AddRefMacro, RefType, TextMacroEval, TextMacroEvaluator},
         typedef_provider::TypeDefProvider,
-        CodeGen, TypedValKind,
+        CodeGen, CodeGenOptions, TypedValKind,
     },
     enh_type_check::typed_ast::{
         ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
@@ -46,7 +46,6 @@ pub struct AsmOptions {
     pub heap_table_slots: usize,
     pub dereference: bool,
     pub optimize_unused_functions: bool,
-    pub print_memory: bool,
     pub requires: Vec<String>,
     pub externals: Vec<String>,
 }
@@ -57,12 +56,17 @@ impl Default for AsmOptions {
             lambda_space_size: 1024 * 1024,
             heap_size: 64 * 1024 * 1024,
             heap_table_slots: 1024 * 1024,
-            print_memory: false,
             dereference: true,
             optimize_unused_functions: false,
             requires: vec!["libc".to_string()],
             externals: Vec::new(),
         }
+    }
+}
+
+impl CodeGenOptions for AsmOptions {
+    fn dereference(&self) -> bool {
+        self.dereference
     }
 }
 
@@ -641,7 +645,13 @@ impl CodeGenAsm {
     }
 }
 
-impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
+pub struct CodeGenAsmContext {
+    pub stack_vals: StackVals,
+}
+
+impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext, AsmOptions>
+    for CodeGenAsm
+{
     fn options(&self) -> &AsmOptions {
         &self.options
     }
@@ -650,10 +660,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         self.call_function(code, "exitMain", &[("0", None)], None, false, false);
     }
 
-    fn transform_before(&self, stack: &StackVals, before: String) -> String {
+    fn transform_before(&self, context: &CodeGenAsmContext, before: String) -> String {
         before.replace(
             STACK_VAL_SIZE_NAME,
-            &(stack.len_of_all() * self.word_len()).to_string(),
+            &(context.stack_vals.len_of_all() * self.word_len()).to_string(),
         )
     }
 
@@ -678,7 +688,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         &self,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        stack_vals: &StackVals,
+        code_gen_context: &CodeGenAsmContext,
         kind: &TypedValKind,
         call_parameters: &Box<dyn FunctionCallParametersAsm + 'a>,
         return_value: bool,
@@ -690,7 +700,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         let index = match kind {
             TypedValKind::ParameterRef(index, _) => *index as i32 + 2,
             TypedValKind::LetRef(_, _) => {
-                let relative_to_bp_found = stack_vals
+                let relative_to_bp_found = code_gen_context
+                    .stack_vals
                     .find_local_val_relative_to_bp(&function_call.function_name)
                     .unwrap();
                 -(relative_to_bp_found as i32)
@@ -740,7 +751,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         &self,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        stack_vals: &StackVals,
+        code_gen_context: &CodeGenAsmContext,
         index_in_lambda_space: usize,
         call_parameters: &Box<dyn FunctionCallParametersAsm + 'a>,
         ast_type_type: &ASTTypedType,
@@ -750,7 +761,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
     ) {
         let rr = self.return_register();
 
-        if let Some(ref address) = stack_vals.find_tmp_register("lambda_space_address") {
+        if let Some(ref address) = code_gen_context
+            .stack_vals
+            .find_tmp_register("lambda_space_address")
+        {
             self.add(before, &format!("mov {rr}, {address}"), None, true);
         } else {
             panic!()
@@ -840,7 +854,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         parameters: &'b Vec<ASTTypedParameterDef>,
         inline: bool,
         immediate: bool,
-        stack_vals: &'c StackVals,
+        context: &'c CodeGenAsmContext,
         id: usize,
     ) -> Box<dyn FunctionCallParametersAsm + 'a> {
         let fcp = FunctionCallParametersAsmImpl::new(
@@ -848,7 +862,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
             parameters.clone(),
             inline,
             immediate,
-            stack_vals.clone(),
+            context.stack_vals.clone(),
             self.options().dereference,
             id,
             self,
@@ -966,7 +980,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
 
     fn set_let_for_value_ref(
         &self,
-        stack: &StackVals,
+        code_gen_context: &CodeGenAsmContext,
         before: &mut String,
         address_relative_to_bp: usize,
         val_name: &String,
@@ -985,13 +999,19 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                 format!("par {val_name}"),
             ),
             TypedValKind::LetRef(_i, def) => {
-                let relative_to_bp_found = stack.find_local_val_relative_to_bp(val_name).unwrap();
+                let relative_to_bp_found = code_gen_context
+                    .stack_vals
+                    .find_local_val_relative_to_bp(val_name)
+                    .unwrap();
                 let index_in_context = -(relative_to_bp_found as i32);
                 (index_in_context, def.clone(), format!("let {val_name}"))
             }
         };
 
-        let tmp_register = stack.reserve_tmp_register(before, "set_let_for_value_ref", self);
+        let tmp_register =
+            code_gen_context
+                .stack_vals
+                .reserve_tmp_register(before, "set_let_for_value_ref", self);
 
         self.add(
             before,
@@ -1014,7 +1034,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
             true,
         );
 
-        stack.release_tmp_register(self, before, "set_let_for_value_ref");
+        code_gen_context
+            .stack_vals
+            .release_tmp_register(self, before, "set_let_for_value_ref");
         typed_type
     }
 
@@ -1028,13 +1050,17 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         address_relative_to_bp: usize,
         value: &String,
         typed_type: &ASTTypedType,
-        stack: &StackVals,
+        code_gen_context: &CodeGenAsmContext,
     ) {
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();
         let label = statics.add_str(value);
 
-        let tmp_reg = stack.reserve_tmp_register(body, "set_let_for_string_literal", self);
+        let tmp_reg = code_gen_context.stack_vals.reserve_tmp_register(
+            body,
+            "set_let_for_string_literal",
+            self,
+        );
 
         if is_const {
             let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
@@ -1056,7 +1082,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
             );
         }
 
-        stack.release_tmp_register(self, body, "set_let_for_string_literal");
+        code_gen_context
+            .stack_vals
+            .release_tmp_register(self, body, "set_let_for_string_literal");
     }
 
     fn set_let_for_value(
@@ -1098,8 +1126,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         }
     }
 
-    fn reserve_return_register(&self, out: &mut String, stack: &StackVals) {
-        stack.reserve_return_register(self, out);
+    fn reserve_return_register(&self, out: &mut String, code_gen_context: &CodeGenAsmContext) {
+        code_gen_context
+            .stack_vals
+            .reserve_return_register(self, out);
     }
 
     fn function_def(
@@ -1122,12 +1152,15 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
     fn reserve_lambda_space(
         &self,
         before: &mut String,
-        stack: &StackVals,
+        code_gen_context: &CodeGenAsmContext,
         statics: &mut Statics,
         lambda_space: &LambdaSpace,
         def: &ASTTypedFunctionDef,
     ) {
-        let register = stack.reserve_tmp_register(before, "lambda_space_address", self);
+        let register =
+            code_gen_context
+                .stack_vals
+                .reserve_tmp_register(before, "lambda_space_address", self);
 
         self.add(
             before,
@@ -1389,14 +1422,14 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         })
     }
 
-    fn reserve_local_vals(&self, stack: &StackVals, out: &mut String) {
-        if stack.len_of_local_vals() > 0 {
+    fn reserve_local_vals(&self, context: &CodeGenAsmContext, out: &mut String) {
+        if context.stack_vals.len_of_local_vals() > 0 {
             let sp = self.backend.stack_pointer();
             self.add(
                 out,
                 &format!(
                     "sub   {sp}, {}",
-                    stack.len_of_local_vals() * self.backend.word_len()
+                    context.stack_vals.len_of_local_vals() * self.backend.word_len()
                 ),
                 Some("reserve stack local vals (let)"),
                 true,
@@ -1524,9 +1557,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
         self.add(out, "%define LOG_DEBUG 1", None, false);
     }
 
-    fn restore(&self, stack: &StackVals, out: &mut String) {
+    fn restore(&self, context: &CodeGenAsmContext, out: &mut String) {
         let mut local_vals_words = 0;
-        for entry in stack.reserved_slots().borrow().iter().rev() {
+        for entry in context.stack_vals.reserved_slots().borrow().iter().rev() {
             match entry.entry_type {
                 StackEntryType::LocalVal => {
                     local_vals_words += 1;
@@ -1557,7 +1590,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
                 Some("restore stack local vals (let)"),
                 true,
             );
-            stack.remove_all();
+            context.stack_vals.remove_all();
         }
     }
 
@@ -1680,5 +1713,11 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>> for CodeGenAsm {
 
     fn replace_inline_call_includng_source(&self) -> bool {
         true
+    }
+
+    fn create_code_gen_context(&self) -> CodeGenAsmContext {
+        CodeGenAsmContext {
+            stack_vals: StackVals::new(),
+        }
     }
 }

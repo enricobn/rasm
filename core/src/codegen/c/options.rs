@@ -16,6 +16,8 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::codegen::CodeGenOptions;
+
 #[derive(Clone)]
 pub struct COptions {
     pub requires: Vec<String>,
@@ -28,5 +30,11 @@ impl Default for COptions {
             requires: vec![],
             includes: Vec::new(),
         }
+    }
+}
+
+impl CodeGenOptions for COptions {
+    fn dereference(&self) -> bool {
+        true
     }
 }

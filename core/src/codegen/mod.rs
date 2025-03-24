@@ -20,11 +20,11 @@ use crate::codegen::enh_ast::{
 };
 use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::function_call_parameters::FunctionCallParameters;
-use crate::codegen::stack::StackVals;
 
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
+use crate::commandline::CommandLineOptions;
 use crate::enh_type_check::typed_ast::{
     convert_to_typed_module, get_type_of_typed_expression, ASTTypedExpression,
     ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
@@ -129,8 +129,14 @@ pub fn get_std_lib_path() -> Option<String> {
     }
 }
 
-pub trait CodeGen<'a, FCP: FunctionCallParameters> {
-    fn options(&self) -> &AsmOptions;
+pub trait CodeGenOptions {
+    fn dereference(&self) -> bool;
+}
+
+pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOptions> {
+    fn options(&self) -> &OPTIONS;
+
+    fn create_code_gen_context(&self) -> CTX;
 
     fn generate(
         &'a self,
@@ -138,8 +144,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         target: &CompileTarget,
         typed_module: &ASTTypedModule,
         statics: Statics,
+        command_line_options: &CommandLineOptions,
     ) -> Vec<(String, String)> {
-        let debug = self.debug();
         let mut statics = statics;
         let mut id: usize = 0;
         let mut body = String::new();
@@ -149,7 +155,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         // for now main has no context
         let mut context = TypedValContext::new(None);
 
-        let stack = StackVals::new();
+        let code_gen_context = self.create_code_gen_context();
 
         let mut after = String::new();
         let mut before = String::new();
@@ -161,7 +167,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
             a_body,
             &mut lambdas,
             &mut context,
-            &stack,
+            &code_gen_context,
             &mut statics,
             &mut before,
             &mut after,
@@ -169,7 +175,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
             &mut id,
         );
 
-        body.push_str(&self.transform_before(&stack, before));
+        body.push_str(&self.transform_before(&code_gen_context, before));
         body.push_str(&after);
 
         let mut functions_generated_code =
@@ -191,7 +197,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
 
         generated_code.push_str(&static_declarations);
 
-        if debug {
+        if self.debug() {
             self.define_debug(&mut generated_code);
         }
 
@@ -207,7 +213,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
 
         self.function_preamble(&mut generated_code);
 
-        self.reserve_local_vals(&stack, &mut generated_code);
+        self.reserve_local_vals(&code_gen_context, &mut generated_code);
 
         // probably there is not a valid body from functions
         for (_name, (_defs, bd)) in functions_generated_code.iter() {
@@ -219,9 +225,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
 
         generated_code.push('\n');
 
-        self.restore(&stack, &mut generated_code);
+        self.restore(&code_gen_context, &mut generated_code);
 
-        if self.options().print_memory {
+        if command_line_options.print_memory {
             self.print_memory_info(&mut generated_code, &statics);
         }
 
@@ -248,7 +254,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         a_body: &Vec<ASTTypedStatement>,
         lambdas: &mut Vec<LambdaCall>,
         context: &mut TypedValContext,
-        stack: &StackVals,
+        stack: &CTX,
         statics: &mut Statics,
         before: &mut String,
         after: &mut String,
@@ -312,7 +318,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
 
     fn end_main(&self, code: &mut String);
 
-    fn transform_before(&self, stack: &StackVals, before: String) -> String;
+    fn transform_before(&self, stack: &CTX, before: String) -> String;
 
     fn create_command_line_arguments(&self, generated_code: &mut String);
 
@@ -336,7 +342,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         &self,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        stack_vals: &StackVals,
+        code_gen_context: &CTX,
         kind: &TypedValKind,
         call_parameters: &FCP,
         return_value: bool,
@@ -360,7 +366,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         lambda_space_opt: Option<&LambdaSpace>,
         indent: usize,
         is_lambda: bool,
-        stack_vals: &StackVals,
+        stack_vals: &CTX,
         after: &mut Vec<String>,
         id: &mut usize,
         statics: &mut Statics,
@@ -699,7 +705,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         &self,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        stack_vals: &StackVals,
+        code_gen_context: &CTX,
         index_in_lambda_space: usize,
         call_parameters: &FCP,
         ast_type_type: &ASTTypedType,
@@ -726,7 +732,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         parameters: &'b Vec<ASTTypedParameterDef>,
         inline: bool,
         immediate: bool,
-        stack_vals: &'c StackVals,
+        stack_vals: &'c CTX,
         id: usize,
     ) -> FCP;
 
@@ -734,7 +740,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         &'a self,
         namespace: &EnhASTNameSpace,
         context: &mut TypedValContext,
-        stack: &StackVals,
+        code_gen_context: &CTX,
         after: &mut String,
         before: &mut String,
         name: &str,
@@ -747,7 +753,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         id: &mut usize,
         typed_module: &ASTTypedModule,
     ) -> Vec<LambdaCall> {
-        let address_relative_to_bp = stack.reserve_local_val(name);
+        let address_relative_to_bp = code_gen_context.reserve_local_val(name);
 
         let (return_type, (bf, mut cur, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
@@ -783,7 +789,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
                             lambda_space,
                             0,
                             false,
-                            stack,
+                            code_gen_context,
                             id,
                             statics,
                             typed_module,
@@ -805,7 +811,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
                             lambda_space,
                             0,
                             false,
-                            stack,
+                            code_gen_context,
                             id,
                             statics,
                             typed_module,
@@ -829,7 +835,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
                         address_relative_to_bp,
                         s,
                         &typed_type,
-                        stack,
+                        code_gen_context,
                     );
                     (
                         typed_type,
@@ -861,7 +867,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
             ASTTypedExpression::ValueRef(val_name, index) => {
                 if let Some(typed_val_kind) = context.get(val_name) {
                     let typed_type = self.set_let_for_value_ref(
-                        stack,
+                        code_gen_context,
                         before,
                         address_relative_to_bp,
                         val_name,
@@ -900,7 +906,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
                 body.push_str(&cur);
             }
 
-            if self.options().dereference {
+            if self.options().dereference() {
                 if let Some(type_name) = get_reference_type_name(&return_type, typed_module) {
                     self.add_ref(&name, statics, body, typed_module, &index, &type_name);
                 }
@@ -934,7 +940,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
                 .collect::<Vec<String>>();
             Self::insert_on_top(&not_empty_after_lines.join("\n"), after);
 
-            if self.options().dereference {
+            if self.options().dereference() {
                 if let Some(type_name) = get_reference_type_name(&return_type, typed_module) {
                     self.call_add_ref_for_let_val(
                         name,
@@ -1016,7 +1022,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
 
     fn set_let_for_value_ref(
         &self,
-        stack: &StackVals,
+        code_gen_context: &CTX,
         before: &mut String,
         address_relative_to_bp: usize,
         val_name: &String,
@@ -1035,7 +1041,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         address_relative_to_bp: usize,
         value: &String,
         typed_type: &ASTTypedType,
-        stack: &StackVals,
+        code_gen_context: &CTX,
     );
 
     fn set_let_for_value(
@@ -1059,7 +1065,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         param_name: &str,
         val_name: &str,
         error_msg: &str,
-        stack_vals: &StackVals,
+        stack_vals: &CTX,
         ast_index: &EnhASTIndex,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
@@ -1152,7 +1158,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         }
     }
 
-    fn reserve_return_register(&self, out: &mut String, stack: &StackVals);
+    fn reserve_return_register(&self, out: &mut String, code_gen_context: &CTX);
 
     fn add_function_def(
         &'a self,
@@ -1187,7 +1193,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
 
         let mut before = String::new();
 
-        let stack = StackVals::new();
+        let stack = self.create_code_gen_context();
 
         self.function_preamble(definitions);
 
@@ -1292,7 +1298,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         lambda_space: Option<&LambdaSpace>,
         lambda_calls: &mut Vec<LambdaCall>,
         context: &mut TypedValContext,
-        stack: &StackVals,
+        stack: &CTX,
         statics: &mut Statics,
         before: &mut String,
         after: &mut String,
@@ -1488,7 +1494,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
     fn reserve_lambda_space(
         &self,
         before: &mut String,
-        stack: &StackVals,
+        code_gen_context: &CTX,
         statics: &mut Statics,
         lambda_space: &LambdaSpace,
         def: &ASTTypedFunctionDef,
@@ -1519,7 +1525,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         lambda_space: Option<&LambdaSpace>,
         indent: usize,
         is_lambda: bool,
-        stack_vals: &StackVals,
+        stack_vals: &CTX,
         id: &mut usize,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
@@ -2079,7 +2085,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
         Ok(result)
     }
 
-    fn reserve_local_vals(&self, stack: &StackVals, out: &mut String);
+    fn reserve_local_vals(&self, stack: &CTX, out: &mut String);
 
     fn generate_statics_code(
         &self,
@@ -2091,7 +2097,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters> {
 
     fn define_debug(&self, out: &mut String);
 
-    fn restore(&self, stack: &StackVals, out: &mut String);
+    fn restore(&self, stack: &CTX, out: &mut String);
 
     fn function_end(
         &self,
@@ -2195,6 +2201,7 @@ mod tests {
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::{AsmOptions, CodeGen};
+    use crate::commandline::CommandLineOptions;
     use crate::project::RasmProject;
     use crate::test_utils::project_to_ast_typed_module;
 
@@ -2271,7 +2278,13 @@ mod tests {
 
         let (typed_module, statics) = project_to_ast_typed_module(&project, &target).unwrap();
 
-        let result = sut.generate(&project, &target, &typed_module, statics);
+        let result = sut.generate(
+            &project,
+            &target,
+            &typed_module,
+            statics,
+            &CommandLineOptions::default(),
+        );
 
         assert_eq!(1, result.len());
         assert_eq!("breakout.c", result.get(0).unwrap().0);

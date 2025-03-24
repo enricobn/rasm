@@ -24,7 +24,6 @@ use crate::codegen::enh_ast::EnhASTIndex;
 use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
-use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen};
@@ -37,6 +36,7 @@ use rasm_parser::parser::ast::ASTValueType;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::any::CStructs;
+use super::code_gen_c::CodeGenCContext;
 use super::typed_function_creator_c::TypedFunctionsCreatorC;
 
 static ID: AtomicUsize = AtomicUsize::new(0);
@@ -48,17 +48,13 @@ pub struct CFunctionCallParameters {
     current: String,
     after: Vec<String>,
     code_manipulator: CCodeManipulator,
-    stack_vals: StackVals,
+
     immediate: bool,
     code_gen_c: CodeGenC,
 }
 
 impl CFunctionCallParameters {
-    pub fn new(
-        parameters: Vec<ASTTypedParameterDef>,
-        stack_vals: StackVals,
-        immediate: bool,
-    ) -> Self {
+    pub fn new(parameters: Vec<ASTTypedParameterDef>, immediate: bool) -> Self {
         Self {
             parameters,
             parameters_values: LinkedHashMap::new(),
@@ -66,7 +62,6 @@ impl CFunctionCallParameters {
             current: String::new(),
             after: Vec::new(),
             code_manipulator: CCodeManipulator,
-            stack_vals,
             immediate,
             code_gen_c: CodeGenC::new(COptions::default(), false),
         }
@@ -122,7 +117,7 @@ impl CFunctionCallParameters {
     }
 }
 
-impl FunctionCallParameters for CFunctionCallParameters {
+impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
     fn add_label(
         &mut self,
         param_name: &str,
@@ -256,7 +251,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         comment: Option<&str>,
         statics: &mut Statics,
         module: &ASTTypedModule,
-        stack_vals: &StackVals,
+        code_gen_context: &CodeGenCContext,
         lambda_in_stack: bool,
         param_type: &ASTTypedType,
         name: &str,
@@ -541,7 +536,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         index_in_context: usize,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
-        stack_vals: &StackVals,
+        code_gen_context: &CodeGenCContext,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
         typed_type: &ASTTypedType,
@@ -598,7 +593,7 @@ impl FunctionCallParameters for CFunctionCallParameters {
         index_in_context: Option<usize>,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
-        stack_vals: &StackVals,
+        code_gen_context: &CodeGenCContext,
         ast_index: &EnhASTIndex,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,

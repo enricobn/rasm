@@ -99,7 +99,6 @@ impl CompileTarget {
                 externals.dedup();
 
                 let options = AsmOptions {
-                    print_memory: command_line_options.print_memory,
                     requires,
                     externals,
                     ..AsmOptions::default()
@@ -136,21 +135,16 @@ impl CompileTarget {
         project: &RasmProject,
         statics: Statics,
         typed_module: &ASTTypedModule,
-        debug: bool,
+        cmd_line_options: &CommandLineOptions,
     ) -> Vec<(String, String)> {
         match self {
-            CompileTarget::Nasmi386(options) => CodeGenAsm::new(options.clone(), debug).generate(
-                project,
-                &self,
-                typed_module,
-                statics,
-            ),
-            CompileTarget::C(options) => CodeGenC::new(options.clone(), debug).generate(
-                project,
-                &self,
-                typed_module,
-                statics,
-            ),
+            CompileTarget::Nasmi386(options) => CodeGenAsm::new(
+                options.clone(),
+                cmd_line_options.debug,
+            )
+            .generate(project, &self, typed_module, statics, cmd_line_options),
+            CompileTarget::C(options) => CodeGenC::new(options.clone(), cmd_line_options.debug)
+                .generate(project, &self, typed_module, statics, cmd_line_options),
         }
     }
 
@@ -383,8 +377,7 @@ impl CompileTarget {
         let mut additional_files =
             self.generate_pre_compile_artifacts(&project, &out_folder, &mut statics);
 
-        let native_codes =
-            self.generate(&project, statics, &typed_module, command_line_options.debug);
+        let native_codes = self.generate(&project, statics, &typed_module, &command_line_options);
 
         info!("code generation ended in {:?}", start.elapsed());
 

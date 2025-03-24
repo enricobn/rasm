@@ -22,10 +22,13 @@ use crate::{
     },
 };
 
-use super::{backend::BackendAsm, code_gen_asm::CodeGenAsm};
+use super::{
+    backend::BackendAsm,
+    code_gen_asm::{CodeGenAsm, CodeGenAsmContext},
+};
 
 #[auto_impl(Box)]
-pub trait FunctionCallParametersAsm: FunctionCallParameters {
+pub trait FunctionCallParametersAsm: FunctionCallParameters<CodeGenAsmContext> {
     fn to_remove_from_stack_name(&self) -> String;
 
     fn to_remove_from_stack(&self) -> usize;
@@ -48,7 +51,7 @@ pub struct FunctionCallParametersAsmImpl<'a> {
     code_gen: &'a CodeGenAsm,
 }
 
-impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
+impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsmImpl<'a> {
     fn add_label(
         &mut self,
         param_name: &str,
@@ -148,7 +151,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         comment: Option<&str>,
         statics: &mut Statics,
         module: &ASTTypedModule,
-        stack_vals: &StackVals,
+        code_gen_context: &CodeGenAsmContext,
         lambda_in_stack: bool,
         param_type: &ASTTypedType,
         name: &str,
@@ -174,7 +177,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         let mut add_ref_function = "addRef".to_owned();
         let mut deref_function = "deref".to_owned();
 
-        let lambda_space_address = stack_vals.reserve_tmp_register(
+        let lambda_space_address = code_gen_context.stack_vals.reserve_tmp_register(
             &mut self.before,
             "this_lambda_space_address",
             &self.code_gen,
@@ -214,7 +217,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
                 self.code_gen.allocate_lambda_space_in_stack(
                     &mut self.before,
                     &lambda_space_address,
-                    stack_vals,
+                    &code_gen_context.stack_vals,
                     num_of_values_in_context + 3,
                 );
             } else {
@@ -242,8 +245,11 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
                 true,
             );
 
-            let tmp_register =
-                stack_vals.reserve_tmp_register(&mut self.before, "tmp_register", &self.code_gen);
+            let tmp_register = code_gen_context.stack_vals.reserve_tmp_register(
+                &mut self.before,
+                "tmp_register",
+                &self.code_gen,
+            );
 
             let mut need_return_register = false;
 
@@ -329,7 +335,11 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             if need_return_register {
                 self.code_gen.add(&mut self.before, "pop   eax", None, true);
             }
-            stack_vals.release_tmp_register(&self.code_gen, &mut self.before, "tmp_register");
+            code_gen_context.stack_vals.release_tmp_register(
+                &self.code_gen,
+                &mut self.before,
+                "tmp_register",
+            );
         }
 
         self.code_gen.populate_lambda_space(
@@ -392,7 +402,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
             self.after.insert(0, result);
         }
 
-        stack_vals.release_tmp_register(
+        code_gen_context.stack_vals.release_tmp_register(
             &self.code_gen,
             &mut self.before,
             "this_lambda_space_address",
@@ -410,7 +420,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         index_in_context: usize,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
-        stack_vals: &StackVals,
+        code_gen_context: &CodeGenAsmContext,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
         typed_type: &ASTTypedType,
@@ -422,14 +432,14 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
                 &original_param_name,
                 lambda_space_index,
                 indent,
-                stack_vals,
+                &code_gen_context.stack_vals,
             );
         } else {
             self.add_val_from_parameter(
                 original_param_name,
                 index_in_context as i32 + 2,
                 indent,
-                stack_vals,
+                &code_gen_context.stack_vals,
             );
         }
     }
@@ -441,7 +451,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
         index_in_context: Option<usize>,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
-        stack_vals: &StackVals,
+        code_gen_context: &CodeGenAsmContext,
         ast_index: &EnhASTIndex,
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
@@ -457,7 +467,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
                 &original_param_name,
                 lambda_space_index,
                 indent,
-                stack_vals,
+                &code_gen_context.stack_vals,
             );
         } else {
             self.add_val_from_parameter(
@@ -466,7 +476,7 @@ impl<'a> FunctionCallParameters for FunctionCallParametersAsmImpl<'a> {
                     .unwrap_or_else(|| panic!("cannot find index for {val_name} : {ast_index}"))
                     as i32),
                 indent,
-                stack_vals,
+                &code_gen_context.stack_vals,
             );
         }
     }

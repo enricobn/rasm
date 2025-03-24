@@ -27,11 +27,10 @@ use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
-use crate::codegen::stack::StackVals;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{RefType, TextMacroEval, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{AsmOptions, CodeGen, TypedValKind};
+use crate::codegen::{CodeGen, TypedValKind};
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
@@ -73,7 +72,6 @@ impl CodeManipulator for CCodeManipulator {
 #[derive(Clone)]
 pub struct CodeGenC {
     code_manipulator: CCodeManipulator,
-    options: AsmOptions,
     c_options: COptions,
     debug: bool,
 }
@@ -82,7 +80,6 @@ impl CodeGenC {
     pub fn new(options: COptions, debug: bool) -> Self {
         Self {
             code_manipulator: CCodeManipulator,
-            options: AsmOptions::default(),
             c_options: options,
             debug,
         }
@@ -325,16 +322,18 @@ impl CodeGenC {
     }
 }
 
-impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
-    fn options(&self) -> &AsmOptions {
-        &self.options // TODO it should be generic, we have c_options?
+pub struct CodeGenCContext {}
+
+impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> for CodeGenC {
+    fn options(&self) -> &COptions {
+        &self.c_options
     }
 
     fn end_main(&self, code: &mut String) {
         self.add(code, "freeReferences();", None, true);
     }
 
-    fn transform_before(&self, stack: &StackVals, before: String) -> String {
+    fn transform_before(&self, stack: &CodeGenCContext, before: String) -> String {
         before
     }
 
@@ -344,7 +343,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         &self,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        _stack_vals: &StackVals,
+        _code_gen_context: &CodeGenCContext,
         kind: &TypedValKind,
         call_parameters: &Box<CFunctionCallParameters>,
         return_value: bool,
@@ -388,7 +387,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         &self,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        _stack_vals: &StackVals,
+        _code_gen_context: &CodeGenCContext,
         index_in_lambda_space: usize,
         call_parameters: &Box<CFunctionCallParameters>,
         ast_type_type: &ASTTypedType,
@@ -476,14 +475,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         parameters: &'b Vec<ASTTypedParameterDef>,
         inline: bool,
         immediate: bool,
-        stack_vals: &'c StackVals,
+        stack_vals: &'c CodeGenCContext,
         id: usize,
     ) -> Box<CFunctionCallParameters> {
-        Box::new(CFunctionCallParameters::new(
-            parameters.clone(),
-            stack_vals.clone(),
-            immediate,
-        ))
+        Box::new(CFunctionCallParameters::new(parameters.clone(), immediate))
     }
 
     fn store_function_result_in_stack(
@@ -585,7 +580,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
     fn set_let_for_value_ref(
         &self,
-        _stack: &StackVals,
+        _code_gen_context: &CodeGenCContext,
         before: &mut String,
         _address_relative_to_bp: usize,
         val_name: &String,
@@ -610,11 +605,11 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         name: &str,
         is_const: bool,
         statics: &mut Statics,
-        body: &mut String,
-        address_relative_to_bp: usize,
+        _body: &mut String,
+        _address_relative_to_bp: usize,
         value: &String,
-        typed_type: &ASTTypedType,
-        stack: &StackVals,
+        _typed_type: &ASTTypedType,
+        _code_gen_context: &CodeGenCContext,
     ) {
         if is_const {
             CConsts::add_to_statics(
@@ -667,7 +662,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         }
     }
 
-    fn reserve_return_register(&self, out: &mut String, stack: &StackVals) {
+    fn reserve_return_register(&self, _out: &mut String, _code_gen_context: &CodeGenCContext) {
         // TODO
     }
 
@@ -728,7 +723,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
     fn reserve_lambda_space(
         &self,
         before: &mut String,
-        stack: &StackVals,
+        _code_gen_context: &CodeGenCContext,
         statics: &mut Statics,
         lambda_space: &LambdaSpace,
         def: &ASTTypedFunctionDef,
@@ -941,7 +936,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         todo!()
     }
 
-    fn reserve_local_vals(&self, stack: &StackVals, out: &mut String) {}
+    fn reserve_local_vals(&self, stack: &CodeGenCContext, out: &mut String) {}
 
     fn generate_statics_code(
         &self,
@@ -1186,7 +1181,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
         todo!()
     }
 
-    fn restore(&self, stack: &StackVals, out: &mut String) {
+    fn restore(&self, stack: &CodeGenCContext, out: &mut String) {
         // TODO
     }
 
@@ -1233,6 +1228,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>> for CodeGenC {
 
     fn replace_inline_call_includng_source(&self) -> bool {
         false
+    }
+
+    fn create_code_gen_context(&self) -> CodeGenCContext {
+        CodeGenCContext {}
     }
 }
 
