@@ -448,7 +448,6 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         &mut self,
         original_param_name: String,
         val_name: &str,
-        index_in_context: Option<usize>,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
         code_gen_context: &CodeGenAsmContext,
@@ -457,6 +456,9 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         type_def_provider: &dyn TypeDefProvider,
         typed_type: &ASTTypedType,
     ) {
+        let index_in_context = code_gen_context
+            .stack_vals
+            .find_local_val_relative_to_bp(val_name);
         self.debug_and_before(
             &format!("adding let val {val_name} original_param_name {original_param_name}"),
             indent,

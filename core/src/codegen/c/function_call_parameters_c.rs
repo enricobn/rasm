@@ -590,7 +590,6 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         &mut self,
         original_param_name: String,
         val_name: &str,
-        index_in_context: Option<usize>,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
         code_gen_context: &CodeGenCContext,

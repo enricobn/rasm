@@ -76,7 +76,6 @@ pub trait FunctionCallParameters<CTX> {
         &mut self,
         original_param_name: String,
         val_name: &str,
-        index_in_context: Option<usize>,
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
         stack_vals: &CTX,

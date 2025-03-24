@@ -736,6 +736,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         id: usize,
     ) -> FCP;
 
+    fn reserve_local_val(&'a self, code_gen_context: &CTX, name: &str) -> usize;
+
     fn add_let(
         &'a self,
         namespace: &EnhASTNameSpace,
@@ -753,7 +755,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         id: &mut usize,
         typed_module: &ASTTypedModule,
     ) -> Vec<LambdaCall> {
-        let address_relative_to_bp = code_gen_context.reserve_local_val(name);
+        let address_relative_to_bp = self.reserve_local_val(code_gen_context, name);
 
         let (return_type, (bf, mut cur, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
@@ -1088,22 +1090,17 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     );
                 }
 
-                TypedValKind::LetRef(_index, ast_typed_type) => {
-                    let index_in_context = stack_vals.find_local_val_relative_to_bp(val_name);
-
-                    call_parameters.add_let_val_ref(
-                        param_name.into(),
-                        val_name,
-                        index_in_context,
-                        lambda_space_opt,
-                        *indent,
-                        stack_vals,
-                        ast_index,
-                        statics,
-                        typed_module,
-                        ast_typed_type,
-                    )
-                }
+                TypedValKind::LetRef(_index, ast_typed_type) => call_parameters.add_let_val_ref(
+                    param_name.into(),
+                    val_name,
+                    lambda_space_opt,
+                    *indent,
+                    stack_vals,
+                    ast_index,
+                    statics,
+                    typed_module,
+                    ast_typed_type,
+                ),
             }
         } else if let Some(entry) = statics.get_typed_const(val_name) {
             call_parameters.add_label(

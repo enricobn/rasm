@@ -1233,6 +1233,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     fn create_code_gen_context(&self) -> CodeGenCContext {
         CodeGenCContext {}
     }
+
+    fn reserve_local_val(&'a self, code_gen_context: &CodeGenCContext, name: &str) -> usize {
+        0
+    }
 }
 
 pub fn value_type_to_enh_type(value_type: &ASTValueType) -> EnhASTType {

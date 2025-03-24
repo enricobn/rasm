@@ -1720,4 +1720,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
             stack_vals: StackVals::new(),
         }
     }
+
+    fn reserve_local_val(&'a self, code_gen_context: &CodeGenAsmContext, name: &str) -> usize {
+        code_gen_context.stack_vals.reserve_local_val(name)
+    }
 }
