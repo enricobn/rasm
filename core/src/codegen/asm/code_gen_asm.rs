@@ -9,6 +9,7 @@ use crate::{
     codegen::{
         code_manipulator::{CodeManipulator, CodeManipulatorNasm},
         enh_ast::{EnhASTIndex, EnhASTNameSpace},
+        enh_val_context::TypedValContext,
         get_reference_type_name,
         lambda::LambdaSpace,
         stack::{StackEntryType, StackVals},
@@ -871,14 +872,35 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         Box::new(fcp)
     }
 
-    fn store_function_result_in_stack(
+    fn insert_let_in_context(
         &self,
-        code: &mut String,
-        address_relative_to_bp: i32,
+        code_gen_context: &CodeGenAsmContext,
+        context: &mut TypedValContext,
         name: &str,
         typed_type: &ASTTypedType,
-        statics: &Statics,
     ) {
+        context.insert_let(
+            name.into(),
+            typed_type.clone(),
+            code_gen_context
+                .stack_vals
+                .find_local_val_relative_to_bp(name),
+        );
+    }
+
+    fn store_function_result_in_stack(
+        &self,
+        code_gen_context: &CodeGenAsmContext,
+
+        code: &mut String,
+        name: &str,
+        _typed_type: &ASTTypedType,
+    ) {
+        let address_relative_to_bp = -(code_gen_context
+            .stack_vals
+            .find_local_val_relative_to_bp(name)
+            .unwrap() as i32);
+
         let ws = self.backend.word_size();
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();
@@ -917,13 +939,18 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
     fn call_deref_for_let_val(
         &self,
+        code_gen_context: &CodeGenAsmContext,
         name: &str,
         statics: &mut Statics,
-        address_relative_to_bp: &usize,
         type_name: &String,
         typed_module: &ASTTypedModule,
         t: &ASTTypedType,
     ) -> String {
+        let address_relative_to_bp = code_gen_context
+            .stack_vals
+            .find_local_val_relative_to_bp(name)
+            .unwrap();
+
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();
 
@@ -938,15 +965,20 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
     fn call_add_ref_for_let_val(
         &self,
+        code_gen_context: &CodeGenAsmContext,
         name: &str,
         index: &EnhASTIndex,
         before: &mut String,
         statics: &mut Statics,
-        address_relative_to_bp: &usize,
         type_name: &String,
         typed_module: &ASTTypedModule,
         t: &ASTTypedType,
     ) {
+        let address_relative_to_bp = code_gen_context
+            .stack_vals
+            .find_local_val_relative_to_bp(name)
+            .unwrap();
+
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();
         self.call_add_ref(
@@ -982,12 +1014,16 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         &self,
         code_gen_context: &CodeGenAsmContext,
         before: &mut String,
-        address_relative_to_bp: usize,
         val_name: &String,
         typed_val_kind: &TypedValKind,
         statics: &Statics,
         name: &str,
     ) -> ASTTypedType {
+        let address_relative_to_bp = code_gen_context
+            .stack_vals
+            .find_local_val_relative_to_bp(name)
+            .unwrap();
+
         let ws = self.backend.word_size();
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();
@@ -1047,11 +1083,14 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         is_const: bool,
         statics: &mut Statics,
         body: &mut String,
-        address_relative_to_bp: usize,
         value: &String,
         typed_type: &ASTTypedType,
         code_gen_context: &CodeGenAsmContext,
     ) {
+        let address_relative_to_bp = code_gen_context
+            .stack_vals
+            .find_local_val_relative_to_bp(name)
+            .unwrap();
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();
         let label = statics.add_str(value);
@@ -1089,15 +1128,19 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
     fn set_let_for_value(
         &self,
+        code_gen_context: &CodeGenAsmContext,
         before: &mut String,
         name: &str,
         is_const: bool,
         statics: &mut Statics,
         body: &mut String,
-        address_relative_to_bp: usize,
         value_type: &ASTValueType,
         typed_type: &ASTTypedType,
     ) {
+        let address_relative_to_bp = code_gen_context
+            .stack_vals
+            .find_local_val_relative_to_bp(name)
+            .unwrap();
         let bp = self.backend.stack_base_pointer();
         let ws = self.backend.word_size();
         let value = self.value_to_string(value_type);
@@ -1721,7 +1764,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         }
     }
 
-    fn reserve_local_val(&'a self, code_gen_context: &CodeGenAsmContext, name: &str) -> usize {
-        code_gen_context.stack_vals.reserve_local_val(name)
+    fn define_let(&'a self, code_gen_context: &CodeGenAsmContext, name: &str, is_const: bool) {
+        code_gen_context.stack_vals.reserve_local_val(name);
     }
 }

@@ -25,6 +25,7 @@ use crate::codegen::c::text_macro_c::{
 };
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
+use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
@@ -481,13 +482,22 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         Box::new(CFunctionCallParameters::new(parameters.clone(), immediate))
     }
 
-    fn store_function_result_in_stack(
+    fn insert_let_in_context(
         &self,
-        code: &mut String,
-        _address_relative_to_bp: i32,
+        code_gen_context: &CodeGenCContext,
+        context: &mut TypedValContext,
         name: &str,
         typed_type: &ASTTypedType,
-        statics: &Statics,
+    ) {
+        context.insert_let(name.into(), typed_type.clone(), None);
+    }
+
+    fn store_function_result_in_stack(
+        &self,
+        _code_gen_context: &CodeGenCContext,
+        code: &mut String,
+        name: &str,
+        typed_type: &ASTTypedType,
     ) {
         code.insert_str(
             0,
@@ -509,9 +519,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn call_deref_for_let_val(
         &self,
+        _code_gen_context: &CodeGenCContext,
         name: &str,
         statics: &mut Statics,
-        address_relative_to_bp: &usize,
         type_name: &String,
         typed_module: &ASTTypedModule,
         t: &ASTTypedType,
@@ -537,11 +547,11 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn call_add_ref_for_let_val(
         &self,
+        _code_gen_context: &CodeGenCContext,
         name: &str,
         index: &EnhASTIndex,
         before: &mut String,
         statics: &mut Statics,
-        address_relative_to_bp: &usize,
         type_name: &String,
         typed_module: &ASTTypedModule,
         t: &ASTTypedType,
@@ -582,7 +592,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         &self,
         _code_gen_context: &CodeGenCContext,
         before: &mut String,
-        _address_relative_to_bp: usize,
         val_name: &String,
         typed_val_kind: &TypedValKind,
         statics: &Statics,
@@ -606,7 +615,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         is_const: bool,
         statics: &mut Statics,
         _body: &mut String,
-        _address_relative_to_bp: usize,
         value: &String,
         _typed_type: &ASTTypedType,
         _code_gen_context: &CodeGenCContext,
@@ -628,12 +636,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn set_let_for_value(
         &self,
+        code_gen_context: &CodeGenCContext,
         before: &mut String,
         name: &str,
         is_const: bool,
         statics: &mut Statics,
         body: &mut String,
-        address_relative_to_bp: usize,
         value_type: &ASTValueType,
         typed_type: &ASTTypedType,
     ) {
@@ -1234,9 +1242,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         CodeGenCContext {}
     }
 
-    fn reserve_local_val(&'a self, code_gen_context: &CodeGenCContext, name: &str) -> usize {
-        0
-    }
+    fn define_let(&'a self, code_gen_context: &CodeGenCContext, name: &str, is_const: bool) {}
 }
 
 pub fn value_type_to_enh_type(value_type: &ASTValueType) -> EnhASTType {

@@ -736,7 +736,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         id: usize,
     ) -> FCP;
 
-    fn reserve_local_val(&'a self, code_gen_context: &CTX, name: &str) -> usize;
+    fn define_let(&'a self, code_gen_context: &CTX, name: &str, is_const: bool);
 
     fn add_let(
         &'a self,
@@ -755,7 +755,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         id: &mut usize,
         typed_module: &ASTTypedModule,
     ) -> Vec<LambdaCall> {
-        let address_relative_to_bp = self.reserve_local_val(code_gen_context, name);
+        self.define_let(code_gen_context, name, is_const);
 
         let (return_type, (bf, mut cur, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
@@ -834,7 +834,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         is_const,
                         statics,
                         body,
-                        address_relative_to_bp,
                         s,
                         &typed_type,
                         code_gen_context,
@@ -850,12 +849,12 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             .unwrap();
 
                     self.set_let_for_value(
+                        code_gen_context,
                         before,
                         name,
                         is_const,
                         statics,
                         body,
-                        address_relative_to_bp,
                         value_type,
                         &typed_type,
                     );
@@ -871,7 +870,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     let typed_type = self.set_let_for_value_ref(
                         code_gen_context,
                         before,
-                        address_relative_to_bp,
                         val_name,
                         typed_val_kind,
                         statics,
@@ -914,24 +912,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 }
             }
         } else {
-            context.insert_let(
-                name.into(),
-                return_type.clone(),
-                Some(address_relative_to_bp),
-            );
-
+            self.insert_let_in_context(code_gen_context, context, name, &return_type);
             if !bf.is_empty() || !cur.is_empty() {
-                let typed_type =
-                    get_type_of_typed_expression(typed_module, context, expr, None, statics)
-                        .unwrap();
-
-                self.store_function_result_in_stack(
-                    &mut cur,
-                    -(address_relative_to_bp as i32),
-                    name,
-                    &typed_type,
-                    statics,
-                );
+                self.store_function_result_in_stack(code_gen_context, &mut cur, name, &return_type);
                 before.push_str(&bf);
                 before.push_str(&cur);
             }
@@ -945,20 +928,20 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             if self.options().dereference() {
                 if let Some(type_name) = get_reference_type_name(&return_type, typed_module) {
                     self.call_add_ref_for_let_val(
+                        code_gen_context,
                         name,
                         &index,
                         before,
                         statics,
-                        &address_relative_to_bp,
                         &type_name,
                         typed_module,
                         &return_type,
                     );
 
                     let deref_str = self.call_deref_for_let_val(
+                        code_gen_context,
                         name,
                         statics,
-                        &address_relative_to_bp,
                         &type_name,
                         typed_module,
                         &return_type,
@@ -971,13 +954,20 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         new_lambda_calls
     }
 
-    fn store_function_result_in_stack(
+    fn insert_let_in_context(
         &self,
-        code: &mut String,
-        address_relative_to_bp: i32,
+        code_gen_context: &CTX,
+        context: &mut TypedValContext,
         name: &str,
         typed_type: &ASTTypedType,
-        statics: &Statics,
+    );
+
+    fn store_function_result_in_stack(
+        &self,
+        code_gen_context: &CTX,
+        code: &mut String,
+        name: &str,
+        typed_type: &ASTTypedType,
     );
 
     fn add_ref(
@@ -992,9 +982,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn call_deref_for_let_val(
         &self,
+        code_gen_context: &CTX,
         name: &str,
         statics: &mut Statics,
-        address_relative_to_bp: &usize,
         type_name: &String,
         typed_module: &ASTTypedModule,
         t: &ASTTypedType,
@@ -1002,11 +992,11 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn call_add_ref_for_let_val(
         &self,
+        code_gen_context: &CTX,
         name: &str,
         index: &EnhASTIndex,
         before: &mut String,
         statics: &mut Statics,
-        address_relative_to_bp: &usize,
         type_name: &String,
         typed_module: &ASTTypedModule,
         t: &ASTTypedType,
@@ -1026,7 +1016,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         &self,
         code_gen_context: &CTX,
         before: &mut String,
-        address_relative_to_bp: usize,
         val_name: &String,
         typed_val_kind: &TypedValKind,
         statics: &Statics,
@@ -1040,7 +1029,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         is_const: bool,
         statics: &mut Statics,
         body: &mut String,
-        address_relative_to_bp: usize,
         value: &String,
         typed_type: &ASTTypedType,
         code_gen_context: &CTX,
@@ -1048,12 +1036,12 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn set_let_for_value(
         &self,
+        code_gen_context: &CTX,
         before: &mut String,
         name: &str,
         is_const: bool,
         statics: &mut Statics,
         body: &mut String,
-        address_relative_to_bp: usize,
         value_type: &ASTValueType,
         typed_type: &ASTTypedType,
     );
