@@ -47,6 +47,11 @@ pub native sdlLoadBMP(file: str) -> SDLSurface /{
     $ccall(SDL_LoadBMP_RW, eax, 1)
 }/
 
+pub native sdlLoadSVG(file: str) -> SDLSurface /{
+    $ccall(SDL_RWFromFile, $file, "rb")
+    $ccall(IMG_LoadSVG_RW, eax, 1)
+}/
+
 pub native sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> SDLTexture /{
     $ccall(SDL_CreateTextureFromSurface, $ren, $surface)
 }/

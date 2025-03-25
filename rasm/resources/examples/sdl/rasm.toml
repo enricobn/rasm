@@ -9,6 +9,7 @@ stdlib = { path = "../../../../stdlib" }
 requires = ["libc", "SDL2", "SDL2_ttf", "SDL2_image"]
 externals = [
     "printf",
+    "IMG_LoadSVG_RW",
     "SDL_CreateRenderer",
     "SDL_CreateTextureFromSurface",
     "SDL_CreateWindow",
@@ -19,7 +20,6 @@ externals = [
     "SDL_FreeSurface",
     "SDL_GetError",
     "SDL_LoadBMP_RW",
-    "SDL_LoadSVG_RW",
     "SDL_Init",
     "SDL_PollEvent",
     "SDL_RenderClear",
