@@ -389,7 +389,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
         _code_gen_context: &CodeGenCContext,
-        index_in_lambda_space: usize,
+        _index_in_lambda_space: usize,
         call_parameters: &Box<CFunctionCallParameters>,
         ast_type_type: &ASTTypedType,
         statics: &Statics,
@@ -401,7 +401,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             .iter()
             .map(|(name, value)| (value.as_str(), None))
             .collect::<Vec<_>>();
-        let lambda_type = CodeGenC::real_type_to_string(ast_type_type);
         let (casted_lambda, return_type) =
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                 parameters,
@@ -455,17 +454,17 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn restore_stack(
         &self,
-        function_call: &ASTTypedFunctionCall,
-        before: &mut String,
-        call_parameters: &mut Box<CFunctionCallParameters>,
+        _function_call: &ASTTypedFunctionCall,
+        _before: &mut String,
+        _call_parameters: &mut Box<CFunctionCallParameters>,
     ) {
         // TODO
     }
 
     fn added_to_stack_for_call_parameter(
         &self,
-        added_to_stack: &String,
-        call_parameters: &Box<CFunctionCallParameters>,
+        _added_to_stack: &String,
+        _call_parameters: &Box<CFunctionCallParameters>,
     ) -> String {
         // TODO
         String::new()
@@ -474,17 +473,17 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     fn function_call_parameters<'b, 'c>(
         &self,
         parameters: &'b Vec<ASTTypedParameterDef>,
-        inline: bool,
+        _inline: bool,
         immediate: bool,
-        stack_vals: &'c CodeGenCContext,
-        id: usize,
+        _code_gen_context: &'c CodeGenCContext,
+        _id: usize,
     ) -> Box<CFunctionCallParameters> {
         Box::new(CFunctionCallParameters::new(parameters.clone(), immediate))
     }
 
     fn insert_let_in_context(
         &self,
-        code_gen_context: &CodeGenCContext,
+        _code_gen_context: &CodeGenCContext,
         context: &mut TypedValContext,
         name: &str,
         typed_type: &ASTTypedType,
