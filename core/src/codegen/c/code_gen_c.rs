@@ -342,9 +342,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn call_lambda_parameter(
         &self,
+        _code_gen_context: &CodeGenCContext,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        _code_gen_context: &CodeGenCContext,
         kind: &TypedValKind,
         call_parameters: &Box<CFunctionCallParameters>,
         return_value: bool,
@@ -386,9 +386,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn call_lambda(
         &self,
+        _code_gen_context: &CodeGenCContext,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        _code_gen_context: &CodeGenCContext,
         _index_in_lambda_space: usize,
         call_parameters: &Box<CFunctionCallParameters>,
         ast_type_type: &ASTTypedType,
@@ -472,10 +472,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn function_call_parameters<'b, 'c>(
         &self,
+        _code_gen_context: &'c CodeGenCContext,
         parameters: &'b Vec<ASTTypedParameterDef>,
         _inline: bool,
         immediate: bool,
-        _code_gen_context: &'c CodeGenCContext,
         _id: usize,
     ) -> Box<CFunctionCallParameters> {
         Box::new(CFunctionCallParameters::new(parameters.clone(), immediate))
@@ -609,6 +609,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn set_let_for_string_literal(
         &self,
+        _code_gen_context: &CodeGenCContext,
         before: &mut String,
         name: &str,
         is_const: bool,
@@ -616,7 +617,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         _body: &mut String,
         value: &String,
         _typed_type: &ASTTypedType,
-        _code_gen_context: &CodeGenCContext,
     ) {
         if is_const {
             CConsts::add_to_statics(
@@ -669,7 +669,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         }
     }
 
-    fn reserve_return_register(&self, _out: &mut String, _code_gen_context: &CodeGenCContext) {
+    fn reserve_return_register(&self, _code_gen_context: &CodeGenCContext, _out: &mut String) {
         // TODO
     }
 
@@ -729,8 +729,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn reserve_lambda_space(
         &self,
-        before: &mut String,
         _code_gen_context: &CodeGenCContext,
+        before: &mut String,
         statics: &mut Statics,
         lambda_space: &LambdaSpace,
         def: &ASTTypedFunctionDef,

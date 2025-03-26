@@ -254,7 +254,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         a_body: &Vec<ASTTypedStatement>,
         lambdas: &mut Vec<LambdaCall>,
         context: &mut TypedValContext,
-        stack: &CTX,
+        code_gen_context: &CTX,
         statics: &mut Statics,
         before: &mut String,
         after: &mut String,
@@ -267,6 +267,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 ASTTypedStatement::Expression(e) => match e {
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
                         let (bf, cur, af, mut lambda_calls) = self.generate_call_function(
+                            &code_gen_context,
                             &call.namespace,
                             call,
                             &context,
@@ -275,7 +276,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             None,
                             0,
                             false,
-                            &stack,
                             id,
                             statics,
                             typed_module,
@@ -295,9 +295,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 },
                 ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
                     let mut new_lambda_calls = self.add_let(
+                        &code_gen_context,
                         &expr.namespace(),
                         context,
-                        &stack,
                         after,
                         before,
                         name,
@@ -340,9 +340,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn call_lambda_parameter(
         &self,
+        code_gen_context: &CTX,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        code_gen_context: &CTX,
         kind: &TypedValKind,
         call_parameters: &FCP,
         return_value: bool,
@@ -352,6 +352,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn call_function_(
         &'a self,
+        code_gen_context: &CTX,
         namespace: &EnhASTNameSpace,
         function_call: &&ASTTypedFunctionCall,
         context: &TypedValContext,
@@ -366,7 +367,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         lambda_space_opt: Option<&LambdaSpace>,
         indent: usize,
         is_lambda: bool,
-        code_gen_context: &CTX,
         after: &mut Vec<String>,
         id: &mut usize,
         statics: &mut Statics,
@@ -401,7 +401,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         }
 
         let mut call_parameters =
-            self.function_call_parameters(&parameters, inline, false, code_gen_context, *id);
+            self.function_call_parameters(code_gen_context, &parameters, inline, false, *id);
 
         *id += 1;
 
@@ -452,6 +452,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             .added_to_stack_for_call_parameter(&added_to_stack, &call_parameters);
 
                         let (bf, cur, af, mut inner_lambda_calls) = self.generate_call_function(
+                            code_gen_context,
                             namespace,
                             call,
                             context,
@@ -460,7 +461,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             lambda_space_opt,
                             indent + 1,
                             false,
-                            code_gen_context,
                             id,
                             statics,
                             typed_module,
@@ -489,6 +489,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             name, function_call.function_name
                         );
                         self.add_val(
+                            code_gen_context,
                             context,
                             &lambda_space_opt,
                             &indent,
@@ -496,7 +497,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             &param_name,
                             name,
                             &error_msg,
-                            code_gen_context,
                             index,
                             statics,
                             typed_module,
@@ -616,9 +616,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
             {
                 self.call_lambda(
+                    code_gen_context,
                     function_call,
                     current,
-                    code_gen_context,
                     index_in_lambda_space,
                     &call_parameters,
                     lambda_space_opt
@@ -634,9 +634,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 );
             } else if let Some(kind) = context.get(&function_call.function_name) {
                 self.call_lambda_parameter(
+                    code_gen_context,
                     function_call,
                     current,
-                    code_gen_context,
                     kind,
                     &call_parameters,
                     is_last
@@ -703,9 +703,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn call_lambda(
         &self,
+        code_gen_context: &CTX,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        code_gen_context: &CTX,
         index_in_lambda_space: usize,
         call_parameters: &FCP,
         ast_type_type: &ASTTypedType,
@@ -729,10 +729,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn function_call_parameters<'b, 'c>(
         &'a self,
+        code_gen_context: &'c CTX,
         parameters: &'b Vec<ASTTypedParameterDef>,
         inline: bool,
         immediate: bool,
-        code_gen_context: &'c CTX,
         id: usize,
     ) -> FCP;
 
@@ -740,9 +740,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn add_let(
         &'a self,
+        code_gen_context: &CTX,
         namespace: &EnhASTNameSpace,
         context: &mut TypedValContext,
-        code_gen_context: &CTX,
         after: &mut String,
         before: &mut String,
         name: &str,
@@ -783,6 +783,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     (
                         typed_type,
                         self.generate_call_function(
+                            code_gen_context,
                             namespace,
                             call,
                             context,
@@ -791,7 +792,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             lambda_space,
                             0,
                             false,
-                            code_gen_context,
                             id,
                             statics,
                             typed_module,
@@ -805,6 +805,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     (
                         return_type,
                         self.generate_call_function(
+                            code_gen_context,
                             namespace,
                             call,
                             context,
@@ -813,7 +814,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             lambda_space,
                             0,
                             false,
-                            code_gen_context,
                             id,
                             statics,
                             typed_module,
@@ -829,6 +829,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     let typed_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::String);
 
                     self.set_let_for_string_literal(
+                        code_gen_context,
                         before,
                         name,
                         is_const,
@@ -836,7 +837,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         body,
                         s,
                         &typed_type,
-                        code_gen_context,
                     );
                     (
                         typed_type,
@@ -1024,6 +1024,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn set_let_for_string_literal(
         &self,
+        code_gen_context: &CTX,
         before: &mut String,
         name: &str,
         is_const: bool,
@@ -1031,7 +1032,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         body: &mut String,
         value: &String,
         typed_type: &ASTTypedType,
-        code_gen_context: &CTX,
     );
 
     fn set_let_for_value(
@@ -1048,6 +1048,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn add_val(
         &self,
+        code_gen_context: &CTX,
         context: &TypedValContext,
         lambda_space_opt: &Option<&LambdaSpace>,
         indent: &usize,
@@ -1055,7 +1056,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         param_name: &str,
         val_name: &str,
         error_msg: &str,
-        code_gen_context: &CTX,
         ast_index: &EnhASTIndex,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
@@ -1146,7 +1146,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         }
     }
 
-    fn reserve_return_register(&self, out: &mut String, code_gen_context: &CTX);
+    fn reserve_return_register(&self, code_gen_context: &CTX, out: &mut String);
 
     fn add_function_def(
         &'a self,
@@ -1181,18 +1181,18 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         let mut before = String::new();
 
-        let stack = self.create_code_gen_context();
+        let code_gen_context = self.create_code_gen_context();
 
         self.function_preamble(definitions);
 
         if function_def.return_type.is_unit() {
-            self.reserve_return_register(&mut before, &stack);
+            self.reserve_return_register(&code_gen_context, &mut before);
         }
 
         if is_lambda {
             self.reserve_lambda_space(
+                &code_gen_context,
                 &mut before,
-                &stack,
                 statics,
                 lambda_space.unwrap(),
                 function_def,
@@ -1231,7 +1231,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     lambda_space,
                     &mut lambda_calls,
                     &mut context,
-                    &stack,
+                    &code_gen_context,
                     statics,
                     &mut before,
                     &mut after,
@@ -1242,10 +1242,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             }
             ASTTypedFunctionBody::NativeBody(body) => {
                 let function_call_parameters = self.function_call_parameters(
+                    &code_gen_context,
                     &function_def.parameters,
                     false,
                     false,
-                    &stack,
                     *id,
                 );
 
@@ -1264,14 +1264,14 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             }
         }
 
-        self.reserve_local_vals(&stack, definitions);
+        self.reserve_local_vals(&code_gen_context, definitions);
 
-        definitions.push_str(&self.transform_before(&stack, before));
+        definitions.push_str(&self.transform_before(&code_gen_context, before));
 
         definitions.push_str(&after);
         definitions.push('\n');
 
-        self.restore(&stack, definitions);
+        self.restore(&code_gen_context, definitions);
 
         self.function_end(definitions, true, Some(function_def));
 
@@ -1286,7 +1286,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         lambda_space: Option<&LambdaSpace>,
         lambda_calls: &mut Vec<LambdaCall>,
         context: &mut TypedValContext,
-        stack: &CTX,
+        code_gen_context: &CTX,
         statics: &mut Statics,
         before: &mut String,
         after: &mut String,
@@ -1301,6 +1301,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     match expr {
                         ASTTypedExpression::ASTFunctionCallExpression(call_expression) => {
                             let (bf, cur, af, mut lambda_calls_) = self.generate_call_function(
+                                &code_gen_context,
                                 &function_def.namespace,
                                 call_expression,
                                 &context,
@@ -1309,7 +1310,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 lambda_space,
                                 indent + 1,
                                 false,
-                                &stack,
                                 id,
                                 statics,
                                 typed_module,
@@ -1328,16 +1328,17 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
 
                             let mut parameters = self.function_call_parameters(
+                                &code_gen_context,
                                 &Vec::new(),
                                 function_def.inline,
                                 true,
-                                &stack,
                                 *id,
                             );
 
                             *id += 1;
 
                             self.add_val(
+                                &code_gen_context,
                                 &context,
                                 &lambda_space,
                                 &indent,
@@ -1345,7 +1346,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 val,
                                 val,
                                 "",
-                                &stack,
                                 index,
                                 statics,
                                 typed_module,
@@ -1402,10 +1402,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 *id += 1;
 
                                 let mut parameters = self.function_call_parameters(
+                                    &code_gen_context,
                                     &Vec::new(),
                                     function_def.inline,
                                     true,
-                                    &stack,
                                     *id,
                                 );
 
@@ -1418,7 +1418,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                     None,
                                     statics,
                                     typed_module,
-                                    &stack,
+                                    &code_gen_context,
                                     false,
                                     &function_def.return_type,
                                     &name,
@@ -1447,9 +1447,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 }
                 ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
                     let mut new_lambda_calls = self.add_let(
+                        code_gen_context,
                         &function_def.namespace,
                         context,
-                        stack,
                         after,
                         before,
                         name,
@@ -1481,8 +1481,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn reserve_lambda_space(
         &self,
-        before: &mut String,
         code_gen_context: &CTX,
+        before: &mut String,
         statics: &mut Statics,
         lambda_space: &LambdaSpace,
         def: &ASTTypedFunctionDef,
@@ -1505,6 +1505,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn generate_call_function(
         &'a self,
+        code_gen_context: &CTX,
         namespace: &EnhASTNameSpace,
         function_call: &ASTTypedFunctionCall,
         context: &TypedValContext,
@@ -1513,7 +1514,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         lambda_space: Option<&LambdaSpace>,
         indent: usize,
         is_lambda: bool,
-        code_gen_context: &CTX,
         id: &mut usize,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
@@ -1545,6 +1545,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 lambda_space
             );
             self.call_function_(
+                code_gen_context,
                 namespace,
                 &function_call,
                 context,
@@ -1559,7 +1560,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 lambda_space,
                 indent,
                 is_lambda,
-                code_gen_context,
                 &mut after,
                 id,
                 statics,
@@ -1617,6 +1617,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 );
 
                 self.call_function_(
+                    code_gen_context,
                     namespace,
                     &function_call,
                     context,
@@ -1631,7 +1632,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     lambda_space,
                     indent,
                     true,
-                    code_gen_context,
                     &mut after,
                     id,
                     statics,

@@ -687,9 +687,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
     fn call_lambda_parameter(
         &self,
+        code_gen_context: &CodeGenAsmContext,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        code_gen_context: &CodeGenAsmContext,
         kind: &TypedValKind,
         call_parameters: &Box<dyn FunctionCallParametersAsm + 'a>,
         return_value: bool,
@@ -750,9 +750,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
     fn call_lambda(
         &self,
+        code_gen_context: &CodeGenAsmContext,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
-        code_gen_context: &CodeGenAsmContext,
         index_in_lambda_space: usize,
         call_parameters: &Box<dyn FunctionCallParametersAsm + 'a>,
         ast_type_type: &ASTTypedType,
@@ -852,10 +852,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
     fn function_call_parameters<'b, 'c>(
         &'a self,
+        context: &'c CodeGenAsmContext,
         parameters: &'b Vec<ASTTypedParameterDef>,
         inline: bool,
         immediate: bool,
-        context: &'c CodeGenAsmContext,
         id: usize,
     ) -> Box<dyn FunctionCallParametersAsm + 'a> {
         let fcp = FunctionCallParametersAsmImpl::new(
@@ -1078,6 +1078,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
     fn set_let_for_string_literal(
         &self,
+        code_gen_context: &CodeGenAsmContext,
         before: &mut String,
         name: &str,
         is_const: bool,
@@ -1085,7 +1086,6 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         body: &mut String,
         value: &String,
         typed_type: &ASTTypedType,
-        code_gen_context: &CodeGenAsmContext,
     ) {
         let address_relative_to_bp = code_gen_context
             .stack_vals
@@ -1169,7 +1169,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         }
     }
 
-    fn reserve_return_register(&self, out: &mut String, code_gen_context: &CodeGenAsmContext) {
+    fn reserve_return_register(&self, code_gen_context: &CodeGenAsmContext, out: &mut String) {
         code_gen_context
             .stack_vals
             .reserve_return_register(self, out);
@@ -1194,8 +1194,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
     fn reserve_lambda_space(
         &self,
-        before: &mut String,
         code_gen_context: &CodeGenAsmContext,
+        before: &mut String,
         statics: &mut Statics,
         lambda_space: &LambdaSpace,
         def: &ASTTypedFunctionDef,
