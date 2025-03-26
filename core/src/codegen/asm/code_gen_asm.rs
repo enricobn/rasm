@@ -644,6 +644,92 @@ impl CodeGenAsm {
     pub fn stack_pointer(&self) -> &str {
         self.backend.stack_pointer()
     }
+
+    fn create_lambda_add_ref_like_function(
+        &self,
+        namespace: &EnhASTNameSpace,
+        lambda_space: &LambdaSpace,
+        type_def_provider: &dyn TypeDefProvider,
+        statics: &mut Statics,
+        name: &str,
+        is_deref: bool,
+    ) -> Option<ASTTypedFunctionDef> {
+        let mut body = String::new();
+
+        let ws = self.backend.word_size();
+        let wl = self.backend.word_len();
+
+        if is_deref {
+            self.call_deref_simple(&mut body, "$address", &format!("main {name}"), statics);
+        } else {
+            self.call_add_ref_simple(&mut body, "$address", &format!("main {name}"), statics);
+        }
+
+        let mut initialized = false;
+        if !lambda_space.is_empty() {
+            for (i, (val_name, kind)) in lambda_space.iter().enumerate() {
+                let ast_typed_type = kind.typed_type();
+                if let Some(type_name) = get_reference_type_name(ast_typed_type, type_def_provider)
+                {
+                    if !initialized {
+                        self.add(&mut body, "push   ebx", None, true);
+                        self.add(&mut body, &format!("mov {ws} ebx, $address"), None, true);
+                        self.add(&mut body, &format!("mov {ws} ebx, [ebx]"), None, true);
+                        self.add(&mut body, &format!("add {ws} ebx, {}", wl * 3), None, true);
+                        initialized = true;
+                    }
+                    if is_deref {
+                        body.push_str(&self.call_deref(
+                            &format!("[ebx + {}]", i * self.backend.word_len()),
+                            &type_name,
+                            &format!("\"{val_name}\" in lambda context"),
+                            type_def_provider,
+                            statics,
+                        ));
+                    } else {
+                        self.call_add_ref(
+                            &mut body,
+                            &format!("[ebx + {}]", i * self.backend.word_len()),
+                            &type_name,
+                            &format!("\"{val_name}\" in lambda context"),
+                            type_def_provider,
+                            statics,
+                        );
+                    }
+                }
+            }
+            self.add(&mut body, "pop   ebx", None, true);
+        }
+
+        if !initialized {
+            return None;
+        }
+
+        let parameters = vec![
+            ASTTypedParameterDef {
+                name: "address".to_owned(),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+                ast_index: EnhASTIndex::none(),
+            },
+            ASTTypedParameterDef {
+                name: "descr".to_owned(),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+                ast_index: EnhASTIndex::none(),
+            },
+        ];
+
+        Some(ASTTypedFunctionDef {
+            namespace: namespace.clone(),
+            name: name.to_owned(),
+            original_name: name.to_owned(),
+            parameters,
+            body: ASTTypedFunctionBody::NativeBody(body),
+            return_type: ASTTypedType::Unit,
+            generic_types: LinkedHashMap::new(),
+            inline: false,
+            index: EnhASTIndex::none(),
+        })
+    }
 }
 
 pub struct CodeGenAsmContext {
@@ -1379,100 +1465,14 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         }
     }
 
-    fn create_lambda_add_ref_like_function(
-        &self,
-        namespace: &EnhASTNameSpace,
-        lambda_space: &LambdaSpace,
-        type_def_provider: &dyn TypeDefProvider,
-        statics: &mut Statics,
-        name: &str,
-        is_deref: bool,
-    ) -> Option<ASTTypedFunctionDef> {
-        let mut body = String::new();
-
-        let ws = self.backend.word_size();
-        let wl = self.backend.word_len();
-
-        if is_deref {
-            self.call_deref_simple(&mut body, "$address", &format!("main {name}"), statics);
-        } else {
-            self.call_add_ref_simple(&mut body, "$address", &format!("main {name}"), statics);
-        }
-
-        let mut initialized = false;
-        if !lambda_space.is_empty() {
-            for (i, (val_name, kind)) in lambda_space.iter().enumerate() {
-                let ast_typed_type = kind.typed_type();
-                if let Some(type_name) = get_reference_type_name(ast_typed_type, type_def_provider)
-                {
-                    if !initialized {
-                        self.add(&mut body, "push   ebx", None, true);
-                        self.add(&mut body, &format!("mov {ws} ebx, $address"), None, true);
-                        self.add(&mut body, &format!("mov {ws} ebx, [ebx]"), None, true);
-                        self.add(&mut body, &format!("add {ws} ebx, {}", wl * 3), None, true);
-                        initialized = true;
-                    }
-                    if is_deref {
-                        body.push_str(&self.call_deref(
-                            &format!("[ebx + {}]", i * self.backend.word_len()),
-                            &type_name,
-                            &format!("\"{val_name}\" in lambda context"),
-                            type_def_provider,
-                            statics,
-                        ));
-                    } else {
-                        self.call_add_ref(
-                            &mut body,
-                            &format!("[ebx + {}]", i * self.backend.word_len()),
-                            &type_name,
-                            &format!("\"{val_name}\" in lambda context"),
-                            type_def_provider,
-                            statics,
-                        );
-                    }
-                }
-            }
-            self.add(&mut body, "pop   ebx", None, true);
-        }
-
-        if !initialized {
-            return None;
-        }
-
-        let parameters = vec![
-            ASTTypedParameterDef {
-                name: "address".to_owned(),
-                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
-                ast_index: EnhASTIndex::none(),
-            },
-            ASTTypedParameterDef {
-                name: "descr".to_owned(),
-                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
-                ast_index: EnhASTIndex::none(),
-            },
-        ];
-
-        Some(ASTTypedFunctionDef {
-            namespace: namespace.clone(),
-            name: name.to_owned(),
-            original_name: name.to_owned(),
-            parameters,
-            body: ASTTypedFunctionBody::NativeBody(body),
-            return_type: ASTTypedType::Unit,
-            generic_types: LinkedHashMap::new(),
-            inline: false,
-            index: EnhASTIndex::none(),
-        })
-    }
-
-    fn reserve_local_vals(&self, context: &CodeGenAsmContext, out: &mut String) {
-        if context.stack_vals.len_of_local_vals() > 0 {
+    fn reserve_local_vals(&self, code_gen_context: &CodeGenAsmContext, out: &mut String) {
+        if code_gen_context.stack_vals.len_of_local_vals() > 0 {
             let sp = self.backend.stack_pointer();
             self.add(
                 out,
                 &format!(
                     "sub   {sp}, {}",
-                    context.stack_vals.len_of_local_vals() * self.backend.word_len()
+                    code_gen_context.stack_vals.len_of_local_vals() * self.backend.word_len()
                 ),
                 Some("reserve stack local vals (let)"),
                 true,

@@ -318,7 +318,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn end_main(&self, code: &mut String);
 
-    fn transform_before(&self, stack: &CTX, before: String) -> String;
+    fn transform_before(&self, code_gen_context: &CTX, before: String) -> String;
 
     fn create_command_line_arguments(&self, generated_code: &mut String);
 
@@ -1911,16 +1911,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn preamble(&self, code: &mut String);
 
-    fn create_lambda_add_ref_like_function(
-        &self,
-        namespace: &EnhASTNameSpace,
-        lambda_space: &LambdaSpace,
-        type_def_provider: &dyn TypeDefProvider,
-        statics: &mut Statics,
-        name: &str,
-        is_deref: bool,
-    ) -> Option<ASTTypedFunctionDef>;
-
     /// Returns the name of the functions called in the code
     ///
     /// # Arguments
@@ -2031,7 +2021,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         Ok(result)
     }
 
-    fn reserve_local_vals(&self, stack: &CTX, out: &mut String);
+    fn reserve_local_vals(&self, code_gen_stack: &CTX, out: &mut String);
 
     fn generate_statics_code(
         &self,
@@ -2043,7 +2033,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn define_debug(&self, out: &mut String);
 
-    fn restore(&self, stack: &CTX, out: &mut String);
+    fn restore(&self, code_gen_context: &CTX, out: &mut String);
 
     fn function_end(
         &self,

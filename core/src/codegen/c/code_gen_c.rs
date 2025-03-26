@@ -931,19 +931,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn preamble(&self, code: &mut String) {}
 
-    fn create_lambda_add_ref_like_function(
-        &self,
-        namespace: &EnhASTNameSpace,
-        lambda_space: &LambdaSpace,
-        type_def_provider: &dyn TypeDefProvider,
-        statics: &mut Statics,
-        name: &str,
-        is_deref: bool,
-    ) -> Option<ASTTypedFunctionDef> {
-        todo!()
-    }
-
-    fn reserve_local_vals(&self, stack: &CodeGenCContext, out: &mut String) {}
+    fn reserve_local_vals(&self, _code_gen_context: &CodeGenCContext, _out: &mut String) {}
 
     fn generate_statics_code(
         &self,
@@ -1188,7 +1176,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         todo!()
     }
 
-    fn restore(&self, stack: &CodeGenCContext, out: &mut String) {
+    fn restore(&self, code_gen_context: &CodeGenCContext, out: &mut String) {
         // TODO
     }
 
