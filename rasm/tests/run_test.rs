@@ -657,8 +657,15 @@ fn test_function_reference() {
     run_test_with_target(
         "function_reference",
         vec![],
-        "101.199996948,102.199996948\n101,102\ni32: 1.100000024\ni32: 2.099999905\nf32: 1\nf32: 2\n",
+        "101.199996948,102.199996948\n101,102\ni32: 1\ni32: 2\nf32: 1.100000024\nf32: 2.099999905\n",
         CompileTarget::C(COptions::default()),
+    );
+
+    run_test_with_target(
+        "function_reference",
+        vec![],
+        "101.199996946,102.199996946\n101,102\ni32: 1\ni32: 2\nf32: 1.100000020\nf32: 2.099999901\n",
+        CompileTarget::Nasmi386(AsmOptions::default()),
     );
 }
 

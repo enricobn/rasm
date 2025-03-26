@@ -604,7 +604,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 .unwrap_or(false),
                         is_inner_call,
                         parent_def.map(|it| it.return_type.clone()).as_ref(),
-                        statics,
+                        is_lambda,
                     ),
                 );
                 current.push('\n');
@@ -1118,6 +1118,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 return_type: Box::new(def.return_type.clone()),
             });
 
+            let lambda_in_stack =
+                def.return_type.is_unit() || can_lambda_be_in_stack(&def.return_type, typed_module);
+
             let lambda_space = call_parameters.add_lambda(
                 &mut def,
                 None,
@@ -1126,7 +1129,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 statics,
                 typed_module,
                 stack_vals,
-                false,
+                lambda_in_stack,
                 &lambda_type,
                 &name,
             );
@@ -1255,7 +1258,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     function_def.return_type == ASTTypedType::Unit,
                     false,
                     Some(&function_def.return_type),
-                    statics,
+                    is_lambda,
                 );
                 before.push_str(&new_body);
             }
@@ -1564,48 +1567,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 is_last,
                 is_inner_call,
             )
-        } else if let Some(function_def) = typed_module
-            .functions_by_name
-            .get(&function_call.function_name)
-        {
-            let def = function_def.clone();
-            // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
-            let real_function_name = typed_module
-                .functions_by_name
-                .get(&function_call.function_name)
-                .unwrap()
-                .clone()
-                .name;
-            debug!(
-                "{}Calling function {} context {:?}, lambda_space: {:?}",
-                " ".repeat(indent * 4),
-                function_call.function_name,
-                context.names(),
-                lambda_space
-            );
-            self.call_function_(
-                namespace,
-                &function_call,
-                context,
-                &parent_def,
-                added_to_stack,
-                &mut before,
-                &mut current,
-                def.parameters,
-                def.inline,
-                Some(def.body),
-                real_function_name,
-                lambda_space,
-                indent,
-                is_lambda,
-                stack_vals,
-                &mut after,
-                id,
-                statics,
-                typed_module,
-                is_last,
-                is_inner_call,
-            )
         } else if let Some(kind) = context.get(&function_call.function_name) {
             let ast_type = kind.typed_type();
 
@@ -1666,7 +1627,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     parameters_defs,
                     false,
                     None,
-                    "".to_string(),
+                    function_call.function_name.clone(),
                     lambda_space,
                     indent,
                     true,

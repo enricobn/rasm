@@ -543,7 +543,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         return_value: bool,
         is_inner_value: bool,
         return_type: Option<&ASTTypedType>,
-        statics: &Statics,
+        is_lambda: bool,
     ) -> String {
         let _ = return_type;
         let mut result = body.to_string();
@@ -573,6 +573,11 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
                 self.parameters_values
             );
 
+            // it could be a lambda when using function reference to a native function
+            // in this case we have an extra parameter that is the lambda space that is
+            // always empty, but we must skip it
+            let lambda_adj = if is_lambda { 1 } else { 0 };
+
             let relative_address = if self.inline {
                 debug!(
                     "{} i {}, self.to_remove_from_stack {}, to_remove_from_stack {}",
@@ -583,12 +588,12 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
                 );
                 format!(
                     "{}-({})-{}",
-                    (i - self.to_remove_from_stack() as i32) * word_len,
+                    (i - self.to_remove_from_stack() as i32 + lambda_adj) * word_len,
                     to_remove_from_stack,
                     STACK_VAL_SIZE_NAME
                 )
             } else {
-                format!("{}", (i + 2) * self.backend.word_len() as i32)
+                format!("{}", (i + 2 + lambda_adj) * self.backend.word_len() as i32)
             };
 
             let address = format!(
