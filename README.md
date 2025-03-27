@@ -1,21 +1,29 @@
 # RASM
 
-A native compiler (for now it produces only 386 linux executables) for a "not pure" functional language.  
+A native compiler (for now it produces only 80386/x86-64, linux executables, depending on target) for a "non pure" functional language.  
 It is still in experimental phase (and probably it will always be...).
+
 **It is not secure, so try it at your own risk!!!**
 
 ## Build
 
-To build the compiler you need the rust toolchain (<https://www.rust-lang.org/tools/install>):  
-`cargo build --release`
+### Build prerequisites
+
+To build the compiler you need the rust toolchain (<https://www.rust-lang.org/tools/install>)
+
+```bash
+cargo build --release
+```
 
 ## Compile
 
-### Prerequisites
+### Compile prerequisites
 
 #### On Ubuntu
 
-`sudo apt install gcc-multilib g++-multilib libc++-dev nasm`
+```bash
+sudo apt install gcc-multilib g++-multilib libc++-dev nasm
+```
 
 ### Directory structure of a rasm project
 
