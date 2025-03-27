@@ -74,7 +74,7 @@ fn main() {
         )
         .arg(
             Arg::new("debug")
-                .help("prints debug informations at runtime (verbose)")
+                .help("prints debug informations at runtime (very verbose)")
                 .long("debug")
                 .short('d')
                 .action(ArgAction::SetTrue)

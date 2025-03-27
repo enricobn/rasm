@@ -19,14 +19,15 @@ To build the compiler you need the rust toolchain (<https://www.rust-lang.org/to
 
 ### Directory structure of a rasm project
 
-```
+```text
 rasm.toml
 src  
   main  
     rasm  
     resources  
-  nasmi386  
-  ...other arch  
+    nasmi386
+    c
+    ...other arch  
   test  
     rasm  
     resources
@@ -34,33 +35,48 @@ src
 
 ### Structure of rasm.toml
 
+```toml
 [package]  
-name=  
-version=  
-main=  
-out=
+name=
+version=
+main=
 
 [dependencies]  
 "name" = { path = "path to the root of the library project" }
+```
 
 ### Usage
 
-```
-Usage: rasm [OPTIONS] <ACTION> <file>
-
+```text
 Arguments:
-<ACTION>  the action to perform [possible values: build, test, server]
-<file>    the project directory or a single source file
+  <ACTION>  the action to perform [possible values: build, test, server, ui]
+  [file]    the input directory or file
 
-Options:  
--o <out>                               sets the output folder, if not specified is "target" under the project's main folder
---compile                              creates only .asm/.c and .o files  
---message-format <message-format>      for vscode  
--d, --debug                            prints debug information at runtime (very verbose)  
--m, --memoryinfo                       prints memory informations  
--p, --printcode                        prints code  
--h, --help                             prints help  
--V, --version                          prints version
+Options:
+  -t <target>
+          the compiler target [default: nasmi386] [possible values: nasmi386, c]
+  -o <out>
+          the output folder of generated artifacts, if not set, the "target" folder under the project's root
+      --compile
+          creates only .asm/.c and .o files
+      --message-format <message-format>
+          for vscode
+  -d, --debug
+          prints debug informations at runtime (very verbose)
+  -m, --memoryinfo
+          prints memory informations
+  -p, --printcode
+          prints code
+  -r, --release
+          optimize for release
+      --arguments <arguments>
+          arguments to be passed to main/test when run
+      --include-tests <include-tests>
+          a comma separated list of test functions to be included
+  -h, --help
+          Print help
+  -V, --version
+          Print version
 ```
 
 To build a project from its root:
@@ -87,45 +103,65 @@ you run it from the IDE itself.
 
 ### breakout
 
-`cargo run --release -- build rasm/resources/examples/breakout/ -o .`
+```bash
+cargo run --release -- build rasm/resources/examples/breakout/ -o .
+```
 
 a "breakout" executable file will be created in the current folder
 
 ### fibonacci
 
-`cargo run --release -- build rasm/resources/test/fibonacci.rasm -o .`  
-`./fibonacci 40`  
+```bash
+cargo run --release -- build rasm/resources/test/fibonacci.rasm -o .
+```
+
+```bash
+./fibonacci 40
+```
+
 it should print the fortieth fibonacci number (102334155)
 
 ## SDL examples
 
-### Nasm
+### nasmi386 target
 
 ### To install SDL 32 bit libraries on Ubuntu
 
-`sudo apt-get install libsdl2-dev:i386`
+```bash
+sudo apt-get install libsdl2-dev:i386
+```
 
 ### To install SDL TTF 32 bit libraries on Ubuntu
 
-`sudo apt-get install libsdl2-ttf-dev:i386`
+```bash
+sudo apt-get install libsdl2-ttf-dev:i386
+```
 
 ### To install SDL image 32 bit libraries on Ubuntu needed for some examples and for running tests
 
-`sudo apt-get install libsdl2-image-dev:i386`
+```bash
+sudo apt-get install libsdl2-image-dev:i386
+```
 
-### C
+### c target
 
 ### To install SDL libraries on Ubuntu needed for some examples and for running tests
 
-`sudo apt-get install libsdl2-dev`
+```bash
+sudo apt-get install libsdl2-dev
+```
 
 ### To install SDL TTF libraries on Ubuntu needed for some examples and for running tests
 
-`sudo apt-get install libsdl2-ttf-dev`
+```bash
+sudo apt-get install libsdl2-ttf-dev
+```
 
 ### To install SDL image libraries on Ubuntu needed for some examples and for running tests
 
-`sudo apt-get install libsdl2-image-dev`
+```bash
+sudo apt-get install libsdl2-image-dev
+```
 
 ## profiling
 
@@ -133,17 +169,23 @@ it should print the fortieth fibonacci number (102334155)
 
 Only executables produced with libc support can be run with valgrind.
 
-`sudo apt-get install libc6-dbg:i386`
+```bash
+sudo apt-get install libc6-dbg:i386
+```
 
 ### profiling build
 
+```bash
 sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
 cargo build
 valgrind --tool=callgrind target/debug/rasm build ...
 callgrind_annotate --auto=yes callgrind.out.`<pid>`
+```
 
 ### profiling executable
 
+```bash
 sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
 valgrind --tool=callgrind `<executable>`  
 callgrind_annotate --auto=yes callgrind.out.`<pid>`
+```
