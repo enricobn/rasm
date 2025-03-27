@@ -1225,13 +1225,13 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         match &function_def.body {
             ASTTypedFunctionBody::RASMBody(statements) => {
                 self.generate_function_body(
+                    &code_gen_context,
                     typed_module,
                     function_def,
                     statements,
                     lambda_space,
                     &mut lambda_calls,
                     &mut context,
-                    &code_gen_context,
                     statics,
                     &mut before,
                     &mut after,
@@ -1280,13 +1280,13 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn generate_function_body(
         &'a self,
+        code_gen_context: &CTX,
         typed_module: &ASTTypedModule,
         function_def: &ASTTypedFunctionDef,
         a_body: &Vec<ASTTypedStatement>,
         lambda_space: Option<&LambdaSpace>,
         lambda_calls: &mut Vec<LambdaCall>,
         context: &mut TypedValContext,
-        code_gen_context: &CTX,
         statics: &mut Statics,
         before: &mut String,
         after: &mut String,
