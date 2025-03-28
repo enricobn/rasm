@@ -31,7 +31,7 @@ use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{RefType, TextMacroEval, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{CodeGen, FunctionDefContext, TypedValKind};
+use crate::codegen::{CodeGen, TypedValKind};
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
@@ -325,13 +325,7 @@ impl CodeGenC {
 
 pub struct CodeGenCContext {}
 
-pub struct FunctionDefCContext {}
-
-impl FunctionDefContext for FunctionDefCContext {}
-
-impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions, FunctionDefCContext>
-    for CodeGenC
-{
+impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> for CodeGenC {
     fn options(&self) -> &COptions {
         &self.c_options
     }
@@ -467,18 +461,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions, Fu
         // TODO
     }
 
-    fn added_to_stack_for_call_parameter(
-        &self,
-        _added_to_stack: &String,
-        _call_parameters: &Box<CFunctionCallParameters>,
-    ) -> String {
-        // TODO
-        String::new()
-    }
-
     fn function_call_parameters<'b, 'c>(
         &self,
         _code_gen_context: &'c CodeGenCContext,
+        _parent_fcp: Option<&Box<CFunctionCallParameters>>,
         parameters: &'b Vec<ASTTypedParameterDef>,
         _inline: bool,
         immediate: bool,
@@ -1223,7 +1209,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions, Fu
         }
     }
 
-    fn create_function_definition(&self, function_def: &ASTTypedFunctionDef) -> bool {
+    fn create_function_definition(&self, _function_def: &ASTTypedFunctionDef) -> bool {
         true
     }
 
@@ -1235,7 +1221,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions, Fu
         CodeGenCContext {}
     }
 
-    fn define_let(&'a self, code_gen_context: &CodeGenCContext, name: &str, is_const: bool) {}
+    fn define_let(&'a self, _code_gen_context: &CodeGenCContext, _name: &str, _is_const: bool) {}
 }
 
 pub fn value_type_to_enh_type(value_type: &ASTValueType) -> EnhASTType {

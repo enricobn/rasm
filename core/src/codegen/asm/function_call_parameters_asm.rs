@@ -32,6 +32,8 @@ pub trait FunctionCallParametersAsm: FunctionCallParameters<CodeGenAsmContext> {
     fn to_remove_from_stack_name(&self) -> String;
 
     fn to_remove_from_stack(&self) -> usize;
+
+    fn parent_added_to_stack(&self) -> &String;
 }
 
 pub struct FunctionCallParametersAsmImpl<'a> {
@@ -49,6 +51,7 @@ pub struct FunctionCallParametersAsmImpl<'a> {
     dereference: bool,
     id: usize,
     code_gen: &'a CodeGenAsm,
+    parent_added_to_stack: String,
 }
 
 impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsmImpl<'a> {
@@ -538,7 +541,6 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
     fn resolve_native_parameters(
         &self,
         body: &str,
-        to_remove_from_stack: String,
         ident: usize,
         return_value: bool,
         is_inner_value: bool,
@@ -577,6 +579,8 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
             // in this case we have an extra parameter that is the lambda space that is
             // always empty, but we must skip it
             let lambda_adj = if is_lambda { 1 } else { 0 };
+
+            let to_remove_from_stack = self.parent_added_to_stack();
 
             let relative_address = if self.inline {
                 debug!(
@@ -768,6 +772,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
         dereference: bool,
         id: usize,
         code_gen: &'a CodeGenAsm,
+        parent_added_to_stack: String,
     ) -> Self {
         Self {
             parameters_added: 0,
@@ -784,6 +789,7 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
             dereference,
             id,
             code_gen,
+            parent_added_to_stack,
         }
     }
 
@@ -991,5 +997,9 @@ impl<'a> FunctionCallParametersAsm for FunctionCallParametersAsmImpl<'a> {
         } else {
             self.parameters_added
         }
+    }
+
+    fn parent_added_to_stack(&self) -> &String {
+        &self.parent_added_to_stack
     }
 }

@@ -658,7 +658,6 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
     fn resolve_native_parameters(
         &self,
         body: &str,
-        to_remove_from_stack: String,
         indent: usize,
         return_value: bool,
         is_inner_call: bool,

@@ -16,7 +16,7 @@ use crate::{
         statics::{MemoryUnit, MemoryValue, Statics},
         text_macro::{AddRefMacro, RefType, TextMacroEval, TextMacroEvaluator},
         typedef_provider::TypeDefProvider,
-        CodeGen, CodeGenOptions, FunctionDefContext, TypedValKind,
+        CodeGen, CodeGenOptions, TypedValKind,
     },
     enh_type_check::typed_ast::{
         ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
@@ -736,18 +736,8 @@ pub struct CodeGenAsmContext {
     pub stack_vals: StackVals,
 }
 
-pub struct FunctionDefAsmContext {}
-
-impl FunctionDefContext for FunctionDefAsmContext {}
-
-impl<'a>
-    CodeGen<
-        'a,
-        Box<dyn FunctionCallParametersAsm + 'a>,
-        CodeGenAsmContext,
-        AsmOptions,
-        FunctionDefAsmContext,
-    > for CodeGenAsm
+impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext, AsmOptions>
+    for CodeGenAsm
 {
     fn options(&self) -> &AsmOptions {
         &self.options
@@ -935,25 +925,24 @@ impl<'a>
         }
     }
 
-    fn added_to_stack_for_call_parameter(
-        &self,
-        added_to_stack: &String,
-        call_parameters: &Box<dyn FunctionCallParametersAsm + 'a>,
-    ) -> String {
-        let mut added_to_stack = added_to_stack.clone();
-        added_to_stack.push_str(" + ");
-        added_to_stack.push_str(&call_parameters.to_remove_from_stack_name());
-        added_to_stack
-    }
-
     fn function_call_parameters<'b, 'c>(
         &'a self,
         context: &'c CodeGenAsmContext,
+        parent_fcp: Option<&Box<dyn FunctionCallParametersAsm + 'a>>,
         parameters: &'b Vec<ASTTypedParameterDef>,
         inline: bool,
         immediate: bool,
         id: usize,
     ) -> Box<dyn FunctionCallParametersAsm + 'a> {
+        let parent_added_to_stack = match parent_fcp {
+            Some(p) => format!(
+                "{} + {}",
+                p.parent_added_to_stack(),
+                p.to_remove_from_stack_name()
+            ),
+            None => "0".to_owned(),
+        };
+
         let fcp = FunctionCallParametersAsmImpl::new(
             &self.backend,
             parameters.clone(),
@@ -963,6 +952,7 @@ impl<'a>
             self.options().dereference,
             id,
             self,
+            parent_added_to_stack,
         );
 
         Box::new(fcp)

@@ -100,7 +100,6 @@ pub trait FunctionCallParameters<CTX> {
     fn resolve_native_parameters(
         &self,
         body: &str,
-        to_remove_from_stack: String,
         ident: usize,
         return_value: bool,
         is_inner_call: bool,
