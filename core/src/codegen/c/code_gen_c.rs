@@ -31,7 +31,7 @@ use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{RefType, TextMacroEval, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{CodeGen, TypedValKind};
+use crate::codegen::{CodeGen, FunctionDefContext, TypedValKind};
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
@@ -325,7 +325,13 @@ impl CodeGenC {
 
 pub struct CodeGenCContext {}
 
-impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> for CodeGenC {
+pub struct FunctionDefCContext {}
+
+impl FunctionDefContext for FunctionDefCContext {}
+
+impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions, FunctionDefCContext>
+    for CodeGenC
+{
     fn options(&self) -> &COptions {
         &self.c_options
     }

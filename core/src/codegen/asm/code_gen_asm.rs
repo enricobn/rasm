@@ -16,7 +16,7 @@ use crate::{
         statics::{MemoryUnit, MemoryValue, Statics},
         text_macro::{AddRefMacro, RefType, TextMacroEval, TextMacroEvaluator},
         typedef_provider::TypeDefProvider,
-        CodeGen, CodeGenOptions, TypedValKind,
+        CodeGen, CodeGenOptions, FunctionDefContext, TypedValKind,
     },
     enh_type_check::typed_ast::{
         ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
@@ -736,8 +736,18 @@ pub struct CodeGenAsmContext {
     pub stack_vals: StackVals,
 }
 
-impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext, AsmOptions>
-    for CodeGenAsm
+pub struct FunctionDefAsmContext {}
+
+impl FunctionDefContext for FunctionDefAsmContext {}
+
+impl<'a>
+    CodeGen<
+        'a,
+        Box<dyn FunctionCallParametersAsm + 'a>,
+        CodeGenAsmContext,
+        AsmOptions,
+        FunctionDefAsmContext,
+    > for CodeGenAsm
 {
     fn options(&self) -> &AsmOptions {
         &self.options

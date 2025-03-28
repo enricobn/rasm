@@ -133,7 +133,16 @@ pub trait CodeGenOptions {
     fn dereference(&self) -> bool;
 }
 
-pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOptions> {
+pub trait FunctionDefContext {}
+
+pub trait CodeGen<
+    'a,
+    FCP: FunctionCallParameters<CTX>,
+    CTX,
+    OPTIONS: CodeGenOptions,
+    FDC: FunctionDefContext,
+>
+{
     fn options(&self) -> &OPTIONS;
 
     fn create_code_gen_context(&self) -> CTX;
@@ -162,7 +171,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         let a_body = &typed_module.body;
 
-        self.generate_body(
+        self.generate_main_body(
             typed_module,
             a_body,
             &mut lambdas,
@@ -248,7 +257,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         )]
     }
 
-    fn generate_body(
+    fn generate_main_body(
         &'a self,
         typed_module: &ASTTypedModule,
         a_body: &Vec<ASTTypedStatement>,
