@@ -29,10 +29,15 @@ use super::{
 
 #[auto_impl(Box)]
 pub trait FunctionCallParametersAsm: FunctionCallParameters<CodeGenAsmContext> {
+    /// a placeholder that, at the end of the generation (im before()), will be replaced with the effective
+    /// space allocated in the stack for the current call. It is needed because we don't know it in advance,
+    /// so we replace it with the valid size at the end.
     fn to_remove_from_stack_name(&self) -> String;
 
     fn to_remove_from_stack(&self) -> usize;
 
+    /// the size of the already reserved space in the stack, for the current function code generation.
+    /// It is a sum of all the parent's to_remove_from_stack_name
     fn parent_added_to_stack(&self) -> &String;
 }
 
