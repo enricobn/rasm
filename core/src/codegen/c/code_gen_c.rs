@@ -452,15 +452,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         }
     }
 
-    fn restore_stack(
-        &self,
-        _function_call: &ASTTypedFunctionCall,
-        _before: &mut String,
-        _call_parameters: &mut Box<CFunctionCallParameters>,
-    ) {
-        // TODO
-    }
-
     fn function_call_parameters<'b, 'c>(
         &self,
         _code_gen_context: &'c CodeGenCContext,

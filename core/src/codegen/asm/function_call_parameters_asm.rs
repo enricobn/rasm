@@ -17,8 +17,9 @@ use crate::{
         CodeGen, TypedValKind,
     },
     enh_type_check::typed_ast::{
-        ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
-        ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
+        ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
+        ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
+        BuiltinTypedTypeKind,
     },
 };
 
@@ -531,7 +532,10 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
     }
 
     fn current(&self) -> String {
-        String::new()
+        match self.restore_stack() {
+            Some(rs) => rs,
+            None => String::new(),
+        }
     }
 
     fn after(&self) -> Vec<String> {
@@ -758,16 +762,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
 }
 
 impl<'a> FunctionCallParametersAsmImpl<'a> {
-    ///
-    ///
-    /// # Arguments
-    ///
-    /// * `backend`:
-    /// * `parameters`:
-    /// * `inline`:
-    /// * `immediate`: if true the result is not pushed on the stack, but moved to eax
-    ///
-    /// returns: FunctionCallParameters
+    /// `immediate`: if true the result is not pushed on the stack, but moved to eax
     pub fn new(
         backend: &'a dyn BackendAsm,
         parameters: Vec<ASTTypedParameterDef>,
@@ -988,6 +983,29 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
             statics,
         ));
         result
+    }
+
+    fn restore_stack(&self) -> Option<String> {
+        if self.to_remove_from_stack() > 0 {
+            let sp = self.backend.stack_pointer();
+            let wl = self.backend.word_len();
+
+            let mut result = String::new();
+            self.code_gen.add(
+                &mut result,
+                &format!("add     {},{}", sp, wl * (self.to_remove_from_stack())),
+                Some(&format!("restore stack")),
+                true,
+            );
+
+            Some(result)
+
+            //debug!("going to remove from stack {}/{}", parent_def_description, function_call.function_name);
+
+            //stack.remove(FunctionCallParameter, call_parameters.to_remove_from_stack());
+        } else {
+            None
+        }
     }
 }
 

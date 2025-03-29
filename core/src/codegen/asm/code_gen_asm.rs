@@ -895,36 +895,6 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         );
     }
 
-    fn restore_stack(
-        &self,
-        function_call: &ASTTypedFunctionCall,
-        before: &mut String,
-        call_parameters: &mut Box<dyn FunctionCallParametersAsm + 'a>,
-    ) {
-        if call_parameters.to_remove_from_stack() > 0 {
-            let sp = self.backend.stack_pointer();
-            let wl = self.backend.word_len();
-
-            self.add(
-                before,
-                &format!(
-                    "add     {},{}",
-                    sp,
-                    wl * (call_parameters.to_remove_from_stack())
-                ),
-                Some(&format!(
-                    "restore stack for {}",
-                    function_call.function_name
-                )),
-                true,
-            );
-
-            //debug!("going to remove from stack {}/{}", parent_def_description, function_call.function_name);
-
-            //stack.remove(FunctionCallParameter, call_parameters.to_remove_from_stack());
-        }
-    }
-
     fn function_call_parameters<'b, 'c>(
         &'a self,
         context: &'c CodeGenAsmContext,

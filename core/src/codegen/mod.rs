@@ -675,7 +675,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             );
         }
 
-        self.restore_stack(function_call, current, &mut call_parameters);
+        current.push_str(&call_parameters.current());
 
         after.insert(0, call_parameters.after().join("\n"));
 
@@ -709,13 +709,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         statics: &Statics,
         return_value: bool,
         is_inner_call: bool,
-    );
-
-    fn restore_stack(
-        &self,
-        function_call: &ASTTypedFunctionCall,
-        before: &mut String,
-        call_parameters: &mut FCP,
     );
 
     fn function_call_parameters<'b, 'c>(
