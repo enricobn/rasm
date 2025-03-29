@@ -1159,12 +1159,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         todo!()
     }
 
-    fn restore(&self, code_gen_context: &CodeGenCContext, out: &mut String) {
-        // TODO
-    }
-
     fn function_end(
         &self,
+        _code_gen_context: &CodeGenCContext,
         out: &mut String,
         add_return: bool,
         function_def: Option<&ASTTypedFunctionDef>,

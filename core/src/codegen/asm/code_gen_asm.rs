@@ -730,6 +730,26 @@ impl CodeGenAsm {
             index: EnhASTIndex::none(),
         })
     }
+
+    fn restore(&self, context: &CodeGenAsmContext, out: &mut String) {
+        for entry in context.stack_vals.reserved_slots().borrow().iter().rev() {
+            match entry.entry_type {
+                StackEntryType::TmpRegister(ref register) => {
+                    self.add(
+                        out,
+                        &format!("pop {register}"),
+                        Some(&format!("restoring {}", entry.desc)),
+                        true,
+                    );
+                }
+                StackEntryType::ReturnRegister => {
+                    self.add_empty_line(out);
+                    self.add(out, "pop eax", Some("restoring return register"), true);
+                }
+                _ => {}
+            }
+        }
+    }
 }
 
 pub struct CodeGenAsmContext {
@@ -1570,38 +1590,14 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         self.add(out, "%define LOG_DEBUG 1", None, false);
     }
 
-    fn restore(&self, context: &CodeGenAsmContext, out: &mut String) {
-        let mut local_vals_words = 0;
-        for entry in context.stack_vals.reserved_slots().borrow().iter().rev() {
-            match entry.entry_type {
-                StackEntryType::LocalVal => {
-                    local_vals_words += 1;
-                }
-                StackEntryType::TmpRegister(ref register) => {
-                    self.add(
-                        out,
-                        &format!("pop {register}"),
-                        Some(&format!("restoring {}", entry.desc)),
-                        true,
-                    );
-                }
-                StackEntryType::ReturnRegister => {
-                    self.add_empty_line(out);
-                    self.add(out, "pop eax", Some("restoring return register"), true);
-                }
-                StackEntryType::LocalFakeAllocation(size) => {
-                    local_vals_words += size;
-                }
-            }
-        }
-    }
-
     fn function_end(
         &self,
+        code_gen_context: &CodeGenAsmContext,
         out: &mut String,
         add_return: bool,
         function_def: Option<&ASTTypedFunctionDef>,
     ) {
+        self.restore(code_gen_context, out);
         let bp = self.backend.stack_base_pointer();
         self.add(
             out,

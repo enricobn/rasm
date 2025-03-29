@@ -225,15 +225,13 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         generated_code.push('\n');
 
-        self.restore(&code_gen_context, &mut generated_code);
-
         if command_line_options.print_memory {
             self.print_memory_info(&mut generated_code, &statics);
         }
 
         self.end_main(&mut generated_code);
 
-        self.function_end(&mut generated_code, false, None);
+        self.function_end(&code_gen_context, &mut generated_code, false, None);
 
         let used_functions =
             self.get_used_functions(&functions_generated_code, &generated_code, typed_module);
@@ -1257,9 +1255,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         definitions.push_str(&after);
         definitions.push('\n');
 
-        self.restore(&code_gen_context, definitions);
-
-        self.function_end(definitions, true, Some(function_def));
+        self.function_end(&code_gen_context, definitions, true, Some(function_def));
 
         lambda_calls
     }
@@ -2022,10 +2018,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn define_debug(&self, out: &mut String);
 
-    fn restore(&self, code_gen_context: &CTX, out: &mut String);
-
     fn function_end(
         &self,
+        code_gen_context: &CTX,
         out: &mut String,
         add_return: bool,
         function_def: Option<&ASTTypedFunctionDef>,
