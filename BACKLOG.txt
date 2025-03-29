@@ -2,6 +2,11 @@ Doing
 ------
 - optimize / refactor C target codegen
 
+Bug
+----
+- in nasmi386 the breakout examples crashes with an "Out of heap space" error. I think it is a problem related to 
+  function refernce
+
 Major
 -----
 - stdlib: print and prinln go to stdout, the ones with file as input must be called writeln and write

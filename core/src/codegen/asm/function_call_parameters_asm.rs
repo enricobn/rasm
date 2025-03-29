@@ -17,9 +17,8 @@ use crate::{
         CodeGen, TypedValKind,
     },
     enh_type_check::typed_ast::{
-        ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
-        ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
-        BuiltinTypedTypeKind,
+        ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
+        ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
     },
 };
 

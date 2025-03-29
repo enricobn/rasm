@@ -1594,17 +1594,6 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
                 }
             }
         }
-
-        if local_vals_words > 0 {
-            let sp = self.backend.stack_pointer();
-            self.add(
-                out,
-                &format!("add   {sp}, {}", local_vals_words * self.backend.word_len()),
-                Some("restore stack local vals (let)"),
-                true,
-            );
-            context.stack_vals.remove_all();
-        }
     }
 
     fn function_end(
@@ -1614,6 +1603,12 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         function_def: Option<&ASTTypedFunctionDef>,
     ) {
         let bp = self.backend.stack_base_pointer();
+        self.add(
+            out,
+            &format!("mov     {},{}", self.backend.stack_pointer(), bp),
+            None,
+            true,
+        );
         self.add(out, &format!("pop     {}", bp), None, true);
         if add_return {
             self.add(out, "ret", None, true);
