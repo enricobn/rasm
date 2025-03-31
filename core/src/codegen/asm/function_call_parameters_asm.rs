@@ -402,7 +402,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
             self.code_gen.add_comment(&mut result, "scope pop", true);
             self.code_gen.call_deref_simple(
                 &mut result,
-                &format!("[{} - {}]", self.backend.stack_base_pointer(), pos),
+                &format!("[{sbp} - {}]", pos),
                 "lambda space",
                 statics,
             );
@@ -548,6 +548,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
 
     fn resolve_native_parameters(
         &self,
+        code_gen_context: &CodeGenAsmContext,
         body: &str,
         ident: usize,
         return_value: bool,
@@ -555,14 +556,25 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         return_type: Option<&ASTTypedType>,
         is_lambda: bool,
     ) -> String {
-        let _ = return_type;
-        let mut result = body.to_string();
+        let sp = self.backend.stack_pointer();
+        let bp = self.backend.stack_base_pointer();
 
-        let word_len = self.backend.word_len() as i32;
+        let _ = return_type;
+        let mut result = String::new();
+        self.code_gen
+            .add_comment(&mut result, "inlining call", true);
+        result.push_str(body);
+
+        let wl = self.backend.word_len() as i32;
 
         let mut i = 0;
 
         let mut substitutions = Vec::new();
+
+        // it could be a lambda when using function reference to a native function
+        // in this case we have an extra parameter that is the lambda space that is
+        // always empty, but we must skip it
+        let lambda_adj = if is_lambda { 1 } else { 0 };
 
         for par in self.parameters.iter() {
             if let Some(par_value) = self.parameters_values.get(&par.name) {
@@ -572,6 +584,9 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
                     par.name,
                     par_value
                 );
+                if self.inline {
+                    println!("found parameter {}, value: {}", par.name, par_value);
+                }
                 substitutions.push((par.name.clone(), par_value.clone()));
                 continue;
             }
@@ -583,14 +598,9 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
                 self.parameters_values
             );
 
-            // it could be a lambda when using function reference to a native function
-            // in this case we have an extra parameter that is the lambda space that is
-            // always empty, but we must skip it
-            let lambda_adj = if is_lambda { 1 } else { 0 };
-
             let to_remove_from_stack = self.parent_added_to_stack();
 
-            let relative_address = if self.inline {
+            let address = if self.inline {
                 debug!(
                     "{} i {}, self.to_remove_from_stack {}, to_remove_from_stack {}",
                     " ".repeat(ident * 4),
@@ -598,21 +608,30 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
                     self.to_remove_from_stack(),
                     to_remove_from_stack
                 );
-                format!(
+                //let relative_address = format!("{}", (i + 1 + lambda_adj) * wl as i32);
+                let relative_address = format!(
                     "{}-({})-{}",
-                    (i - self.to_remove_from_stack() as i32 + lambda_adj) * word_len,
+                    (i - self.to_remove_from_stack() as i32 + lambda_adj) * wl,
                     to_remove_from_stack,
                     STACK_VAL_SIZE_NAME
-                )
-            } else {
-                format!("{}", (i + 2 + lambda_adj) * self.backend.word_len() as i32)
-            };
+                );
 
-            let address = format!(
-                "[{}+{}]",
-                self.backend.stack_base_pointer(),
-                relative_address
-            );
+                /*
+                format!(
+                    "[{} + {}] inline_par {} tmp-regs {}",
+                    self.backend.stack_pointer(),
+                    relative_address,
+                    par.name,
+                    code_gen_context.stack_vals.len_of_temp_registers()
+                )
+                */
+
+                format!("[{bp} + {relative_address}]")
+            } else {
+                let relative_address = format!("{}", (i + 2 + lambda_adj) * wl as i32);
+
+                format!("[{bp}+{relative_address}]")
+            };
 
             substitutions.push((par.name.clone(), address));
             i += 1;
@@ -623,6 +642,35 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         for (par_name, value) in substitutions {
             result = result.replace(&format!("${}", par_name), &value);
         }
+
+        // TODO it seems that someteimes body (the result) is empty, in this case there's no need
+        // for adding stack handling, but we must understand why it is empty and i != 0
+        /*
+        if self.inline && i != 0 {
+            let mut tmp = String::new();
+            self.code_gen
+                .add_comment(&mut tmp, "adding stack handling for inline", true);
+
+            self.code_gen.add_rows(
+                &mut tmp,
+                vec![&format!("push   {bp}"), &format!("mov     {bp},{sp}")],
+                None,
+                true,
+            );
+
+            tmp.push_str(&result);
+            tmp.push('\n');
+
+            self.code_gen.add_rows(
+                &mut tmp,
+                vec![&format!("mov     {sp},{bp}"), &format!("pop    {bp}")],
+                None,
+                true,
+            );
+
+            result = tmp;
+        }
+        */
 
         result
     }
@@ -847,10 +895,15 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
     fn add_val_from_parameter(
         &mut self,
         original_param_name: String,
-        index_relative_to_bp: i32,
+        mut index_relative_to_bp: i32,
         indent: usize,
         stack_vals: &StackVals,
     ) {
+        /*
+        if self.inline {
+            index_relative_to_bp -= 1;
+        }
+        */
         self.debug_and_before(
             &format!("param {original_param_name}, index_relative_to_bp {index_relative_to_bp}"),
             indent,

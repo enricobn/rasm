@@ -657,6 +657,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
 
     fn resolve_native_parameters(
         &self,
+        code_gen_context: &CodeGenCContext,
         body: &str,
         indent: usize,
         return_value: bool,

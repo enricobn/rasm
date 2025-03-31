@@ -99,6 +99,7 @@ pub trait FunctionCallParameters<CTX> {
 
     fn resolve_native_parameters(
         &self,
+        code_gen_context: &CTX,
         body: &str,
         ident: usize,
         return_value: bool,

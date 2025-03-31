@@ -587,10 +587,11 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         let string = call_parameters.before();
         before.push_str(&string);
 
-        if inline && self.replace_inline_call_includng_source() {
+        if inline && self.replace_inline_call_including_source() {
             if let Some(ASTTypedFunctionBody::NativeBody(body)) = &body {
                 current.push_str(
                     &call_parameters.resolve_native_parameters(
+                        code_gen_context,
                         body,
                         indent,
                         is_last
@@ -1237,6 +1238,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 *id += 1;
 
                 let new_body = function_call_parameters.resolve_native_parameters(
+                    &code_gen_context,
                     body,
                     indent,
                     function_def.return_type == ASTTypedType::Unit,
@@ -2032,7 +2034,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn create_function_definition(&self, function_def: &ASTTypedFunctionDef) -> bool;
 
-    fn replace_inline_call_includng_source(&self) -> bool;
+    fn replace_inline_call_including_source(&self) -> bool;
 }
 
 pub fn get_reference_type_name(

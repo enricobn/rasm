@@ -1201,7 +1201,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         true
     }
 
-    fn replace_inline_call_includng_source(&self) -> bool {
+    fn replace_inline_call_including_source(&self) -> bool {
         false
     }
 

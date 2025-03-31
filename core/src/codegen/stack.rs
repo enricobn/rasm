@@ -171,6 +171,20 @@ impl StackVals {
             .sum()
     }
 
+    // TODO remove
+    pub fn len_of_temp_registers(&self) -> usize {
+        self.reserved_slots
+            .borrow()
+            .iter()
+            .map(|it| match it.entry_type {
+                StackEntryType::TmpRegister(_) => 1,
+                StackEntryType::LocalFakeAllocation(size) => 0,
+                StackEntryType::LocalVal => 0,
+                StackEntryType::ReturnRegister => 0,
+            })
+            .sum()
+    }
+
     pub fn remove_all(&self) {
         self.reserved_slots.borrow_mut().clear();
     }

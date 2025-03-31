@@ -1715,7 +1715,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         !function_def.inline
     }
 
-    fn replace_inline_call_includng_source(&self) -> bool {
+    fn replace_inline_call_including_source(&self) -> bool {
         true
     }
 
