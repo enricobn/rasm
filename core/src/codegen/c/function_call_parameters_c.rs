@@ -415,21 +415,19 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                 "->"
             };
 
-            for (i, (name, _kind)) in lambda_space.iter().enumerate() {
-                let value = if let Some(_idx) =
-                    parent_lambda_space.and_then(|it| it.get_index(name))
-                {
-                    let pls = parent_lambda_space.unwrap();
-                    let t = pls.get_type(name).unwrap();
+            for (name, _kind) in lambda_space.iter() {
+                let value =
+                    if let Some(_idx) = parent_lambda_space.and_then(|it| it.get_index(name)) {
+                        let pls = parent_lambda_space.unwrap();
 
-                    let parent_ls_type_name = CStructs::add_lambda_space_to_statics(statics, pls);
+                        CStructs::add_lambda_space_to_statics(statics, pls);
 
-                    format!(" lambda_space->{name}")
+                        format!(" lambda_space->{name}")
 
-                    //Self::get_value_from_lambda_space(statics, module, idx - 1, t, false, name)
-                } else {
-                    name.to_string()
-                };
+                        //Self::get_value_from_lambda_space(statics, module, idx - 1, t, false, name)
+                    } else {
+                        name.to_string()
+                    };
 
                 self.code_manipulator.add(
                     &mut self.before,
