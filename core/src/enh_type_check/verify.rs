@@ -269,7 +269,7 @@ fn verify_expression(
                     for (i, ((param_name, param_index), param_type)) in
                         zip(def.parameter_names.iter(), parameters.iter()).enumerate()
                     {
-                        lambda_context.insert(
+                        if lambda_context.insert(
                             param_name.clone(),
                             TypedValKind::ParameterRef(
                                 i,
@@ -279,7 +279,10 @@ fn verify_expression(
                                     ast_index: param_index.clone(),
                                 },
                             ),
-                        )
+                        ).is_some() {
+                            return Err(verify_error(param_index.clone(), 
+                                format!("A binding or a parameter already exists with name '{param_name}'")))
+                        }
                     }
 
                     verify_statements(

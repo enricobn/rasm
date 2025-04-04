@@ -147,8 +147,7 @@ impl TypedValContext {
         index: usize,
         par: ASTTypedParameterDef,
     ) -> Option<TypedValKind> {
-        self.value_to_address
-            .insert(key, TypedValKind::ParameterRef(index, par))
+        self.insert(key, TypedValKind::ParameterRef(index, par))
     }
 
     pub fn insert_let(
@@ -157,7 +156,7 @@ impl TypedValContext {
         ast_typed_type: ASTTypedType,
         index_relative_to_bp: Option<usize>,
     ) -> Option<TypedValKind> {
-        let result = self.value_to_address.insert(
+        let result = self.insert(
             key,
             TypedValKind::LetRef(
                 index_relative_to_bp.unwrap_or(self.let_index + 1),
@@ -168,8 +167,8 @@ impl TypedValContext {
         result
     }
 
-    pub fn insert(&mut self, key: String, kind: TypedValKind) {
-        self.value_to_address.insert(key, kind);
+    pub fn insert(&mut self, key: String, kind: TypedValKind) -> Option<TypedValKind> {
+        self.value_to_address.insert(key, kind)
     }
 
     pub fn get(&self, key: &str) -> Option<&TypedValKind> {
