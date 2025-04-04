@@ -39,6 +39,8 @@ pub trait FunctionCallParametersAsm: FunctionCallParameters<CodeGenAsmContext> {
     /// the size of the already reserved space in the stack, for the current function code generation.
     /// It is a sum of all the parent's to_remove_from_stack_name
     fn parent_added_to_stack(&self) -> &String;
+
+    fn get_diff_for_stack_base_pointer(&self) -> i32;
 }
 
 pub struct FunctionCallParametersAsmImpl<'a> {
@@ -272,7 +274,9 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
 
                 if !already_in_parent {
                     let relative_address = match kind {
-                        TypedValKind::ParameterRef(index, _) => (index + 2) as i32,
+                        TypedValKind::ParameterRef(index, _) => {
+                            (*index as i32 + self.get_diff_for_stack_base_pointer()) as i32
+                        }
                         TypedValKind::LetRef(_, _) => {
                             -(self.stack_vals.find_local_val_relative_to_bp(name).unwrap() as i32)
                         }
@@ -445,7 +449,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         } else {
             self.add_val_from_parameter(
                 original_param_name,
-                index_in_context as i32 + 2,
+                index_in_context as i32,
                 indent,
                 &code_gen_context.stack_vals,
             );
@@ -584,9 +588,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
                     par.name,
                     par_value
                 );
-                if self.inline {
-                    println!("found parameter {}, value: {}", par.name, par_value);
-                }
+
                 substitutions.push((par.name.clone(), par_value.clone()));
                 continue;
             }
@@ -598,42 +600,29 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
                 self.parameters_values
             );
 
-            let to_remove_from_stack = self.parent_added_to_stack();
-
-            let address = if self.inline {
+            let relative_address = if self.inline {
                 debug!(
-                    "{} i {}, self.to_remove_from_stack {}, to_remove_from_stack {}",
+                    "{} i {}, self.to_remove_from_stack {}, parent_added_to_stack {}",
                     " ".repeat(ident * 4),
                     i,
                     self.to_remove_from_stack(),
-                    to_remove_from_stack
+                    self.parent_added_to_stack()
                 );
-                //let relative_address = format!("{}", (i + 1 + lambda_adj) * wl as i32);
-                let relative_address = format!(
+
+                format!(
                     "{}-({})-{}",
                     (i - self.to_remove_from_stack() as i32 + lambda_adj) * wl,
-                    to_remove_from_stack,
-                    STACK_VAL_SIZE_NAME
-                );
-
-                /*
-                format!(
-                    "[{} + {}] inline_par {} tmp-regs {}",
-                    self.backend.stack_pointer(),
-                    relative_address,
-                    par.name,
-                    code_gen_context.stack_vals.len_of_temp_registers()
+                    self.parent_added_to_stack(),
+                    STACK_VAL_SIZE_NAME,
                 )
-                */
-
-                format!("[{bp} + {relative_address}]")
             } else {
-                let relative_address = format!("{}", (i + 2 + lambda_adj) * wl as i32);
-
-                format!("[{bp}+{relative_address}]")
+                format!(
+                    "{}",
+                    (i + self.get_diff_for_stack_base_pointer() + lambda_adj) * wl as i32
+                )
             };
 
-            substitutions.push((par.name.clone(), address));
+            substitutions.push((par.name.clone(), format!("[{bp}+{relative_address}]")));
             i += 1;
         }
 
@@ -642,35 +631,6 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         for (par_name, value) in substitutions {
             result = result.replace(&format!("${}", par_name), &value);
         }
-
-        // TODO it seems that someteimes body (the result) is empty, in this case there's no need
-        // for adding stack handling, but we must understand why it is empty and i != 0
-        /*
-        if self.inline && i != 0 {
-            let mut tmp = String::new();
-            self.code_gen
-                .add_comment(&mut tmp, "adding stack handling for inline", true);
-
-            self.code_gen.add_rows(
-                &mut tmp,
-                vec![&format!("push   {bp}"), &format!("mov     {bp},{sp}")],
-                None,
-                true,
-            );
-
-            tmp.push_str(&result);
-            tmp.push('\n');
-
-            self.code_gen.add_rows(
-                &mut tmp,
-                vec![&format!("mov     {sp},{bp}"), &format!("pop    {bp}")],
-                None,
-                true,
-            );
-
-            result = tmp;
-        }
-        */
 
         result
     }
@@ -819,8 +779,19 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
         dereference: bool,
         id: usize,
         code_gen: &'a CodeGenAsm,
-        parent_added_to_stack: String,
+        parent_fcp: Option<&Box<dyn FunctionCallParametersAsm + 'a>>,
     ) -> Self {
+        let parent_added_to_stack = match parent_fcp {
+            Some(p) => {
+                format!(
+                    "{} + {}",
+                    p.parent_added_to_stack(),
+                    p.to_remove_from_stack_name()
+                )
+            }
+            None => "0".to_owned(),
+        };
+
         Self {
             parameters_added: 0,
             before: String::new(),
@@ -911,10 +882,14 @@ impl<'a> FunctionCallParametersAsmImpl<'a> {
 
         let word_len = self.backend.word_len();
 
+        if index_relative_to_bp >= 0 {
+            index_relative_to_bp += self.get_diff_for_stack_base_pointer();
+        }
+
         let source = &format!(
             "{}+{}",
             self.backend.stack_base_pointer(),
-            index_relative_to_bp * word_len as i32
+            (index_relative_to_bp) * word_len as i32
         );
 
         let src: String = format!("[{source}]");
@@ -1076,5 +1051,9 @@ impl<'a> FunctionCallParametersAsm for FunctionCallParametersAsmImpl<'a> {
 
     fn parent_added_to_stack(&self) -> &String {
         &self.parent_added_to_stack
+    }
+
+    fn get_diff_for_stack_base_pointer(&self) -> i32 {
+        2
     }
 }

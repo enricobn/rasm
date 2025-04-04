@@ -805,7 +805,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         let rr = self.return_register();
 
         let index = match kind {
-            TypedValKind::ParameterRef(index, _) => *index as i32 + 2,
+            TypedValKind::ParameterRef(index, _) => {
+                *index as i32 + call_parameters.get_diff_for_stack_base_pointer()
+            }
             TypedValKind::LetRef(_, _) => {
                 let relative_to_bp_found = code_gen_context
                     .stack_vals
@@ -924,15 +926,6 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         immediate: bool,
         id: usize,
     ) -> Box<dyn FunctionCallParametersAsm + 'a> {
-        let parent_added_to_stack = match parent_fcp {
-            Some(p) => format!(
-                "{} + {}",
-                p.parent_added_to_stack(),
-                p.to_remove_from_stack_name()
-            ),
-            None => "0".to_owned(),
-        };
-
         let fcp = FunctionCallParametersAsmImpl::new(
             &self.backend,
             parameters.clone(),
@@ -942,7 +935,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
             self.options().dereference,
             id,
             self,
-            parent_added_to_stack,
+            parent_fcp,
         );
 
         Box::new(fcp)
