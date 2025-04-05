@@ -846,7 +846,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 .into_iter()
                 .filter(|it| !it.is_empty())
                 .collect::<Vec<String>>();
-            Self::insert_on_top(&not_empty_after_lines.join("\n"), after);
+            self.insert_on_top(&not_empty_after_lines.join("\n"), after);
 
             if self.options().dereference() {
                 if let Some(type_name) = get_reference_type_name(&return_type, typed_module) {
@@ -869,7 +869,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         typed_module,
                         &return_type,
                     );
-                    Self::insert_on_top(&deref_str, after);
+                    self.insert_on_top(&deref_str, after);
                 }
             }
         }
@@ -1248,7 +1248,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             before.push_str(&bf);
                             before.push_str(&cur);
 
-                            Self::insert_on_top(&af.join("\n"), after);
+                            self.insert_on_top(&af.join("\n"), after);
 
                             lambda_calls.append(&mut lambda_calls_);
                         }
@@ -1285,7 +1285,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             before.push_str(&parameters.before());
                             before.push_str(&parameters.current());
 
-                            Self::insert_on_top(&parameters.after().join("\n"), after);
+                            self.insert_on_top(&parameters.after().join("\n"), after);
                         }
                         ASTTypedExpression::Lambda(lambda_def) => {
                             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
@@ -1347,7 +1347,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 before.push_str(&parameters.before());
                                 before.push_str(&parameters.current());
 
-                                Self::insert_on_top(&parameters.after().join("\n"), after);
+                                self.insert_on_top(&parameters.after().join("\n"), after);
                                 lambda_calls.push(LambdaCall {
                                     def,
                                     space: new_lambda_space,
@@ -1418,7 +1418,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String);
 
-    fn insert_on_top(src: &str, dest: &mut String) {
+    fn insert_on_top(&self, src: &str, dest: &mut String) {
         for line in src.lines().rev() {
             dest.insert_str(0, &(line.to_string() + "\n"));
         }

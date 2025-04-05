@@ -19,18 +19,16 @@
 use linked_hash_map::LinkedHashMap;
 use log::info;
 use rasm_utils::OptionDisplay;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::process::exit;
 use std::time::Instant;
-use walkdir::WalkDir;
 
 use rust_embed::{EmbeddedFile, RustEmbed};
 use toml::Value;
 
 use crate::codegen::asm::backend::Backend;
-use crate::codegen::c::any::CInclude;
 use crate::codegen::c::ccompiler::compile_c;
 use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator_c::CFunctionsCreator;
