@@ -22,15 +22,16 @@ use rasm_utils::OptionDisplay;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
-use std::process::{exit, Command, Stdio};
+use std::process::exit;
 use std::time::Instant;
 use walkdir::WalkDir;
 
 use rust_embed::{EmbeddedFile, RustEmbed};
 use toml::Value;
 
-use crate::codegen::asm::backend::{log_command, Backend};
+use crate::codegen::asm::backend::Backend;
 use crate::codegen::c::any::CInclude;
+use crate::codegen::c::ccompiler::compile_c;
 use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator_c::CFunctionsCreator;
 use crate::codegen::c::options::COptions;
@@ -57,15 +58,12 @@ use crate::type_check::ast_type_checker::ASTTypeChecker;
 use super::asm::backend::BackendNasmi386;
 use super::asm::code_gen_asm::CodeGenAsm;
 use super::asm::typed_functions_creator_asm::TypedFunctionsCreatorNasmi386;
+use super::c::ccompiler::CLibAssets;
 use super::c::typed_function_creator_c::TypedFunctionsCreatorC;
 
 #[derive(RustEmbed)]
 #[folder = "../core/resources/corelib/nasmi386"]
 struct Nasmi386CoreLibAssets;
-
-#[derive(RustEmbed)]
-#[folder = "../core/resources/corelib/c"]
-struct CLibAssets;
 
 #[derive(Clone)]
 pub enum CompileTarget {
@@ -136,15 +134,28 @@ impl CompileTarget {
         statics: Statics,
         typed_module: &ASTTypedModule,
         cmd_line_options: &CommandLineOptions,
+        out_folder: &Path,
     ) -> Vec<(String, String)> {
         match self {
-            CompileTarget::Nasmi386(options) => CodeGenAsm::new(
-                options.clone(),
-                cmd_line_options.debug,
-            )
-            .generate(project, &self, typed_module, statics, cmd_line_options),
+            CompileTarget::Nasmi386(options) => {
+                CodeGenAsm::new(options.clone(), cmd_line_options.debug).generate(
+                    project,
+                    &self,
+                    typed_module,
+                    statics,
+                    cmd_line_options,
+                    out_folder,
+                )
+            }
             CompileTarget::C(options) => CodeGenC::new(options.clone(), cmd_line_options.debug)
-                .generate(project, &self, typed_module, statics, cmd_line_options),
+                .generate(
+                    project,
+                    &self,
+                    typed_module,
+                    statics,
+                    cmd_line_options,
+                    out_folder,
+                ),
         }
     }
 
@@ -374,10 +385,13 @@ impl CompileTarget {
 
         let start = Instant::now();
 
-        let mut additional_files =
-            self.generate_pre_compile_artifacts(&project, &out_folder, &mut statics);
-
-        let native_codes = self.generate(&project, statics, &typed_module, &command_line_options);
+        let native_codes = self.generate(
+            &project,
+            statics,
+            &typed_module,
+            &command_line_options,
+            &out_folder,
+        );
 
         let mut out_paths = Vec::new();
 
@@ -393,12 +407,10 @@ impl CompileTarget {
 
         info!("code generation ended in {:?}", start.elapsed());
 
-        let executable = out_folder.join(project.config.package.name);
-
         match self {
             CompileTarget::Nasmi386(options) => match command_line_options.action {
                 CommandLineAction::Build | CommandLineAction::Test => {
-                    if native_codes.len() != 1 {
+                    if out_paths.len() != 1 {
                         panic!("Only one native file to compile is supported!");
                     }
 
@@ -418,53 +430,19 @@ impl CompileTarget {
             },
             CompileTarget::C(options) => {
                 let start = Instant::now();
-                let mut command = Command::new("gcc");
 
-                if native_codes.len() != 1 {
-                    panic!("Only one native file to compile is supported!");
-                }
+                let result = compile_c(
+                    &command_line_options,
+                    options,
+                    &project,
+                    &out_folder,
+                    out_paths,
+                );
 
-                let out_path = out_paths.remove(0);
-
-                let mut args = vec![out_path.to_string_lossy().to_string()];
-                args.append(&mut additional_files);
-                args.append(&mut vec![
-                    "-std=c17".to_string(),
-                    "-o".to_string(),
-                    executable.to_string_lossy().to_string(),
-                    "-Wno-incompatible-pointer-types".to_string(), // TODO it happens where using $typeName(T) for a reference type, I think it should be struct RasmPointer_ *
-                    "-Wno-int-conversion".to_string(),
-                ]);
-                if command_line_options.release {
-                    args.push("-O3".to_string());
-                } else {
-                    args.push("-g".to_string());
-                    args.push("-O0".to_string());
-                }
-
-                if !options.includes.is_empty() {
-                    for inc in options.includes.iter() {
-                        args.push(format!("-I{inc}"));
-                    }
-                }
-
-                if !options.requires.is_empty() {
-                    for req in options.requires.iter() {
-                        args.push(format!("-l{req}"));
-                    }
-                }
-
-                command.args(args);
-
-                log_command(&command);
-                let result = command
-                    .stderr(Stdio::inherit())
-                    .output()
-                    .expect("failed to execute gcc");
                 info!("compiler ended in {:?}", start.elapsed());
 
                 if !result.status.success() {
-                    panic!("Error running gcc")
+                    panic!("Error running native compiler")
                 }
             }
         }
@@ -608,72 +586,6 @@ impl CompileTarget {
 
         default_functions.sort_by(|a, b| a.name.cmp(&b.name));
         default_functions
-    }
-
-    fn generate_pre_compile_artifacts(
-        &self,
-        project: &RasmProject,
-        out_folder: &Path,
-        statics: &mut Statics,
-    ) -> Vec<String> {
-        match self {
-            CompileTarget::Nasmi386(asm_options) => Vec::new(),
-            CompileTarget::C(coptions) => {
-                let mut source_files_to_include = Vec::new();
-
-                project
-                    .get_all_dependencies()
-                    .iter()
-                    .for_each(|dependency| {
-                        if let Some(native_source_folder) =
-                            dependency.main_native_source_folder(self.folder())
-                        {
-                            if native_source_folder.exists() {
-                                WalkDir::new(native_source_folder)
-                                    .into_iter()
-                                    .filter_map(Result::ok)
-                                    .filter(|it| it.file_name().to_string_lossy().ends_with(".h"))
-                                    .for_each(|it| {
-                                        CInclude::add_to_statics(
-                                            statics,
-                                            format!(
-                                                "\"{}\"",
-                                                it.clone().file_name().to_string_lossy()
-                                            ),
-                                        );
-
-                                        let dest = out_folder.to_path_buf().join(Path::new(
-                                            it.file_name().to_string_lossy().as_ref(),
-                                        ));
-
-                                        info!("including file {}", it.path().to_string_lossy());
-
-                                        fs::copy(it.clone().into_path(), dest).unwrap();
-                                    });
-                            }
-                        }
-                    });
-
-                CLibAssets::iter()
-                    .filter(|it| it.ends_with(".c") || it.ends_with(".h"))
-                    .for_each(|it| {
-                        let dest = out_folder.to_path_buf().join(it.to_string());
-                        info!("Including {}", dest.to_string_lossy());
-                        if it.ends_with(".h") {
-                            CInclude::add_to_statics(statics, format!("\"{it}\""));
-                        } else {
-                            source_files_to_include.push(dest.to_string_lossy().to_string());
-                        }
-                        if let Some(asset) = CLibAssets::get(&it) {
-                            fs::write(dest, asset.data).unwrap();
-                        } else {
-                            panic!()
-                        }
-                    });
-
-                source_files_to_include
-            }
-        }
     }
 }
 

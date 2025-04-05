@@ -16,6 +16,9 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::fs;
+use std::path::Path;
+
 use crate::codegen::c::any::{CConsts, CFunctionsDeclarations, CInclude, CLambdas, CStructs};
 use crate::codegen::c::function_call_parameters_c::CFunctionCallParameters;
 use crate::codegen::c::options::COptions;
@@ -36,10 +39,14 @@ use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
 };
+use crate::project::RasmProject;
 use crate::transformations::typed_functions_creator::struct_has_references;
 use linked_hash_map::LinkedHashMap;
+use log::info;
 use rasm_parser::parser::ast::ASTValueType;
+use walkdir::WalkDir;
 
+use super::ccompiler::CLibAssets;
 use super::text_macro_c::{CAddRefMacro, CCastAddress, CEnumSimpleMacro, CTypeNameMacro};
 use super::typed_function_creator_c::TypedFunctionsCreatorC;
 
@@ -918,11 +925,15 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn generate_statics_code(
         &self,
+        project: &RasmProject,
         statics: &Statics,
         typed_module: &ASTTypedModule,
+        out_folder: &Path,
     ) -> (String, String) {
         let mut before = String::new();
         let after = String::new();
+
+        let mut statics = statics;
 
         if let Some(includes) = statics.any::<CInclude>() {
             for inc in includes.unique() {
@@ -1178,13 +1189,47 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         self.add(out, "}", None, false);
     }
 
-    fn add_statics(&self, statics: &mut Statics) {
-        /*
-        let mut map = LinkedHashMap::new();
-        map.insert("address".to_string(), "void *".to_string());
-        map.insert("count".to_string(), "int".to_string());
-        CStructs::add_struct_to_statics(statics, "RasmPointer".to_string(), map)
-        */
+    fn add_statics(&self, project: &RasmProject, statics: &mut Statics, out_folder: &Path) {
+        project
+            .get_all_dependencies()
+            .iter()
+            .for_each(|dependency| {
+                if let Some(native_source_folder) = dependency.main_native_source_folder("c") {
+                    if native_source_folder.exists() {
+                        WalkDir::new(native_source_folder)
+                            .into_iter()
+                            .filter_map(Result::ok)
+                            .filter(|it| it.file_name().to_string_lossy().ends_with(".h"))
+                            .for_each(|it| {
+                                CInclude::add_to_statics(
+                                    statics,
+                                    format!("\"{}\"", it.clone().file_name().to_string_lossy()),
+                                );
+
+                                let dest = out_folder
+                                    .to_path_buf()
+                                    .join(Path::new(it.file_name().to_string_lossy().as_ref()));
+
+                                info!("including file {}", it.path().to_string_lossy());
+
+                                fs::copy(it.clone().into_path(), dest).unwrap();
+                            });
+                    }
+                }
+            });
+
+        CLibAssets::iter()
+            .filter(|it| it.ends_with(".h"))
+            .for_each(|it| {
+                let dest = out_folder.to_path_buf().join(it.to_string());
+                info!("Including {}", dest.to_string_lossy());
+                CInclude::add_to_statics(statics, format!("\"{it}\""));
+                if let Some(asset) = CLibAssets::get(&it) {
+                    fs::write(dest, asset.data).unwrap();
+                } else {
+                    panic!()
+                }
+            });
     }
 
     fn value_to_string(&self, value_type: &ASTValueType) -> String {

@@ -1,4 +1,7 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+    path::Path,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use linked_hash_map::LinkedHashMap;
 use pad::PadStr;
@@ -22,6 +25,7 @@ use crate::{
         ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
         ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind,
     },
+    project::RasmProject,
     transformations::typed_functions_creator::{
         enum_has_references, struct_has_references, type_has_references,
     },
@@ -1467,8 +1471,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
     fn generate_statics_code(
         &self,
+        project: &RasmProject,
         statics: &Statics,
         typed_module: &ASTTypedModule,
+        out_folder: &Path,
     ) -> (String, String) {
         let mut data = String::new();
         let mut bss = String::new();
@@ -1604,7 +1610,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         }
     }
 
-    fn add_statics(&self, statics: &mut Statics) {
+    fn add_statics(&self, _project: &RasmProject, statics: &mut Statics, _out_folder: &Path) {
         // +1 because we clean up the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
         statics.insert(
             "_heap_table".into(),

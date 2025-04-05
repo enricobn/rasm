@@ -1,6 +1,7 @@
 use std::env;
 use std::iter::zip;
 use std::ops::Deref;
+use std::path::Path;
 
 use asm::code_gen_asm::AsmOptions;
 use enh_ast::EnhModuleId;
@@ -145,6 +146,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         typed_module: &ASTTypedModule,
         statics: Statics,
         command_line_options: &CommandLineOptions,
+        out_folder: &Path,
     ) -> Vec<(String, String)> {
         let mut statics = statics;
         let mut id: usize = 0;
@@ -195,9 +197,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         self.preamble(&mut generated_code);
 
-        self.add_statics(&mut statics);
+        self.add_statics(project, &mut statics, out_folder);
 
-        let (static_declarations, static_code) = self.generate_statics_code(&statics, typed_module);
+        let (static_declarations, static_code) =
+            self.generate_statics_code(project, &statics, typed_module, out_folder);
 
         generated_code.push_str(&static_declarations);
 
@@ -1943,8 +1946,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn generate_statics_code(
         &self,
+        project: &RasmProject,
         statics: &Statics,
         typed_module: &ASTTypedModule,
+        out_folder: &Path,
     ) -> (String, String);
 
     fn function_preamble(&self, out: &mut String);
@@ -1959,7 +1964,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         function_def: Option<&ASTTypedFunctionDef>,
     );
 
-    fn add_statics(&self, statics: &mut Statics);
+    fn add_statics(&self, project: &RasmProject, statics: &mut Statics, out_folder: &Path);
 
     fn value_to_string(&self, value_type: &ASTValueType) -> String;
 
@@ -2049,6 +2054,8 @@ mod tests {
 
     use std::path::PathBuf;
 
+    use tempdir::TempDir;
+
     use crate::codegen::asm::code_gen_asm::CodeGenAsm;
     use crate::codegen::enh_val_context::EnhValContext;
     use crate::codegen::statics::Statics;
@@ -2131,12 +2138,15 @@ mod tests {
 
         let (typed_module, statics) = project_to_ast_typed_module(&project, &target).unwrap();
 
+        let dir = TempDir::new("rasm_int_test").unwrap();
+
         let result = sut.generate(
             &project,
             &target,
             &typed_module,
             statics,
             &CommandLineOptions::default(),
+            dir.path(),
         );
 
         assert_eq!(1, result.len());

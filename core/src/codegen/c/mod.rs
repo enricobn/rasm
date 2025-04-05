@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 pub mod any;
+pub mod ccompiler;
 pub mod code_gen_c;
 pub mod function_call_parameters_c;
 pub mod functions_creator_c;
