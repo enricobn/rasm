@@ -12,7 +12,7 @@ pub struct HighScore {
     time: TimeVal
 }
 
-struct State {
+struct Model {
     resources: Resources,
     keys: Vec<i32>,
     stage: Stage,
@@ -46,7 +46,7 @@ let font = sdlOpenFont(resource("DejaVuSerif.ttf"), 24);
 
 let highScores = loadHighScores();
 
-let initialState = State(Resources(font), Vec(), Menu(MenuState(highScores)), highScores);
+let initialState = Model(Resources(font), Vec(), Menu(MenuState(highScores)), highScores);
 
 let win = sdlErrorIfNull(sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
@@ -60,7 +60,7 @@ sdlDestroyRenderer(ren);
 sdlDestroyWindow(win);
 
 // TODO keys are not as expected space is 44 but should be 32!
-fn update(event: Option<KeyEvent>, state: State) -> State {
+fn update(event: Option<KeyEvent>, state: Model) -> Model {
     let resources = state.resources;
     let keys = state.keys;
     let stage = state.stage;
@@ -79,15 +79,15 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
 
     match(stage, fn(menuState) {
         let newStage = update(resources, newKeys, menuState);
-        State(resources, newKeys, newStage, highScores);
+        Model(resources, newKeys, newStage, highScores);
     }, fn(gameState) {
         let gameResult = update(resources, newKeys, gameState);
         gameResult.match(fn(newGameState) {
-            State(resources, newKeys, Game(newGameState), highScores);
+            Model(resources, newKeys, Game(newGameState), highScores);
         }, fn(score) {
             let newHighScores = highScores.add(score);
             writeHighScores(newHighScores);
-            State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
+            Model(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         });
 
     });
@@ -97,7 +97,7 @@ fn add(highScores: Vec<HighScore>, score: i32) -> Vec<HighScore> {
     highScores.push(HighScore(score, now()));
 }
 
-fn render(ren: SDLRenderer, state: State) {
+fn render(ren: SDLRenderer, state: Model) {
     sdlSetRenderDrawColor(ren, BLACK);
     sdlRenderClear(ren);
 
