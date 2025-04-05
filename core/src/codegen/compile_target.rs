@@ -379,8 +379,6 @@ impl CompileTarget {
 
         let native_codes = self.generate(&project, statics, &typed_module, &command_line_options);
 
-        info!("code generation ended in {:?}", start.elapsed());
-
         let mut out_paths = Vec::new();
 
         for (native_file, native_code) in native_codes.iter() {

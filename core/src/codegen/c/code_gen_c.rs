@@ -231,7 +231,7 @@ impl CodeGenC {
             if "_fn" == type_name {
                 self.add(out, &source, None, true);
             // TODO handle str, for now it's not possible since there's no difference,
-            //   between heap ans static allocated strings
+            //   between heap and static allocated strings
             } else if "str" != type_name && !is_static {
                 self.call_add_ref_simple(out, source, descr_for_debug);
             }

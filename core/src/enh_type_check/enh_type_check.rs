@@ -307,13 +307,11 @@ impl<'a> EnhTypeCheck<'a> {
                 );
 
                 if function_references.len() == 1 {
-                    /*
-                    if name == "println" {
-                        println!("println");
-                    }
-                    */
-                    // TODO optimize there's no need to clone the function if it exists in new_functions
-                    let mut new_function_def = function_references.remove(0).clone();
+                    let new_function_def = function_references.remove(0);
+                    let mut function_parameters = new_function_def.parameters.clone();
+                    let mut function_return_type = new_function_def.return_type.clone();
+                    let mut function_generics = new_function_def.generic_types.clone();
+
                     if let Some(et) = expected_type {
                         if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                             parameters,
@@ -321,7 +319,7 @@ impl<'a> EnhTypeCheck<'a> {
                         }) = et
                         {
                             let mut unresolved_generic_types = false;
-                            let new_parameters = zip(new_function_def.parameters, parameters)
+                            let new_parameters = zip(&new_function_def.parameters, parameters)
                                 .map(|(p, t)| {
                                     if p.ast_type.is_generic() && !t.is_generic() {
                                         let mut new_p = p.clone();
@@ -331,16 +329,16 @@ impl<'a> EnhTypeCheck<'a> {
                                         if p.ast_type.is_generic() {
                                             unresolved_generic_types = true;
                                         }
-                                        p
+                                        p.clone()
                                     }
                                 })
                                 .collect::<Vec<_>>();
-                            new_function_def.parameters = new_parameters;
+                            function_parameters = new_parameters;
 
                             if new_function_def.return_type.is_generic()
                                 && !return_type.is_generic()
                             {
-                                new_function_def.return_type = return_type.as_ref().clone();
+                                function_return_type = return_type.as_ref().clone();
                             } else if new_function_def.return_type.is_generic() {
                                 unresolved_generic_types = true;
                             }
@@ -352,7 +350,7 @@ impl<'a> EnhTypeCheck<'a> {
                                     EnhTypeCheckErrorKind::Important,
                                 ));
                             }
-                            new_function_def.generic_types = Vec::new(); // TODO check if there are remaining generic types
+                            function_generics = Vec::new(); // TODO check if there are remaining generic types
                         } else {
                             return Err(EnhTypeCheckError::new_with_kind(
                                 index.clone(),
@@ -363,15 +361,25 @@ impl<'a> EnhTypeCheck<'a> {
                         }
                     }
 
-                    let new_function_name = Self::unique_function_name(&new_function_def, module);
-
-                    new_function_def.name = new_function_name.clone();
+                    let new_function_name = Self::unique_function_name(
+                        &new_function_def.namespace,
+                        &new_function_def.original_name,
+                        &function_parameters,
+                        &function_return_type,
+                        module,
+                    );
 
                     if !new_functions
                         .iter()
                         .any(|it| it.0.name == new_function_name)
                         && !self.new_functions.contains_key(&new_function_name)
                     {
+                        let mut new_function_def = new_function_def.clone();
+                        new_function_def.name = new_function_name.clone();
+                        new_function_def.parameters = function_parameters;
+                        new_function_def.return_type = function_return_type;
+                        new_function_def.generic_types = function_generics;
+
                         new_functions.push((new_function_def, self.stack.clone()));
                     }
 
@@ -533,7 +541,13 @@ impl<'a> EnhTypeCheck<'a> {
             new_function_def.generic_types = Vec::new();
         }
 
-        let new_function_name = Self::unique_function_name(&new_function_def, module);
+        let new_function_name = Self::unique_function_name(
+            &new_function_def.namespace,
+            &new_function_def.original_name,
+            &new_function_def.parameters,
+            &new_function_def.return_type,
+            module,
+        );
 
         new_function_def.name = new_function_name.clone();
 
@@ -572,21 +586,23 @@ impl<'a> EnhTypeCheck<'a> {
     }
 
     fn unique_function_name(
-        new_function_def: &EnhASTFunctionDef,
+        namespace: &EnhASTNameSpace,
+        original_name: &str,
+        parameters: &Vec<EnhASTParameterDef>,
+        return_type: &EnhASTType,
         module: &EnhancedASTModule,
     ) -> String {
-        let namespace = new_function_def.namespace.safe_name();
-        let name = new_function_def.original_name.replace("::", "_");
+        let namespace = namespace.safe_name();
+        let name = original_name.replace("::", "_");
 
         format!(
             "{namespace}_{name}_{}_{}",
-            new_function_def
-                .parameters
+            parameters
                 .iter()
                 .map(|it| Self::unique_type_name(&it.ast_type, module))
                 .collect::<Vec<_>>()
                 .join("_"),
-            Self::unique_type_name(&new_function_def.return_type, module)
+            Self::unique_type_name(return_type, module)
         )
     }
 

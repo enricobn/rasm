@@ -1290,16 +1290,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 return_type,
                             }) = &fun_return_type
                             {
-                                /*
-                                let rt = if return_type.deref() != &ASTTypedType::Unit {
-                                    return_type.deref().clone()
-                                } else {
-                                    // TODO this error must be returned
-                                    panic!(
-                                        "Expected a return type from lambda but got None : {}", lambda_def.index
-                                    );
-                                };
-                                */
                                 let rt = return_type.deref().clone();
 
                                 let lambda_parameters =
