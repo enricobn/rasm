@@ -46,7 +46,7 @@ use log::info;
 use rasm_parser::parser::ast::ASTValueType;
 use walkdir::WalkDir;
 
-use super::ccompiler::CLibAssets;
+use super::c_compiler::CLibAssets;
 use super::text_macro_c::{CAddRefMacro, CCastAddress, CEnumSimpleMacro, CTypeNameMacro};
 use super::typed_function_creator_c::TypedFunctionsCreatorC;
 

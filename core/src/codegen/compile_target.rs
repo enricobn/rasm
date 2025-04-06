@@ -29,7 +29,7 @@ use rust_embed::{EmbeddedFile, RustEmbed};
 use toml::Value;
 
 use crate::codegen::asm::backend::Backend;
-use crate::codegen::c::ccompiler::compile_c;
+use crate::codegen::c::c_compiler::compile_c;
 use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator_c::CFunctionsCreator;
 use crate::codegen::c::options::COptions;
@@ -56,7 +56,7 @@ use crate::type_check::ast_type_checker::ASTTypeChecker;
 use super::asm::backend::BackendNasmi386;
 use super::asm::code_gen_asm::CodeGenAsm;
 use super::asm::typed_functions_creator_asm::TypedFunctionsCreatorNasmi386;
-use super::c::ccompiler::CLibAssets;
+use super::c::c_compiler::CLibAssets;
 use super::c::typed_function_creator_c::TypedFunctionsCreatorC;
 
 #[derive(RustEmbed)]

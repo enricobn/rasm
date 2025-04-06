@@ -34,3 +34,4 @@ walkdir.workspace = true
 
 # others
 anymap = "0.12.1"
+num_cpus = "1.0"

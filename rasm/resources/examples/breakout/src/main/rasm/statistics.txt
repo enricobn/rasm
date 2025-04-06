@@ -213,3 +213,7 @@ breakout.c size 676433
 
 C target: optimized addref /deref for enum when variant without reference types
 breakout.c size 675996
+
+C target: switched to GNU make for build
+compiler ended in 684.852128ms
+finished in 825.633899ms

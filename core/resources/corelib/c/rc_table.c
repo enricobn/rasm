@@ -175,6 +175,7 @@ void *rc_print_list(struct RCTable *table) {
 
     actual = actual->next;
   }
+  return NULL;
 }
 
 static void print_one_list(struct RCList *actual) {
