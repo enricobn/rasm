@@ -46,7 +46,9 @@ use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::transformations::enrich_module;
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast::ASTExpression::{self, ASTFunctionCallExpression};
-use rasm_parser::parser::ast::{ASTModule, ASTPosition, ASTStatement, ASTType, ASTValueType};
+use rasm_parser::parser::ast::{
+    ASTModifiers, ASTModule, ASTPosition, ASTStatement, ASTType, ASTValueType,
+};
 use rasm_parser::parser::Parser;
 
 #[derive(Debug, Clone)]
@@ -478,8 +480,8 @@ impl RasmProject {
                     .body
                     .iter()
                     .filter(|st| {
-                        if let ASTStatement::LetStatement(_, _, is_const, _) = st {
-                            *is_const
+                        if let ASTStatement::ConstStatement(_, _, _, _) = st {
+                            true
                         } else {
                             false
                         }
@@ -725,7 +727,7 @@ impl RasmProject {
         // const statements are allowed
         let first_body_statement = entry_module.body.iter().find(|it| match it {
             ASTStatement::Expression(ASTFunctionCallExpression(_)) => true,
-            ASTStatement::LetStatement(_, _, is_const, _) => !is_const,
+            ASTStatement::LetStatement(_, _, _) => true,
             _ => false,
         });
 
@@ -951,11 +953,11 @@ impl RasmProject {
         } else {
             String::new()
         };
-        let stmt = ASTStatement::LetStatement(
+        let stmt = ASTStatement::ConstStatement(
             name.to_owned(),
             ASTExpression::Value(ASTValueType::String(path), ASTPosition::none()),
-            true,
             ASTPosition::none(),
+            ASTModifiers::public(),
         );
         statements.push(stmt);
     }

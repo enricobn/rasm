@@ -85,7 +85,8 @@ pub enum ASTTypeCheckInfo {
     Call(String, Vec<(ASTFunctionSignature, ASTIndex)>),
     LambdaCall(ASTFunctionSignature, ASTIndex),
     Ref(String, ASTIndex),
-    Let(String, bool),
+    Let(String),
+    Const(String),
     Param(String),
     Value(usize), // the length of the token of the Value, for example gfor a string "s" it's 3
     Lambda,
@@ -110,7 +111,8 @@ impl Display for ASTTypeCheckInfo {
             }
             ASTTypeCheckInfo::Ref(_, _) => f.write_str("ref"),
             ASTTypeCheckInfo::Value(_) => f.write_str("value"),
-            ASTTypeCheckInfo::Let(_, _) => f.write_str("let"),
+            ASTTypeCheckInfo::Let(_) => f.write_str("let"),
+            ASTTypeCheckInfo::Const(_) => f.write_str("const"),
             ASTTypeCheckInfo::Param(_) => f.write_str("param"),
             ASTTypeCheckInfo::Lambda => f.write_str("lambda"),
         }
@@ -421,7 +423,7 @@ impl ASTTypeChecker {
                         );
                     }
                 }
-                ASTStatement::LetStatement(key, e, is_const, index) => {
+                ASTStatement::LetStatement(name, e, position) => {
                     self.add_expr(
                         e,
                         inner_val_context,
@@ -436,20 +438,19 @@ impl ASTTypeChecker {
                     let e_index =
                         ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
 
-                    let index =
-                        ASTIndex::new(module_namespace.clone(), module_id.clone(), index.clone());
+                    let index = ASTIndex::new(
+                        module_namespace.clone(),
+                        module_id.clone(),
+                        position.clone(),
+                    );
                     if let Some(entry) = self.result.get(&e_index) {
                         if let Some(filter) = &entry.filter {
                             if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
-                                let insert_result = if *is_const {
-                                    statics.insert_let(key.clone(), ast_type.clone(), &index)
-                                } else {
-                                    inner_val_context.insert_let(
-                                        key.clone(),
-                                        ast_type.clone(),
-                                        &index,
-                                    )
-                                };
+                                let insert_result = inner_val_context.insert_let(
+                                    name.clone(),
+                                    ast_type.clone(),
+                                    &index,
+                                );
 
                                 if let Err(e) = insert_result {
                                     self.errors.push(ASTTypeCheckError::new(
@@ -463,7 +464,51 @@ impl ASTTypeChecker {
                                 index,
                                 ASTTypeCheckEntry::new(
                                     entry.filter.clone(),
-                                    ASTTypeCheckInfo::Let(key.clone(), *is_const),
+                                    ASTTypeCheckInfo::Let(name.clone()),
+                                ),
+                            );
+                        }
+                    }
+                }
+                ASTStatement::ConstStatement(name, e, position, astmodifiers) => {
+                    self.add_expr(
+                        e,
+                        inner_val_context,
+                        statics,
+                        None,
+                        module_namespace,
+                        module_id,
+                        modules_container,
+                        function,
+                    );
+
+                    let e_index =
+                        ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
+
+                    let index = ASTIndex::new(
+                        module_namespace.clone(),
+                        module_id.clone(),
+                        position.clone(),
+                    );
+                    if let Some(entry) = self.result.get(&e_index) {
+                        if let Some(filter) = &entry.filter {
+                            if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
+                                let insert_result =
+                                    statics.insert_let(name.clone(), ast_type.clone(), &index);
+
+                                if let Err(e) = insert_result {
+                                    self.errors.push(ASTTypeCheckError::new(
+                                        ASTTypeCheckErroKind::Error,
+                                        index.clone(),
+                                        e,
+                                    ));
+                                }
+                            }
+                            self.result.insert(
+                                index,
+                                ASTTypeCheckEntry::new(
+                                    entry.filter.clone(),
+                                    ASTTypeCheckInfo::Const(name.clone()),
                                 ),
                             );
                         }

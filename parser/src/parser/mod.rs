@@ -376,9 +376,16 @@ impl Parser {
                             self.parser_data.pop();
                             self.parser_data.pop();
 
-                            self.parser_data.push(ParserData::Statement(
-                                ASTStatement::LetStatement(name, expr.clone(), is_const, index),
-                            ));
+                            self.parser_data.push(ParserData::Statement(if is_const {
+                                ASTStatement::ConstStatement(
+                                    name,
+                                    expr.clone(),
+                                    index,
+                                    ASTModifiers::public(),
+                                )
+                            } else {
+                                ASTStatement::LetStatement(name, expr.clone(), index)
+                            }));
                             self.i += 1;
                             continue;
                         }

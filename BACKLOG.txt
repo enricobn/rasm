@@ -5,16 +5,26 @@ Doing
 Bug
 ----
 - in nasmi386 the breakout examples crashes with an "Out of heap space" error. I think it is a problem related to 
-  function refernce
+  function reference
+- consts are not reliable: if a const is defined with a function call, that uses a const that is defined after, 
+  then it will compile, but it will crash at runtime!!! Add a verify
+
+Road to language version 1.0.0 (not compiler)
+-----------------------------------------------
+- const, by default, as for all, must be private, so they can be defined in multiple modules
+- types should be declared as "native type" and should be defined with /{ }/. 
+  It will be a compiler responsibility to interpret the content, as in native functions
+- remove inline as a keyword, it should be defined in some way in native functions
 
 Major
 -----
+- divide C generated source to multiple files, to optimize make
 - stdlib: print and prinln go to stdout, the ones with file as input must be called writeln and write
 - command line tool:
   - add "new" for creating a new project
   - add "init" for creating a new project in the current folder
   - add "run" to run an executable
-- I don't like methods to handle generic prefix in AST, it should be handled outside the AST modules
+- I don't like methods to handle "generic prefix" in AST, it should be handled outside the AST modules
 - populate target for ASTFunctionDef, for regular functions (not builtin), with the name of the type of the first parameter, 
   even if generic when not completely generic (Option<T>)? Adjust code completion
 - try:
@@ -22,12 +32,6 @@ Major
   and let i64,i32,f64,f32 etc. be native types, that can be constructed with those literals, but we 
   need a way to check, at compile time, if the literal can be stored in that particular native type
 
-- inline for fn (inline fn)
-- const:
-  - by default, as for all, const must be private, so they can be defined in multiple modules
-  - rename const? 
-  - are not reliable: if a const is defined with a function call, that uses a const that is defined after, 
-    then it will compile, but it will crash at runtime!!! Add a verify
 - "Universal Polymorphism" can create an infinite recursion, for example:
   we declare a function like
     add<T>(o1: str, o2: T) -> str {
@@ -41,8 +45,6 @@ Major
     }
 
   and we don't declare a non-generic function for add(s1: str, s2: str), calling add with two strings leads to an infinite recursion!!!
-- types should be declared as "native type" and should be defined with /{ }/ : it will be a compiler responsibility to interpret the content,
-  as in native functions
 - sometimes are added structs / enum / functions that are not used. It can be verified compiling with c target the test/enum.rasm
 - rename EnhancedASTModule: it is the untyped container for all the modules in the project
 - move all asm code to backend
@@ -76,12 +78,10 @@ Major
       - cannot call getters from another namespace
 - optimize
   - can a recursive function's lambda space be reused?
-- native
-  - let specify attributes for native like native(nasmi386, linux)... parked for now it is a compiler responsibility to locate native code
-- threads
-- create and use Result in standard library
+- threads library
+- use Result in standard library
 - standardize compiler errors with source
-- tests: there should not be a particular code generation of the compiler, it could be another source root that dependes on main,
+- tests: there should not be a particular code generation of the compiler, it could be another source root that depends on main,
   and there should be a library to define a test Suite, add tests (with a lambda that can be replaced by a function reference?) 
   or suites then run them an return the result that can be rendered in various formats, by default printed to the console
 

@@ -104,7 +104,8 @@ impl StatementFinder {
                         }
                     }
                 }
-                ASTStatement::LetStatement(_, expr, _, let_position) => {
+                ASTStatement::LetStatement(_, expr, let_position)
+                | ASTStatement::ConstStatement(_, expr, let_position, _) => {
                     let real_position = Self::real_position(expr);
                     let stmt_position = let_position.mv_left(4);
                     if &real_position == position {

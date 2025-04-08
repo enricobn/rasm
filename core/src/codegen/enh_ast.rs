@@ -1194,12 +1194,21 @@ impl EnhASTStatement {
             ASTStatement::Expression(expr) => {
                 EnhASTStatement::Expression(EnhASTExpression::from_ast(id, namespace, expr))
             }
-            ASTStatement::LetStatement(name, astexpression, is_const, position) => {
+            ASTStatement::LetStatement(name, astexpression, position) => {
                 let expr = EnhASTExpression::from_ast(id, namespace, astexpression);
                 EnhASTStatement::LetStatement(
                     name.clone(),
                     expr.clone(),
-                    is_const,
+                    false,
+                    EnhASTIndex::from_position(id.path(), &position),
+                )
+            }
+            ASTStatement::ConstStatement(name, astexpression, position, astmodifiers) => {
+                let expr = EnhASTExpression::from_ast(id, namespace, astexpression);
+                EnhASTStatement::LetStatement(
+                    name.clone(),
+                    expr.clone(),
+                    true,
                     EnhASTIndex::from_position(id.path(), &position),
                 )
             }

@@ -659,7 +659,8 @@ fn statements<'a>(
             ASTStatement::Expression(expr) => {
                 expr_calls(calls, expr, module_namespace, module_id, ast_type_check)
             }
-            ASTStatement::LetStatement(_, expr, _, astposition) => {
+            ASTStatement::LetStatement(_, expr, _)
+            | ASTStatement::ConstStatement(_, expr, _, _) => {
                 expr_calls(calls, expr, module_namespace, module_id, ast_type_check)
             }
         }

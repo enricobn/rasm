@@ -751,14 +751,16 @@ impl Display for ASTExpression {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTStatement {
     Expression(ASTExpression),
-    LetStatement(String, ASTExpression, bool, ASTPosition),
+    LetStatement(String, ASTExpression, ASTPosition),
+    ConstStatement(String, ASTExpression, ASTPosition, ASTModifiers),
 }
 
 impl ASTStatement {
     pub fn position(&self) -> ASTPosition {
         match self {
             ASTStatement::Expression(expr) => expr.position(),
-            ASTStatement::LetStatement(_, _, _, position) => position.clone(),
+            ASTStatement::LetStatement(_, _, position) => position.clone(),
+            ASTStatement::ConstStatement(_, _, position, _) => position.clone(),
         }
     }
 }
@@ -767,8 +769,16 @@ impl Display for ASTStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ASTStatement::Expression(e) => f.write_str(&format!("{e};\n")),
-            ASTStatement::LetStatement(name, e, is_const, _) => {
-                let keyword = if *is_const { "const" } else { "let" };
+            ASTStatement::LetStatement(name, e, _) => {
+                let keyword = "let";
+                f.write_str(&format!("{keyword} {name} = {e};\n"))
+            }
+            ASTStatement::ConstStatement(name, e, _, modifiers) => {
+                let keyword = if modifiers.public {
+                    "pub const"
+                } else {
+                    "const"
+                };
                 f.write_str(&format!("{keyword} {name} = {e};\n"))
             }
         }

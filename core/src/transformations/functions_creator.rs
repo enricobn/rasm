@@ -267,7 +267,6 @@ pub trait FunctionsCreator {
                     Vec::new(),
                     None,
                 )),
-                false,
                 ASTPosition::builtin(
                     &property_def.position,
                     ASTBuiltinFunctionType::Other("_f let".to_owned()),

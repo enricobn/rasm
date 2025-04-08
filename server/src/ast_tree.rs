@@ -109,7 +109,7 @@ impl<'a> ASTTree<'a> {
                     let expr = match p_e {
                         ASTElement::Statement(stmt) => match stmt {
                             ASTStatement::Expression(astexpression) => astexpression,
-                            ASTStatement::LetStatement(_, _, _, _) => {
+                            _ => {
                                 return None;
                             }
                         },
@@ -140,7 +140,11 @@ impl<'a> ASTTree<'a> {
     fn add_statement(&mut self, statement: &'a ASTStatement) {
         match statement {
             ASTStatement::Expression(expr) => self.add_expr(expr),
-            ASTStatement::LetStatement(_, expr, _, _) => {
+            ASTStatement::LetStatement(_, expr, _) => {
+                self.internal_add(ASTElement::Expression(expr), Some(statement.position()));
+                self.add_expr(expr);
+            }
+            ASTStatement::ConstStatement(_, expr, _, _) => {
                 self.internal_add(ASTElement::Expression(expr), Some(statement.position()));
                 self.add_expr(expr);
             }

@@ -395,7 +395,14 @@ impl IDEHelper {
                         name.clone(),
                     )),
                 )),
-                ASTTypeCheckInfo::Let(name, _is_const) => Some(IDESelectableItem::new(
+                ASTTypeCheckInfo::Let(name) => Some(IDESelectableItem::new(
+                    index.clone(),
+                    name.len(),
+                    ast_type.map(|it| {
+                        IDESelectableItemTarget::Itself(ItselfKind::Param(name.clone()), it)
+                    }),
+                )),
+                ASTTypeCheckInfo::Const(name) => Some(IDESelectableItem::new(
                     index.clone(),
                     name.len(),
                     ast_type.map(|it| {
@@ -869,7 +876,8 @@ impl IDEHelper {
                 ASTStatement::Expression(expr) => {
                     references.append(&mut Self::get_references_until_expr(expr, index));
                 }
-                ASTStatement::LetStatement(name, _, _, _) => references.push(name.clone()),
+                ASTStatement::LetStatement(name, _, _) => references.push(name.clone()),
+                ASTStatement::ConstStatement(name, _, _, _) => references.push(name.clone()),
             }
         }
 
@@ -1234,7 +1242,7 @@ impl IDEHelper {
         }
 
         if let ASTElement::Statement(stmt) = last_element {
-            if matches!(stmt, ASTStatement::LetStatement(_, _, _, _)) {
+            if matches!(stmt, ASTStatement::LetStatement(_, _, _)) {
                 return None;
             }
         } else {
@@ -1370,7 +1378,11 @@ impl IDEHelper {
                 ASTStatement::Expression(expr) => {
                     Self::extract_vals_expr(expr, &excluding, val_context)
                 }
-                ASTStatement::LetStatement(name, expr, _, _) => {
+                ASTStatement::LetStatement(name, expr, _) => {
+                    excluding.insert(name.to_owned());
+                    Self::extract_vals_expr(expr, &excluding, val_context)
+                }
+                ASTStatement::ConstStatement(name, expr, _, _) => {
                     excluding.insert(name.to_owned());
                     Self::extract_vals_expr(expr, &excluding, val_context)
                 }
