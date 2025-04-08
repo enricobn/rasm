@@ -96,7 +96,7 @@ enum ParserData {
     FunctionDef(ASTFunctionDef),
     FunctionDefParameter(ASTParameterDef),
     LambdaDef(ASTLambdaDef),
-    Let(String, bool, ASTPosition),
+    Let(String, bool, ASTPosition, Option<ASTModifiers>),
     StructDef(ASTStructDef),
     Expression(ASTExpression),
     Statement(ASTStatement),
@@ -120,8 +120,17 @@ impl Display for ParserData {
             ParserData::LambdaDef(def) => {
                 write!(f, "LambdaDef({}): {}", def, def.position)
             }
-            ParserData::Let(name, _, index) => {
-                write!(f, "Let({}): {index}", name)
+            ParserData::Let(name, is_const, index, modifiers) => {
+                if *is_const {
+                    write!(
+                        f,
+                        "Const({}): {index} pub: {}",
+                        name,
+                        modifiers.as_ref().map(|it| it.public).unwrap_or(false)
+                    )
+                } else {
+                    write!(f, "Let({}): {index}", name)
+                }
             }
             ParserData::StructDef(s) => {
                 write!(f, "StructDef({}): {}", s.name, s.position)
@@ -369,7 +378,7 @@ impl Parser {
                         self.add_error("Expected expression and semicolon".to_string());
                     }
                     if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
-                        if let Some(ParserData::Let(name, is_const, index)) =
+                        if let Some(ParserData::Let(name, is_const, index, modifiers)) =
                             self.before_last_parser_data()
                         {
                             self.state.pop();
@@ -381,7 +390,7 @@ impl Parser {
                                     name,
                                     expr.clone(),
                                     index,
-                                    ASTModifiers::public(),
+                                    modifiers.unwrap(),
                                 )
                             } else {
                                 ASTStatement::LetStatement(name, expr.clone(), index)
@@ -586,15 +595,24 @@ impl Parser {
                     self.state.pop();
                 }
             }
-        } else if let Some((name, next_i)) = self.try_parse_let(false)? {
+        } else if let Some((name, next_i, _)) = self.try_parse_let(false)? {
             self.parser_data
-                .push(ParserData::Let(name, false, self.get_position(1)));
+                .push(ParserData::Let(name, false, self.get_position(1), None));
             self.state.push(ParserState::Let);
             self.state.push(ParserState::Expression);
             self.i = next_i;
-        } else if let Some((name, next_i)) = self.try_parse_let(true)? {
-            self.parser_data
-                .push(ParserData::Let(name, true, self.get_position(1)));
+        } else if let Some((name, next_i, is_public)) = self.try_parse_let(true)? {
+            let modifiers = if is_public {
+                ASTModifiers::public()
+            } else {
+                ASTModifiers::private()
+            };
+            self.parser_data.push(ParserData::Let(
+                name,
+                true,
+                self.get_position(1),
+                Some(modifiers),
+            ));
             self.state.push(ParserState::Let);
             self.state.push(ParserState::Expression);
             self.i = next_i;
@@ -1253,23 +1271,34 @@ impl Parser {
         Ok(None)
     }
 
-    fn try_parse_let(&self, is_const: bool) -> Result<Option<(String, usize)>, String> {
+    fn try_parse_let(&self, is_const: bool) -> Result<Option<(String, usize, bool)>, String> {
         let kind = if is_const {
             KeywordKind::Const
         } else {
             KeywordKind::Let
         };
-        if Some(&TokenKind::KeyWord(kind)) == self.get_token_kind() {
-            if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(1) {
+
+        let (is_public, n) =
+            if let Some(&TokenKind::KeyWord(KeywordKind::Pub)) = self.get_token_kind() {
+                (true, 1)
+            } else {
+                (false, 0)
+            };
+
+        if Some(&TokenKind::KeyWord(kind)) == self.get_token_kind_n(n) {
+            if !is_const && is_public {
+                return Err("pub is not supported for let".to_owned());
+            }
+            if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(n + 1) {
                 if let Some(TokenKind::Punctuation(PunctuationKind::Equal)) =
-                    self.get_token_kind_n(2)
+                    self.get_token_kind_n(n + 2)
                 {
-                    return Ok(Some((name.clone(), self.get_i() + 3)));
+                    return Ok(Some((name.clone(), self.get_i() + 3 + n, is_public)));
                 } else {
                     return Err(format!(
                         "expected = got {:?}: {}",
-                        self.get_token_kind_n(2),
-                        self.get_position(2)
+                        self.get_token_kind_n(n + 2),
+                        self.get_position(n + 2)
                     ));
                 }
             } else {

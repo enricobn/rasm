@@ -1,4 +1,4 @@
-const aNumber = 10;
+pub const aNumber = 10;
 const aChar = 'è';
 const aBool = true;
 const aString = "a string";
