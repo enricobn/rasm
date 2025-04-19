@@ -754,6 +754,26 @@ impl CodeGenAsm {
             }
         }
     }
+
+    fn get_address_relative_to_bp(
+        &self,
+        code_gen_context: &CodeGenAsmContext,
+        is_const: bool,
+        name: &str,
+        namespace: &EnhASTNameSpace,
+        modifiers: Option<&ASTModifiers>,
+    ) -> usize {
+        let key = if is_const {
+            &Statics::const_key(name, namespace, modifiers.unwrap())
+        } else {
+            name
+        };
+
+        code_gen_context
+            .stack_vals
+            .find_local_val_relative_to_bp(&key)
+            .unwrap()
+    }
 }
 
 pub struct CodeGenAsmContext {
@@ -1164,18 +1184,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         namespace: &EnhASTNameSpace,
         modifiers: Option<&ASTModifiers>,
     ) {
-        let address_relative_to_bp = if is_const {
-            let key = Statics::const_key(name, namespace, modifiers.unwrap());
-            code_gen_context
-                .stack_vals
-                .find_local_val_relative_to_bp(&key)
-                .unwrap()
-        } else {
-            code_gen_context
-                .stack_vals
-                .find_local_val_relative_to_bp(name)
-                .unwrap()
-        };
+        let address_relative_to_bp =
+            self.get_address_relative_to_bp(code_gen_context, is_const, name, namespace, modifiers);
 
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();
@@ -1230,18 +1240,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         namespace: &EnhASTNameSpace,
         modifiers: Option<&ASTModifiers>,
     ) {
-        let address_relative_to_bp = if is_const {
-            let key = Statics::const_key(name, namespace, modifiers.unwrap());
-            code_gen_context
-                .stack_vals
-                .find_local_val_relative_to_bp(&key)
-                .unwrap()
-        } else {
-            code_gen_context
-                .stack_vals
-                .find_local_val_relative_to_bp(name)
-                .unwrap()
-        };
+        let address_relative_to_bp =
+            self.get_address_relative_to_bp(code_gen_context, is_const, name, namespace, modifiers);
 
         let bp = self.backend.stack_base_pointer();
         let ws = self.backend.word_size();
