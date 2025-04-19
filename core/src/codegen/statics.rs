@@ -116,19 +116,15 @@ impl Statics {
         modifiers: &ASTModifiers,
     ) -> String {
         let const_key = Self::const_key(&name, namespace, modifiers);
-        if let Some(entry) = self.get_const(&const_key, namespace) {
-            self.const_typed_map.insert(
-                const_key.to_owned(),
-                ConstTypedEntry {
-                    key: const_key.clone(),
-                    ast_typed_type,
-                    modifiers: modifiers.clone(),
-                },
-            );
-            const_key
-        } else {
-            panic!("cannot find const {namespace}:{name} {}", modifiers.public);
-        }
+        self.const_typed_map.insert(
+            const_key.to_owned(),
+            ConstTypedEntry {
+                key: const_key.clone(),
+                ast_typed_type,
+                modifiers: modifiers.clone(),
+            },
+        );
+        const_key
     }
 
     pub fn get_const(&self, name: &str, namespace: &EnhASTNameSpace) -> Option<&ConstEntry> {
