@@ -25,7 +25,6 @@ pub enum MemoryUnit {
 pub struct ConstEntry {
     pub key: String,
     pub ast_type: EnhASTType,
-    pub namespace: EnhASTNameSpace,
     pub modifiers: ASTModifiers,
 }
 
@@ -33,6 +32,7 @@ pub struct ConstEntry {
 pub struct ConstTypedEntry {
     pub key: String,
     pub ast_typed_type: ASTTypedType,
+    pub modifiers: ASTModifiers,
 }
 
 #[derive(Debug)]
@@ -83,43 +83,74 @@ impl Statics {
         namespace: &EnhASTNameSpace,
         modifiers: &ASTModifiers,
     ) {
+        let const_key = Self::const_key(&name, namespace, modifiers);
+
         // TODO it's a trick: during type check passes consts are added again
-        if !self.const_map.contains_key(&name) {
-            let key = self.insert_prefix("const", MemoryValue::Mem(1, MemoryUnit::Words));
+        if !self.const_map.contains_key(&const_key) {
+            self.insert(const_key.clone(), MemoryValue::Mem(1, MemoryUnit::Words));
+
             self.const_map.insert(
-                name,
+                const_key.clone(),
                 ConstEntry {
-                    key,
+                    key: const_key.clone(),
                     ast_type,
-                    namespace: namespace.clone(),
                     modifiers: modifiers.clone(),
                 },
             );
         }
     }
 
-    pub fn add_typed_const(&mut self, name: String, ast_typed_type: ASTTypedType) -> String {
-        if let Some(entry) = self.get_const(&name) {
-            let key = entry.key.clone();
-            self.const_typed_map.insert(
-                name,
-                ConstTypedEntry {
-                    key: key.clone(),
-                    ast_typed_type,
-                },
-            );
-            key
+    pub fn const_key(name: &str, namespace: &EnhASTNameSpace, modifiers: &ASTModifiers) -> String {
+        if modifiers.public {
+            name.to_owned()
         } else {
-            panic!("cannot find const {name}");
+            format!("{}_{name}", namespace.safe_name())
         }
     }
 
-    pub fn get_const(&self, name: &str) -> Option<&ConstEntry> {
-        self.const_map.get(name)
+    pub fn add_typed_const(
+        &mut self,
+        name: String,
+        ast_typed_type: ASTTypedType,
+        namespace: &EnhASTNameSpace,
+        modifiers: &ASTModifiers,
+    ) -> String {
+        let const_key = Self::const_key(&name, namespace, modifiers);
+        if let Some(entry) = self.get_const(&const_key, namespace) {
+            self.const_typed_map.insert(
+                const_key.to_owned(),
+                ConstTypedEntry {
+                    key: const_key.clone(),
+                    ast_typed_type,
+                    modifiers: modifiers.clone(),
+                },
+            );
+            const_key
+        } else {
+            panic!("cannot find const {namespace}:{name} {}", modifiers.public);
+        }
     }
 
-    pub fn get_typed_const(&self, name: &str) -> Option<&ConstTypedEntry> {
-        self.const_typed_map.get(name)
+    pub fn get_const(&self, name: &str, namespace: &EnhASTNameSpace) -> Option<&ConstEntry> {
+        let const_key = Self::const_key(&name, namespace, &ASTModifiers::private());
+        if let Some(entry) = self.const_map.get(&const_key) {
+            return Some(entry);
+        }
+        let const_key = Self::const_key(&name, namespace, &ASTModifiers::public());
+        self.const_map.get(&const_key)
+    }
+
+    pub fn get_typed_const(
+        &self,
+        name: &str,
+        namespace: &EnhASTNameSpace,
+    ) -> Option<&ConstTypedEntry> {
+        let const_key = Self::const_key(&name, namespace, &ASTModifiers::private());
+        if let Some(entry) = self.const_typed_map.get(&const_key) {
+            return Some(entry);
+        }
+        let const_key = Self::const_key(&name, namespace, &ASTModifiers::public());
+        self.const_typed_map.get(&const_key)
     }
 
     pub fn insert(&mut self, key: String, value: MemoryValue) {

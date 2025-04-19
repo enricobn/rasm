@@ -417,7 +417,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
                         lambda_calls.append(&mut inner_lambda_calls);
                     }
-                    ASTTypedExpression::ValueRef(name, index) => {
+                    ASTTypedExpression::ValueRef(name, index, namespace) => {
                         let error_msg = format!(
                             "Cannot find val {}, calling function {}",
                             name, function_call.function_name
@@ -436,6 +436,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             typed_module,
                             &mut *id,
                             &mut lambda_calls,
+                            namespace,
                         );
                     }
                     ASTTypedExpression::Lambda(lambda_def) => {
@@ -658,7 +659,14 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         id: usize,
     ) -> FCP;
 
-    fn define_let(&'a self, code_gen_context: &CTX, name: &str, is_const: bool);
+    fn define_let(
+        &'a self,
+        code_gen_context: &CTX,
+        name: &str,
+        is_const: bool,
+        statics: &Statics,
+        namespace: &EnhASTNameSpace,
+    );
 
     fn add_let(
         &'a self,
@@ -677,9 +685,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         body: &mut String,
         id: &mut usize,
         typed_module: &ASTTypedModule,
-        const_modifiers: Option<&ASTModifiers>,
+        modifiers: Option<&ASTModifiers>,
     ) -> Vec<LambdaCall> {
-        self.define_let(code_gen_context, name, is_const);
+        self.define_let(code_gen_context, name, is_const, statics, namespace);
 
         let (return_type, (bf, mut cur, af, new_lambda_calls), index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
@@ -761,6 +769,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         body,
                         s,
                         &typed_type,
+                        namespace,
+                        modifiers,
                     );
                     (
                         typed_type,
@@ -781,6 +791,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         body,
                         value_type,
                         &typed_type,
+                        namespace,
+                        modifiers,
                     );
                     (
                         typed_type,
@@ -789,7 +801,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     )
                 }
             }
-            ASTTypedExpression::ValueRef(val_name, index) => {
+            ASTTypedExpression::ValueRef(val_name, index, _) => {
                 if let Some(typed_val_kind) = context.get(val_name) {
                     let typed_type = self.set_let_for_value_ref(
                         code_gen_context,
@@ -817,7 +829,12 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             if !bf.is_empty() || !cur.is_empty() {
                 body.push_str(&bf);
 
-                let key = statics.add_typed_const(name.to_owned(), return_type.clone());
+                let key = statics.add_typed_const(
+                    name.to_owned(),
+                    return_type.clone(),
+                    namespace,
+                    modifiers.unwrap(),
+                );
 
                 self.set_let_const_for_function_call_result(
                     &key,
@@ -832,7 +849,16 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
             if self.options().dereference() {
                 if let Some(type_name) = get_reference_type_name(&return_type, typed_module) {
-                    self.add_ref(&name, statics, body, typed_module, &index, &type_name);
+                    self.add_const_ref(
+                        &name,
+                        statics,
+                        body,
+                        typed_module,
+                        &index,
+                        &type_name,
+                        namespace,
+                        modifiers.unwrap(),
+                    );
                 }
             }
         } else {
@@ -894,7 +920,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         typed_type: &ASTTypedType,
     );
 
-    fn add_ref(
+    fn add_const_ref(
         &self,
         name: &str,
         statics: &mut Statics,
@@ -902,6 +928,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         typed_module: &ASTTypedModule,
         index: &EnhASTIndex,
         type_name: &String,
+        namespace: &EnhASTNameSpace,
+        modifiers: &ASTModifiers,
     );
 
     fn call_deref_for_let_val(
@@ -956,6 +984,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         body: &mut String,
         value: &String,
         typed_type: &ASTTypedType,
+        namespace: &EnhASTNameSpace,
+        modifiers: Option<&ASTModifiers>,
     );
 
     fn set_let_for_value(
@@ -968,6 +998,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         body: &mut String,
         value_type: &ASTValueType,
         typed_type: &ASTTypedType,
+        namespace: &EnhASTNameSpace,
+        modifiers: Option<&ASTModifiers>,
     );
 
     fn add_val(
@@ -985,6 +1017,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         typed_module: &ASTTypedModule,
         id: &mut usize,
         lambda_calls: &mut Vec<LambdaCall>,
+        namespace: &EnhASTNameSpace,
     ) {
         if let Some(val_kind) = context.get(val_name) {
             match val_kind {
@@ -1014,7 +1047,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     ast_typed_type,
                 ),
             }
-        } else if let Some(entry) = statics.get_typed_const(val_name) {
+        } else if let Some(entry) = statics.get_typed_const(val_name, namespace) {
             call_parameters.add_label(
                 param_name,
                 entry.key.clone(),
@@ -1022,6 +1055,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 Some(&format!("static {val_name}")),
                 &entry.ast_typed_type,
                 statics,
+                namespace,
             )
         } else {
             let mut def = typed_module
@@ -1253,7 +1287,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
                             lambda_calls.append(&mut lambda_calls_);
                         }
-                        ASTTypedExpression::ValueRef(val, index) => {
+                        ASTTypedExpression::ValueRef(val, index, namespace) => {
                             // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
 
                             let mut parameters = self.function_call_parameters(
@@ -1281,6 +1315,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 typed_module,
                                 id,
                                 lambda_calls,
+                                namespace,
                             );
 
                             before.push_str(&parameters.before());
@@ -1387,7 +1422,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     );
                     lambda_calls.append(&mut new_lambda_calls);
                 }
-                ASTTypedStatement::ConstStatement(name, expr, _let_index, modifiers) => {
+                ASTTypedStatement::ConstStatement(name, expr, _let_index, namespace, modifiers) => {
                     let mut new_lambda_calls = self.add_let(
                         code_gen_context,
                         None,

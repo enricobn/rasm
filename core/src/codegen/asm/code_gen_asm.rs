@@ -5,7 +5,7 @@ use std::{
 
 use linked_hash_map::LinkedHashMap;
 use pad::PadStr;
-use rasm_parser::parser::ast::ASTValueType;
+use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
 use snailquote::unescape;
 
 use crate::{
@@ -989,7 +989,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         );
     }
 
-    fn add_ref(
+    fn add_const_ref(
         &self,
         name: &str,
         statics: &mut Statics,
@@ -997,8 +997,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         typed_module: &ASTTypedModule,
         index: &EnhASTIndex,
         type_name: &String,
+        namespace: &EnhASTNameSpace,
+        modifiers: &ASTModifiers,
     ) {
-        let entry = statics.get_typed_const(name).unwrap();
+        let entry = statics.get_typed_const(name, namespace).unwrap();
 
         self.call_add_ref(
             body,
@@ -1159,11 +1161,22 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         body: &mut String,
         value: &String,
         typed_type: &ASTTypedType,
+        namespace: &EnhASTNameSpace,
+        modifiers: Option<&ASTModifiers>,
     ) {
-        let address_relative_to_bp = code_gen_context
-            .stack_vals
-            .find_local_val_relative_to_bp(name)
-            .unwrap();
+        let address_relative_to_bp = if is_const {
+            let key = Statics::const_key(name, namespace, modifiers.unwrap());
+            code_gen_context
+                .stack_vals
+                .find_local_val_relative_to_bp(&key)
+                .unwrap()
+        } else {
+            code_gen_context
+                .stack_vals
+                .find_local_val_relative_to_bp(name)
+                .unwrap()
+        };
+
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();
         let label = statics.add_str(value);
@@ -1175,7 +1188,12 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         );
 
         if is_const {
-            let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
+            let key = statics.add_typed_const(
+                name.to_owned(),
+                typed_type.clone(),
+                namespace,
+                modifiers.unwrap(),
+            );
 
             self.indirect_mov(
                 body,
@@ -1209,18 +1227,34 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         body: &mut String,
         value_type: &ASTValueType,
         typed_type: &ASTTypedType,
+        namespace: &EnhASTNameSpace,
+        modifiers: Option<&ASTModifiers>,
     ) {
-        let address_relative_to_bp = code_gen_context
-            .stack_vals
-            .find_local_val_relative_to_bp(name)
-            .unwrap();
+        let address_relative_to_bp = if is_const {
+            let key = Statics::const_key(name, namespace, modifiers.unwrap());
+            code_gen_context
+                .stack_vals
+                .find_local_val_relative_to_bp(&key)
+                .unwrap()
+        } else {
+            code_gen_context
+                .stack_vals
+                .find_local_val_relative_to_bp(name)
+                .unwrap()
+        };
+
         let bp = self.backend.stack_base_pointer();
         let ws = self.backend.word_size();
         let value = self.value_to_string(value_type);
         let wl = self.backend.word_len();
 
         if is_const {
-            let key = statics.add_typed_const(name.to_owned(), typed_type.clone());
+            let key = statics.add_typed_const(
+                name.to_owned(),
+                typed_type.clone(),
+                namespace,
+                modifiers.unwrap(),
+            );
 
             self.add(
                 body,
@@ -1724,7 +1758,21 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         }
     }
 
-    fn define_let(&'a self, code_gen_context: &CodeGenAsmContext, name: &str, is_const: bool) {
+    fn define_let(
+        &'a self,
+        code_gen_context: &CodeGenAsmContext,
+        name: &str,
+        is_const: bool,
+        statics: &Statics,
+        namespace: &EnhASTNameSpace,
+    ) {
+        if is_const {
+            if let Some(entry) = statics.get_typed_const(name, namespace) {
+                let key = Statics::const_key(name, namespace, &entry.modifiers);
+                code_gen_context.stack_vals.reserve_local_val(&key);
+                return;
+            }
+        }
         code_gen_context.stack_vals.reserve_local_val(name);
     }
 }

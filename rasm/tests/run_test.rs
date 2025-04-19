@@ -669,6 +669,11 @@ fn test_function_reference() {
     );
 }
 
+#[test]
+fn test_consts() {
+    run_test("consts", vec![], "consts pub string: pub string\nconsts priv string: consts priv string\nanother priv string: another priv string\n");
+}
+
 // Compile tests
 
 #[test]

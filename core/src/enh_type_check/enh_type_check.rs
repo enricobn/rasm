@@ -248,7 +248,7 @@ impl<'a> EnhTypeCheck<'a> {
                     strict,
                 )
                 .map(|it| EnhASTStatement::LetStatement(name.clone(), it, index.clone())),
-            EnhASTStatement::ConstStatement(name, e, index, modifiers) => self
+            EnhASTStatement::ConstStatement(name, e, index, namespace, modifiers) => self
                 .transform_expression(
                     module,
                     e,
@@ -265,6 +265,7 @@ impl<'a> EnhTypeCheck<'a> {
                         name.clone(),
                         it,
                         index.clone(),
+                        namespace.clone(),
                         modifiers.clone(),
                     )
                 }),
@@ -310,8 +311,10 @@ impl<'a> EnhTypeCheck<'a> {
                     strict,
                 )
                 .map(EnhASTExpression::Lambda),
-            EnhASTExpression::ValueRef(name, index) => {
-                if val_context.get(&name).is_some() || statics.get_const(&name).is_some() {
+            EnhASTExpression::ValueRef(name, index, const_namespace) => {
+                if val_context.get(&name).is_some()
+                    || statics.get_const(&name, const_namespace).is_some()
+                {
                     return Ok(expression.clone());
                 } else if name.contains("_") {
                     return Ok(expression.clone());
@@ -402,7 +405,11 @@ impl<'a> EnhTypeCheck<'a> {
                         new_functions.push((new_function_def, self.stack.clone()));
                     }
 
-                    Ok(EnhASTExpression::ValueRef(new_function_name, index.clone()))
+                    Ok(EnhASTExpression::ValueRef(
+                        new_function_name,
+                        index.clone(),
+                        namespace.clone(), // TOD const_namespace?
+                    ))
                 } else {
                     return Err(EnhTypeCheckError::new_with_kind(
                         index.clone(),
@@ -1122,7 +1129,7 @@ impl<'a> EnhTypeCheck<'a> {
         if call.parameters.len() > 0 {
             if let Some(p) = call.parameters.get(0) {
                 match p {
-                    EnhASTExpression::ValueRef(name, _) => {
+                    EnhASTExpression::ValueRef(name, _, _) => {
                         if let Some(t) = val_context.get(name) {
                             match t {
                                 EnhValKind::ParameterRef(_, par) => Some(par.ast_type.clone()),
@@ -1494,8 +1501,13 @@ impl<'a> EnhTypeCheck<'a> {
                             self.stack.clone(),
                         ));
                     }
-                } else if let Ok(EnhASTStatement::ConstStatement(name, expr, index, modifiers)) =
-                    &new_statement
+                } else if let Ok(EnhASTStatement::ConstStatement(
+                    name,
+                    expr,
+                    index,
+                    namespace,
+                    modifiers,
+                )) = &new_statement
                 {
                     let type_of_expr = self.type_of_expression(
                         module,
@@ -1682,7 +1694,7 @@ impl<'a> EnhTypeCheck<'a> {
         indent!();
 
         if namespace.safe_name().contains("reference") {
-            if let EnhASTExpression::ValueRef(name, _) = typed_expression {
+            if let EnhASTExpression::ValueRef(name, _, _) = typed_expression {
                 if name == "add" {
                     println!(
                         "type_of_expression {typed_expression} expected type {}",
@@ -1776,9 +1788,10 @@ impl<'a> EnhTypeCheck<'a> {
                     }
                 }
             }
-            EnhASTExpression::ValueRef(name, index) => match val_context.get(name) {
+            EnhASTExpression::ValueRef(name, index, const_namespace) => match val_context.get(name)
+            {
                 None => {
-                    if let Some(c) = statics.get_const(name) {
+                    if let Some(c) = statics.get_const(name, const_namespace) {
                         EnhTypeFilter::Exact(c.ast_type.clone())
                     } else {
                         let mut function_references = self.functions_referenced_by_name(
@@ -1867,7 +1880,7 @@ impl<'a> EnhTypeCheck<'a> {
                                 .map_err(|it| {
                                     EnhTypeCheckError::new(index.clone(), it, self.stack.clone())
                                 })?;
-                        } else if let EnhASTStatement::ConstStatement(_, _, _, _) = statement {
+                        } else if let EnhASTStatement::ConstStatement(_, _, _, _, _) = statement {
                             return Err(EnhTypeCheckError::new(
                                 index.clone(),
                                 format!("Const not allowed here {expr}"),

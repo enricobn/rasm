@@ -50,7 +50,7 @@ pub trait TraverseTypedAST {
                 self.traverse_expression(expr);
                 self.found_let(name, false, index);
             }
-            ASTTypedStatement::ConstStatement(name, expr, index, _modifiers) => {
+            ASTTypedStatement::ConstStatement(name, expr, index, _namespace, _modifiers) => {
                 self.traverse_expression(expr);
                 self.found_let(name, true, index);
             }
@@ -65,7 +65,7 @@ pub trait TraverseTypedAST {
                 }
                 self.found_call(call);
             }
-            ASTTypedExpression::ValueRef(_, _) => {}
+            ASTTypedExpression::ValueRef(_, _, _) => {}
             ASTTypedExpression::Value(_, _) => {}
             ASTTypedExpression::Lambda(lambda_def) => {
                 self.traverse_body(&lambda_def.body);

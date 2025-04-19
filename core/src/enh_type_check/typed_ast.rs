@@ -388,7 +388,7 @@ impl Display for ASTTypedFunctionCall {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypedExpression {
     ASTFunctionCallExpression(ASTTypedFunctionCall),
-    ValueRef(String, EnhASTIndex),
+    ValueRef(String, EnhASTIndex, EnhASTNameSpace),
     Value(ASTValueType, EnhASTIndex),
     Lambda(ASTTypedLambdaDef),
 }
@@ -397,7 +397,7 @@ impl ASTTypedExpression {
     pub fn get_index(&self) -> Option<EnhASTIndex> {
         match self {
             ASTTypedExpression::ASTFunctionCallExpression(call) => Some(call.index.clone()),
-            ASTTypedExpression::ValueRef(_, index) => Some(index.clone()),
+            ASTTypedExpression::ValueRef(_, index, _namespace) => Some(index.clone()),
             ASTTypedExpression::Value(_, index) => Some(index.clone()),
             ASTTypedExpression::Lambda(_lambda) => None,
         }
@@ -406,6 +406,7 @@ impl ASTTypedExpression {
     pub fn namespace(&self) -> EnhASTNameSpace {
         match self {
             ASTTypedExpression::ASTFunctionCallExpression(call) => call.namespace.clone(),
+            ASTTypedExpression::ValueRef(_, _index, namespace) => namespace.clone(),
             _ => EnhASTNameSpace::global(), // TODO the others (example lambda)?
         }
     }
@@ -419,7 +420,7 @@ impl Display for ASTTypedExpression {
                     call.parameters.iter().map(|it| format!("{}", it)).collect();
                 write!(f, "{}({})", call.function_name, pars.join(","))
             }
-            ASTTypedExpression::ValueRef(name, _index) => f.write_str(name),
+            ASTTypedExpression::ValueRef(name, _index, _) => f.write_str(name),
             ASTTypedExpression::Value(val_type, _) => write!(f, "{val_type}"),
             ASTTypedExpression::Lambda(lambda) => write!(f, "{lambda}"),
         }
@@ -430,7 +431,13 @@ impl Display for ASTTypedExpression {
 pub enum ASTTypedStatement {
     Expression(ASTTypedExpression),
     LetStatement(String, ASTTypedExpression, EnhASTIndex),
-    ConstStatement(String, ASTTypedExpression, EnhASTIndex, ASTModifiers),
+    ConstStatement(
+        String,
+        ASTTypedExpression,
+        EnhASTIndex,
+        EnhASTNameSpace,
+        ASTModifiers,
+    ),
 }
 
 impl ASTTypedStatement {
@@ -438,7 +445,7 @@ impl ASTTypedStatement {
         match self {
             ASTTypedStatement::Expression(e) => e.get_index(),
             ASTTypedStatement::LetStatement(_, _, index) => Some(index.clone()),
-            ASTTypedStatement::ConstStatement(_, _, index, _) => Some(index.clone()),
+            ASTTypedStatement::ConstStatement(_, _, index, _, _) => Some(index.clone()),
         }
     }
 }
@@ -450,7 +457,7 @@ impl Display for ASTTypedStatement {
             ASTTypedStatement::LetStatement(name, e, _index) => {
                 f.write_str(&format!("let {name} = {e};\n"))
             }
-            ASTTypedStatement::ConstStatement(name, e, _index, modifiers) => {
+            ASTTypedStatement::ConstStatement(name, e, _index, _namespace, modifiers) => {
                 let prefix = if modifiers.public { "pub " } else { "" };
                 f.write_str(&format!("{prefix} const {name} = {e};\n"))
             }
@@ -1237,12 +1244,12 @@ pub fn get_type_of_typed_expression(
                 ));
             }
         }
-        ASTTypedExpression::ValueRef(name, index) => {
+        ASTTypedExpression::ValueRef(name, index, namespace) => {
             if let Some(TypedValKind::ParameterRef(_, par)) = context.get(name) {
                 par.ast_type.clone()
             } else if let Some(TypedValKind::LetRef(_, ast_type)) = context.get(name) {
                 ast_type.clone()
-            } else if let Some(entry) = statics.get_typed_const(name) {
+            } else if let Some(entry) = statics.get_typed_const(name, namespace) {
                 entry.ast_typed_type.clone()
             } else {
                 if let Some(f) = module.functions_by_name.get(name) {
@@ -1309,7 +1316,13 @@ pub fn get_type_of_typed_expression(
 
                         context.insert_let(name.to_string(), type_of_expr, None);
                     }
-                    ASTTypedStatement::ConstStatement(_name, _expr, _index, _modifiers) => {
+                    ASTTypedStatement::ConstStatement(
+                        _name,
+                        _expr,
+                        _index,
+                        _namespace,
+                        _modifiers,
+                    ) => {
                         return Err(verify::verify_error(
                             lambda_def.index.clone(),
                             "Const not allowed here".to_string(),
@@ -1324,7 +1337,7 @@ pub fn get_type_of_typed_expression(
                         get_type_of_typed_expression(module, &context, e, ast_type, statics)?
                     }
                     ASTTypedStatement::LetStatement(_, _expr, _let_index) => ASTTypedType::Unit,
-                    ASTTypedStatement::ConstStatement(_, _expr, _index, _modifiers) => {
+                    ASTTypedStatement::ConstStatement(_, _expr, _index, _namespace, _modifiers) => {
                         ASTTypedType::Unit
                     }
                 }
@@ -1593,8 +1606,8 @@ fn expression(conv_context: &mut ConvContext, expression: &EnhASTExpression) -> 
         EnhASTExpression::ASTFunctionCallExpression(fc) => {
             ASTTypedExpression::ASTFunctionCallExpression(function_call(conv_context, fc))
         }
-        EnhASTExpression::ValueRef(v, index) => {
-            ASTTypedExpression::ValueRef(v.clone(), index.clone())
+        EnhASTExpression::ValueRef(v, index, namespace) => {
+            ASTTypedExpression::ValueRef(v.clone(), index.clone(), namespace.clone())
         }
         EnhASTExpression::Value(val_type, index) => {
             ASTTypedExpression::Value(val_type.clone(), index.clone())
@@ -1637,11 +1650,12 @@ fn statement(conv_context: &mut ConvContext, it: &EnhASTStatement) -> ASTTypedSt
             expression(conv_context, e),
             let_index.clone(),
         ),
-        EnhASTStatement::ConstStatement(name, e, const_index, modifiers) => {
+        EnhASTStatement::ConstStatement(name, e, const_index, namespace, modifiers) => {
             ASTTypedStatement::ConstStatement(
                 name.clone(),
                 expression(conv_context, e),
                 const_index.clone(),
+                namespace.clone(),
                 modifiers.clone(),
             )
         }

@@ -1,0 +1,7 @@
+[package]
+name = "consts"
+version = "1.0.0"
+main = "consts.rasm"
+
+[dependencies]
+stdlib = { path = "../../../../stdlib" }

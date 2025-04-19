@@ -43,7 +43,7 @@ use crate::project::RasmProject;
 use crate::transformations::typed_functions_creator::struct_has_references;
 use linked_hash_map::LinkedHashMap;
 use log::info;
-use rasm_parser::parser::ast::ASTValueType;
+use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
 use walkdir::WalkDir;
 
 use super::c_compiler::CLibAssets;
@@ -494,7 +494,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         );
     }
 
-    fn add_ref(
+    fn add_const_ref(
         &self,
         name: &str,
         statics: &mut Statics,
@@ -502,8 +502,11 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         typed_module: &ASTTypedModule,
         index: &EnhASTIndex,
         type_name: &String,
+        namespace: &EnhASTNameSpace,
+        modifiers: &ASTModifiers,
     ) {
-        self.call_add_ref(body, name, type_name, &type_name, typed_module);
+        let entry = statics.get_typed_const(name, namespace).unwrap();
+        self.call_add_ref(body, &entry.key, type_name, &type_name, typed_module);
     }
 
     fn call_deref_for_let_val(
@@ -572,9 +575,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         // TODO should be const? But in this way I get a warning. Should all pointer be consts? But can we release them?
         CConsts::add_to_statics(
             statics,
-            format!("{} {name};", CodeGenC::real_type_to_string(typed_type)),
+            format!(
+                "{} {statics_key};",
+                CodeGenC::real_type_to_string(typed_type)
+            ),
         );
-        self.add(before, &format!("{name} = ",), None, true);
+        self.add(before, &format!("{statics_key} = ",), None, true);
     }
 
     fn set_let_for_value_ref(
@@ -607,11 +613,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         _body: &mut String,
         value: &String,
         _typed_type: &ASTTypedType,
+        namespace: &EnhASTNameSpace,
+        modifiers: Option<&ASTModifiers>,
     ) {
         if is_const {
+            let entry = statics.get_typed_const(name, namespace).unwrap();
             CConsts::add_to_statics(
                 statics,
-                format!("char* {name} = \"{}\";", Self::escape_string(value)),
+                format!("char* {} = \"{}\";", entry.key, Self::escape_string(value)),
             );
         } else {
             self.add(
@@ -633,15 +642,19 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         body: &mut String,
         value_type: &ASTValueType,
         typed_type: &ASTTypedType,
+        namespace: &EnhASTNameSpace,
+        modifiers: Option<&ASTModifiers>,
     ) {
         let value = self.value_to_string(value_type);
 
         if is_const {
+            let entry = statics.get_typed_const(name, namespace).unwrap();
             CConsts::add_to_statics(
                 statics,
                 format!(
-                    "{} {name} = {};",
+                    "{} {} = {};",
                     CodeGenC::type_to_string(typed_type, statics),
+                    entry.key,
                     value
                 ),
             );
@@ -932,8 +945,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     ) -> (String, String) {
         let mut before = String::new();
         let after = String::new();
-
-        let mut statics = statics;
 
         if let Some(includes) = statics.any::<CInclude>() {
             for inc in includes.unique() {
@@ -1254,7 +1265,15 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         CodeGenCContext {}
     }
 
-    fn define_let(&'a self, _code_gen_context: &CodeGenCContext, _name: &str, _is_const: bool) {}
+    fn define_let(
+        &'a self,
+        _code_gen_context: &CodeGenCContext,
+        _name: &str,
+        _is_const: bool,
+        statics: &Statics,
+        namespace: &EnhASTNameSpace,
+    ) {
+    }
 }
 
 pub fn value_type_to_enh_type(value_type: &ASTValueType) -> EnhASTType {

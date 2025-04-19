@@ -20,7 +20,7 @@ use crate::codegen::c::any::{CInclude, CLambda, CLambdas};
 use crate::codegen::c::code_gen_c::{CCodeManipulator, CodeGenC};
 use crate::codegen::c::options::COptions;
 use crate::codegen::code_manipulator::CodeManipulator;
-use crate::codegen::enh_ast::EnhASTIndex;
+use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace};
 use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
@@ -126,12 +126,19 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         comment: Option<&str>,
         typed_type: &ASTTypedType,
         statics: &Statics,
+        namespace: &EnhASTNameSpace,
     ) {
+        let real_value = if let Some(entry) = statics.get_typed_const(&value, namespace) {
+            entry.key.clone()
+        } else {
+            value.to_owned()
+        };
+
         if self.immediate {
             self.code_manipulator.add(
                 &mut self.current,
                 &format!(
-                    "{} return_value_ = {value};",
+                    "{} return_value_ = {real_value};",
                     CodeGenC::real_type_to_string(typed_type)
                 ),
                 None,
@@ -139,7 +146,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
             );
         } else {
             self.parameters_values
-                .insert(param_name.to_string(), CodeGenC::escape_string(&value));
+                .insert(param_name.to_string(), CodeGenC::escape_string(&real_value));
         }
     }
 

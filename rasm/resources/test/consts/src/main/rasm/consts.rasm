@@ -1,0 +1,6 @@
+pub const PUBSTRING = "pub string";
+const PRIVSTRING = "consts priv string";
+
+println("consts pub string: ", PUBSTRING);
+println("consts priv string: ", PRIVSTRING);
+printAnotherPrivString();

@@ -750,7 +750,7 @@ impl ReferenceFinder {
                 type_check,
                 new_functions,
             ),
-            EnhASTStatement::LetStatement(name, expr, index) => ReferenceFinder::pippo(
+            EnhASTStatement::LetStatement(name, expr, index) => ReferenceFinder::process_let_const(
                 reference_context,
                 reference_static_context,
                 module,
@@ -766,8 +766,8 @@ impl ReferenceFinder {
                 index,
                 None,
             ),
-            EnhASTStatement::ConstStatement(name, expr, index, modifiers) => {
-                ReferenceFinder::pippo(
+            EnhASTStatement::ConstStatement(name, expr, index, namespace, modifiers) => {
+                ReferenceFinder::process_let_const(
                     reference_context,
                     reference_static_context,
                     module,
@@ -787,7 +787,7 @@ impl ReferenceFinder {
         }
     }
 
-    fn pippo(
+    fn process_let_const(
         reference_context: &mut ReferenceContext,
         reference_static_context: &mut ReferenceContext,
         module: &EnhancedASTModule,
@@ -902,7 +902,7 @@ impl ReferenceFinder {
                     new_functions,
                 );
             }
-            EnhASTExpression::ValueRef(name, index) => {
+            EnhASTExpression::ValueRef(name, index, _) => {
                 Self::process_value_ref(
                     reference_context,
                     reference_static_context,

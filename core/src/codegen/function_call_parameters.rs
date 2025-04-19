@@ -13,6 +13,8 @@ use crate::enh_type_check::typed_ast::{
 };
 use rasm_parser::parser::ast::ASTValueType;
 
+use super::enh_ast::EnhASTNameSpace;
+
 #[auto_impl(Box)]
 pub trait FunctionCallParameters<CTX> {
     fn add_label(
@@ -23,6 +25,7 @@ pub trait FunctionCallParameters<CTX> {
         comment: Option<&str>,
         typed_type: &ASTTypedType,
         statics: &Statics,
+        namespace: &EnhASTNameSpace,
     );
 
     fn add_string_constant(
@@ -138,7 +141,7 @@ pub trait FunctionCallParameters<CTX> {
             ASTTypedStatement::LetStatement(_, expr, _index) => {
                 self.expression_references_to_context(expr, context)
             }
-            ASTTypedStatement::ConstStatement(_, _, _, _) => Vec::new(),
+            ASTTypedStatement::ConstStatement(_, _, _, _, _) => Vec::new(),
         }
     }
 
@@ -167,7 +170,7 @@ pub trait FunctionCallParameters<CTX> {
 
                 result
             }
-            ASTTypedExpression::ValueRef(name, _) => {
+            ASTTypedExpression::ValueRef(name, _, _) => {
                 if let Some(v) = context.get(name) {
                     vec![(name.clone(), v.clone())]
                 } else {
@@ -212,7 +215,7 @@ pub trait FunctionCallParameters<CTX> {
             ASTTypedStatement::LetStatement(_, expr, _index) => {
                 self.expression_reads_from_context(expr, context)
             }
-            ASTTypedStatement::ConstStatement(_, _, _, _) => false,
+            ASTTypedStatement::ConstStatement(_, _, _, _, _) => false,
         }
     }
 
@@ -232,7 +235,7 @@ pub trait FunctionCallParameters<CTX> {
                         .any(|it| self.expression_reads_from_context(it, context))
                 }
             }
-            ASTTypedExpression::ValueRef(name, _) => context.get(name).is_some(),
+            ASTTypedExpression::ValueRef(name, _, _) => context.get(name).is_some(),
             ASTTypedExpression::Value(_, _) => false,
             ASTTypedExpression::Lambda(lambda_def) => lambda_def
                 .body

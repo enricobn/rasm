@@ -24,20 +24,20 @@ pub enum Stage {
     Game(gameState: GameState)
 }
 
-const WIDTH = 1024;
-const HEIGHT = 768;
-const BRICKWIDTH = 34;
-const BRICKHEIGHT = 10;
-const BARWIDTH = 80;
-const BARHEIGHT = 10;
-const HEADERHEIGHT = 25;
-const BALLSIZE = 5;
-const BLACK = SDLColor(0, 0, 0, 255);
-const WHITE = SDLColor(255, 255, 255, 255);
-const RED = SDLColor(255, 0, 0, 255);
-const GREEN = SDLColor(0, 255, 0, 255);
-const BLUE = SDLColor(0, 0, 255, 255);
-const YELLOW = SDLColor(255, 255, 0, 255);
+pub const WIDTH = 1024;
+pub const HEIGHT = 768;
+pub const BRICKWIDTH = 34;
+pub const BRICKHEIGHT = 10;
+pub const BARWIDTH = 80;
+pub const BARHEIGHT = 10;
+pub const HEADERHEIGHT = 25;
+pub const BALLSIZE = 5;
+pub const BLACK = SDLColor(0, 0, 0, 255);
+pub const WHITE = SDLColor(255, 255, 255, 255);
+pub const RED = SDLColor(255, 0, 0, 255);
+pub const GREEN = SDLColor(0, 255, 0, 255);
+pub const BLUE = SDLColor(0, 0, 255, 255);
+pub const YELLOW = SDLColor(255, 255, 0, 255);
 
 sdlInit();
 if(sdlTTFInit().eq(1), { panic("TTFInit error."); }, { });

@@ -1078,7 +1078,7 @@ impl ASTValueType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnhASTExpression {
     ASTFunctionCallExpression(EnhASTFunctionCall),
-    ValueRef(String, EnhASTIndex),
+    ValueRef(String, EnhASTIndex, EnhASTNameSpace),
     Value(ASTValueType, EnhASTIndex),
     Lambda(EnhASTLambdaDef),
     Any(EnhASTType), //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
@@ -1088,7 +1088,7 @@ impl EnhASTExpression {
     pub fn get_index(&self) -> Option<&EnhASTIndex> {
         match self {
             EnhASTExpression::ASTFunctionCallExpression(call) => Some(&call.index),
-            EnhASTExpression::ValueRef(_, index) => Some(index),
+            EnhASTExpression::ValueRef(_, index, _) => Some(index),
             EnhASTExpression::Value(_, index) => Some(index),
             EnhASTExpression::Lambda(def) => Some(&def.index),
             EnhASTExpression::Any(_) => None,
@@ -1122,6 +1122,7 @@ impl EnhASTExpression {
             ASTExpression::ValueRef(name, position) => EnhASTExpression::ValueRef(
                 name.clone(),
                 EnhASTIndex::from_position(id.path(), &position),
+                namespace.clone(),
             ),
             ASTExpression::Value(value_type, position) => EnhASTExpression::Value(
                 value_type.clone(),
@@ -1147,7 +1148,7 @@ impl Display for EnhASTExpression {
                  */
                 f.write_str(&format!("{call}"))
             }
-            EnhASTExpression::ValueRef(name, _index) => f.write_str(name),
+            EnhASTExpression::ValueRef(name, _index, _namespace) => f.write_str(name),
             EnhASTExpression::Value(val_type, _) => write!(f, "{val_type}"),
             EnhASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
             EnhASTExpression::Any(ast_type) => f.write_str(&format!("Any({ast_type})")),
@@ -1159,7 +1160,13 @@ impl Display for EnhASTExpression {
 pub enum EnhASTStatement {
     Expression(EnhASTExpression),
     LetStatement(String, EnhASTExpression, EnhASTIndex),
-    ConstStatement(String, EnhASTExpression, EnhASTIndex, ASTModifiers),
+    ConstStatement(
+        String,
+        EnhASTExpression,
+        EnhASTIndex,
+        EnhASTNameSpace,
+        ASTModifiers,
+    ),
 }
 
 impl EnhASTStatement {
@@ -1167,7 +1174,7 @@ impl EnhASTStatement {
         match self {
             EnhASTStatement::Expression(expr) => expr.get_index(),
             EnhASTStatement::LetStatement(_, _, index) => Some(index),
-            EnhASTStatement::ConstStatement(_, _, index, _) => Some(index),
+            EnhASTStatement::ConstStatement(_, _, index, _, _) => Some(index),
         }
     }
 
@@ -1179,11 +1186,12 @@ impl EnhASTStatement {
             EnhASTStatement::LetStatement(name, exp, astindex) => {
                 EnhASTStatement::LetStatement(name, exp.fix_namespaces(enhanced_module), astindex)
             }
-            EnhASTStatement::ConstStatement(name, exp, astindex, modifiers) => {
+            EnhASTStatement::ConstStatement(name, exp, astindex, namespace, modifiers) => {
                 EnhASTStatement::ConstStatement(
                     name,
                     exp.fix_namespaces(enhanced_module),
                     astindex,
+                    namespace.clone(),
                     modifiers,
                 )
             }
@@ -1213,6 +1221,7 @@ impl EnhASTStatement {
                     name.clone(),
                     expr.clone(),
                     EnhASTIndex::from_position(id.path(), &position),
+                    namespace.clone(),
                     modifiers,
                 )
             }
@@ -1227,7 +1236,7 @@ impl Display for EnhASTStatement {
             EnhASTStatement::LetStatement(name, e, _index) => {
                 f.write_str(&format!("let {name} = {e};\n"))
             }
-            EnhASTStatement::ConstStatement(name, e, _index, modifiers) => {
+            EnhASTStatement::ConstStatement(name, e, _index, _namespace, modifiers) => {
                 let prefix = if modifiers.public { "pub " } else { "" };
                 f.write_str(&format!("{prefix} const {name} = {e};\n"))
             }

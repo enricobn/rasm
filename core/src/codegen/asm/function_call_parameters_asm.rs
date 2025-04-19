@@ -6,7 +6,7 @@ use rasm_parser::parser::ast::ASTValueType;
 use crate::{
     codegen::{
         asm::code_gen_asm::STACK_VAL_SIZE_NAME,
-        enh_ast::EnhASTIndex,
+        enh_ast::{EnhASTIndex, EnhASTNameSpace},
         enh_val_context::TypedValContext,
         function_call_parameters::FunctionCallParameters,
         get_reference_type_name,
@@ -70,6 +70,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         comment: Option<&str>,
         typed_type: &ASTTypedType,
         statics: &Statics,
+        namespace: &EnhASTNameSpace,
     ) {
         if self.inline {
             self.parameters_values
@@ -115,6 +116,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
             comment,
             &ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
             &statics,
+            &EnhASTNameSpace::global(),
         );
     }
 
@@ -669,7 +671,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
             ASTTypedStatement::LetStatement(_, expr, _index) => {
                 self.expression_references_to_context(expr, context)
             }
-            ASTTypedStatement::ConstStatement(_, _, _, _) => Vec::new(),
+            ASTTypedStatement::ConstStatement(_, _, _, _, _) => Vec::new(),
         }
     }
 
@@ -696,7 +698,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
                 );
                 result
             }
-            ASTTypedExpression::ValueRef(name, _) => {
+            ASTTypedExpression::ValueRef(name, _, _) => {
                 if let Some(v) = context.get(name) {
                     vec![(name.clone(), v.clone())]
                 } else {
@@ -741,7 +743,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
             ASTTypedStatement::LetStatement(_, expr, _index) => {
                 self.expression_reads_from_context(expr, context)
             }
-            ASTTypedStatement::ConstStatement(_, _, _, _) => false,
+            ASTTypedStatement::ConstStatement(_, _, _, _, _) => false,
         }
     }
 
@@ -760,7 +762,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
                         .any(|it| self.expression_reads_from_context(it, context))
                 }
             }
-            ASTTypedExpression::ValueRef(name, _) => context.get(name).is_some(),
+            ASTTypedExpression::ValueRef(name, _, _) => context.get(name).is_some(),
             ASTTypedExpression::Value(_, _) => false,
             ASTTypedExpression::Lambda(lambda_def) => lambda_def
                 .body

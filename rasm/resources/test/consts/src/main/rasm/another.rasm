@@ -1,0 +1,5 @@
+const PRIVSTRING = "another priv string";
+
+pub fn printAnotherPrivString() {
+    println("another priv string: ", PRIVSTRING);
+}

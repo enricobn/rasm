@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::enh_ast::EnhASTIndex;
+use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace};
 use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
@@ -28,6 +28,7 @@ use crate::enh_type_check::typed_ast::{
 };
 use crate::errors::CompilationError;
 use crate::errors::CompilationErrorKind::Verify;
+use rasm_parser::parser::ast::ASTModifiers;
 use rasm_utils::OptionDisplay;
 use rasm_utils::{debug_i, dedent, indent};
 use std::iter::zip;
@@ -121,7 +122,7 @@ fn verify_statements(
                 statics,
             )?,
             ASTTypedStatement::LetStatement(_, _e, _let_index) => ASTTypedType::Unit,
-            ASTTypedStatement::ConstStatement(_, _e, _let_index, _modifiers) => ASTTypedType::Unit,
+            ASTTypedStatement::ConstStatement(_, _e, _let_index, _namespace,_modifiers) => ASTTypedType::Unit,
         }
     } else {
         ASTTypedType::Unit
@@ -159,10 +160,10 @@ pub fn verify_statement(
             verify_expression(module, context, e, statics, expected_return_type)
         }
         ASTTypedStatement::LetStatement(name, e, _let_index) => {
-            verify_let_const(module, context, statics, name, e, false)
+            verify_let_const(module, context, statics, name, e, false, &e.namespace(), None)
         }
-        ASTTypedStatement::ConstStatement(name, e, _const_index, modifiers) => {
-            verify_let_const(module, context, statics, name, e, true)
+        ASTTypedStatement::ConstStatement(name, e, _const_index, namespace, modifiers) => {
+            verify_let_const(module, context, statics, name, e, true, namespace, Some(modifiers))
         },
     }
 }
@@ -173,7 +174,9 @@ fn verify_let_const(
     statics: &mut Statics,
     name: &String,
     e: &ASTTypedExpression,
-    is_const: bool
+    is_const: bool,
+    namespace: &EnhASTNameSpace,
+    modifiers: Option<&ASTModifiers>
 ) -> Result<(), CompilationError> {
     verify_expression(module, context, e, statics, None)?;
     if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
@@ -222,7 +225,7 @@ fn verify_let_const(
         };
 
         if is_const {
-            statics.add_typed_const(name.to_owned(), ast_typed_type);
+            statics.add_typed_const(name.to_owned(), ast_typed_type, namespace, modifiers.unwrap());
         } else {
             context.insert_let(name.clone(), ast_typed_type, None);
         }
@@ -231,7 +234,7 @@ fn verify_let_const(
             typed_ast::get_type_of_typed_expression(module, context, e, None, statics)?;
         if ast_typed_type != ASTTypedType::Unit {
             if is_const {
-                statics.add_typed_const(name.to_owned(), ast_typed_type);
+                statics.add_typed_const(name.to_owned(), ast_typed_type, namespace, modifiers.unwrap());
             } else {
                 context.insert_let(name.clone(), ast_typed_type, None);
             }
