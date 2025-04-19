@@ -235,8 +235,8 @@ impl<'a> EnhTypeCheck<'a> {
                     strict,
                 )
                 .map(EnhASTStatement::Expression),
-            EnhASTStatement::LetStatement(name, e, is_const, index) => {
-                self.transform_expression(
+            EnhASTStatement::LetStatement(name, e, index) => self
+                .transform_expression(
                     module,
                     e,
                     val_context,
@@ -247,8 +247,27 @@ impl<'a> EnhTypeCheck<'a> {
                     new_functions,
                     strict,
                 )
-                .map(|it| EnhASTStatement::LetStatement(name.clone(), it, *is_const, index.clone()))
-            }
+                .map(|it| EnhASTStatement::LetStatement(name.clone(), it, index.clone())),
+            EnhASTStatement::ConstStatement(name, e, index, modifiers) => self
+                .transform_expression(
+                    module,
+                    e,
+                    val_context,
+                    statics,
+                    None,
+                    namespace,
+                    inside_function,
+                    new_functions,
+                    strict,
+                )
+                .map(|it| {
+                    EnhASTStatement::ConstStatement(
+                        name.clone(),
+                        it,
+                        index.clone(),
+                        modifiers.clone(),
+                    )
+                }),
         }
     }
 
@@ -1450,7 +1469,32 @@ impl<'a> EnhTypeCheck<'a> {
                     strict,
                 );
 
-                if let Ok(EnhASTStatement::LetStatement(name, expr, is_cons, index)) =
+                if let Ok(EnhASTStatement::LetStatement(name, expr, index)) = &new_statement {
+                    let type_of_expr = self.type_of_expression(
+                        module,
+                        expr,
+                        val_context,
+                        statics,
+                        None,
+                        namespace,
+                        new_functions,
+                        strict,
+                    )?;
+
+                    if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
+                        val_context
+                            .insert_let(name.clone(), ast_type, index)
+                            .map_err(|it| {
+                                EnhTypeCheckError::new(index.clone(), it, self.stack.clone())
+                            })?;
+                    } else {
+                        return Err(EnhTypeCheckError::new(
+                            index.clone(),
+                            format!("Cannot determine type of {expr}, type_of_epr {type_of_expr}"),
+                            self.stack.clone(),
+                        ));
+                    }
+                } else if let Ok(EnhASTStatement::ConstStatement(name, expr, index, modifiers)) =
                     &new_statement
                 {
                     let type_of_expr = self.type_of_expression(
@@ -1465,15 +1509,7 @@ impl<'a> EnhTypeCheck<'a> {
                     )?;
 
                     if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
-                        if *is_cons {
-                            statics.add_const(name.clone(), ast_type);
-                        } else {
-                            val_context
-                                .insert_let(name.clone(), ast_type, index)
-                                .map_err(|it| {
-                                    EnhTypeCheckError::new(index.clone(), it, self.stack.clone())
-                                })?;
-                        }
+                        statics.add_const(name.clone(), ast_type, namespace, modifiers);
                     } else {
                         return Err(EnhTypeCheckError::new(
                             index.clone(),
@@ -1813,7 +1849,7 @@ impl<'a> EnhTypeCheck<'a> {
                 )?;
 
                 for (i, statement) in def.body.iter().enumerate() {
-                    if let EnhASTStatement::LetStatement(name, expr, is_cons, index) = statement {
+                    if let EnhASTStatement::LetStatement(name, expr, index) = statement {
                         let type_of_expr = self.type_of_expression(
                             module,
                             expr,
@@ -1826,24 +1862,17 @@ impl<'a> EnhTypeCheck<'a> {
                         )?;
 
                         if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
-                            if *is_cons {
-                                dedent!();
-                                return Err(EnhTypeCheckError::new(
-                                    index.clone(),
-                                    format!("Const not allowed here {expr}"),
-                                    self.stack.clone(),
-                                ));
-                            } else {
-                                lambda_val_context
-                                    .insert_let(name.clone(), ast_type, index)
-                                    .map_err(|it| {
-                                        EnhTypeCheckError::new(
-                                            index.clone(),
-                                            it,
-                                            self.stack.clone(),
-                                        )
-                                    })?;
-                            }
+                            lambda_val_context
+                                .insert_let(name.clone(), ast_type, index)
+                                .map_err(|it| {
+                                    EnhTypeCheckError::new(index.clone(), it, self.stack.clone())
+                                })?;
+                        } else if let EnhASTStatement::ConstStatement(_, _, _, _) = statement {
+                            return Err(EnhTypeCheckError::new(
+                                index.clone(),
+                                format!("Const not allowed here {expr}"),
+                                self.stack.clone(),
+                            ));
                         } else {
                             dedent!();
                             return Ok(EnhTypeFilter::Lambda(def.parameter_names.len(), None));

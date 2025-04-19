@@ -24,7 +24,7 @@ use rasm_core::type_check::ast_modules_container::ASTModulesContainer;
 use rasm_core::type_check::ast_type_checker::ASTTypeChecker;
 use rasm_core::type_check::substitute;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
-use rasm_parser::parser::ast::ASTValueType;
+use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
 use rasm_utils::OptionDisplay;
 
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
@@ -750,71 +750,124 @@ impl ReferenceFinder {
                 type_check,
                 new_functions,
             ),
-            EnhASTStatement::LetStatement(name, expr, is_const, index) => {
-                let filter = Self::get_filter_of_expression(
-                    expr,
-                    module,
-                    val_context,
-                    statics,
-                    None,
-                    namespace,
-                    type_check,
-                )?;
-
-                reference_context.add(name.clone(), index.clone(), filter.clone());
-
-                let index1 = index.clone();
-                let mut result = vec![SelectableItem::new(
-                    index1.clone(),
-                    name.len(),
-                    namespace.clone(),
-                    None,
-                )];
-
-                if *is_const {
-                    if let EnhTypeFilter::Exact(ref ast_type) = filter {
-                        statics.add_const(name.clone(), ast_type.clone());
-                    } else {
-                        statics.add_const(
-                            name.clone(),
-                            EnhASTType::Generic(EnhASTIndex::none(), "UNKNOWN".to_string()),
-                        );
-                    }
-                    reference_static_context.add(name.clone(), index.clone(), filter);
-                } else if let EnhTypeFilter::Exact(ref ast_type) = filter {
-                    val_context
-                        .insert_let(name.clone(), ast_type.clone(), index)
-                        .map_err(|err| {
-                            EnhTypeCheckError::new(index.clone(), err.clone(), Vec::new())
-                        })?;
-                } else {
-                    val_context
-                        .insert_let(
-                            name.clone(),
-                            EnhASTType::Generic(EnhASTIndex::none(), "UNKNOWN".to_string()),
-                            index,
-                        )
-                        .map_err(|err| {
-                            EnhTypeCheckError::new(index.clone(), err.clone(), Vec::new())
-                        })?;
-                }
-
-                result.extend(Self::process_expression(
-                    expr,
+            EnhASTStatement::LetStatement(name, expr, index) => ReferenceFinder::pippo(
+                reference_context,
+                reference_static_context,
+                module,
+                namespace,
+                val_context,
+                statics,
+                inside_function,
+                type_check,
+                new_functions,
+                name,
+                expr,
+                false,
+                index,
+                None,
+            ),
+            EnhASTStatement::ConstStatement(name, expr, index, modifiers) => {
+                ReferenceFinder::pippo(
                     reference_context,
                     reference_static_context,
                     module,
                     namespace,
                     val_context,
                     statics,
-                    None,
                     inside_function,
                     type_check,
                     new_functions,
-                )?);
-                Ok(result)
+                    name,
+                    expr,
+                    true,
+                    index,
+                    Some(modifiers),
+                )
             }
         }
+    }
+
+    fn pippo(
+        reference_context: &mut ReferenceContext,
+        reference_static_context: &mut ReferenceContext,
+        module: &EnhancedASTModule,
+        namespace: &EnhASTNameSpace,
+        val_context: &mut EnhValContext,
+        statics: &mut Statics,
+        inside_function: Option<&EnhASTFunctionDef>,
+        type_check: &mut EnhTypeCheck,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        name: &String,
+        expr: &EnhASTExpression,
+        is_const: bool,
+        index: &EnhASTIndex,
+        modifiers: Option<&ASTModifiers>,
+    ) -> Result<Vec<SelectableItem>, EnhTypeCheckError> {
+        let filter = Self::get_filter_of_expression(
+            expr,
+            module,
+            val_context,
+            statics,
+            None,
+            namespace,
+            type_check,
+        )?;
+
+        reference_context.add(name.clone(), index.clone(), filter.clone());
+
+        let index1 = index.clone();
+        let mut result = vec![SelectableItem::new(
+            index1.clone(),
+            name.len(),
+            namespace.clone(),
+            None,
+        )];
+
+        if is_const {
+            if let EnhTypeFilter::Exact(ref ast_type) = filter {
+                statics.add_const(
+                    name.clone(),
+                    ast_type.clone(),
+                    namespace,
+                    modifiers.unwrap(),
+                );
+            } else {
+                statics.add_const(
+                    name.clone(),
+                    EnhASTType::Generic(EnhASTIndex::none(), "UNKNOWN".to_string()),
+                    namespace,
+                    modifiers.unwrap(),
+                );
+            }
+            reference_static_context.add(name.clone(), index.clone(), filter);
+        } else if let EnhTypeFilter::Exact(ref ast_type) = filter {
+            val_context
+                .insert_let(name.clone(), ast_type.clone(), index)
+                .map_err(|err| EnhTypeCheckError::new(index.clone(), err.clone(), Vec::new()))?;
+        } else {
+            val_context
+                .insert_let(
+                    name.clone(),
+                    EnhASTType::Generic(EnhASTIndex::none(), "UNKNOWN".to_string()),
+                    index,
+                )
+                .map_err(|err| EnhTypeCheckError::new(index.clone(), err.clone(), Vec::new()))?;
+        }
+
+        result.extend(Self::process_expression(
+            expr,
+            reference_context,
+            reference_static_context,
+            module,
+            namespace,
+            val_context,
+            statics,
+            None,
+            inside_function,
+            type_check,
+            new_functions,
+        )?);
+        Ok(result)
     }
 
     fn process_expression(

@@ -46,9 +46,13 @@ pub trait TraverseTypedAST {
     fn traverse_statement(&mut self, statement: &ASTTypedStatement) {
         match statement {
             ASTTypedStatement::Expression(expr) => self.traverse_expression(expr),
-            ASTTypedStatement::LetStatement(name, expr, is_const, index) => {
+            ASTTypedStatement::LetStatement(name, expr, index) => {
                 self.traverse_expression(expr);
-                self.found_let(name, *is_const, index);
+                self.found_let(name, false, index);
+            }
+            ASTTypedStatement::ConstStatement(name, expr, index, _modifiers) => {
+                self.traverse_expression(expr);
+                self.found_let(name, true, index);
             }
         }
     }

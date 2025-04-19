@@ -666,9 +666,10 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
             ASTTypedStatement::Expression(expr) => {
                 self.expression_references_to_context(expr, context)
             }
-            ASTTypedStatement::LetStatement(_, expr, _is_const, _index) => {
+            ASTTypedStatement::LetStatement(_, expr, _index) => {
                 self.expression_references_to_context(expr, context)
             }
+            ASTTypedStatement::ConstStatement(_, _, _, _) => Vec::new(),
         }
     }
 
@@ -737,9 +738,10 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
             ASTTypedStatement::Expression(expr) => {
                 self.expression_reads_from_context(expr, context)
             }
-            ASTTypedStatement::LetStatement(_, expr, _is_const, _index) => {
+            ASTTypedStatement::LetStatement(_, expr, _index) => {
                 self.expression_reads_from_context(expr, context)
             }
+            ASTTypedStatement::ConstStatement(_, _, _, _) => false,
         }
     }
 

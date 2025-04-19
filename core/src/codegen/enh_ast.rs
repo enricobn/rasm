@@ -1158,14 +1158,16 @@ impl Display for EnhASTExpression {
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnhASTStatement {
     Expression(EnhASTExpression),
-    LetStatement(String, EnhASTExpression, bool, EnhASTIndex),
+    LetStatement(String, EnhASTExpression, EnhASTIndex),
+    ConstStatement(String, EnhASTExpression, EnhASTIndex, ASTModifiers),
 }
 
 impl EnhASTStatement {
     pub fn get_index(&self) -> Option<&EnhASTIndex> {
         match self {
             EnhASTStatement::Expression(expr) => expr.get_index(),
-            EnhASTStatement::LetStatement(_, _, _, index) => Some(index),
+            EnhASTStatement::LetStatement(_, _, index) => Some(index),
+            EnhASTStatement::ConstStatement(_, _, index, _) => Some(index),
         }
     }
 
@@ -1174,12 +1176,15 @@ impl EnhASTStatement {
             EnhASTStatement::Expression(exp) => {
                 EnhASTStatement::Expression(exp.fix_namespaces(enhanced_module))
             }
-            EnhASTStatement::LetStatement(name, exp, is_const, astindex) => {
-                EnhASTStatement::LetStatement(
+            EnhASTStatement::LetStatement(name, exp, astindex) => {
+                EnhASTStatement::LetStatement(name, exp.fix_namespaces(enhanced_module), astindex)
+            }
+            EnhASTStatement::ConstStatement(name, exp, astindex, modifiers) => {
+                EnhASTStatement::ConstStatement(
                     name,
                     exp.fix_namespaces(enhanced_module),
-                    is_const,
                     astindex,
+                    modifiers,
                 )
             }
         }
@@ -1199,17 +1204,16 @@ impl EnhASTStatement {
                 EnhASTStatement::LetStatement(
                     name.clone(),
                     expr.clone(),
-                    false,
                     EnhASTIndex::from_position(id.path(), &position),
                 )
             }
-            ASTStatement::ConstStatement(name, astexpression, position, astmodifiers) => {
+            ASTStatement::ConstStatement(name, astexpression, position, modifiers) => {
                 let expr = EnhASTExpression::from_ast(id, namespace, astexpression);
-                EnhASTStatement::LetStatement(
+                EnhASTStatement::ConstStatement(
                     name.clone(),
                     expr.clone(),
-                    true,
                     EnhASTIndex::from_position(id.path(), &position),
+                    modifiers,
                 )
             }
         }
@@ -1220,9 +1224,12 @@ impl Display for EnhASTStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             EnhASTStatement::Expression(e) => f.write_str(&format!("{e};\n")),
-            EnhASTStatement::LetStatement(name, e, is_const, _index) => {
-                let keyword = if *is_const { "const" } else { "let" };
-                f.write_str(&format!("{keyword} {name} = {e};\n"))
+            EnhASTStatement::LetStatement(name, e, _index) => {
+                f.write_str(&format!("let {name} = {e};\n"))
+            }
+            EnhASTStatement::ConstStatement(name, e, _index, modifiers) => {
+                let prefix = if modifiers.public { "pub " } else { "" };
+                f.write_str(&format!("{prefix} const {name} = {e};\n"))
             }
         }
     }

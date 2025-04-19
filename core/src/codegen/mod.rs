@@ -38,7 +38,7 @@ use crate::project::RasmProject;
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::get_new_native_call;
-use rasm_parser::parser::ast::ASTValueType;
+use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
 
 pub mod asm;
 pub mod c;
@@ -677,6 +677,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         body: &mut String,
         id: &mut usize,
         typed_module: &ASTTypedModule,
+        const_modifiers: Option<&ASTModifiers>,
     ) -> Vec<LambdaCall> {
         self.define_let(code_gen_context, name, is_const);
 
@@ -1365,7 +1366,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         }
                     }
                 }
-                ASTTypedStatement::LetStatement(name, expr, is_const, _let_index) => {
+                ASTTypedStatement::LetStatement(name, expr, _let_index) => {
                     let mut new_lambda_calls = self.add_let(
                         code_gen_context,
                         None,
@@ -1377,11 +1378,33 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         expr,
                         function_def,
                         lambda_space,
-                        *is_const,
+                        false,
                         statics,
                         body,
                         id,
                         typed_module,
+                        None,
+                    );
+                    lambda_calls.append(&mut new_lambda_calls);
+                }
+                ASTTypedStatement::ConstStatement(name, expr, _let_index, modifiers) => {
+                    let mut new_lambda_calls = self.add_let(
+                        code_gen_context,
+                        None,
+                        namespace,
+                        context,
+                        after,
+                        before,
+                        name,
+                        expr,
+                        function_def,
+                        lambda_space,
+                        true,
+                        statics,
+                        body,
+                        id,
+                        typed_module,
+                        Some(modifiers),
                     );
                     lambda_calls.append(&mut new_lambda_calls);
                 }

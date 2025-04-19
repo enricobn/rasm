@@ -120,7 +120,8 @@ fn verify_statements(
                 Some(expected_return_type),
                 statics,
             )?,
-            ASTTypedStatement::LetStatement(_, _e, _is_const, _let_index) => ASTTypedType::Unit,
+            ASTTypedStatement::LetStatement(_, _e, _let_index) => ASTTypedType::Unit,
+            ASTTypedStatement::ConstStatement(_, _e, _let_index, _modifiers) => ASTTypedType::Unit,
         }
     } else {
         ASTTypedType::Unit
@@ -157,81 +158,96 @@ pub fn verify_statement(
         ASTTypedStatement::Expression(e) => {
             verify_expression(module, context, e, statics, expected_return_type)
         }
-        ASTTypedStatement::LetStatement(name, e, is_const, _let_index) => {
-            verify_expression(module, context, e, statics, None)?;
-            if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                let ast_typed_type = if let Some(function_def) =
-                    module.functions_by_name.get(&call.function_name)
-                {
-                    function_def.return_type.clone()
-                } else if let Some(function_def) = module.functions_by_name.get(&call.function_name)
-                {
-                    function_def.return_type.clone()
-                } else if let Some(TypedValKind::ParameterRef(_, parameter_ref)) =
-                    context.get(&call.function_name)
-                {
-                    if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                        parameters: _,
-                        return_type,
-                    }) = &parameter_ref.ast_type
-                    {
-                        return_type.deref().clone()
-                    } else {
-                        return Err(verify_error(
-                            call.index.clone(),
-                            format!("{} is not a lambda", call.function_name),
-                        ));
-                    }
-                } else if let Some(TypedValKind::LetRef(_, ast_type)) =
-                    context.get(&call.function_name)
-                {
-                    if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                        parameters: _,
-                        return_type,
-                    }) = &ast_type
-                    {
-                        return_type.deref().clone()
-                    } else {
-                        return Err(verify_error(
-                            call.index.clone(),
-                            format!("{} is not a lambda", call.function_name),
-                        ));
-                    }
-                } else {
-                    return Err(verify_error(
-                        call.index.clone(),
-                        format!("Cannot find call to {}", call.original_function_name),
-                    ));
-                };
+        ASTTypedStatement::LetStatement(name, e, _let_index) => {
+            verify_let_const(module, context, statics, name, e, false)
+        }
+        ASTTypedStatement::ConstStatement(name, e, _const_index, modifiers) => {
+            verify_let_const(module, context, statics, name, e, true)
+        },
+    }
+}
 
-                if *is_const {
-                    statics.add_typed_const(name.to_owned(), ast_typed_type);
-                } else {
-                    context.insert_let(name.clone(), ast_typed_type, None);
-                }
+fn verify_let_const(
+    module: &ASTTypedModule,
+    context: &mut TypedValContext,
+    statics: &mut Statics,
+    name: &String,
+    e: &ASTTypedExpression,
+    is_const: bool
+) -> Result<(), CompilationError> {
+    verify_expression(module, context, e, statics, None)?;
+    if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
+        let ast_typed_type = if let Some(function_def) =
+            module.functions_by_name.get(&call.function_name)
+        {
+            function_def.return_type.clone()
+        } else if let Some(function_def) = module.functions_by_name.get(&call.function_name)
+        {
+            function_def.return_type.clone()
+        } else if let Some(TypedValKind::ParameterRef(_, parameter_ref)) =
+            context.get(&call.function_name)
+        {
+            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                parameters: _,
+                return_type,
+            }) = &parameter_ref.ast_type
+            {
+                return_type.deref().clone()
             } else {
-                let ast_typed_type =
-                    typed_ast::get_type_of_typed_expression(module, context, e, None, statics)?;
-                if ast_typed_type != ASTTypedType::Unit {
-                    if *is_const {
-                        statics.add_typed_const(name.to_owned(), ast_typed_type);
-                    } else {
-                        context.insert_let(name.clone(), ast_typed_type, None);
-                    }
-                } else {
-                    panic!("unsupported let")
-                }
+                return Err(verify_error(
+                    call.index.clone(),
+                    format!("{} is not a lambda", call.function_name),
+                ));
             }
-
-            /*
-            if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
-                verify_function_call(module, context, call, statics)?;
+        } else if let Some(TypedValKind::LetRef(_, ast_type)) =
+            context.get(&call.function_name)
+        {
+            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                parameters: _,
+                return_type,
+            }) = &ast_type
+            {
+                return_type.deref().clone()
+            } else {
+                return Err(verify_error(
+                    call.index.clone(),
+                    format!("{} is not a lambda", call.function_name),
+                ));
             }
+        } else {
+            return Err(verify_error(
+                call.index.clone(),
+                format!("Cannot find call to {}", call.original_function_name),
+            ));
+        };
 
-             */
-            Ok(())
+        if is_const {
+            statics.add_typed_const(name.to_owned(), ast_typed_type);
+        } else {
+            context.insert_let(name.clone(), ast_typed_type, None);
+        }
+    } else {
+        let ast_typed_type =
+            typed_ast::get_type_of_typed_expression(module, context, e, None, statics)?;
+        if ast_typed_type != ASTTypedType::Unit {
+            if is_const {
+                statics.add_typed_const(name.to_owned(), ast_typed_type);
+            } else {
+                context.insert_let(name.clone(), ast_typed_type, None);
+            }
+        } else {
+            panic!("unsupported let")
         }
     }
+
+    /*
+    if let ASTTypedExpression::ASTFunctionCallExpression(call) = e {
+        verify_function_call(module, context, call, statics)?;
+    }
+
+     */
+    Ok(())
+
 }
 
 fn verify_expression(

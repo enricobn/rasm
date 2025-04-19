@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rasm_parser::parser::ast::ASTValueType;
+use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
 
 use crate::codegen::enh_ast::{EnhASTExpression, EnhASTIndex, EnhASTStatement};
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -13,7 +13,7 @@ pub fn add_folder(
     if resource_folder.exists() {
         module.body.insert(
             0,
-            EnhASTStatement::LetStatement(
+            EnhASTStatement::ConstStatement(
                 source_folder_name.to_owned(),
                 EnhASTExpression::Value(
                     ASTValueType::String(
@@ -28,8 +28,8 @@ pub fn add_folder(
                     ),
                     EnhASTIndex::none(),
                 ),
-                true,
                 EnhASTIndex::none(),
+                ASTModifiers::public(),
             ),
         );
     }

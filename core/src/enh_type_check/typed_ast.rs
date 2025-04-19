@@ -429,14 +429,16 @@ impl Display for ASTTypedExpression {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypedStatement {
     Expression(ASTTypedExpression),
-    LetStatement(String, ASTTypedExpression, bool, EnhASTIndex),
+    LetStatement(String, ASTTypedExpression, EnhASTIndex),
+    ConstStatement(String, ASTTypedExpression, EnhASTIndex, ASTModifiers),
 }
 
 impl ASTTypedStatement {
     pub fn get_index(&self) -> Option<EnhASTIndex> {
         match self {
             ASTTypedStatement::Expression(e) => e.get_index(),
-            ASTTypedStatement::LetStatement(_, _, _, index) => Some(index.clone()),
+            ASTTypedStatement::LetStatement(_, _, index) => Some(index.clone()),
+            ASTTypedStatement::ConstStatement(_, _, index, _) => Some(index.clone()),
         }
     }
 }
@@ -445,9 +447,12 @@ impl Display for ASTTypedStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ASTTypedStatement::Expression(e) => f.write_str(&format!("{e};\n")),
-            ASTTypedStatement::LetStatement(name, e, is_const, _index) => {
-                let keyword = if *is_const { "const" } else { "let" };
-                f.write_str(&format!("{keyword} {name} = {e};\n"))
+            ASTTypedStatement::LetStatement(name, e, _index) => {
+                f.write_str(&format!("let {name} = {e};\n"))
+            }
+            ASTTypedStatement::ConstStatement(name, e, _index, modifiers) => {
+                let prefix = if modifiers.public { "pub " } else { "" };
+                f.write_str(&format!("{prefix} const {name} = {e};\n"))
             }
         }
     }
@@ -1297,19 +1302,18 @@ pub fn get_type_of_typed_expression(
             for statement in lambda_def.body.iter() {
                 match statement {
                     ASTTypedStatement::Expression(_) => {}
-                    ASTTypedStatement::LetStatement(name, let_expr, is_const, _index) => {
+                    ASTTypedStatement::LetStatement(name, let_expr, _index) => {
                         let type_of_expr = get_type_of_typed_expression(
                             module, &context, let_expr, None, statics,
                         )?;
 
-                        if *is_const {
-                            return Err(verify::verify_error(
-                                lambda_def.index.clone(),
-                                "Const not allowed here".to_string(),
-                            ));
-                        }
-
                         context.insert_let(name.to_string(), type_of_expr, None);
+                    }
+                    ASTTypedStatement::ConstStatement(_name, _expr, _index, _modifiers) => {
+                        return Err(verify::verify_error(
+                            lambda_def.index.clone(),
+                            "Const not allowed here".to_string(),
+                        ));
                     }
                 }
             }
@@ -1319,7 +1323,8 @@ pub fn get_type_of_typed_expression(
                     ASTTypedStatement::Expression(e) => {
                         get_type_of_typed_expression(module, &context, e, ast_type, statics)?
                     }
-                    ASTTypedStatement::LetStatement(_, _expr, _is_const, _let_index) => {
+                    ASTTypedStatement::LetStatement(_, _expr, _let_index) => ASTTypedType::Unit,
+                    ASTTypedStatement::ConstStatement(_, _expr, _index, _modifiers) => {
                         ASTTypedType::Unit
                     }
                 }
@@ -1627,12 +1632,17 @@ fn statement(conv_context: &mut ConvContext, it: &EnhASTStatement) -> ASTTypedSt
         EnhASTStatement::Expression(e) => {
             ASTTypedStatement::Expression(expression(conv_context, e))
         }
-        EnhASTStatement::LetStatement(name, e, is_const, let_index) => {
-            ASTTypedStatement::LetStatement(
+        EnhASTStatement::LetStatement(name, e, let_index) => ASTTypedStatement::LetStatement(
+            name.clone(),
+            expression(conv_context, e),
+            let_index.clone(),
+        ),
+        EnhASTStatement::ConstStatement(name, e, const_index, modifiers) => {
+            ASTTypedStatement::ConstStatement(
                 name.clone(),
                 expression(conv_context, e),
-                *is_const,
-                let_index.clone(),
+                const_index.clone(),
+                modifiers.clone(),
             )
         }
     }
