@@ -1716,32 +1716,24 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
     }
 
     fn get_text_macro_evaluator(&self) -> TextMacroEvaluator {
-        let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
+        let mut evaluator = TextMacroEvaluator::new(CodeManipulatorNasm::new());
         let call_text_macro_evaluator = AsmCallTextMacroEvaluator::new(self.clone());
-        evaluators.insert("call".into(), Box::new(call_text_macro_evaluator));
+        evaluator.add("call", call_text_macro_evaluator);
 
         let c_call_text_macro_evaluator = AsmCCallTextMacroEvaluator::new(self.clone());
-        evaluators.insert("ccall".into(), Box::new(c_call_text_macro_evaluator));
-        evaluators.insert(
-            "addRef".into(),
-            Box::new(AddRefMacro::new(
-                self.clone(),
-                RefType::AddRef,
-                self.options.dereference,
-            )),
+        evaluator.add("ccall", c_call_text_macro_evaluator);
+        evaluator.add(
+            "addRef",
+            AddRefMacro::new(self.clone(), RefType::AddRef, self.options.dereference),
         );
-        evaluators.insert(
-            "deref".into(),
-            Box::new(AddRefMacro::new(
-                self.clone(),
-                RefType::Deref,
-                self.options.dereference,
-            )),
+        evaluator.add(
+            "deref",
+            AddRefMacro::new(self.clone(), RefType::Deref, self.options.dereference),
         );
         let print_ref_macro = AsmPrintRefMacro::new(self.clone());
-        evaluators.insert("printRef".into(), Box::new(print_ref_macro));
+        evaluator.add("printRef", print_ref_macro);
 
-        TextMacroEvaluator::new(evaluators, Box::new(CodeManipulatorNasm::new()))
+        evaluator
     }
 
     fn create_function_definition(&self, function_def: &ASTTypedFunctionDef) -> bool {

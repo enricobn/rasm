@@ -107,14 +107,15 @@ pub struct TextMacroEvaluator {
 }
 
 impl TextMacroEvaluator {
-    pub fn new(
-        evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>>,
-        code_manipulator: Box<dyn CodeManipulator>,
-    ) -> Self {
+    pub fn new(code_manipulator: impl CodeManipulator + 'static) -> Self {
         Self {
-            evaluators,
-            code_manipulator,
+            evaluators: LinkedHashMap::new(),
+            code_manipulator: Box::new(code_manipulator),
         }
+    }
+
+    pub fn add(&mut self, key: &str, eval: impl TextMacroEval + 'static) {
+        self.evaluators.insert(key.to_owned(), Box::new(eval));
     }
 
     pub fn translate(

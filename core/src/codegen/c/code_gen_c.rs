@@ -793,42 +793,27 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     }
 
     fn get_text_macro_evaluator(&self) -> TextMacroEvaluator {
-        let mut evaluators: LinkedHashMap<String, Box<dyn TextMacroEval>> = LinkedHashMap::new();
-        evaluators.insert("call".to_string(), Box::new(CCallMacro));
-        evaluators.insert("include".to_string(), Box::new(CIncludeMacro));
-        evaluators.insert(
-            "structDeclaration".to_string(),
-            Box::new(CStructDeclarationMacro),
+        let mut evaluator = TextMacroEvaluator::new(CCodeManipulator::new());
+        evaluator.add("call", CCallMacro);
+        evaluator.add("include", CIncludeMacro);
+        evaluator.add("structDeclaration", CStructDeclarationMacro);
+        evaluator.add("structType", CStructTypeMacro);
+        evaluator.add("enumVariantDeclaration", CEnumVariantDeclarationMacro);
+        evaluator.add("enumDeclaration", CEnumDeclarationMacro);
+        evaluator.add("enumVariantAssignment", CEnumVariantAssignmentMacro);
+        evaluator.add(
+            "addRef",
+            CAddRefMacro::new(self.clone(), RefType::AddRef, true),
         );
-        evaluators.insert("structType".to_string(), Box::new(CStructTypeMacro));
-        evaluators.insert(
-            "enumVariantDeclaration".to_string(),
-            Box::new(CEnumVariantDeclarationMacro),
+        evaluator.add(
+            "deref",
+            CAddRefMacro::new(self.clone(), RefType::Deref, true),
         );
-        evaluators.insert(
-            "enumDeclaration".to_string(),
-            Box::new(CEnumDeclarationMacro),
-        );
+        evaluator.add("typeName", CTypeNameMacro::new());
+        evaluator.add("castAddress", CCastAddress::new());
+        evaluator.add("enumSimple", CEnumSimpleMacro::new());
 
-        evaluators.insert(
-            "enumVariantAssignment".to_string(),
-            Box::new(CEnumVariantAssignmentMacro),
-        );
-
-        evaluators.insert(
-            "addRef".to_string(),
-            Box::new(CAddRefMacro::new(self.clone(), RefType::AddRef, true)),
-        );
-
-        evaluators.insert(
-            "deref".to_string(),
-            Box::new(CAddRefMacro::new(self.clone(), RefType::Deref, true)),
-        );
-
-        evaluators.insert("typeName".to_string(), Box::new(CTypeNameMacro::new()));
-        evaluators.insert("castAddress".to_string(), Box::new(CCastAddress::new()));
-        evaluators.insert("enumSimple".to_string(), Box::new(CEnumSimpleMacro::new()));
-        TextMacroEvaluator::new(evaluators, Box::new(CCodeManipulator::new()))
+        evaluator
     }
 
     fn print_memory_info(&self, native_code: &mut String, statics: &Statics) {
