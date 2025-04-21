@@ -1446,26 +1446,6 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         );
     }
 
-    fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
-        self.code_manipulator.add_comment(out, comment, indent);
-    }
-
-    fn add_rows(&self, out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool) {
-        self.code_manipulator.add_rows(out, code, comment, indent);
-    }
-
-    fn add(&self, out: &mut String, code: &str, comment: Option<&str>, indent: bool) {
-        self.code_manipulator.add(out, code, comment, indent);
-    }
-
-    fn add_empty_line(&self, out: &mut String) {
-        self.code_manipulator.add_empty_line(out);
-    }
-
-    fn remove_comments_from_line(&self, line: String) -> String {
-        self.code_manipulator.remove_comments_from_line(line)
-    }
-
     fn preamble(&self, code: &mut String) {
         self.add(code, "%macro gotoOnSome 1", None, false);
         self.add(
@@ -1766,5 +1746,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
             }
         }
         code_gen_context.stack_vals.reserve_local_val(name);
+    }
+
+    fn code_manipulator(&self) -> &dyn CodeManipulator {
+        &self.code_manipulator
     }
 }

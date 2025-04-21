@@ -4,6 +4,7 @@ use std::ops::Deref;
 use std::path::Path;
 
 use asm::code_gen_asm::AsmOptions;
+use code_manipulator::CodeManipulator;
 use enh_ast::EnhModuleId;
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
@@ -1878,16 +1879,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         )
     }
 
-    fn add_comment(&self, out: &mut String, comment: &str, indent: bool);
-
-    fn add_rows(&self, out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool);
-
-    fn add(&self, out: &mut String, code: &str, comment: Option<&str>, indent: bool);
-
-    fn add_empty_line(&self, out: &mut String);
-
-    fn remove_comments_from_line(&self, line: String) -> String;
-
     fn preamble(&self, code: &mut String);
 
     /// Returns the name of the functions called in the code
@@ -2029,6 +2020,28 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
     fn create_function_definition(&self, function_def: &ASTTypedFunctionDef) -> bool;
 
     fn replace_inline_call_including_source(&self) -> bool;
+
+    fn code_manipulator(&self) -> &dyn CodeManipulator;
+
+    fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
+        self.code_manipulator().add_comment(out, comment, indent);
+    }
+
+    fn add_rows(&self, out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool) {
+        self.code_manipulator().add_rows(out, code, comment, indent);
+    }
+
+    fn add(&self, out: &mut String, code: &str, comment: Option<&str>, indent: bool) {
+        self.code_manipulator().add(out, code, comment, indent);
+    }
+
+    fn add_empty_line(&self, out: &mut String) {
+        self.code_manipulator().add_empty_line(out);
+    }
+
+    fn remove_comments_from_line(&self, line: String) -> String {
+        self.code_manipulator().remove_comments_from_line(line)
+    }
 }
 
 pub fn get_reference_type_name(
