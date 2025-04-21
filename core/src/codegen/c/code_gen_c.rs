@@ -32,16 +32,16 @@ use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{RefType, TextMacroEval, TextMacroEvaluator};
+use crate::codegen::text_macro::{RefType, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{CodeGen, TypedValKind};
+use crate::codegen::{CodeGen, CodeGenOptions, TypedValKind};
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
 };
 use crate::project::RasmProject;
 use crate::transformations::typed_functions_creator::struct_has_references;
-use linked_hash_map::LinkedHashMap;
+
 use log::info;
 use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
 use walkdir::WalkDir;
@@ -188,7 +188,7 @@ impl CodeGenC {
     }
 
     pub fn call_add_ref(
-        &self,
+        code_manipulator: &CCodeManipulator,
         out: &mut String,
         source: &str,
         type_name: &str,
@@ -220,14 +220,14 @@ impl CodeGenC {
         if has_references {
             if is_type {
                 // it has an extra argument for description
-                self.add(
+                code_manipulator.add(
                     out,
                     &format!("{type_name}_addRef({source}, \"\");"),
                     Some(descr_for_debug),
                     true,
                 );
             } else {
-                self.add(
+                code_manipulator.add(
                     out,
                     &format!("{type_name}_addRef({source});"),
                     Some(descr_for_debug),
@@ -236,17 +236,22 @@ impl CodeGenC {
             }
         } else {
             if "_fn" == type_name {
-                self.add(out, &source, None, true);
+                code_manipulator.add(out, &source, None, true);
             // TODO handle str, for now it's not possible since there's no difference,
             //   between heap and static allocated strings
             } else if "str" != type_name && !is_static {
-                self.call_add_ref_simple(out, source, descr_for_debug);
+                Self::call_add_ref_simple(code_manipulator, out, source, descr_for_debug);
             }
         }
     }
 
-    pub fn call_add_ref_simple(&self, out: &mut String, source: &str, descr_for_debug: &str) {
-        self.add(
+    pub fn call_add_ref_simple(
+        code_manipulator: &CCodeManipulator,
+        out: &mut String,
+        source: &str,
+        descr_for_debug: &str,
+    ) {
+        code_manipulator.add(
             out,
             &format!("addRef({source});"),
             Some(descr_for_debug),
@@ -259,7 +264,7 @@ impl CodeGenC {
     }
 
     pub fn call_deref(
-        &self,
+        code_manipulator: &CCodeManipulator,
         out: &mut String,
         source: &str,
         type_name: &str,
@@ -291,14 +296,14 @@ impl CodeGenC {
         if has_references {
             if is_type {
                 // it has an extra argument for description
-                self.add(
+                code_manipulator.add(
                     out,
                     &format!("{type_name}_deref({source}, \"\");"),
                     Some(descr_for_debug),
                     true,
                 );
             } else {
-                self.add(
+                code_manipulator.add(
                     out,
                     &format!("{type_name}_deref({source});"),
                     Some(descr_for_debug),
@@ -307,17 +312,22 @@ impl CodeGenC {
             }
         } else {
             if "_fn" == type_name {
-                self.add(out, &source, None, true);
+                code_manipulator.add(out, &source, None, true);
             // TODO handle str, for now it's not possible since there's no difference,
             //   between heap and static allocated strings
             } else if "str" != type_name && !is_static {
-                self.call_deref_simple(out, source, descr_for_debug);
+                Self::call_deref_simple(code_manipulator, out, source, descr_for_debug);
             }
         }
     }
 
-    pub fn call_deref_simple(&self, out: &mut String, source: &str, descr_for_debug: &str) {
-        self.add(
+    pub fn call_deref_simple(
+        code_manipulator: &CCodeManipulator,
+        out: &mut String,
+        source: &str,
+        descr_for_debug: &str,
+    ) {
+        code_manipulator.add(
             out,
             &format!("deref({source});"),
             Some(descr_for_debug),
@@ -506,7 +516,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         modifiers: &ASTModifiers,
     ) {
         let entry = statics.get_typed_const(name, namespace).unwrap();
-        self.call_add_ref(body, &entry.key, type_name, &type_name, typed_module);
+        Self::call_add_ref(
+            &self.code_manipulator,
+            body,
+            &entry.key,
+            type_name,
+            &type_name,
+            typed_module,
+        );
     }
 
     fn call_deref_for_let_val(
@@ -522,16 +539,23 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
         if type_name == "_fn" {
             TypedFunctionsCreatorC::addref_deref_lambda(
+                &self.code_manipulator,
                 &mut result,
                 "deref",
                 name,
                 t,
                 typed_module,
-                self,
                 statics,
             );
         } else {
-            self.call_deref(&mut result, name, type_name, "", typed_module);
+            Self::call_deref(
+                &self.code_manipulator,
+                &mut result,
+                name,
+                type_name,
+                "",
+                typed_module,
+            );
         }
 
         result
@@ -550,16 +574,23 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     ) {
         if type_name == "_fn" {
             TypedFunctionsCreatorC::addref_deref_lambda(
+                &self.code_manipulator,
                 before,
                 "addRef",
                 name,
                 t,
                 typed_module,
-                self,
                 statics,
             );
         } else {
-            self.call_add_ref(before, name, type_name, "", typed_module);
+            Self::call_add_ref(
+                &self.code_manipulator,
+                before,
+                name,
+                type_name,
+                "",
+                typed_module,
+            );
         }
     }
 
@@ -803,11 +834,19 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         evaluator.add("enumVariantAssignment", CEnumVariantAssignmentMacro);
         evaluator.add(
             "addRef",
-            CAddRefMacro::new(self.clone(), RefType::AddRef, true),
+            CAddRefMacro::new(
+                CCodeManipulator::new(),
+                RefType::AddRef,
+                self.c_options.dereference(),
+            ),
         );
         evaluator.add(
             "deref",
-            CAddRefMacro::new(self.clone(), RefType::Deref, true),
+            CAddRefMacro::new(
+                CCodeManipulator::new(),
+                RefType::Deref,
+                self.c_options.dereference(),
+            ),
         );
         evaluator.add("typeName", CTypeNameMacro::new());
         evaluator.add("castAddress", CCastAddress::new());

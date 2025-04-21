@@ -199,16 +199,17 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         if let Some(type_name) = get_reference_type_name(&param_type, module) {
             if type_name == "_fn" {
                 TypedFunctionsCreatorC::addref_deref_lambda(
+                    &self.code_manipulator,
                     &mut self.before,
                     "addRef",
                     &tmp_val_name,
                     t,
                     module,
-                    &self.code_gen_c,
                     statics,
                 );
             } else {
-                self.code_gen_c.call_add_ref(
+                CodeGenC::call_add_ref(
+                    &self.code_manipulator,
                     &mut self.before,
                     &tmp_val_name,
                     &type_name,
@@ -223,16 +224,17 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
 
             if type_name == "_fn" {
                 TypedFunctionsCreatorC::addref_deref_lambda(
+                    &self.code_manipulator,
                     &mut deref_code,
                     "deref",
                     &tmp_val_name,
                     t,
                     module,
-                    &self.code_gen_c,
                     statics,
                 );
             } else {
-                self.code_gen_c.call_deref(
+                CodeGenC::call_deref(
+                    &self.code_manipulator,
                     &mut deref_code,
                     &tmp_val_name,
                     &type_name,

@@ -17,7 +17,7 @@ use crate::{
         lambda::LambdaSpace,
         stack::{StackEntryType, StackVals},
         statics::{MemoryUnit, MemoryValue, Statics},
-        text_macro::{AddRefMacro, RefType, TextMacroEval, TextMacroEvaluator},
+        text_macro::{AddRefMacro, RefType, TextMacroEvaluator},
         typedef_provider::TypeDefProvider,
         CodeGen, CodeGenOptions, TypedValKind,
     },

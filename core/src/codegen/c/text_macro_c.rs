@@ -29,7 +29,7 @@ use crate::enh_type_check::typed_ast::{
 };
 
 use super::any::CLambdas;
-use super::code_gen_c::CodeGenC;
+use super::code_gen_c::{CCodeManipulator, CodeGenC};
 
 pub struct CIncludeMacro;
 
@@ -334,15 +334,19 @@ impl TextMacroEval for CCallMacro {
 }
 
 pub struct CAddRefMacro {
-    code_gen: CodeGenC,
+    code_manipulator: CCodeManipulator,
     ref_type: RefType,
     dereference_enabled: bool,
 }
 
 impl CAddRefMacro {
-    pub fn new(code_gen: CodeGenC, ref_type: RefType, dereference_enabled: bool) -> Self {
+    pub fn new(
+        code_manipulator: CCodeManipulator,
+        ref_type: RefType,
+        dereference_enabled: bool,
+    ) -> Self {
         Self {
-            code_gen,
+            code_manipulator,
             ref_type,
             dereference_enabled,
         }
@@ -388,7 +392,8 @@ impl TextMacroEval for CAddRefMacro {
 
                 match self.ref_type {
                     RefType::Deref => {
-                        self.code_gen.call_deref(
+                        CodeGenC::call_deref(
+                            &self.code_manipulator,
                             &mut result,
                             address,
                             &type_name,
@@ -397,7 +402,8 @@ impl TextMacroEval for CAddRefMacro {
                         );
                     }
                     RefType::AddRef => {
-                        self.code_gen.call_add_ref(
+                        CodeGenC::call_add_ref(
+                            &self.code_manipulator,
                             &mut result,
                             address,
                             &type_name,
