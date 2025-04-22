@@ -351,11 +351,11 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         self.add(code, "freeReferences();", None, true);
     }
 
-    fn transform_before(&self, stack: &CodeGenCContext, before: String) -> String {
+    fn transform_before_in_function_def(&self, stack: &CodeGenCContext, before: String) -> String {
         before
     }
 
-    fn create_command_line_arguments(&self, generated_code: &mut String) {}
+    fn main_init(&self, generated_code: &mut String) {}
 
     fn call_lambda_parameter(
         &self,
@@ -491,7 +491,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         context.insert_let(name.into(), typed_type.clone(), None);
     }
 
-    fn store_function_result_in_stack(
+    fn store_function_result(
         &self,
         _code_gen_context: &CodeGenCContext,
         code: &mut String,
@@ -703,12 +703,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         }
     }
 
-    fn reserve_return_register(&self, _code_gen_context: &CodeGenCContext, _out: &mut String) {
-        // TODO
-    }
-
     fn function_def(
         &'a self,
+        code_gen_context: &CodeGenCContext,
         out: &mut String,
         function_def: &ASTTypedFunctionDef,
         statics: &mut Statics,
@@ -1177,7 +1174,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         (before, after)
     }
 
-    fn function_preamble(&self, out: &mut String) {
+    fn function_preamble(
+        &self,
+        code_gen_context: &CodeGenCContext,
+        function_def: Option<&ASTTypedFunctionDef>,
+        out: &mut String,
+    ) {
         // TODO
     }
 

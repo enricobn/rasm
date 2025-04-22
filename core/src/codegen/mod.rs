@@ -163,13 +163,13 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         let mut after = String::new();
         let mut before = String::new();
 
-        let a_body = &typed_module.body;
+        let main_body = &typed_module.body;
 
         self.generate_function_body(
             &code_gen_context,
             typed_module,
             None,
-            a_body,
+            main_body,
             None,
             &mut lambdas,
             &mut context,
@@ -182,7 +182,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             &EnhASTNameSpace::root_namespace(&project),
         );
 
-        body.push_str(&self.transform_before(&code_gen_context, before));
+        body.push_str(&self.transform_before_in_function_def(&code_gen_context, before));
         body.push_str(&after);
 
         let mut functions_generated_code =
@@ -215,11 +215,11 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         self.add(&mut generated_code, &code, None, true);
 
-        self.create_command_line_arguments(&mut generated_code);
+        self.main_init(&mut generated_code);
 
         self.add(&mut generated_code, "", None, true);
 
-        self.function_preamble(&mut generated_code);
+        self.function_preamble(&code_gen_context, None, &mut generated_code);
 
         self.reserve_local_vals(&code_gen_context, &mut generated_code);
 
@@ -256,9 +256,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn end_main(&self, code: &mut String);
 
-    fn transform_before(&self, code_gen_context: &CTX, before: String) -> String;
+    fn transform_before_in_function_def(&self, code_gen_context: &CTX, before: String) -> String;
 
-    fn create_command_line_arguments(&self, generated_code: &mut String);
+    fn main_init(&self, generated_code: &mut String);
 
     fn translate_static_code(&self, static_code: String, typed_module: &ASTTypedModule) -> String {
         let mut temp_statics = Statics::new();
@@ -865,7 +865,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         } else {
             self.insert_let_in_context(code_gen_context, context, name, &return_type);
             if !bf.is_empty() || !cur.is_empty() {
-                self.store_function_result_in_stack(code_gen_context, &mut cur, name, &return_type);
+                self.store_function_result(code_gen_context, &mut cur, name, &return_type);
                 before.push_str(&bf);
                 before.push_str(&cur);
             }
@@ -913,7 +913,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         typed_type: &ASTTypedType,
     );
 
-    fn store_function_result_in_stack(
+    fn store_function_result(
         &self,
         code_gen_context: &CTX,
         code: &mut String,
@@ -1105,8 +1105,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         }
     }
 
-    fn reserve_return_register(&self, code_gen_context: &CTX, out: &mut String);
-
     fn add_function_def(
         &'a self,
         function_def: &ASTTypedFunctionDef,
@@ -1136,17 +1134,13 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             &format!("function {}", function_def.original_signature(typed_module)),
             false,
         );
-        self.function_def(definitions, function_def, statics);
+        let code_gen_context = self.create_code_gen_context();
+
+        self.function_def(&code_gen_context, definitions, function_def, statics);
 
         let mut before = String::new();
 
-        let code_gen_context = self.create_code_gen_context();
-
-        self.function_preamble(definitions);
-
-        if function_def.return_type.is_unit() {
-            self.reserve_return_register(&code_gen_context, &mut before);
-        }
+        self.function_preamble(&code_gen_context, Some(function_def), definitions);
 
         if is_lambda {
             self.reserve_lambda_space(
@@ -1227,7 +1221,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         self.reserve_local_vals(&code_gen_context, definitions);
 
-        definitions.push_str(&self.transform_before(&code_gen_context, before));
+        definitions.push_str(&self.transform_before_in_function_def(&code_gen_context, before));
 
         definitions.push_str(&after);
         definitions.push('\n');
@@ -1450,6 +1444,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn function_def(
         &'a self,
+        code_gen_context: &CTX,
         out: &mut String,
         function_def: &ASTTypedFunctionDef,
         statics: &mut Statics,
@@ -2001,7 +1996,12 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         out_folder: &Path,
     ) -> (String, String);
 
-    fn function_preamble(&self, out: &mut String);
+    fn function_preamble(
+        &self,
+        code_gen_context: &CTX,
+        function_def: Option<&ASTTypedFunctionDef>,
+        out: &mut String,
+    );
 
     fn define_debug(&self, out: &mut String);
 

@@ -791,14 +791,18 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         self.call_function(code, "exitMain", &[("0", None)], None, false, false);
     }
 
-    fn transform_before(&self, context: &CodeGenAsmContext, before: String) -> String {
+    fn transform_before_in_function_def(
+        &self,
+        context: &CodeGenAsmContext,
+        before: String,
+    ) -> String {
         before.replace(
             STACK_VAL_SIZE_NAME,
             &(context.stack_vals.len_of_all() * self.word_len()).to_string(),
         )
     }
 
-    fn create_command_line_arguments(&self, generated_code: &mut String) {
+    fn main_init(&self, generated_code: &mut String) {
         self.call_function(
             generated_code,
             "createCmdLineArguments",
@@ -981,10 +985,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         );
     }
 
-    fn store_function_result_in_stack(
+    fn store_function_result(
         &self,
         code_gen_context: &CodeGenAsmContext,
-
         code: &mut String,
         name: &str,
         _typed_type: &ASTTypedType,
@@ -1276,14 +1279,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         }
     }
 
-    fn reserve_return_register(&self, code_gen_context: &CodeGenAsmContext, out: &mut String) {
-        code_gen_context
-            .stack_vals
-            .reserve_return_register(self, out);
-    }
-
     fn function_def(
         &'a self,
+        code_gen_context: &CodeGenAsmContext,
         out: &mut String,
         function_def: &ASTTypedFunctionDef,
         statics: &mut Statics,
@@ -1591,12 +1589,25 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         (declarations, code)
     }
 
-    fn function_preamble(&self, out: &mut String) {
+    fn function_preamble(
+        &self,
+        code_gen_context: &CodeGenAsmContext,
+        function_def: Option<&ASTTypedFunctionDef>,
+        out: &mut String,
+    ) {
         let sp = self.backend.stack_pointer();
         let bp = self.backend.stack_base_pointer();
 
         self.add(out, &format!("push    {}", bp), None, true);
         self.add(out, &format!("mov     {},{}", bp, sp), None, true);
+        if function_def
+            .map(|it| it.return_type.is_unit())
+            .unwrap_or(false)
+        {
+            code_gen_context
+                .stack_vals
+                .reserve_return_register(self, out);
+        }
     }
 
     fn define_debug(&self, out: &mut String) {
