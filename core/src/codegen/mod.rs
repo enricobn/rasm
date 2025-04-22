@@ -140,6 +140,254 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn create_code_gen_context(&self) -> CTX;
 
+    fn end_main(&self, code: &mut String);
+
+    fn transform_before_in_function_def(&self, code_gen_context: &CTX, before: String) -> String;
+
+    fn main_init(&self, generated_code: &mut String);
+
+    fn call_lambda_parameter(
+        &self,
+        code_gen_context: &CTX,
+        function_call: &ASTTypedFunctionCall,
+        before: &mut String,
+        kind: &TypedValKind,
+        call_parameters: &FCP,
+        return_value: bool,
+        is_inner_call: bool,
+        statics: &Statics,
+    );
+
+    fn call_lambda(
+        &self,
+        code_gen_context: &CTX,
+        function_call: &ASTTypedFunctionCall,
+        before: &mut String,
+        index_in_lambda_space: usize,
+        call_parameters: &FCP,
+        ast_type_type: &ASTTypedType,
+        statics: &Statics,
+        return_value: bool,
+        is_inner_call: bool,
+    );
+
+    fn function_call_parameters<'b, 'c>(
+        &'a self,
+        code_gen_context: &'c CTX,
+        parent: Option<&FCP>,
+        parameters: &'b Vec<ASTTypedParameterDef>,
+        inline: bool,
+        immediate: bool,
+        id: usize,
+    ) -> FCP;
+
+    fn define_let(
+        &'a self,
+        code_gen_context: &CTX,
+        name: &str,
+        is_const: bool,
+        statics: &Statics,
+        namespace: &EnhASTNameSpace,
+    );
+
+    fn insert_let_in_context(
+        &self,
+        code_gen_context: &CTX,
+        context: &mut TypedValContext,
+        name: &str,
+        typed_type: &ASTTypedType,
+    );
+
+    fn store_function_result(
+        &self,
+        code_gen_context: &CTX,
+        code: &mut String,
+        name: &str,
+        typed_type: &ASTTypedType,
+    );
+
+    fn add_const_ref(
+        &self,
+        name: &str,
+        statics: &mut Statics,
+        body: &mut String,
+        typed_module: &ASTTypedModule,
+        index: &EnhASTIndex,
+        type_name: &String,
+        namespace: &EnhASTNameSpace,
+        modifiers: &ASTModifiers,
+    );
+
+    fn call_deref_for_let_val(
+        &self,
+        code_gen_context: &CTX,
+        name: &str,
+        statics: &mut Statics,
+        type_name: &String,
+        typed_module: &ASTTypedModule,
+        t: &ASTTypedType,
+    ) -> String;
+
+    fn call_add_ref_for_let_val(
+        &self,
+        code_gen_context: &CTX,
+        name: &str,
+        index: &EnhASTIndex,
+        before: &mut String,
+        statics: &mut Statics,
+        type_name: &String,
+        typed_module: &ASTTypedModule,
+        t: &ASTTypedType,
+    );
+
+    fn set_let_const_for_function_call_result(
+        &self,
+        statics_key: &str,
+        before: &mut String,
+        current: &mut String,
+        name: &str,
+        typed_type: &ASTTypedType,
+        statics: &mut Statics,
+    );
+
+    fn set_let_for_value_ref(
+        &self,
+        code_gen_context: &CTX,
+        before: &mut String,
+        val_name: &String,
+        typed_val_kind: &TypedValKind,
+        statics: &Statics,
+        name: &str,
+    ) -> ASTTypedType;
+
+    fn set_let_for_string_literal(
+        &self,
+        code_gen_context: &CTX,
+        before: &mut String,
+        name: &str,
+        is_const: bool,
+        statics: &mut Statics,
+        body: &mut String,
+        value: &String,
+        typed_type: &ASTTypedType,
+        namespace: &EnhASTNameSpace,
+        modifiers: Option<&ASTModifiers>,
+    );
+
+    fn set_let_for_value(
+        &self,
+        code_gen_context: &CTX,
+        before: &mut String,
+        name: &str,
+        is_const: bool,
+        statics: &mut Statics,
+        body: &mut String,
+        value_type: &ASTValueType,
+        typed_type: &ASTTypedType,
+        namespace: &EnhASTNameSpace,
+        modifiers: Option<&ASTModifiers>,
+    );
+
+    fn function_def(
+        &'a self,
+        code_gen_context: &CTX,
+        out: &mut String,
+        function_def: &ASTTypedFunctionDef,
+        statics: &mut Statics,
+    );
+
+    fn word_len(&self) -> usize;
+
+    fn word_size(&self) -> &str;
+
+    fn reserve_lambda_space(
+        &self,
+        code_gen_context: &CTX,
+        before: &mut String,
+        statics: &mut Statics,
+        lambda_space: &LambdaSpace,
+        def: &ASTTypedFunctionDef,
+    );
+
+    fn value_as_return(
+        &self,
+        before: &mut String,
+        value_type: &ASTValueType,
+        statics: &mut Statics,
+    );
+
+    fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String);
+
+    fn get_text_macro_evaluator(&self) -> TextMacroEvaluator;
+
+    fn print_memory_info(&self, native_code: &mut String, statics: &Statics);
+
+    fn optimize_unused_functions(&self) -> bool;
+
+    fn initialize_static_values(&self, generated_code: &mut String);
+
+    fn debug(&self) -> bool;
+
+    fn call_function_simple(
+        &self,
+        out: &mut String,
+        function_name: &str,
+        call_parameters: Option<&FCP>,
+        return_value: bool,
+        is_inner_call: bool,
+        return_type: Option<&ASTTypedType>,
+        statics: &Statics,
+    );
+
+    fn call_function(
+        &self,
+        out: &mut String,
+        function_name: &str,
+        args: &[(&str, Option<&str>)],
+        comment: Option<&str>,
+        return_value: bool,
+        is_inner_call: bool,
+    );
+
+    fn preamble(&self, code: &mut String);
+
+    fn reserve_local_vals(&self, code_gen_stack: &CTX, out: &mut String);
+
+    fn generate_statics_code(
+        &self,
+        project: &RasmProject,
+        statics: &Statics,
+        typed_module: &ASTTypedModule,
+        out_folder: &Path,
+    ) -> (String, String);
+
+    fn function_preamble(
+        &self,
+        code_gen_context: &CTX,
+        function_def: Option<&ASTTypedFunctionDef>,
+        out: &mut String,
+    );
+
+    fn define_debug(&self, out: &mut String);
+
+    fn function_end(
+        &self,
+        code_gen_context: &CTX,
+        out: &mut String,
+        add_return: bool,
+        function_def: Option<&ASTTypedFunctionDef>,
+    );
+
+    fn add_statics(&self, project: &RasmProject, statics: &mut Statics, out_folder: &Path);
+
+    fn value_to_string(&self, value_type: &ASTValueType) -> String;
+
+    fn create_function_definition(&self, function_def: &ASTTypedFunctionDef) -> bool;
+
+    fn replace_inline_call_including_source(&self) -> bool;
+
+    fn code_manipulator(&self) -> &dyn CodeManipulator;
+
     fn generate(
         &'a self,
         project: &RasmProject,
@@ -254,12 +502,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         )]
     }
 
-    fn end_main(&self, code: &mut String);
-
-    fn transform_before_in_function_def(&self, code_gen_context: &CTX, before: String) -> String;
-
-    fn main_init(&self, generated_code: &mut String);
-
     fn translate_static_code(&self, static_code: String, typed_module: &ASTTypedModule) -> String {
         let mut temp_statics = Statics::new();
         let evaluator = self.get_text_macro_evaluator();
@@ -275,18 +517,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             )
             .unwrap()
     }
-
-    fn call_lambda_parameter(
-        &self,
-        code_gen_context: &CTX,
-        function_call: &ASTTypedFunctionCall,
-        before: &mut String,
-        kind: &TypedValKind,
-        call_parameters: &FCP,
-        return_value: bool,
-        is_inner_call: bool,
-        statics: &Statics,
-    );
 
     fn call_function_(
         &'a self,
@@ -637,38 +867,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         lambda_calls
     }
 
-    fn call_lambda(
-        &self,
-        code_gen_context: &CTX,
-        function_call: &ASTTypedFunctionCall,
-        before: &mut String,
-        index_in_lambda_space: usize,
-        call_parameters: &FCP,
-        ast_type_type: &ASTTypedType,
-        statics: &Statics,
-        return_value: bool,
-        is_inner_call: bool,
-    );
-
-    fn function_call_parameters<'b, 'c>(
-        &'a self,
-        code_gen_context: &'c CTX,
-        parent: Option<&FCP>,
-        parameters: &'b Vec<ASTTypedParameterDef>,
-        inline: bool,
-        immediate: bool,
-        id: usize,
-    ) -> FCP;
-
-    fn define_let(
-        &'a self,
-        code_gen_context: &CTX,
-        name: &str,
-        is_const: bool,
-        statics: &Statics,
-        namespace: &EnhASTNameSpace,
-    );
-
     fn add_let(
         &'a self,
         code_gen_context: &CTX,
@@ -904,104 +1102,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         new_lambda_calls
     }
-
-    fn insert_let_in_context(
-        &self,
-        code_gen_context: &CTX,
-        context: &mut TypedValContext,
-        name: &str,
-        typed_type: &ASTTypedType,
-    );
-
-    fn store_function_result(
-        &self,
-        code_gen_context: &CTX,
-        code: &mut String,
-        name: &str,
-        typed_type: &ASTTypedType,
-    );
-
-    fn add_const_ref(
-        &self,
-        name: &str,
-        statics: &mut Statics,
-        body: &mut String,
-        typed_module: &ASTTypedModule,
-        index: &EnhASTIndex,
-        type_name: &String,
-        namespace: &EnhASTNameSpace,
-        modifiers: &ASTModifiers,
-    );
-
-    fn call_deref_for_let_val(
-        &self,
-        code_gen_context: &CTX,
-        name: &str,
-        statics: &mut Statics,
-        type_name: &String,
-        typed_module: &ASTTypedModule,
-        t: &ASTTypedType,
-    ) -> String;
-
-    fn call_add_ref_for_let_val(
-        &self,
-        code_gen_context: &CTX,
-        name: &str,
-        index: &EnhASTIndex,
-        before: &mut String,
-        statics: &mut Statics,
-        type_name: &String,
-        typed_module: &ASTTypedModule,
-        t: &ASTTypedType,
-    );
-
-    fn set_let_const_for_function_call_result(
-        &self,
-        statics_key: &str,
-        before: &mut String,
-        current: &mut String,
-        name: &str,
-        typed_type: &ASTTypedType,
-        statics: &mut Statics,
-    );
-
-    fn set_let_for_value_ref(
-        &self,
-        code_gen_context: &CTX,
-        before: &mut String,
-        val_name: &String,
-        typed_val_kind: &TypedValKind,
-        statics: &Statics,
-        name: &str,
-    ) -> ASTTypedType;
-
-    fn set_let_for_string_literal(
-        &self,
-        code_gen_context: &CTX,
-        before: &mut String,
-        name: &str,
-        is_const: bool,
-        statics: &mut Statics,
-        body: &mut String,
-        value: &String,
-        typed_type: &ASTTypedType,
-        namespace: &EnhASTNameSpace,
-        modifiers: Option<&ASTModifiers>,
-    );
-
-    fn set_let_for_value(
-        &self,
-        code_gen_context: &CTX,
-        before: &mut String,
-        name: &str,
-        is_const: bool,
-        statics: &mut Statics,
-        body: &mut String,
-        value_type: &ASTValueType,
-        typed_type: &ASTTypedType,
-        namespace: &EnhASTNameSpace,
-        modifiers: Option<&ASTModifiers>,
-    );
 
     fn add_val(
         &self,
@@ -1442,36 +1542,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         }
     }
 
-    fn function_def(
-        &'a self,
-        code_gen_context: &CTX,
-        out: &mut String,
-        function_def: &ASTTypedFunctionDef,
-        statics: &mut Statics,
-    );
-
-    fn word_len(&self) -> usize;
-
-    fn word_size(&self) -> &str;
-
-    fn reserve_lambda_space(
-        &self,
-        code_gen_context: &CTX,
-        before: &mut String,
-        statics: &mut Statics,
-        lambda_space: &LambdaSpace,
-        def: &ASTTypedFunctionDef,
-    );
-
-    fn value_as_return(
-        &self,
-        before: &mut String,
-        value_type: &ASTValueType,
-        statics: &mut Statics,
-    );
-
-    fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String);
-
     fn insert_on_top(&self, src: &str, dest: &mut String) {
         for line in src.lines().rev() {
             dest.insert_str(0, &(line.to_string() + "\n"));
@@ -1771,12 +1841,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         Ok(result)
     }
 
-    fn get_text_macro_evaluator(&self) -> TextMacroEvaluator;
-
-    fn print_memory_info(&self, native_code: &mut String, statics: &Statics);
-
-    fn optimize_unused_functions(&self) -> bool;
-
     fn get_used_functions(
         &self,
         functions_native_code: &LinkedHashMap<String, (String, String)>,
@@ -1826,31 +1890,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             .collect::<Vec<_>>()
     }
 
-    fn initialize_static_values(&self, generated_code: &mut String);
-
-    fn debug(&self) -> bool;
-
-    fn call_function_simple(
-        &self,
-        out: &mut String,
-        function_name: &str,
-        call_parameters: Option<&FCP>,
-        return_value: bool,
-        is_inner_call: bool,
-        return_type: Option<&ASTTypedType>,
-        statics: &Statics,
-    );
-
-    fn call_function(
-        &self,
-        out: &mut String,
-        function_name: &str,
-        args: &[(&str, Option<&str>)],
-        comment: Option<&str>,
-        return_value: bool,
-        is_inner_call: bool,
-    );
-
     /// the difference with call_function is that arguments are Strings and not &str
     fn call_function_owned(
         &self,
@@ -1873,8 +1912,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             is_inner_call,
         )
     }
-
-    fn preamble(&self, code: &mut String);
 
     /// Returns the name of the functions called in the code
     ///
@@ -1985,43 +2022,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         }
         Ok(result)
     }
-
-    fn reserve_local_vals(&self, code_gen_stack: &CTX, out: &mut String);
-
-    fn generate_statics_code(
-        &self,
-        project: &RasmProject,
-        statics: &Statics,
-        typed_module: &ASTTypedModule,
-        out_folder: &Path,
-    ) -> (String, String);
-
-    fn function_preamble(
-        &self,
-        code_gen_context: &CTX,
-        function_def: Option<&ASTTypedFunctionDef>,
-        out: &mut String,
-    );
-
-    fn define_debug(&self, out: &mut String);
-
-    fn function_end(
-        &self,
-        code_gen_context: &CTX,
-        out: &mut String,
-        add_return: bool,
-        function_def: Option<&ASTTypedFunctionDef>,
-    );
-
-    fn add_statics(&self, project: &RasmProject, statics: &mut Statics, out_folder: &Path);
-
-    fn value_to_string(&self, value_type: &ASTValueType) -> String;
-
-    fn create_function_definition(&self, function_def: &ASTTypedFunctionDef) -> bool;
-
-    fn replace_inline_call_including_source(&self) -> bool;
-
-    fn code_manipulator(&self) -> &dyn CodeManipulator;
 
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
         self.code_manipulator().add_comment(out, comment, indent);
