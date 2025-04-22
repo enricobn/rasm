@@ -100,6 +100,8 @@ pub trait FunctionCallParameters<CTX> {
 
     fn after(&self) -> Vec<String>;
 
+    fn parameters_values(&self) -> &LinkedHashMap<String, String>;
+
     fn resolve_native_parameters(
         &self,
         code_gen_context: &CTX,
@@ -243,6 +245,4 @@ pub trait FunctionCallParameters<CTX> {
                 .any(|it| self.statement_reads_from_context(it, context)),
         }
     }
-
-    fn parameters_values(&self) -> &LinkedHashMap<String, String>;
 }
