@@ -519,7 +519,8 @@ impl TextMacroEvaluator {
                     Some((ref ast_type, _)) => {
                         //println!("parse_typed_argument {ast_type}");
                         let eh_ast_type = EnhASTType::from_ast(namespace, id, ast_type.clone());
-                        let t = if let ast::ASTType::Generic(_position, _name) = ast_type {
+                        let t = if let ast::ASTType::Generic(_position, _name, var_types) = ast_type
+                        {
                             if let Some(t) = substitute(&eh_ast_type, resolved_generic_types) {
                                 t
                             } else {

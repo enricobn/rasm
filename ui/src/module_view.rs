@@ -271,7 +271,7 @@ impl UI {
                 }
                 _ => {}
             },
-            ASTType::Generic(index, _) => {
+            ASTType::Generic(index, _, _) => {
                 result.insert(info.index(index.clone()), SyntaxKind::UnTyped);
             }
             ASTType::Custom {

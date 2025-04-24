@@ -89,7 +89,7 @@ impl ASTFunctionSignatureEntry {
                         0
                     }
                 }
-                ASTType::Generic(_, _) => coeff,
+                ASTType::Generic(_, _, _) => coeff,
                 ASTType::Custom {
                     name: _,
                     param_types,
@@ -515,13 +515,13 @@ impl ASTModulesContainer {
                     } else {
                         a_kind == with_kind
                     }
-                } else if let ASTType::Generic(_, _) = with_type {
+                } else if let ASTType::Generic(_, _, _) = with_type {
                     true
                 } else {
                     false
                 }
             }
-            ASTType::Generic(_, _) => true,
+            ASTType::Generic(_, _, _) => true,
             ASTType::Custom {
                 name: a_name,
                 param_types: a_param_types,
@@ -558,14 +558,14 @@ impl ASTModulesContainer {
                     zip(a_param_types, with_param_types).all(|(a_pt, w_pt)| {
                         self.is_compatible(a_pt, a_namespace, w_pt, with_namespace)
                     })
-                } else if let ASTType::Generic(_, _) = with_type {
+                } else if let ASTType::Generic(_, _, _) = with_type {
                     true
                 } else {
                     false
                 }
             }
             ASTType::Unit => {
-                matches!(with_type, ASTType::Unit) || matches!(with_type, ASTType::Generic(_, _))
+                matches!(with_type, ASTType::Unit) || matches!(with_type, ASTType::Generic(_, _, _))
             }
         }
     }
@@ -693,7 +693,7 @@ impl ASTTypeFilter {
                     }
                     _ => false,
                 },
-                ASTType::Generic(_, _) => true,
+                ASTType::Generic(_, _, _) => true,
                 ASTType::Custom {
                     name: _,
                     param_types: _,
@@ -780,7 +780,7 @@ impl ASTTypeFilter {
                     }
                     _ => 0,
                 },
-                ASTType::Generic(_, _) => 500,
+                ASTType::Generic(_, _, _) => 500,
                 ASTType::Custom {
                     name: _,
                     param_types: _,
@@ -835,11 +835,19 @@ mod tests {
                 exact_custom("Option", vec![ASTType::Builtin(BuiltinTypeKind::I32)]),
                 exact_builtin(BuiltinTypeKind::Lambda {
                     parameters: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
-                    return_type: Box::new(ASTType::Generic(ASTPosition::none(), "T".to_owned())),
+                    return_type: Box::new(ASTType::Generic(
+                        ASTPosition::none(),
+                        "T".to_owned(),
+                        Vec::new(),
+                    )),
                 }),
                 exact_builtin(BuiltinTypeKind::Lambda {
                     parameters: vec![],
-                    return_type: Box::new(ASTType::Generic(ASTPosition::none(), "T".to_owned())),
+                    return_type: Box::new(ASTType::Generic(
+                        ASTPosition::none(),
+                        "T".to_owned(),
+                        Vec::new(),
+                    )),
                 }),
             ],
             None,

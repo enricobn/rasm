@@ -328,6 +328,7 @@ pub enum ASTType {
         #[derivative(Hash = "ignore")]
         ASTPosition,
         String,
+        Vec<ASTType>,
     ),
     Custom {
         name: String,
@@ -357,7 +358,7 @@ impl ASTType {
                     return_type,
                 } => return_type.is_generic() || parameters.iter().any(Self::is_generic),
             },
-            ASTType::Generic(_, _) => true,
+            ASTType::Generic(_, _, _) => true,
             ASTType::Custom {
                 name: _,
                 param_types: pt,
@@ -407,8 +408,8 @@ impl ASTType {
                     .collect(),
                 return_type: Box::new(return_type.add_generic_prefix(prefix)),
             });
-        } else if let ASTType::Generic(position, name) = self {
-            return ASTType::Generic(position, format!("{prefix}:{name}"));
+        } else if let ASTType::Generic(position, name, var_types) = self {
+            return ASTType::Generic(position, format!("{prefix}:{name}"), var_types);
         } else if let ASTType::Custom {
             name,
             param_types,
@@ -441,9 +442,13 @@ impl ASTType {
                     .collect(),
                 return_type: Box::new(return_type.remove_generic_prefix()),
             });
-        } else if let ASTType::Generic(ref position, ref name) = self {
+        } else if let ASTType::Generic(ref position, ref name, ref var_types) = self {
             if let Some(original_generic) = Self::get_original_generic(name) {
-                return ASTType::Generic(position.clone(), original_generic.to_owned());
+                return ASTType::Generic(
+                    position.clone(),
+                    original_generic.to_owned(),
+                    var_types.clone(),
+                );
             }
         } else if let ASTType::Custom {
             name,
@@ -485,8 +490,11 @@ impl ASTType {
                 }
                 result.extend(return_type.generics());
             }
-            ASTType::Generic(_, name) => {
+            ASTType::Generic(_, name, var_types) => {
                 result.insert(name.clone());
+                for t in var_types {
+                    result.extend(t.generics());
+                }
             }
             ASTType::Custom {
                 name: _,
@@ -525,7 +533,23 @@ impl Display for ASTType {
                     ))
                 }
             },
-            ASTType::Generic(_, name) => f.write_str(name),
+            ASTType::Generic(_, name, var_types) => {
+                f.write_str(name);
+                if !var_types.is_empty() {
+                    f.write_str("<");
+                    let mut i = 0;
+                    for t in var_types {
+                        if i > 0 {
+                            f.write_str(",");
+                        }
+                        write!(f, "{t}");
+                        i += 1;
+                    }
+                    f.write_str(">")
+                } else {
+                    Ok(())
+                }
+            }
             ASTType::Custom {
                 name,
                 param_types,
@@ -1018,7 +1042,11 @@ mod tests {
     fn display_function_def() {
         let inner_type = ASTType::Custom {
             name: "Option".to_owned(),
-            param_types: vec![ASTType::Generic(ASTPosition::none(), "T".to_string())],
+            param_types: vec![ASTType::Generic(
+                ASTPosition::none(),
+                "T".to_string(),
+                Vec::new(),
+            )],
             position: ASTPosition::none(),
         };
 
@@ -1035,7 +1063,7 @@ mod tests {
                 ast_type,
                 position: ASTPosition::none(),
             }],
-            return_type: ASTType::Generic(ASTPosition::none(), "T".to_string()),
+            return_type: ASTType::Generic(ASTPosition::none(), "T".to_string(), Vec::new()),
             body: ASTFunctionBody::RASMBody(vec![]),
             inline: false,
             generic_types: vec!["T".to_string()],

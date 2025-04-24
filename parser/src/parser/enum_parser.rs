@@ -301,7 +301,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic(ASTPosition::new(3, 25), "T".into()),
+                ast_type: Generic(ASTPosition::new(3, 25), "T".into(), Vec::new()),
                 position: ASTPosition::new(3, 18),
             }],
             position: ASTPosition::new(3, 13),
@@ -363,7 +363,7 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef::new(
                         "value",
-                        Generic(ASTPosition::new(1, 13), "T".into()),
+                        Generic(ASTPosition::new(1, 13), "T".into(), Vec::new()),
                         ASTPosition::new(1, 6)
                     )],
                     position: ASTPosition::new(1, 1)
@@ -388,12 +388,12 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef::new(
                             "v",
-                            Generic(ASTPosition::new(1, 14), "T".into()),
+                            Generic(ASTPosition::new(1, 14), "T".into(), Vec::new()),
                             ASTPosition::new(1, 11)
                         ),
                         ASTParameterDef::new(
                             "v1",
-                            Generic(ASTPosition::new(1, 21), "T1".into()),
+                            Generic(ASTPosition::new(1, 21), "T1".into(), Vec::new()),
                             ASTPosition::new(1, 17)
                         ),
                     ],
@@ -418,14 +418,18 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef::new(
                             "head",
-                            Generic(ASTPosition::new(1, 12), "T".into()),
+                            Generic(ASTPosition::new(1, 12), "T".into(), Vec::new()),
                             ASTPosition::new(1, 6)
                         ),
                         ASTParameterDef::new(
                             "tail",
                             ASTType::Custom {
                                 name: "List".into(),
-                                param_types: vec![Generic(ASTPosition::new(1, 26), "T".into())],
+                                param_types: vec![Generic(
+                                    ASTPosition::new(1, 26),
+                                    "T".into(),
+                                    Vec::new()
+                                )],
                                 position: ASTPosition::none()
                             },
                             ASTPosition::new(1, 15)
@@ -455,7 +459,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic(ASTPosition::new(3, 25), "T".into()),
+                ast_type: Generic(ASTPosition::new(3, 25), "T".into(), Vec::new()),
                 position: ASTPosition::new(3, 18),
             }],
             position: ASTPosition::new(3, 13),
@@ -500,7 +504,7 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef {
                         name: "value".into(),
-                        ast_type: Generic(ASTPosition::new(3, 25), "T".into()),
+                        ast_type: Generic(ASTPosition::new(3, 25), "T".into(), Vec::new()),
                         position: ASTPosition::new(3, 18),
                     }],
                     position: ASTPosition::new(3, 13),
@@ -540,14 +544,18 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef {
                             name: "head".into(),
-                            ast_type: Generic(ASTPosition::new(2, 26), "T".into()),
+                            ast_type: Generic(ASTPosition::new(2, 26), "T".into(), Vec::new()),
                             position: ASTPosition::new(2, 20),
                         },
                         ASTParameterDef {
                             name: "tail".into(),
                             ast_type: ASTType::Custom {
                                 name: "List".into(),
-                                param_types: vec![Generic(ASTPosition::new(2, 40), "T".into())],
+                                param_types: vec![Generic(
+                                    ASTPosition::new(2, 40),
+                                    "T".into(),
+                                    Vec::new(),
+                                )],
                                 position: ASTPosition::new(2, 35),
                             },
                             position: ASTPosition::new(2, 29),
@@ -589,7 +597,7 @@ mod tests {
                     name: "Left".into(),
                     parameters: vec![ASTParameterDef::new(
                         "l",
-                        Generic(ASTPosition::new(2, 21), "L".into()),
+                        Generic(ASTPosition::new(2, 21), "L".into(), Vec::new()),
                         ASTPosition::new(2, 18),
                     )],
                     position: ASTPosition::new(2, 13),
@@ -599,7 +607,7 @@ mod tests {
                     name: "Right".into(),
                     parameters: vec![ASTParameterDef::new(
                         "r",
-                        Generic(ASTPosition::new(3, 22), "R".into()),
+                        Generic(ASTPosition::new(3, 22), "R".into(), Vec::new()),
                         ASTPosition::new(3, 19),
                     )],
                     position: ASTPosition::new(3, 13),
@@ -630,7 +638,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic(ASTPosition::new(3, 25), "T".into()),
+                ast_type: Generic(ASTPosition::new(3, 25), "T".into(), Vec::new()),
                 position: ASTPosition::new(3, 18),
             }],
             position: ASTPosition::new(3, 13),

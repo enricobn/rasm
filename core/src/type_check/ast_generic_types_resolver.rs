@@ -111,7 +111,7 @@ impl ASTResolvedGenericTypes {
                     },
                 }
             }
-            ASTType::Generic(_, p) => {
+            ASTType::Generic(_, p, var_types) => {
                 debug_i!("resolved generic type {p} to {effective_type}");
                 result.insert(p.clone(), effective_type.clone());
             }
@@ -159,7 +159,7 @@ impl ASTResolvedGenericTypes {
                         })?;
                     }
                 }
-                ASTType::Generic(_, _) => {}
+                ASTType::Generic(_, _, _) => {}
                 _ => {
                     dedent!();
                     return Err(Self::type_check_error(ASTTypeCheckErroKind::Error, format!(
@@ -253,7 +253,7 @@ impl ASTResolvedGenericTypes {
                 }
                 _ => None,
             },
-            ASTType::Generic(_, p) => {
+            ASTType::Generic(_, p, var_types) => {
                 if self.contains_key(p) {
                     self.get(p).cloned()
                 } else {

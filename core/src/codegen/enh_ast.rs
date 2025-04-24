@@ -677,9 +677,11 @@ impl EnhASTType {
             EnhASTType::Builtin(enh_builtin_type_kind) => {
                 ASTType::Builtin(enh_builtin_type_kind.to_ast())
             }
-            EnhASTType::Generic(index, name) => {
-                ASTType::Generic(ASTPosition::new(index.row, index.column), name.clone())
-            }
+            EnhASTType::Generic(index, name) => ASTType::Generic(
+                ASTPosition::new(index.row, index.column),
+                name.clone(),
+                Vec::new(),
+            ),
             EnhASTType::Custom {
                 namespace,
                 name,
@@ -721,7 +723,7 @@ impl EnhASTType {
                 };
                 EnhASTType::Builtin(builtin)
             }
-            ASTType::Generic(astposition, name) => EnhASTType::Generic(
+            ASTType::Generic(astposition, name, var_types) => EnhASTType::Generic(
                 EnhASTIndex::from_position(id.path(), &astposition),
                 name.clone(),
             ),

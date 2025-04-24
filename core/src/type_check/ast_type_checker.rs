@@ -945,7 +945,7 @@ impl ASTTypeChecker {
             let generics = parameters_types
                 .iter()
                 .filter_map(|p| {
-                    if let ASTType::Generic(_, g_name) = p {
+                    if let ASTType::Generic(_, g_name, var_types) = p {
                         Some(g_name.clone())
                     } else {
                         None
@@ -1311,7 +1311,7 @@ impl ASTTypeChecker {
                     }) => {
                         return Self::resolve_type_filter(&return_type, &rt_filter);
                     }
-                    ASTType::Generic(_, _) => {
+                    ASTType::Generic(_, _, _) => {
                         if *n == 0 {
                             if let ASTTypeFilter::Exact(effective_type, _) = rt_filter.as_ref() {
                                 let ef = ASTType::Builtin(BuiltinTypeKind::Lambda {

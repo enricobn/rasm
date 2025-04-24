@@ -91,7 +91,7 @@ impl CompletionItem {
         if ast_type.is_generic() {
             match ast_type {
                 ASTType::Builtin(_) => 0,
-                ASTType::Generic(_, _) => coeff,
+                ASTType::Generic(_, _, _) => coeff,
                 ASTType::Custom {
                     name: _,
                     param_types,
@@ -234,7 +234,7 @@ impl CompletionItem {
                     return_type: _,
                 } => "fun".to_owned(),
             },
-            ASTType::Generic(_, _) => "gen".to_owned(),
+            ASTType::Generic(_, _, _) => "gen".to_owned(),
             ASTType::Custom {
                 name,
                 param_types: _,

@@ -33,7 +33,7 @@ pub fn parse_properties(
                     } else {
                         errors.push(parser.error(
                             new_n,
-                            format!("Expected comma or end of properties, but got {kind}."),
+                            format!("Expected comma or end of properties, but got {kind}"),
                         ));
                         break;
                     }
@@ -137,7 +137,7 @@ mod tests {
 
     use crate::{
         lexer::tokens::{BracketKind, BracketStatus, TokenKind},
-        parser::{properties_parser::parse_properties, test_utils::get_parser},
+        parser::{ast::ASTType, properties_parser::parse_properties, test_utils::get_parser},
     };
 
     use super::parse_property;
@@ -255,5 +255,22 @@ mod tests {
         assert_eq!(properties.remove(0).name, "another");
         assert!(errors.is_empty());
         assert_eq!(8, n);
+    }
+
+    #[test]
+    fn test_parse_type_class_property() {
+        let parser = get_parser("v: M<String>");
+
+        let (property, errors, n) = parse_property(&parser, &["M".to_owned()], 0);
+
+        let p = property.unwrap();
+        println!("errors {}", SliceDisplay(&errors));
+        assert_eq!(p.name, "v");
+        assert_eq!(format!("{}", p.ast_type), "M<String>");
+        if !matches!(p.ast_type, ASTType::Generic(_, _, _)) {
+            panic!("expected a generic type");
+        }
+        assert!(errors.is_empty());
+        assert_eq!(6, n);
     }
 }

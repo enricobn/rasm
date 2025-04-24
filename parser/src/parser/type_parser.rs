@@ -1,5 +1,5 @@
 use crate::lexer::tokens::BracketKind::Round;
-use crate::lexer::tokens::BracketStatus::{Close, Open};
+use crate::lexer::tokens::BracketStatus::{self, Close, Open};
 use crate::lexer::tokens::{BracketKind, KeywordKind, PunctuationKind, TokenKind};
 use crate::parser::ast::ASTType::{Builtin, Custom, Generic};
 use crate::parser::ast::{ASTType, BuiltinTypeKind};
@@ -62,8 +62,23 @@ impl<'a> TypeParser<'a> {
                 }
             } else if let TokenKind::AlphaNumeric(type_name) = kind {
                 if context_generic_types.contains(type_name) {
+                    if matches!(
+                        self.parser.get_token_kind_n(n + 1),
+                        Some(TokenKind::Bracket(BracketKind::Angle, BracketStatus::Open))
+                    ) {
+                        if let Some((t, n_i)) = self.try_parse(n + 2, context_generic_types, rec)? {
+                            return Ok(Some((
+                                Generic(
+                                    self.parser.get_position(n_i - self.parser.get_i()),
+                                    type_name.into(),
+                                    vec![t],
+                                ),
+                                n_i + 1,
+                            )));
+                        }
+                    }
                     Some((
-                        Generic(self.parser.get_position(n), type_name.into()),
+                        Generic(self.parser.get_position(n), type_name.into(), Vec::new()),
                         next_i,
                     ))
                 } else {
@@ -311,8 +326,8 @@ mod tests {
                 Custom {
                     name: "Dummy".into(),
                     param_types: vec![
-                        Generic(ASTPosition::new(1, 8), "T".into()),
-                        Generic(ASTPosition::new(1, 11), "T1".into()),
+                        Generic(ASTPosition::new(1, 8), "T".into(), Vec::new()),
+                        Generic(ASTPosition::new(1, 11), "T1".into(), Vec::new()),
                     ],
                     position: ASTPosition::new(1, 6)
                 },
@@ -326,7 +341,7 @@ mod tests {
     fn test_param_type() {
         let parse_result = try_parse_with_context("T", &["T".into()]);
         assert_eq!(
-            Some((Generic(ASTPosition::new(1, 2), "T".into()), 1)),
+            Some((Generic(ASTPosition::new(1, 2), "T".into(), Vec::new()), 1)),
             parse_result
         );
     }
@@ -352,7 +367,7 @@ mod tests {
         let parse_result = try_parse_with_context("List<Option<T>>", &["T".into()]);
         let option_t = Custom {
             name: "Option".into(),
-            param_types: vec![Generic(ASTPosition::new(1, 14), "T".into())],
+            param_types: vec![Generic(ASTPosition::new(1, 14), "T".into(), Vec::new())],
             position: ASTPosition::new(1, 12),
         };
         assert_eq!(
@@ -383,6 +398,18 @@ mod tests {
                     position: ASTPosition::none()
                 }
             ),
+        }
+    }
+
+    #[test]
+    fn test_type_classes() {
+        let parse_result = try_parse_with_context("B<List<String>>", &["B".to_owned()]);
+        let t = parse_result.unwrap().0;
+
+        if matches!(t, ASTType::Generic(_, _, _)) {
+            assert_eq!(format!("{t}"), "B<List<String>>");
+        } else {
+            panic!("{t:?}")
         }
     }
 

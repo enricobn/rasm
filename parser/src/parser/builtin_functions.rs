@@ -27,7 +27,7 @@ impl BuiltinFunctions {
                     &enum_def.position,
                     ASTBuiltinFunctionType::Other(format!("generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into())
+                ASTType::Generic(astposition, it.into(), Vec::new())
             })
             .collect();
 
@@ -60,6 +60,7 @@ impl BuiltinFunctions {
                 ASTBuiltinFunctionType::Other(format!("{name} generic return type")),
             ),
             "_T".to_owned(),
+            Vec::new(),
         );
         let extra_generic = Some("_T".into());
 
@@ -71,7 +72,7 @@ impl BuiltinFunctions {
                     &enum_def.position,
                     ASTBuiltinFunctionType::Other(format!("{name} generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into())
+                ASTType::Generic(astposition, it.into(), Vec::new())
             })
             .collect();
 
@@ -125,6 +126,7 @@ impl BuiltinFunctions {
                 ASTBuiltinFunctionType::Other(format!("{name} generic return type")),
             ),
             "_T".to_owned(),
+            Vec::new(),
         );
         let extra_generic = Some("_T".into());
 
@@ -136,7 +138,7 @@ impl BuiltinFunctions {
                     &enum_def.position,
                     ASTBuiltinFunctionType::Other(format!("{name} generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into())
+                ASTType::Generic(astposition, it.into(), Vec::new())
             })
             .collect();
 
@@ -269,7 +271,7 @@ impl BuiltinFunctions {
                     &struct_def.position,
                     ASTBuiltinFunctionType::Other(format!("constructor generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into())
+                ASTType::Generic(astposition, it.into(), Vec::new())
             })
             .collect();
 
@@ -348,7 +350,7 @@ impl BuiltinFunctions {
                     &struct_def.position,
                     ASTBuiltinFunctionType::Other(format!("lambda set generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into())
+                ASTType::Generic(astposition, it.into(), Vec::new())
             })
             .collect();
         let mut f_parameters = vec![ASTParameterDef {
@@ -409,7 +411,7 @@ impl BuiltinFunctions {
                     &property_def.position,
                     ASTBuiltinFunctionType::Other(format!("get generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into())
+                ASTType::Generic(astposition, it.into(), Vec::new())
             })
             .collect();
         let parameters = vec![ASTParameterDef {
@@ -454,7 +456,7 @@ impl BuiltinFunctions {
                     &property_def.position,
                     ASTBuiltinFunctionType::Other(format!("set generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into())
+                ASTType::Generic(astposition, it.into(), Vec::new())
             })
             .collect();
 
@@ -511,7 +513,7 @@ impl BuiltinFunctions {
                     &property_def.position,
                     ASTBuiltinFunctionType::Other(format!("lambda set generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into())
+                ASTType::Generic(astposition, it.into(), Vec::new())
             })
             .collect();
 

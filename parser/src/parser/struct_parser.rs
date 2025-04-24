@@ -141,7 +141,7 @@ mod tests {
 
         let y = ASTStructPropertyDef {
             name: "value".into(),
-            ast_type: Generic(ASTPosition::new(3, 21), "T".into()),
+            ast_type: Generic(ASTPosition::new(3, 21), "T".into(), Vec::new()),
             position: ASTPosition::new(3, 13),
         };
 
