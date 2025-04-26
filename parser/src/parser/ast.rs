@@ -409,7 +409,14 @@ impl ASTType {
                 return_type: Box::new(return_type.add_generic_prefix(prefix)),
             });
         } else if let ASTType::Generic(position, name, var_types) = self {
-            return ASTType::Generic(position, format!("{prefix}:{name}"), var_types);
+            return ASTType::Generic(
+                position,
+                format!("{prefix}:{name}"),
+                var_types
+                    .into_iter()
+                    .map(|it| it.add_generic_prefix(prefix))
+                    .collect(),
+            );
         } else if let ASTType::Custom {
             name,
             param_types,
@@ -435,20 +442,25 @@ impl ASTType {
             return_type,
         }) = self
         {
-            return ASTType::Builtin(BuiltinTypeKind::Lambda {
+            ASTType::Builtin(BuiltinTypeKind::Lambda {
                 parameters: parameters
                     .into_iter()
                     .map(|it| it.remove_generic_prefix())
                     .collect(),
                 return_type: Box::new(return_type.remove_generic_prefix()),
-            });
+            })
         } else if let ASTType::Generic(ref position, ref name, ref var_types) = self {
             if let Some(original_generic) = Self::get_original_generic(name) {
-                return ASTType::Generic(
+                ASTType::Generic(
                     position.clone(),
                     original_generic.to_owned(),
-                    var_types.clone(),
-                );
+                    var_types
+                        .into_iter()
+                        .map(|it| it.clone().remove_generic_prefix())
+                        .collect(),
+                )
+            } else {
+                self
             }
         } else if let ASTType::Custom {
             name,
@@ -456,16 +468,17 @@ impl ASTType {
             position,
         } = self
         {
-            return ASTType::Custom {
+            ASTType::Custom {
                 name,
                 param_types: param_types
                     .into_iter()
                     .map(|it| it.remove_generic_prefix())
                     .collect(),
                 position,
-            };
+            }
+        } else {
+            self
         }
-        self
     }
 
     pub fn get_original_generic(name: &str) -> Option<&str> {
@@ -1077,10 +1090,12 @@ mod tests {
 
     #[test]
     fn disaplay_type_class() {
-        let t = ASTType::Generic(ASTPosition::none(), "M".to_owned(), vec![ASTType::Builtin(BuiltinTypeKind::String)]);
+        let t = ASTType::Generic(
+            ASTPosition::none(),
+            "M".to_owned(),
+            vec![ASTType::Builtin(BuiltinTypeKind::String)],
+        );
 
         assert_eq!("M<str>", format!("{t}"));
     }
-
-
 }
