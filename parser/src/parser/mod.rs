@@ -594,7 +594,6 @@ impl Parser {
                 } else {
                     self.state.pop();
                 }
-                self.i += 1;
             }
         } else if let Some((name, next_i, _)) = self.try_parse_let(false)? {
             self.parser_data

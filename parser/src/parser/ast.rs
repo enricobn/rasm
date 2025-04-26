@@ -534,15 +534,15 @@ impl Display for ASTType {
                 }
             },
             ASTType::Generic(_, name, var_types) => {
-                f.write_str(name);
+                f.write_str(name)?;
                 if !var_types.is_empty() {
-                    f.write_str("<");
+                    f.write_str("<")?;
                     let mut i = 0;
                     for t in var_types {
                         if i > 0 {
-                            f.write_str(",");
+                            f.write_str(",")?;
                         }
-                        write!(f, "{t}");
+                        write!(f, "{t}")?;
                         i += 1;
                     }
                     f.write_str(">")
@@ -1074,4 +1074,13 @@ mod tests {
 
         assert_eq!(format!("{def}"), "fn aFun<T>(aPar: List<Option<T>>) -> T");
     }
+
+    #[test]
+    fn disaplay_type_class() {
+        let t = ASTType::Generic(ASTPosition::none(), "M".to_owned(), vec![ASTType::Builtin(BuiltinTypeKind::String)]);
+
+        assert_eq!("M<str>", format!("{t}"));
+    }
+
+
 }
