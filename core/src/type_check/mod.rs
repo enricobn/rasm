@@ -1,9 +1,11 @@
+use std::iter::zip;
+
 use crate::codegen::enh_ast::EnhASTIndex;
 use crate::codegen::enh_ast::{EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::text_macro::{MacroParam, TextMacro};
 use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
 use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
-use rasm_utils::{debug_i, dedent, indent};
+use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
 
 pub mod ast_generic_types_resolver;
 pub mod ast_modules_container;
@@ -133,6 +135,21 @@ pub fn resolve_generic_types_from_effective_type(
             };
             if !ignore {
                 debug_i!("resolved generic type {p} to {effective_type}");
+                if let EnhASTType::Custom {
+                    namespace,
+                    name,
+                    param_types,
+                    index,
+                } = effective_type
+                {
+                    for (param_type, var_type) in zip(param_types, var_types) {
+                        if let EnhASTType::Generic(_, g_name, g_var_types) = var_type {
+                            result.extend(resolve_generic_types_from_effective_type(
+                                var_type, param_type,
+                            )?);
+                        }
+                    }
+                }
                 result.insert(p.clone(), var_types.clone(), effective_type.clone());
             }
         }

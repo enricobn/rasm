@@ -548,7 +548,7 @@ impl<'a> EnhTypeCheck<'a> {
                     let result = Err(EnhTypeCheckError::new(
                         new_function_def.index.clone(),
                         format!(
-                            "Unresolved generic return type {}, expected return type {}",
+                            "Unresolved generic return type {}, expected return type {} : {resolved_generic_types}",
                             new_function_def.return_type,
                             OptionDisplay(&expected_return_type)
                         ),

@@ -405,7 +405,13 @@ impl EnhBuiltinTypeKind {
 #[derive(Debug, Clone, Eq)]
 pub enum EnhASTType {
     Builtin(EnhBuiltinTypeKind),
-    Generic(EnhASTIndex, String, Vec<EnhASTType>),
+    Generic(
+        #[derivative(PartialEq = "ignore")]
+        #[derivative(Hash = "ignore")]
+        EnhASTIndex,
+        String,
+        Vec<EnhASTType>,
+    ),
     Custom {
         namespace: EnhASTNameSpace,
         name: String,
@@ -789,7 +795,7 @@ impl Display for EnhASTType {
                 }
             },
             EnhASTType::Generic(_, name, var_types) => {
-                f.write_str(name)?;
+                write!(f, "{name}")?;
                 if !var_types.is_empty() {
                     write!(f, "<{}>", SliceDisplay(&var_types))?;
                 }

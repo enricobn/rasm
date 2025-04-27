@@ -1,0 +1,5 @@
+println(listOf(10).tcFmap(fn(v) { listOf(v.add(1));}));
+
+fn tcFmap<M,T,T1>(l: M<T>, f: fn(T) -> M<T1>) -> M<T1> {
+    flatten(map(l, f));
+}

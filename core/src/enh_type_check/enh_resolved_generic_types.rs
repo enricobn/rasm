@@ -190,7 +190,7 @@ impl Display for EnhResolvedGenericTypes {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for (name, inner) in self.map.iter() {
             for (var_types, t) in inner.iter() {
-                write!(f, "{name}<{}>={t}", SliceDisplay(&var_types))?;
+                write!(f, "{name}<{}>={t},", SliceDisplay(&var_types))?;
             }
         }
         Ok(())

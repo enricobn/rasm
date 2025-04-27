@@ -674,6 +674,11 @@ fn test_consts() {
     run_test("consts", vec![], "consts pub string: pub string\nconsts priv string: consts priv string\nanother priv string: another priv string\n");
 }
 
+#[test]
+fn test_type_classes() {
+    run_test("type_classes", vec![], "11\n");
+}
+
 // Compile tests
 
 #[test]
