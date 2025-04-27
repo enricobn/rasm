@@ -1,0 +1,25 @@
+argv(1).match(fn(file) {
+    let start = readCellFile(file);
+
+    argv(2)
+    .fmap(fn(s) { s.toi32;})
+    .match(
+        fn(count) {
+            run(moveCells(start, 20), 80, 50, count);
+        }, 
+        { println("A number for count must be specified."); }
+    );
+}, { println("A file must be specified."); });
+
+fn run(start: Vec<Cell>, width: i32, height: i32, count: i32) {
+    let allCells = allCells(width, height);
+
+    printCells(
+        foldLeft(vecRange(0, count), start, fn(prev, act) {
+            printCells(prev, width, height);
+            moveUp(height);
+            //sleep(0, 250000000);
+            next(prev, allCells);
+          }), width, height);
+
+}

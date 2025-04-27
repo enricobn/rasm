@@ -709,16 +709,17 @@ fn test_breakout() {
 
 #[test]
 fn test_showimage() {
-    compile_example_with_target(
-        "resources/examples/showimage",
-        true,
-        CompileTarget::C(COptions::default()),
-    );
+    compile_example("resources/examples/showimage", true);
 }
 
 #[test]
 fn test_bouncing_quads() {
     compile_example("resources/examples/bouncing_quads", true);
+}
+
+#[test]
+fn test_gameoflife_tc() {
+    compile_example("resources/examples/gameoflife_tc", true);
 }
 
 fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {

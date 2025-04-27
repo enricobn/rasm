@@ -1,0 +1,87 @@
+pub struct Cell {
+    x: i32,
+    y: i32
+}
+
+pub fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
+    let y = index(line);
+    let lineStr = value(line);
+
+    map(filter(listEnumerate(chars(lineStr)), fn(cell) {
+        let cellStr = value(cell);
+
+        match(chars(cellStr), fn(head, tail) { eq(head, "O"); }, { false;});
+    }), fn(cell) { Cell(index(cell), y); });
+}
+
+pub fn filterLines(lines: List<str>) -> List<str> {
+    filter(lines, fn(line) {
+        match(chars(line), fn(head, tail) { not(eq(head, "!")); }, { false;});
+    });
+}
+
+pub fn moveCells<M>(cells: M<Cell>, d: i32) -> M<Cell> {
+    map(cells, fn(it) { Cell(add(it.x, d), add(it.y, d)); });
+}
+
+pub fn next<M>(cells: M<Cell>, allCells: M<FullCell) -> M<Cell> {
+    let result = map(filter(allCells, fn(it) {
+        let adjsAlive = count(adjacents(it), fn(a) { isAlive(cells, a); });
+        if(isAlive(cells, it.cell),
+            or(eq(adjsAlive, 2),eq(adjsAlive,3)),
+            eq(adjsAlive, 3)
+        );
+    }), fn(it) { it.cell;});
+    result;
+}
+
+/** false = 0 true = any other value **/
+pub fn isAlive<M>(cells: M<Cell>, cell: Cell) -> bool {
+    let x = x(cell);
+    let y = y(cell);
+
+    cells.anyMatch(fn(it) {
+        x.eq(it.x).and(y.eq(it.y));
+    });
+}
+
+pub fn printCellsPlain<M>(cells: M<Cell>) {
+    cells.forEach(fn(cell) {
+        print(x(cell));
+        print(",");
+        print(y(cell));
+        print(" ");
+    });
+
+    println();
+}
+
+pub fn printAllCellsPlain<M>(cells: M<FullCell>) {
+    cells.forEach(fn(fullCell) {
+        let cell = cell(fullCell);
+        print(x(cell));
+        print(",");
+        print(y(cell));
+        print(" ");
+    });
+
+    println();
+}
+
+pub fn printCells<M>(cells: M<Cell>, width: i32, height: i32) {
+    vecRange(0, height).forEach(fn(y) {
+        vecRange(0, width).forEach(fn(x) {
+            let alive = isAlive(cells, Cell(x, y));
+            if(alive, { print("*"); }, { print(" "); });
+        });
+        println("");
+    });
+}
+
+// https://man7.org/linux/man-pages/man4/console_codes.4.html
+pub fn moveUp(count: i32) {
+    printESC();
+    print("[");
+    print(count);
+    print("A");
+}
