@@ -41,8 +41,43 @@ pub struct ASTTypedFunctionDef {
     pub return_type: ASTTypedType,
     pub body: ASTTypedFunctionBody,
     pub inline: bool,
-    pub generic_types: LinkedHashMap<String, ASTTypedType>,
+    pub resolved_generic_types: ResolvedGenericTypedTypes,
     pub index: EnhASTIndex,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResolvedGenericTypedTypes {
+    map: LinkedHashMap<String, LinkedHashMap<Vec<EnhASTType>, ASTTypedType>>,
+}
+
+impl ResolvedGenericTypedTypes {
+    pub fn new() -> Self {
+        Self {
+            map: LinkedHashMap::new(),
+        }
+    }
+
+    pub fn insert(
+        &mut self,
+        name: String,
+        var_types: Vec<EnhASTType>,
+        typed_type: ASTTypedType,
+    ) -> Option<ASTTypedType> {
+        let new = self.map.entry(name).or_insert(LinkedHashMap::new());
+        new.insert(var_types, typed_type)
+    }
+
+    pub fn get(&self, name: &str, var_types: &Vec<EnhASTType>) -> Option<&ASTTypedType> {
+        self.map.get(name).and_then(|it| it.get(var_types))
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = ((String, Vec<EnhASTType>), &ASTTypedType)> {
+        self.map.iter().flat_map(|(key, inner_map)| {
+            inner_map
+                .iter()
+                .map(move |(vec_key, val)| ((key.clone(), vec_key.clone()), val))
+        })
+    }
 }
 
 impl ASTTypedFunctionDef {
@@ -600,7 +635,7 @@ pub struct ASTTypedTypeDef {
     pub modifiers: ASTModifiers,
     pub original_name: String,
     pub name: String,
-    pub generic_types: LinkedHashMap<String, ASTTypedType>,
+    pub generic_types: ResolvedGenericTypedTypes,
     pub is_ref: bool,
     pub ast_type: EnhASTType,
     pub ast_typed_type: ASTTypedType,
@@ -654,8 +689,8 @@ impl Display for ASTTypedTypeDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let gen_types = self
             .generic_types
-            .values()
-            .map(|it| format!("{it}"))
+            .iter()
+            .map(|((name, var_types), it)| format!("{it}"))
             .collect::<Vec<_>>()
             .join(",");
         f.write_str(&format!("type {}<{gen_types}>", self.name))
@@ -733,7 +768,12 @@ impl<'a> ConvContext<'a> {
                 let cloned_param_types = param_types.clone();
                 let mut generic_to_type = EnhResolvedGenericTypes::new();
                 for (i, p) in enum_def.type_parameters.iter().enumerate() {
-                    generic_to_type.insert(p.clone(), cloned_param_types.get(i).unwrap().clone());
+                    // TODO types classes
+                    generic_to_type.insert(
+                        p.clone(),
+                        Vec::new(),
+                        cloned_param_types.get(i).unwrap().clone(),
+                    );
                 }
 
                 self.count += 1;
@@ -814,8 +854,10 @@ impl<'a> ConvContext<'a> {
                 let cloned_param_types = param_types.clone();
                 let mut generic_to_type = EnhResolvedGenericTypes::new();
                 for (i, p) in struct_def.type_parameters.iter().enumerate() {
+                    // TODO type classes
                     generic_to_type.insert(
                         p.clone(),
+                        Vec::new(),
                         cloned_param_types
                             .get(i)
                             .unwrap_or_else(|| {
@@ -880,10 +922,12 @@ impl<'a> ConvContext<'a> {
                 index: _,
             } => {
                 let cloned_param_types = param_types.clone();
-                let mut generic_types = LinkedHashMap::new();
+                let mut generic_types = ResolvedGenericTypedTypes::new();
                 for (i, p) in type_def.type_parameters.iter().enumerate() {
+                    // TODO type classes
                     generic_types.insert(
                         p.clone(),
+                        Vec::new(),
                         typed_type(
                             &type_def.namespace,
                             self,
@@ -1401,11 +1445,11 @@ pub fn function_def(
         panic!("function def has generics: {def}");
     }
 
-    let mut generic_types = LinkedHashMap::new();
+    let mut generic_types = ResolvedGenericTypedTypes::new();
 
-    for (name, ast_type) in def.resolved_generic_types.iter() {
+    for ((name, var_types), ast_type) in def.resolved_generic_types.iter() {
         let typed_type = typed_type(&ast_type.namespace(), conv_context, ast_type, "");
-        generic_types.insert(name.into(), typed_type);
+        generic_types.insert(name, var_types, typed_type);
     }
 
     let function_return_type = typed_type(
@@ -1434,7 +1478,7 @@ pub fn function_def(
                 )
             })
             .collect(),
-        generic_types: generic_types.clone(),
+        resolved_generic_types: generic_types.clone(),
         index: def.index.clone(),
     };
 
@@ -1793,7 +1837,7 @@ fn typed_type(
                 )),
             }),
         },
-        EnhASTType::Generic(index, p) => {
+        EnhASTType::Generic(index, p, var_types) => {
             panic!("Unresolved generic type '{p}' {message} : {index}");
         }
         EnhASTType::Custom {
@@ -2013,7 +2057,7 @@ impl DefaultFunction {
                             return_type: _,
                         } => EnhASTExpression::Any(it.clone()),
                     },
-                    EnhASTType::Generic(_, _) => panic!(),
+                    EnhASTType::Generic(_, _, _) => panic!(),
                     EnhASTType::Custom {
                         namespace: _,
                         name: _,

@@ -451,7 +451,8 @@ impl TextMacroEval for CTypeNameMacro {
             CodeGenC::type_to_string(&t, statics)
         } else if let MacroParam::Plain(name, _, _) = value {
             if let Some(def) = function_def {
-                if let Some(t) = def.generic_types.get(name) {
+                // TODO type classes, I would like to resolve something like M<T>
+                if let Some(t) = def.resolved_generic_types.get(name, &Vec::new()) {
                     CLambdas::add_to_statics_if_lambda(&t, statics);
 
                     CodeGenC::type_to_string(&t, statics)

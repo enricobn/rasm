@@ -31,7 +31,7 @@ use crate::enh_type_check::typed_ast::{
     convert_to_typed_module, get_type_of_typed_expression, ASTTypedExpression,
     ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
-    DefaultFunctionCall,
+    DefaultFunctionCall, ResolvedGenericTypedTypes,
 };
 use crate::enh_type_check::used_functions::UsedFunctions;
 use crate::errors::CompilationError;
@@ -698,7 +698,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             return_type: rt,
                             body: ASTTypedFunctionBody::RASMBody(lambda_def.body.clone()),
                             inline: false,
-                            generic_types: LinkedHashMap::new(),
+                            resolved_generic_types: ResolvedGenericTypedTypes::new(),
                             index: lambda_def.index.clone(),
                         };
 
@@ -1445,7 +1445,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                     return_type: rt,
                                     body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
                                     inline: false,
-                                    generic_types: LinkedHashMap::new(),
+                                    resolved_generic_types: ResolvedGenericTypedTypes::new(),
                                     index: lambda_def.index.clone(),
                                 };
 
@@ -1968,11 +1968,11 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     };
 
                     match &ast_type {
-                        EnhASTType::Generic(_, name) => {
+                        EnhASTType::Generic(_, name, var_types) => {
                             if let Some(f) = typed_function_def {
                                 let t = type_def_provider
                                     .get_type_from_custom_typed_type(
-                                        f.generic_types.get(name).unwrap(),
+                                        f.resolved_generic_types.get(name, var_types).unwrap(),
                                     )
                                     .unwrap();
                                 debug_i!("Function specified, found type {:?} for {name}", t);
@@ -1985,11 +1985,11 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         EnhASTType::Custom {
                             namespace: _,
                             name,
-                            param_types: _,
+                            param_types,
                             index: _,
                         } => {
                             let result = if let Some(f) = typed_function_def {
-                                if let Some(t) = f.generic_types.get(name) {
+                                if let Some(t) = f.resolved_generic_types.get(name, param_types) {
                                     type_def_provider
                                         .get_type_from_typed_type(t)
                                         .ok_or(format!("name {name} t {t}"))

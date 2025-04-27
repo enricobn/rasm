@@ -128,15 +128,20 @@ impl AsmPrintRefMacro {
                         EnhASTType::Builtin(EnhBuiltinTypeKind::String) => {
                             ASTTypedType::Builtin(BuiltinTypedTypeKind::String)
                         }
-                        EnhASTType::Generic(_, generic_type_name) => match function_def {
-                            None => panic!(),
-                            Some(f) => match f.generic_types.get(generic_type_name) {
-                                None => {
-                                    panic!("printRef macro: Cannot find generic type {generic_type_name}")
+                        EnhASTType::Generic(_, generic_type_name, var_types) => {
+                            match function_def {
+                                None => panic!(),
+                                Some(f) => {
+                                    match f.resolved_generic_types.get(generic_type_name, var_types)
+                                    {
+                                        None => {
+                                            panic!("printRef macro: Cannot find generic type {generic_type_name}")
+                                        }
+                                        Some(ast_typed_type) => ast_typed_type.clone(),
+                                    }
                                 }
-                                Some(ast_typed_type) => ast_typed_type.clone(),
-                            },
-                        },
+                            }
+                        }
                         EnhASTType::Custom {
                             namespace,
                             name: custom_type_name,
@@ -391,7 +396,10 @@ impl AsmPrintRefMacro {
                 None,
                 true,
             );
-            for (i, (generic_name, ast_typed_type)) in s.generic_types.iter().enumerate() {
+            // TODO type classes
+            for (i, ((generic_name, var_types), ast_typed_type)) in
+                s.generic_types.iter().enumerate()
+            {
                 code_gen.add(
                     &mut result,
                     &format!("$call({}References, {src}:i32,{i})", s.original_name),

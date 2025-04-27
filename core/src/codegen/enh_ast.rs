@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use derivative::Derivative;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
+use rasm_utils::SliceDisplay;
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::typedef_provider::TypeDefProvider;
@@ -404,7 +405,7 @@ impl EnhBuiltinTypeKind {
 #[derive(Debug, Clone, Eq)]
 pub enum EnhASTType {
     Builtin(EnhBuiltinTypeKind),
-    Generic(EnhASTIndex, String),
+    Generic(EnhASTIndex, String, Vec<EnhASTType>),
     Custom {
         namespace: EnhASTNameSpace,
         name: String,
@@ -493,9 +494,12 @@ impl EnhASTType {
                     false
                 }
             }
-            EnhASTType::Generic(_, g) => {
-                if let EnhASTType::Generic(_, og) = other {
-                    g == og
+            EnhASTType::Generic(_, g, var_types) => {
+                if let EnhASTType::Generic(_, o_g, o_vt) = other {
+                    g == o_g
+                        && var_types.len() == o_vt.len()
+                        && zip(var_types.iter(), o_vt.iter())
+                            .all(|(t, o_t)| t.equals_excluding_namespace(o_t))
                 } else {
                     false
                 }
@@ -523,14 +527,14 @@ impl EnhASTType {
                     par_types
                 }
             },
-            EnhASTType::Generic(_, _) => true,
+            EnhASTType::Generic(_, _, _) => true,
             EnhASTType::Custom {
                 namespace: _,
                 name: _,
                 param_types: pt,
                 index: _,
             } => pt.iter().any(|it| match it {
-                EnhASTType::Generic(_, _) => true,
+                EnhASTType::Generic(_, _, _) => true,
                 _ => Self::is_generic(it),
             }),
             EnhASTType::Unit => false,
@@ -607,7 +611,7 @@ impl EnhASTType {
                     return_type: Box::new(return_type.fix_namespaces_with(namespace_provider)),
                 }),
             },
-            EnhASTType::Generic(_, _) => self.clone(),
+            EnhASTType::Generic(_, _, _) => self.clone(),
             EnhASTType::Custom {
                 namespace: _,
                 name,
@@ -651,9 +655,15 @@ impl EnhASTType {
                     return_type: Box::new(return_type.fix_generics(prefix)),
                 }),
             },
-            EnhASTType::Generic(index, name) => {
-                EnhASTType::Generic(index.clone(), format!("{prefix}:{name}"))
-            }
+            EnhASTType::Generic(index, name, var_types) => EnhASTType::Generic(
+                index.clone(),
+                format!("{prefix}:{name}"),
+                var_types
+                    .iter()
+                    .map(|it| it.fix_generics(prefix))
+                    .collect::<Vec<_>>()
+                    .clone(),
+            ),
             EnhASTType::Custom {
                 namespace,
                 name,
@@ -677,10 +687,10 @@ impl EnhASTType {
             EnhASTType::Builtin(enh_builtin_type_kind) => {
                 ASTType::Builtin(enh_builtin_type_kind.to_ast())
             }
-            EnhASTType::Generic(index, name) => ASTType::Generic(
+            EnhASTType::Generic(index, name, var_types) => ASTType::Generic(
                 ASTPosition::new(index.row, index.column),
                 name.clone(),
-                Vec::new(),
+                var_types.iter().map(|it| it.to_ast()).collect(),
             ),
             EnhASTType::Custom {
                 namespace,
@@ -726,6 +736,10 @@ impl EnhASTType {
             ASTType::Generic(astposition, name, var_types) => EnhASTType::Generic(
                 EnhASTIndex::from_position(id.path(), &astposition),
                 name.clone(),
+                var_types
+                    .into_iter()
+                    .map(|it| EnhASTType::from_ast(namespace, id, it))
+                    .collect(),
             ),
             ASTType::Custom {
                 name,
@@ -774,7 +788,13 @@ impl Display for EnhASTType {
                     ))
                 }
             },
-            EnhASTType::Generic(_, name) => f.write_str(name),
+            EnhASTType::Generic(_, name, var_types) => {
+                f.write_str(name)?;
+                if !var_types.is_empty() {
+                    write!(f, "<{}>", SliceDisplay(&var_types))?;
+                }
+                Ok(())
+            }
             EnhASTType::Custom {
                 namespace: _,
                 name,
@@ -1646,7 +1666,11 @@ mod tests {
         let inner_type = EnhASTType::Custom {
             namespace: EnhASTNameSpace::global(),
             name: "Option".to_owned(),
-            param_types: vec![EnhASTType::Generic(EnhASTIndex::none(), "T".to_string())],
+            param_types: vec![EnhASTType::Generic(
+                EnhASTIndex::none(),
+                "T".to_string(),
+                Vec::new(),
+            )],
             index: EnhASTIndex::none(),
         };
 
@@ -1665,7 +1689,7 @@ mod tests {
                 ast_type,
                 ast_index: EnhASTIndex::none(),
             }],
-            return_type: EnhASTType::Generic(EnhASTIndex::none(), "T".to_string()),
+            return_type: EnhASTType::Generic(EnhASTIndex::none(), "T".to_string(), Vec::new()),
             body: EnhASTFunctionBody::RASMBody(vec![]),
             inline: false,
             generic_types: vec!["T".to_string()],

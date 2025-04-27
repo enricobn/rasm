@@ -327,7 +327,7 @@ mod tests {
         let mut function2 = function1.clone();
         function2.parameters = vec![EnhASTParameterDef {
             name: "par".to_string(),
-            ast_type: EnhASTType::Generic(EnhASTIndex::none(), "T".to_string()),
+            ast_type: EnhASTType::Generic(EnhASTIndex::none(), "T".to_string(), Vec::new()),
             ast_index: EnhASTIndex::none(),
         }];
 

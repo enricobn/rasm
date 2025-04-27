@@ -23,7 +23,7 @@ use crate::{
     },
     enh_type_check::typed_ast::{
         ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
-        ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind,
+        ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, ResolvedGenericTypedTypes,
     },
     project::RasmProject,
     transformations::typed_functions_creator::{
@@ -729,7 +729,7 @@ impl CodeGenAsm {
             parameters,
             body: ASTTypedFunctionBody::NativeBody(body),
             return_type: ASTTypedType::Unit,
-            generic_types: LinkedHashMap::new(),
+            resolved_generic_types: ResolvedGenericTypedTypes::new(),
             inline: false,
             index: EnhASTIndex::none(),
         })

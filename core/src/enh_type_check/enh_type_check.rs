@@ -651,7 +651,19 @@ impl<'a> EnhTypeCheck<'a> {
                 }
                 _ => format!("{ast_type}"),
             },
-            EnhASTType::Generic(_, name) => name.clone(), // TODO it should not happen when strict = true
+            EnhASTType::Generic(_, name, var_types) => {
+                if var_types.is_empty() {
+                    name.clone()
+                } else {
+                    format!(
+                        "{name}_{}",
+                        var_types
+                            .iter()
+                            .map(|it| EnhTypeCheck::unique_type_name(it, module))
+                            .join("_")
+                    )
+                }
+            } // TODO it should not happen when strict = true
             EnhASTType::Custom {
                 namespace: _,
                 name,
@@ -850,7 +862,12 @@ impl<'a> EnhTypeCheck<'a> {
                         t.clone()
                     };
 
-                    resolved_generic_types.insert(g.to_string(), ast_type);
+                    // TODO type classes, I don't know if it works
+                    if let EnhASTType::Generic(_, _, var_types) = t {
+                        resolved_generic_types.insert(g.to_string(), var_types.clone(), ast_type);
+                    } else {
+                        resolved_generic_types.insert(g.to_string(), Vec::new(), ast_type);
+                    }
                 });
             }
 
@@ -1256,7 +1273,7 @@ impl<'a> EnhTypeCheck<'a> {
         if ast_type.is_generic() {
             match ast_type {
                 EnhASTType::Builtin(_) => 0,
-                EnhASTType::Generic(_, _) => coeff,
+                EnhASTType::Generic(_, _, _) => coeff,
                 EnhASTType::Custom {
                     namespace: _,
                     name: _,
@@ -1969,7 +1986,7 @@ impl<'a> EnhTypeCheck<'a> {
             }) = et
             {
                 Ok(Some(return_type.deref()))
-            } else if let EnhASTType::Generic(_, _name) = et {
+            } else if let EnhASTType::Generic(_, _, _) = et {
                 Ok(None)
             } else {
                 Err(EnhTypeCheckError::new(
@@ -2034,6 +2051,7 @@ impl<'a> EnhTypeCheck<'a> {
                                 ast_type: EnhASTType::Generic(
                                     EnhASTIndex::none(),
                                     format!("L_{i}"),
+                                    Vec::new(), // TODO type classes
                                 ),
                                 ast_index: index.clone(),
                             },
@@ -2177,7 +2195,8 @@ mod tests {
             usize::MAX / 100,
             EnhTypeCheck::generic_type_coeff(&EnhASTType::Generic(
                 EnhASTIndex::none(),
-                "".to_owned()
+                "".to_owned(),
+                Vec::new()
             ))
         );
     }
@@ -2209,7 +2228,11 @@ mod tests {
             usize::MAX / 100 / 100,
             EnhTypeCheck::generic_type_coeff(&EnhASTType::Custom {
                 namespace: EnhASTNameSpace::global(),
-                param_types: vec![EnhASTType::Generic(EnhASTIndex::none(), "".to_owned())],
+                param_types: vec![EnhASTType::Generic(
+                    EnhASTIndex::none(),
+                    "".to_owned(),
+                    Vec::new()
+                )],
                 name: "".to_owned(),
                 index: EnhASTIndex::none()
             },)
@@ -2220,7 +2243,11 @@ mod tests {
     fn test_generic_function_coeff() {
         // this is "more" generic
         let function1 = simple_function(
-            vec![EnhASTType::Generic(EnhASTIndex::none(), "T".to_string())],
+            vec![EnhASTType::Generic(
+                EnhASTIndex::none(),
+                "T".to_string(),
+                Vec::new(),
+            )],
             false,
         );
 
@@ -2228,7 +2255,11 @@ mod tests {
             vec![EnhASTType::Custom {
                 namespace: EnhASTNameSpace::global(),
                 name: "".to_string(),
-                param_types: vec![EnhASTType::Generic(EnhASTIndex::none(), "T".to_string())],
+                param_types: vec![EnhASTType::Generic(
+                    EnhASTIndex::none(),
+                    "T".to_string(),
+                    Vec::new(),
+                )],
                 index: EnhASTIndex::none(),
             }],
             false,
@@ -2244,11 +2275,19 @@ mod tests {
     fn test_generic_native_function_coeff() {
         // not native function have lower priority (higher coeff)
         let function1 = simple_function(
-            vec![EnhASTType::Generic(EnhASTIndex::none(), "T".to_string())],
+            vec![EnhASTType::Generic(
+                EnhASTIndex::none(),
+                "T".to_string(),
+                Vec::new(),
+            )],
             false,
         );
         let function2 = simple_function(
-            vec![EnhASTType::Generic(EnhASTIndex::none(), "T".to_string())],
+            vec![EnhASTType::Generic(
+                EnhASTIndex::none(),
+                "T".to_string(),
+                Vec::new(),
+            )],
             true,
         );
 

@@ -256,7 +256,7 @@ pub trait TypeDefProvider {
                     */
                 }
             },
-            EnhASTType::Generic(_, _) => None,
+            EnhASTType::Generic(_, _, _) => None,
             EnhASTType::Custom {
                 namespace: _,
                 name: _,
@@ -291,7 +291,7 @@ pub trait TypeDefProvider {
             //println!("inside find_one {it}");
             match &it.ast_type {
                 EnhASTType::Builtin(_) => false,
-                EnhASTType::Generic(_, _) => false,
+                EnhASTType::Generic(_, _, _) => false,
                 EnhASTType::Custom {
                     namespace: ast_type_namespace,
                     name: _,

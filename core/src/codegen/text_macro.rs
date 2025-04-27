@@ -272,8 +272,9 @@ impl TextMacroEvaluator {
 
         let context_generic_types = if let Some(f) = function_def {
             let mut result = f.generic_types.clone();
-            for (name, _t) in f.resolved_generic_types.iter() {
-                if !result.contains(name) {
+            // TODO should we use var_types?
+            for ((name, var_types), _t) in f.resolved_generic_types.iter() {
+                if !result.contains(&name) {
                     result.push(name.clone());
                 }
             }
@@ -412,7 +413,7 @@ impl TextMacroEvaluator {
             index: _,
         } = ast_type
         {
-            if let Some(typed_type) = function_def.generic_types.get(name) {
+            if let Some(typed_type) = function_def.resolved_generic_types.get(name, param_types) {
                 Some(typed_type.clone())
             } else if param_types.is_empty() {
                 type_def_provider.get_ast_typed_type_from_type_name(name)
@@ -731,7 +732,8 @@ pub fn get_type(
     function_def_opt: Option<&ASTTypedFunctionDef>,
 ) -> ASTTypedType {
     if let Some(f) = function_def_opt {
-        if let Some(t) = f.generic_types.get(orig_name) {
+        // TODO we should parse orig_name it could be a type class (M<str>)
+        if let Some(t) = f.resolved_generic_types.get(orig_name, &Vec::new()) {
             return t.clone();
         }
     }
@@ -883,7 +885,7 @@ mod tests {
     use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
     use crate::enh_type_check::typed_ast::{
         ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef, ASTTypedType,
-        BuiltinTypedTypeKind,
+        BuiltinTypedTypeKind, ResolvedGenericTypedTypes,
     };
 
     #[test]
@@ -976,7 +978,7 @@ mod tests {
                 ast_index: EnhASTIndex::none(),
             }],
             body: ASTTypedFunctionBody::NativeBody("".into()),
-            generic_types: LinkedHashMap::new(),
+            resolved_generic_types: ResolvedGenericTypedTypes::new(),
             return_type: ASTTypedType::Unit,
             inline: false,
             index: EnhASTIndex::none(),
@@ -1014,7 +1016,7 @@ mod tests {
                 ast_index: EnhASTIndex::none(),
             }],
             body: ASTTypedFunctionBody::NativeBody("".into()),
-            generic_types: LinkedHashMap::new(),
+            resolved_generic_types: ResolvedGenericTypedTypes::new(),
             return_type: ASTTypedType::Unit,
             inline: false,
             index: EnhASTIndex::none(),
@@ -1069,7 +1071,7 @@ mod tests {
                 ast_index: EnhASTIndex::none(),
             }],
             body: ASTTypedFunctionBody::NativeBody("".into()),
-            generic_types: LinkedHashMap::new(),
+            resolved_generic_types: ResolvedGenericTypedTypes::new(),
             return_type: ASTTypedType::Unit,
             inline: false,
             index: EnhASTIndex::none(),
@@ -1172,7 +1174,7 @@ mod tests {
             return_type: ASTTypedType::Unit,
             body: ASTTypedFunctionBody::RASMBody(Vec::new()),
             inline: false,
-            generic_types: LinkedHashMap::new(),
+            resolved_generic_types: ResolvedGenericTypedTypes::new(),
             index: EnhASTIndex::none(),
         };
 

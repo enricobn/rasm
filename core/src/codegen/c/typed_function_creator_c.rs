@@ -689,12 +689,15 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             );
 
             function.resolved_generic_types = EnhResolvedGenericTypes::new();
-            for (name, t) in type_def.generic_types.iter() {
+            for ((name, var_types), t) in type_def.generic_types.iter() {
                 function.resolved_generic_types.insert(
                     name.clone(),
-                    type_def_provider.get_type_from_typed_type(&t).unwrap(),
+                    var_types.clone(),
+                    type_def_provider.get_type_from_typed_type(t).unwrap(),
                 );
-                dummy.generic_types.insert(name.clone(), t.clone());
+                dummy
+                    .resolved_generic_types
+                    .insert(name.clone(), var_types, t.clone());
             }
 
             evaluator

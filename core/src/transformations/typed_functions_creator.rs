@@ -9,6 +9,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
     ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
+    ResolvedGenericTypedTypes,
 };
 
 pub trait TypedFunctionsCreator {
@@ -136,7 +137,7 @@ pub trait TypedFunctionsCreator {
             body,
             inline: false,
             return_type: ASTTypedType::Unit,
-            generic_types: LinkedHashMap::new(),
+            resolved_generic_types: ResolvedGenericTypedTypes::new(),
             index: EnhASTIndex::none(),
         }
     }

@@ -125,15 +125,15 @@ pub fn resolve_generic_types_from_effective_type(
                 },
             }
         }
-        EnhASTType::Generic(_, p) => {
-            let ignore = if let EnhASTType::Generic(_, p1) = effective_type {
-                p == p1
+        EnhASTType::Generic(_, p, var_types) => {
+            let ignore = if let EnhASTType::Generic(_, p1, var_types_1) = effective_type {
+                p == p1 && var_types == var_types_1
             } else {
                 false
             };
             if !ignore {
                 debug_i!("resolved generic type {p} to {effective_type}");
-                result.insert(p.clone(), effective_type.clone());
+                result.insert(p.clone(), var_types.clone(), effective_type.clone());
             }
         }
         EnhASTType::Custom {
@@ -179,7 +179,7 @@ pub fn resolve_generic_types_from_effective_type(
                     })?;
                 }
             }
-            EnhASTType::Generic(_, _) => {}
+            EnhASTType::Generic(_, _, _) => {}
             _ => {
                 dedent!();
                 return Err(type_check_error(format!(
@@ -240,9 +240,9 @@ pub fn substitute(
             }
             _ => None,
         },
-        EnhASTType::Generic(_, p) => {
-            if resolved_param_types.contains_key(p) {
-                resolved_param_types.get(p).cloned()
+        EnhASTType::Generic(_, p, var_types) => {
+            if resolved_param_types.contains_key(p, var_types) {
+                resolved_param_types.get(p, var_types).cloned()
             } else {
                 None
             }
@@ -323,7 +323,7 @@ mod tests {
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
         let mut expected_result = EnhResolvedGenericTypes::new();
-        expected_result.insert("T".into(), i32());
+        expected_result.insert("T".into(), Vec::new(), i32());
 
         assert_eq!(result, expected_result);
 
@@ -348,7 +348,7 @@ mod tests {
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
         let mut expected_result = EnhResolvedGenericTypes::new();
-        expected_result.insert("T".into(), i32());
+        expected_result.insert("T".into(), Vec::new(), i32());
 
         assert_eq!(result, expected_result);
 
@@ -370,7 +370,7 @@ mod tests {
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
         let mut expected_result = EnhResolvedGenericTypes::new();
-        expected_result.insert("T".into(), i32());
+        expected_result.insert("T".into(), Vec::new(), i32());
 
         assert_eq!(result, expected_result);
 
@@ -392,14 +392,14 @@ mod tests {
         let result = resolve_generic_types_from_effective_type(&generic_type, &effective_type)?;
 
         let mut expected_result = EnhResolvedGenericTypes::new();
-        expected_result.insert("T".into(), i32());
+        expected_result.insert("T".into(), Vec::new(), i32());
 
         assert_eq!(result, expected_result);
         Ok(())
     }
 
     fn generic(name: &str) -> EnhASTType {
-        EnhASTType::Generic(EnhASTIndex::none(), name.into())
+        EnhASTType::Generic(EnhASTIndex::none(), name.into(), Vec::new())
     }
 
     fn i32() -> EnhASTType {

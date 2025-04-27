@@ -834,7 +834,7 @@ impl ReferenceFinder {
             } else {
                 statics.add_const(
                     name.clone(),
-                    EnhASTType::Generic(EnhASTIndex::none(), "UNKNOWN".to_string()),
+                    EnhASTType::Generic(EnhASTIndex::none(), "UNKNOWN".to_string(), Vec::new()),
                     namespace,
                     modifiers.unwrap(),
                 );
@@ -848,7 +848,7 @@ impl ReferenceFinder {
             val_context
                 .insert_let(
                     name.clone(),
-                    EnhASTType::Generic(EnhASTIndex::none(), "UNKNOWN".to_string()),
+                    EnhASTType::Generic(EnhASTIndex::none(), "UNKNOWN".to_string(), Vec::new()),
                     index,
                 )
                 .map_err(|err| EnhTypeCheckError::new(index.clone(), err.clone(), Vec::new()))?;
@@ -1033,6 +1033,7 @@ impl ReferenceFinder {
                             ast_type: EnhASTType::Generic(
                                 EnhASTIndex::none(),
                                 "UNKNOWN".to_string(),
+                                Vec::new(),
                             ),
                         },
                     )

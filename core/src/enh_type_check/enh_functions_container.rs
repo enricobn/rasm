@@ -12,6 +12,8 @@ use crate::codegen::enh_ast::{
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 
+use super::enh_resolved_generic_types::EnhResolvedGenericTypes;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct EnhFunctionsContainer {
     functions_by_name: LinkedHashMap<String, Vec<EnhASTFunctionDef>>,
@@ -34,7 +36,7 @@ impl EnhTypeFilter {
         EnhFunctionsContainer::almost_same_type(
             ast_type,
             self,
-            &mut LinkedHashMap::new(),
+            &mut EnhResolvedGenericTypes::new(),
             &EnhASTIndex::none(),
             enhanced_astmodule,
         )
@@ -226,7 +228,7 @@ impl EnhFunctionsContainer {
                 return false;
             }
             indent!();
-            let mut resolved_generic_types = LinkedHashMap::new();
+            let mut resolved_generic_types = EnhResolvedGenericTypes::new();
             let result = Self::almost_same_parameters_types(
                 it.parameters
                     .iter()
@@ -244,7 +246,7 @@ impl EnhFunctionsContainer {
                     match return_type_filter {
                         None => Ok(true),
                         Some(ref rt) => {
-                            if matches!(rt, EnhASTType::Generic(_, _)) {
+                            if matches!(rt, EnhASTType::Generic(_, _, _)) {
                                 Ok(true)
                             } else {
                                 Self::almost_same_return_type(
@@ -364,7 +366,7 @@ impl EnhFunctionsContainer {
                     parameter_types_filter
                 );
             } else {
-                let mut resolved_generic_types = LinkedHashMap::new();
+                let mut resolved_generic_types = EnhResolvedGenericTypes::new();
 
                 let lambda = |it: &EnhASTFunctionDef| {
                     if it.name != name {
@@ -416,7 +418,7 @@ impl EnhFunctionsContainer {
     fn almost_same_parameters_types(
         parameter_types: Vec<&EnhASTType>,
         parameter_types_filter: &Vec<EnhTypeFilter>,
-        resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
+        resolved_generic_types: &mut EnhResolvedGenericTypes,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, EnhTypeCheckError> {
@@ -438,7 +440,7 @@ impl EnhFunctionsContainer {
     fn match_parameters(
         parameter_types: Vec<&EnhASTType>,
         parameter_types_filter: &[EnhTypeFilter],
-        resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
+        resolved_generic_types: &mut EnhResolvedGenericTypes,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, EnhTypeCheckError> {
@@ -462,7 +464,7 @@ impl EnhFunctionsContainer {
     pub fn almost_same_return_type(
         actual_return_type: &EnhASTType,
         expected_return_type: &EnhASTType,
-        resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
+        resolved_generic_types: &mut EnhResolvedGenericTypes,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, EnhTypeCheckError> {
@@ -479,7 +481,7 @@ impl EnhFunctionsContainer {
     pub fn almost_same_type(
         parameter_type: &EnhASTType,
         parameter_type_filter: &EnhTypeFilter,
-        resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
+        resolved_generic_types: &mut EnhResolvedGenericTypes,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, EnhTypeCheckError> {
@@ -495,7 +497,7 @@ impl EnhFunctionsContainer {
     fn almost_same_type_internal(
         parameter_type: &EnhASTType,
         parameter_type_filter: &EnhTypeFilter,
-        resolved_generic_types: &mut LinkedHashMap<String, EnhASTType>,
+        resolved_generic_types: &mut EnhResolvedGenericTypes,
         index: &EnhASTIndex,
         return_type: bool,
         enhanced_astmodule: &EnhancedASTModule,
@@ -548,9 +550,12 @@ impl EnhFunctionsContainer {
 
                                 Ok(parameter_same && return_type_same)
                             }
-                            EnhASTType::Generic(_, name) => {
-                                resolved_generic_types
-                                    .insert(name.to_string(), filter_type.clone());
+                            EnhASTType::Generic(_, name, var_types) => {
+                                resolved_generic_types.insert(
+                                    name.to_owned(),
+                                    var_types.clone(),
+                                    filter_type.clone(),
+                                );
                                 Ok(true)
                             }
                             _ => Ok(false),
@@ -559,7 +564,7 @@ impl EnhFunctionsContainer {
                             debug_i!("parameter type {parameter_type}");
                             let r = match parameter_type {
                                 EnhASTType::Builtin(_) => filter_type == parameter_type,
-                                EnhASTType::Generic(_, _) => true,
+                                EnhASTType::Generic(_, _, _) => true,
                                 EnhASTType::Custom { .. } => false,
                                 EnhASTType::Unit => {
                                     if return_type {
@@ -572,11 +577,12 @@ impl EnhFunctionsContainer {
                             Ok(r)
                         }
                     },
-                    EnhASTType::Generic(_, filter_generic_type) => {
-                        let already_resolved_o = resolved_generic_types.get(filter_generic_type);
+                    EnhASTType::Generic(_, filter_generic_type, filter_var_types) => {
+                        let already_resolved_o =
+                            resolved_generic_types.get(filter_generic_type, filter_var_types);
                         debug_i!("already_resolved {}", OptionDisplay(&already_resolved_o));
                         match parameter_type {
-                            EnhASTType::Generic(_, _) => {
+                            EnhASTType::Generic(_, _, _) => {
                                 // TODO we don't know if the two generic types belong to the same context (Enum, Struct or function),
                                 //   to know it we need another attribute in ASTType::Builtin::Generic : the context
                                 Ok(true)
@@ -588,6 +594,7 @@ impl EnhFunctionsContainer {
                                 } else {
                                     resolved_generic_types.insert(
                                         filter_generic_type.clone(),
+                                        filter_var_types.clone(),
                                         parameter_type.clone(),
                                     );
                                     Ok(true)
@@ -603,7 +610,7 @@ impl EnhFunctionsContainer {
                     } => {
                         match parameter_type {
                             EnhASTType::Builtin(_) => Ok(false),
-                            EnhASTType::Generic(_, _) => Ok(true), // TODO
+                            EnhASTType::Generic(_, _, _) => Ok(true), // TODO
                             EnhASTType::Custom {
                                 namespace: _,
                                 param_types,
@@ -659,11 +666,15 @@ impl EnhFunctionsContainer {
                     }
                     EnhASTType::Unit => match parameter_type {
                         EnhASTType::Builtin(_) => Ok(false),
-                        EnhASTType::Generic(_, name) => {
-                            if let Some(gt) = resolved_generic_types.get(name) {
+                        EnhASTType::Generic(_, name, var_types) => {
+                            if let Some(gt) = resolved_generic_types.get(name, var_types) {
                                 Ok(gt.is_unit())
                             } else {
-                                resolved_generic_types.insert(name.to_owned(), EnhASTType::Unit);
+                                resolved_generic_types.insert(
+                                    name.to_owned(),
+                                    var_types.clone(),
+                                    EnhASTType::Unit,
+                                );
                                 Ok(true)
                             }
                         }
@@ -686,7 +697,7 @@ impl EnhFunctionsContainer {
                 }) = parameter_type
                 {
                     Ok(len == &parameters.len())
-                } else if let EnhASTType::Generic(_, name) = parameter_type {
+                } else if let EnhASTType::Generic(_, name, var_types) = parameter_type {
                     if let Some(EnhTypeFilter::Exact(lrt)) = lambda_return_type_filter.as_deref() {
                         if *len == 0 {
                             let lambda = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
@@ -694,7 +705,11 @@ impl EnhFunctionsContainer {
                                 return_type: Box::new(lrt.clone()),
                             });
 
-                            resolved_generic_types.insert(name.to_owned(), lambda);
+                            resolved_generic_types.insert(
+                                name.to_owned(),
+                                var_types.clone(),
+                                lambda,
+                            );
                             Ok(true)
                         } else {
                             Ok(false)
@@ -906,7 +921,11 @@ mod tests {
             &call.original_function_name,
             &vec![
                 Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::I32)),
-                Exact(EnhASTType::Generic(EnhASTIndex::none(), "T".into())),
+                Exact(EnhASTType::Generic(
+                    EnhASTIndex::none(),
+                    "T".into(),
+                    Vec::new(),
+                )),
             ],
             None,
             false,
