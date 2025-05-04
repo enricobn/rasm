@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::iter::zip;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use linked_hash_map::LinkedHashMap;
@@ -681,23 +682,25 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             let mut function = original_function.clone();
 
             let mut dummy = self.create_function(
-                &type_def.namespace,
-                "dummy",
+                &original_function.namespace,
+                &original_function.name,
                 type_def.ast_typed_type.clone(),
                 ASTTypedFunctionBody::NativeBody(String::new()),
                 false,
             );
 
             function.resolved_generic_types = EnhResolvedGenericTypes::new();
-            for ((name, var_types), t) in type_def.generic_types.iter() {
+            for (((_gen_name, var_types), t), orig_gen_name) in
+                zip(type_def.generic_types.iter(), function.generic_types.iter())
+            {
                 function.resolved_generic_types.insert(
-                    name.clone(),
+                    orig_gen_name.clone(),
                     var_types.clone(),
                     type_def_provider.get_type_from_typed_type(t).unwrap(),
                 );
                 dummy
                     .resolved_generic_types
-                    .insert(name.clone(), var_types, t.clone());
+                    .insert(orig_gen_name.clone(), var_types, t.clone());
             }
 
             evaluator

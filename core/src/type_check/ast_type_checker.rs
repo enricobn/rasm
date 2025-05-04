@@ -263,7 +263,7 @@ impl ASTTypeChecker {
                 enable_log(log_enabled);
                 module.functions.par_iter().map(|function| {
                     let mut ftc = ASTTypeChecker::new();
-                    let start = Instant::now();
+
                     ftc.add_function(
                         &function,
                         &static_val_context,
@@ -271,11 +271,6 @@ impl ASTTypeChecker {
                         id,
                         &modules_container,
                     );
-
-                    let elapsed = start.elapsed();
-                    if function.name == "processNone" {
-                        info!("type check of {} in {}", function, elapsed.as_millis());
-                    }
 
                     ftc
                 })
@@ -1112,7 +1107,13 @@ impl ASTTypeChecker {
         );
         indent!();
 
-        let function_signature = &function_signature_entry.signature;
+        let mut function_signature = function_signature_entry.signature.clone();
+
+        if let Some(f) = function {
+            function_signature = function_signature
+                .add_generic_prefix(&format!("{}_{}", call_module_namespace, f.name));
+        }
+
         let index = ASTIndex::new(
             call_module_namespace.clone(),
             call_module_id.clone(),
@@ -1717,6 +1718,11 @@ mod tests {
     #[test]
     fn test_let1() {
         check_project("../rasm/resources/test/let1.rasm");
+    }
+
+    #[test]
+    fn test_gameoflife_tc() {
+        check_project("../rasm/resources/examples/gameoflife_tc");
     }
 
     #[test]

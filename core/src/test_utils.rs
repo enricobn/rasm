@@ -94,7 +94,7 @@ pub fn project_to_ast_typed_module(
     let default_functions = target.get_default_functions(false);
 
     match convert_to_typed_module(
-        module,
+        module.fix_generics(),
         false,
         mandatory_functions,
         &mut statics,

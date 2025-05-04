@@ -29,7 +29,7 @@ use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::{get_new_native_call, substitute};
-use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
+use rasm_parser::parser::ast::{ASTModifiers, ASTType, ASTValueType};
 use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -77,6 +77,37 @@ impl ResolvedGenericTypedTypes {
                 .iter()
                 .map(move |(vec_key, val)| ((key.clone(), vec_key.clone()), val))
         })
+    }
+
+    pub fn remove_generics_prefix(self) -> Self {
+        let mut new = LinkedHashMap::new();
+
+        for (name, inner) in self.map.into_iter() {
+            let inner_new = new
+                .entry(ASTType::get_original_generic(&name).unwrap().to_owned())
+                .or_insert(LinkedHashMap::new());
+
+            for (var_types, t) in inner.into_iter() {
+                inner_new
+                    .entry(
+                        var_types
+                            .into_iter()
+                            .map(|it| it.remove_generics_prefix())
+                            .collect(),
+                    )
+                    .or_insert(t);
+            }
+        }
+        ResolvedGenericTypedTypes { map: new }
+    }
+}
+
+impl Display for ResolvedGenericTypedTypes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for ((name, par_types), t) in self.iter() {
+            writeln!(f, "{name}/<{}>={t}", SliceDisplay(&par_types))?;
+        }
+        Ok(())
     }
 }
 
@@ -922,10 +953,10 @@ impl<'a> ConvContext<'a> {
                 index: _,
             } => {
                 let cloned_param_types = param_types.clone();
-                let mut generic_types = ResolvedGenericTypedTypes::new();
+                let mut resolved_generic_typed_types = ResolvedGenericTypedTypes::new();
                 for (i, p) in type_def.type_parameters.iter().enumerate() {
                     // TODO type classes
-                    generic_types.insert(
+                    resolved_generic_typed_types.insert(
                         p.clone(),
                         Vec::new(),
                         typed_type(
@@ -953,7 +984,7 @@ impl<'a> ConvContext<'a> {
                     namespace: type_def.namespace.clone(),
                     original_name: name.clone(),
                     name: new_name,
-                    generic_types,
+                    generic_types: resolved_generic_typed_types,
                     is_ref: type_def.is_ref,
                     ast_type: ast_type.clone(),
                     ast_typed_type: type_typed_type.clone(),

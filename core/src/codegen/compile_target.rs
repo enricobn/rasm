@@ -359,6 +359,8 @@ impl CompileTarget {
             command_line_options.debug,
         );
 
+        let enhanced_ast_module = enhanced_ast_module.fix_generics();
+
         if !errors.is_empty() {
             for error in errors {
                 eprintln!("{error}");

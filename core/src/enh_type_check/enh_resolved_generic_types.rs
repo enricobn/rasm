@@ -19,6 +19,7 @@
 use std::fmt::{Display, Formatter};
 
 use linked_hash_map::LinkedHashMap;
+use rasm_parser::parser::ast::ASTType;
 use rasm_utils::SliceDisplay;
 
 use crate::{codegen::enh_ast::EnhASTType, codegen::enhanced_module::EnhancedASTModule};
@@ -76,34 +77,6 @@ impl EnhResolvedGenericTypes {
         var_types: Vec<EnhASTType>,
         value: EnhASTType,
     ) -> Option<EnhASTType> {
-        /*
-        for t in var_types.iter() {
-            if let EnhASTType::Generic(_, g_name, g_var_types) = t {
-                if let EnhASTType::Custom {
-                    namespace,
-                    name,
-                    param_types,
-                    index,
-                } = &value
-                {
-                    if !param_types.is_empty()
-                        && !matches!(param_types.get(0).unwrap(), EnhASTType::Generic(_, _, _))
-                    {
-                        println!(
-                            "implicit resolution of generic type {g_name} with {}",
-                            param_types.get(0).unwrap()
-                        );
-                        self.insert(
-                            g_name.to_owned(),
-                            Vec::new(),
-                            param_types.get(0).unwrap().clone(),
-                        );
-                    }
-                }
-            }
-        }
-        */
-
         let new = self.map.entry(key).or_insert(LinkedHashMap::new());
         if let Some(t) = new.get(&var_types) {
             assert_eq!(t, &value);
@@ -180,6 +153,28 @@ impl EnhResolvedGenericTypes {
                             .collect(),
                     )
                     .or_insert(t.fix_generics(generics_prefix));
+            }
+        }
+        EnhResolvedGenericTypes { map: new }
+    }
+
+    pub fn remove_generics_prefix(self) -> Self {
+        let mut new = LinkedHashMap::new();
+
+        for (name, inner) in self.map.into_iter() {
+            let inner_new = new
+                .entry(ASTType::get_original_generic(&name).unwrap().to_owned())
+                .or_insert(LinkedHashMap::new());
+
+            for (var_types, t) in inner.into_iter() {
+                inner_new
+                    .entry(
+                        var_types
+                            .into_iter()
+                            .map(|it| it.remove_generics_prefix())
+                            .collect(),
+                    )
+                    .or_insert(t.remove_generics_prefix());
             }
         }
         EnhResolvedGenericTypes { map: new }

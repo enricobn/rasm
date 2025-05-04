@@ -24,7 +24,7 @@ pub enum EnhTypeFilter {
     Exact(EnhASTType),
     Any,
     Lambda(usize, Option<Box<EnhTypeFilter>>),
-    NotALambda,
+    //    NotALambda,
 }
 
 impl EnhTypeFilter {
@@ -50,8 +50,7 @@ impl Display for EnhTypeFilter {
             EnhTypeFilter::Any => write!(f, "Any"),
             EnhTypeFilter::Lambda(size, type_filter) => {
                 write!(f, "Lambda({size}, {})", OptionDisplay(type_filter))
-            }
-            EnhTypeFilter::NotALambda => write!(f, "Not a lambda"),
+            } //EnhTypeFilter::NotALambda => write!(f, "Not a lambda"),
         }
     }
 }
@@ -577,14 +576,15 @@ impl EnhFunctionsContainer {
                             Ok(r)
                         }
                     },
-                    EnhASTType::Generic(_, filter_generic_type, filter_var_types) => {
+                    EnhASTType::Generic(_, filter_generic_name, filter_var_types) => {
                         let already_resolved_o =
-                            resolved_generic_types.get(filter_generic_type, filter_var_types);
+                            resolved_generic_types.get(filter_generic_name, filter_var_types);
                         debug_i!("already_resolved {}", OptionDisplay(&already_resolved_o));
                         match parameter_type {
-                            EnhASTType::Generic(_, _, _) => {
+                            EnhASTType::Generic(_, gen_name, var_types) => {
                                 // TODO we don't know if the two generic types belong to the same context (Enum, Struct or function),
                                 //   to know it we need another attribute in ASTType::Builtin::Generic : the context
+
                                 Ok(true)
                             }
                             _ => {
@@ -592,8 +592,17 @@ impl EnhFunctionsContainer {
                                     debug_i!("already resolved {already_resolved}");
                                     Ok(already_resolved == parameter_type)
                                 } else {
+                                    /*
+                                    if filter_generic_name == "M" {
+                                        println!(
+                                            "almost_same_type_internal {} {parameter_type}",
+                                            SliceDisplay(filter_var_types)
+                                        );
+                                    }
+                                    */
+
                                     resolved_generic_types.insert(
-                                        filter_generic_type.clone(),
+                                        filter_generic_name.clone(),
                                         filter_var_types.clone(),
                                         parameter_type.clone(),
                                     );
@@ -610,7 +619,31 @@ impl EnhFunctionsContainer {
                     } => {
                         match parameter_type {
                             EnhASTType::Builtin(_) => Ok(false),
-                            EnhASTType::Generic(_, _, _) => Ok(true), // TODO
+                            EnhASTType::Generic(_, gen_name, var_types) => {
+                                /*
+                                if gen_name == "M" {
+                                    println!(
+                                        "almost_same_type_internal {} {parameter_type_filter}",
+                                        SliceDisplay(var_types)
+                                    );
+                                }
+                                */
+
+                                Ok(var_types.is_empty()
+                                    || expected_param_types.len() == var_types.len()
+                                        && zip(expected_param_types.iter(), var_types.iter()).all(
+                                            |(et, gt)| {
+                                                let r = EnhTypeFilter::Exact(et.clone())
+                                                    .almost_equal(gt, enhanced_astmodule)
+                                                    .unwrap();
+
+                                                if !r {
+                                                    //println!("almost_same_type_internal {et} {gt}");
+                                                }
+                                                r
+                                            },
+                                        ))
+                            } // TODO
                             EnhASTType::Custom {
                                 namespace: _,
                                 param_types,
@@ -720,11 +753,12 @@ impl EnhFunctionsContainer {
                 } else {
                     Ok(false)
                 }
-            }
-            EnhTypeFilter::NotALambda => Ok(!matches!(
-                parameter_type,
-                EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda { .. })
-            )),
+            } /*
+              EnhTypeFilter::NotALambda => Ok(!matches!(
+                  parameter_type,
+                  EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda { .. })
+              )),
+              */
         }?;
         debug_i!("almost same: {result}");
         dedent!();

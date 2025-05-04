@@ -240,8 +240,38 @@ impl EnhASTFunctionDef {
     }
 
     pub fn fix_generics(self) -> Self {
-        let generics_prefix = format!("{}_{}", self.namespace, self.name);
-        let mut result = self;
+        let generics_prefix = format!("{}_{}", self.namespace.safe_name(), self.name);
+        let mut result = self.clone();
+
+        if let EnhASTFunctionBody::RASMBody(ref statements) = result.body {
+            result.body = EnhASTFunctionBody::RASMBody(
+                statements
+                    .iter()
+                    .map(|it| {
+                        it.clone().add_generic_prefix(&generics_prefix)
+                        /*
+                        if let EnhASTStatement::Expression(
+                            EnhASTExpression::ASTFunctionCallExpression(call),
+                        ) = it
+                        {
+                            let mut call = call.clone();
+                            call.generics = call
+                                .generics
+                                .into_iter()
+                                .map(|it| it.fix_generics(&generics_prefix))
+                                .collect();
+                            EnhASTStatement::Expression(
+                                EnhASTExpression::ASTFunctionCallExpression(call),
+                            )
+                        } else {
+                            it.clone()
+                        }
+                        */
+                    })
+                    .collect(),
+            );
+        }
+
         result.parameters = result
             .parameters
             .into_iter()
@@ -643,6 +673,9 @@ impl EnhASTType {
     }
 
     pub fn fix_generics(&self, prefix: &dyn Display) -> Self {
+        if format!("{prefix}").contains(":") {
+            panic!("unsupported prefix {prefix}");
+        }
         match self {
             EnhASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
                 EnhBuiltinTypeKind::Bool => self.clone(),
@@ -769,6 +802,58 @@ impl EnhASTType {
         asts.into_iter()
             .map(|it| EnhASTType::from_ast(namespace, id, it))
             .collect()
+    }
+
+    pub fn remove_generics_prefix(self) -> Self {
+        match self {
+            EnhASTType::Builtin(ref builtin_type_kind) => match builtin_type_kind {
+                EnhBuiltinTypeKind::Bool => self.clone(),
+                EnhBuiltinTypeKind::Char => self.clone(),
+                EnhBuiltinTypeKind::I32 => self.clone(),
+                EnhBuiltinTypeKind::F32 => self.clone(),
+                EnhBuiltinTypeKind::String => self.clone(),
+                EnhBuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+                    parameters: parameters
+                        .iter()
+                        .map(|it| it.clone().remove_generics_prefix())
+                        .collect(),
+                    return_type: Box::new(return_type.clone().remove_generics_prefix()),
+                }),
+            },
+            EnhASTType::Generic(ref index, ref name, ref var_types) => {
+                if let Some(original_generic) = ASTType::get_original_generic(name) {
+                    EnhASTType::Generic(
+                        index.clone(),
+                        original_generic.to_owned(),
+                        var_types
+                            .into_iter()
+                            .map(|it| it.clone().remove_generics_prefix())
+                            .collect::<Vec<_>>()
+                            .clone(),
+                    )
+                } else {
+                    self
+                }
+            }
+            EnhASTType::Custom {
+                namespace,
+                name,
+                param_types,
+                index,
+            } => EnhASTType::Custom {
+                namespace: namespace.clone(),
+                name: name.clone(),
+                param_types: param_types
+                    .iter()
+                    .map(|it| it.clone().remove_generics_prefix())
+                    .collect(),
+                index: index.clone(),
+            },
+            EnhASTType::Unit => self.clone(),
+        }
     }
 }
 
@@ -1161,6 +1246,37 @@ impl EnhASTExpression {
             }
         }
     }
+
+    pub fn add_generic_prefix(self, prefix: &dyn Display) -> Self {
+        match self {
+            EnhASTExpression::ASTFunctionCallExpression(call) => {
+                let mut call = call.clone();
+                call.generics = call
+                    .generics
+                    .into_iter()
+                    .map(|it| it.fix_generics(prefix))
+                    .collect();
+                call.parameters = call
+                    .parameters
+                    .into_iter()
+                    .map(|it| it.add_generic_prefix(prefix))
+                    .collect();
+                EnhASTExpression::ASTFunctionCallExpression(call)
+            }
+            EnhASTExpression::ValueRef(_, _, _) => self,
+            EnhASTExpression::Value(_, _) => self,
+            EnhASTExpression::Lambda(lambda_def) => {
+                let mut lambda_def = lambda_def.clone();
+                lambda_def.body = lambda_def
+                    .body
+                    .into_iter()
+                    .map(|it| it.add_generic_prefix(prefix))
+                    .collect();
+                EnhASTExpression::Lambda(lambda_def)
+            }
+            EnhASTExpression::Any(asttype) => EnhASTExpression::Any(asttype.fix_generics(prefix)),
+        }
+    }
 }
 
 impl Display for EnhASTExpression {
@@ -1250,6 +1366,26 @@ impl EnhASTStatement {
                     expr.clone(),
                     EnhASTIndex::from_position(id.path(), &position),
                     namespace.clone(),
+                    modifiers,
+                )
+            }
+        }
+    }
+
+    pub fn add_generic_prefix(self, prefix: &dyn Display) -> Self {
+        match self {
+            EnhASTStatement::Expression(enh_astexpression) => {
+                EnhASTStatement::Expression(enh_astexpression.add_generic_prefix(prefix))
+            }
+            EnhASTStatement::LetStatement(name, expr, index) => {
+                EnhASTStatement::LetStatement(name, expr.add_generic_prefix(prefix), index)
+            }
+            EnhASTStatement::ConstStatement(name, expr, index, namespace, modifiers) => {
+                EnhASTStatement::ConstStatement(
+                    name,
+                    expr.add_generic_prefix(prefix),
+                    index,
+                    namespace,
                     modifiers,
                 )
             }
@@ -1395,7 +1531,7 @@ impl EnhASTEnumDef {
     }
 
     pub fn fix_generics(self) -> Self {
-        let generics_prefix = format!("{}_{}", self.namespace, self.name);
+        let generics_prefix = format!("{}_{}", self.namespace.safe_name(), self.name);
         let mut result = self.clone();
 
         result.type_parameters = result
@@ -1507,7 +1643,7 @@ impl EnhASTStructDef {
     }
 
     pub fn fix_generics(self) -> Self {
-        let generics_prefix = format!("{}_{}", self.namespace, self.name);
+        let generics_prefix = format!("{}_{}", self.namespace.safe_name(), self.name);
         let mut result = self;
         result.type_parameters = result
             .type_parameters
@@ -1580,7 +1716,7 @@ pub struct EnhASTTypeDef {
 }
 impl EnhASTTypeDef {
     pub fn fix_generics(self) -> Self {
-        let generics_prefix = format!("{}_{}", self.namespace, self.name);
+        let generics_prefix = format!("{}_{}", self.namespace.safe_name(), self.name);
 
         let mut result = self;
 

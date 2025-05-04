@@ -6,6 +6,7 @@ use std::ops::Deref;
 
 use derivative::Derivative;
 use itertools::Itertools;
+use rasm_utils::OptionDisplay;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, strum_macros::Display, PartialOrd, Ord)]
 pub enum ASTBuiltinFunctionType {

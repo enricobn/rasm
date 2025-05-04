@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use rasm_parser::parser::ast::ASTType;
 use rasm_utils::OptionDisplay;
 
 use crate::codegen::c::any::CInclude;
@@ -443,7 +444,7 @@ impl TextMacroEval for CTypeNameMacro {
         type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         let value = text_macro.parameters.get(0).unwrap();
-        if let MacroParam::Ref(name, ast_type, ast_type_type) = value {
+        if let MacroParam::Ref(_name, _ast_type, ast_type_type) = value {
             let t = ast_type_type.clone().unwrap();
 
             CLambdas::add_to_statics_if_lambda(&t, statics);
@@ -451,13 +452,20 @@ impl TextMacroEval for CTypeNameMacro {
             CodeGenC::type_to_string(&t, statics)
         } else if let MacroParam::Plain(name, _, _) = value {
             if let Some(def) = function_def {
+                let resolved_generic_types =
+                    def.resolved_generic_types.clone().remove_generics_prefix();
+
                 // TODO type classes, I would like to resolve something like M<T>
-                if let Some(t) = def.resolved_generic_types.get(name, &Vec::new()) {
+                //let gen_name = format!("{}_{}:{}", def.namespace, def.name, name);
+                if let Some(t) = resolved_generic_types.get(&name, &Vec::new()) {
                     CLambdas::add_to_statics_if_lambda(&t, statics);
 
                     CodeGenC::type_to_string(&t, statics)
                 } else {
-                    panic!("Cannot find generic type {name}.")
+                    panic!(
+                        "Cannot find generic type {name} : {}",
+                        resolved_generic_types
+                    )
                 }
             } else {
                 panic!("Cannot resolve generic type {name} without a function.")

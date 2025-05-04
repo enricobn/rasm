@@ -411,9 +411,14 @@ impl<'a> EnhTypeCheck<'a> {
                         namespace.clone(), // TOD const_namespace?
                     ))
                 } else {
+                    let message = if function_references.is_empty() {
+                        format!("Cannot find reference to {name} transforming {expression}")
+                    } else {
+                        format!("More than one reference to {name} transforming {expression}")
+                    };
                     return Err(EnhTypeCheckError::new_with_kind(
                         index.clone(),
-                        format!("Cannot find reference to {name}"),
+                        message,
                         self.stack.clone(),
                         EnhTypeCheckErrorKind::Important,
                     ));
@@ -821,21 +826,6 @@ impl<'a> EnhTypeCheck<'a> {
             indent!();
 
             let mut resolved_generic_types = EnhResolvedGenericTypes::new();
-            /*
-            let mut resolved_generic_types = {
-                if let Some(ee) = expected_return_type {
-                    if let Ok(rgt) =
-                        resolve_generic_types_from_effective_type(&function.return_type, ee)
-                    {
-                        rgt
-                    } else {
-                        ResolvedGenericTypes::new()
-                    }
-                } else {
-                    ResolvedGenericTypes::new()
-                }
-            };
-            */
 
             if !call.generics.is_empty() {
                 if call.generics.len() != function.generic_types.len() {
@@ -852,6 +842,8 @@ impl<'a> EnhTypeCheck<'a> {
                     continue;
                 }
                 zip(function.generic_types.iter(), call.generics.iter()).for_each(|(g, t)| {
+                    //println!("function.generic_type {g} call.generic {t}");
+
                     let ast_type = if let Some(ifun) = inside_function {
                         if let Some(st) = substitute(t, &ifun.resolved_generic_types) {
                             st
@@ -863,7 +855,7 @@ impl<'a> EnhTypeCheck<'a> {
                     };
 
                     // TODO type classes, I don't know if it works
-                    if let EnhASTType::Generic(_, _, var_types) = t {
+                    if let EnhASTType::Generic(name, _, var_types) = t {
                         resolved_generic_types.insert(g.to_string(), var_types.clone(), ast_type);
                     } else {
                         resolved_generic_types.insert(g.to_string(), Vec::new(), ast_type);
@@ -895,7 +887,7 @@ impl<'a> EnhTypeCheck<'a> {
 
                 if !rt.is_generic() && function.return_type.is_generic() {
                     if let Ok(result) =
-                        resolve_generic_types_from_effective_type(&function.return_type, rt)
+                        resolve_generic_types_from_effective_type(&function.return_type, rt, module)
                     {
                         if let Err(e) = resolved_generic_types.extend(result) {
                             errors.push(EnhTypeCheckError::new(
@@ -995,7 +987,10 @@ impl<'a> EnhTypeCheck<'a> {
                 let error = if matches!(e.kind, EnhTypeCheckErrorKind::Ignorable) {
                     EnhTypeCheckError::new_with_kind(
                         call.index.clone(),
-                        format!("ignoring function {function} : {}", function.index),
+                        format!(
+                            "ignoring function {function} {} : {}",
+                            resolved_generic_types, function.index
+                        ),
                         self.stack.clone(),
                         EnhTypeCheckErrorKind::Ignorable,
                     )
@@ -1225,7 +1220,7 @@ impl<'a> EnhTypeCheck<'a> {
             if !et.is_generic() {
                 if let Some(pt) = param_type {
                     resolved_generic_types
-                        .extend(resolve_generic_types_from_effective_type(pt, et)?)
+                        .extend(resolve_generic_types_from_effective_type(pt, et, module)?)
                         .map_err(|it| {
                             EnhTypeCheckError::new(
                                 expr.get_index().unwrap_or(&EnhASTIndex::none()).clone(),
@@ -1247,6 +1242,7 @@ impl<'a> EnhTypeCheck<'a> {
                             .extend(resolve_generic_types_from_effective_type(
                                 return_type.deref(),
                                 et,
+                                module,
                             )?)
                             .map_err(|it| {
                                 EnhTypeCheckError::new(
@@ -1811,6 +1807,12 @@ impl<'a> EnhTypeCheck<'a> {
                     if let Some(c) = statics.get_const(name, const_namespace) {
                         EnhTypeFilter::Exact(c.ast_type.clone())
                     } else {
+                        //if name == "stdlib_i32_eq_i32_i32_bool" || name == "breakout_breakout_update_stdlib_option_Option_sdl_sdl_KeyEvent__breakout_breakout_State__breakout_breakout_State" {
+                        // println!("stdlib_i32_eq_i32_i32_bool");
+                        //for (f, _) in new_functions.iter() {
+                        //    println!("function name {} {}", f.name, f.original_name);
+                        //}
+                        //}
                         let mut function_references = self.functions_referenced_by_name(
                             module,
                             expected_type,
@@ -1837,9 +1839,14 @@ impl<'a> EnhTypeCheck<'a> {
                             EnhTypeFilter::Exact(EnhASTType::Builtin(lambda))
                         } else {
                             dedent!();
+                            let message = if function_references.is_empty() {
+                                format!("Cannot find reference to {name} typing expression {typed_expression}")
+                            } else {
+                                format!("More than one reference to {name} typing expression {typed_expression}")
+                            };
                             return Err(EnhTypeCheckError::new_with_kind(
                                 index.clone(),
-                                format!("Cannot find reference to {name}"),
+                                message,
                                 self.stack.clone(),
                                 EnhTypeCheckErrorKind::Important,
                             ));
@@ -2186,6 +2193,12 @@ mod tests {
     #[test]
     pub fn function_reference() {
         let project = dir_to_project("resources/test/ast_type_checker/function_reference.rasm");
+        test_project(project).unwrap();
+    }
+
+    #[test]
+    pub fn gameoflife_tc() {
+        let project = dir_to_project("../rasm/resources/examples/gameoflife_tc");
         test_project(project).unwrap();
     }
 

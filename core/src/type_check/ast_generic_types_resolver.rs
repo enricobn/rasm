@@ -1,22 +1,27 @@
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 use linked_hash_map::LinkedHashMap;
 use rasm_parser::{
     catalog::ASTIndex,
     parser::ast::{ASTType, BuiltinTypeKind},
 };
-use rasm_utils::{debug_i, dedent, indent, LinkedHashMapDisplay};
+use rasm_utils::{debug_i, dedent, indent, LinkedHashMapDisplay, SliceDisplay};
 
 use super::ast_type_checker::{ASTTypeCheckErroKind, ASTTypeCheckError};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTResolvedGenericTypes {
-    map: LinkedHashMap<String, ASTType>,
+    map: LinkedHashMap<String, LinkedHashMap<Vec<ASTType>, ASTType>>,
 }
 
 impl Display for ASTResolvedGenericTypes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", LinkedHashMapDisplay(&self.map))
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for (name, inner) in self.map.iter() {
+            for (var_types, t) in inner.iter() {
+                write!(f, "{name}<{}>={t},", SliceDisplay(&var_types))?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -113,7 +118,7 @@ impl ASTResolvedGenericTypes {
             }
             ASTType::Generic(_, p, var_types) => {
                 debug_i!("resolved generic type {p} to {effective_type}");
-                result.insert(p.clone(), effective_type.clone());
+                result.insert(p.clone(), var_types.clone(), effective_type.clone());
             }
             ASTType::Custom {
                 name: g_name,
@@ -177,42 +182,51 @@ impl ASTResolvedGenericTypes {
         ASTTypeCheckError::new(kind, ASTIndex::none(), message)
     }
 
-    pub fn get(&self, key: &String) -> Option<&ASTType> {
-        self.map.get(key)
+    pub fn get(&self, key: &String, var_types: &Vec<ASTType>) -> Option<&ASTType> {
+        self.map.get(key).and_then(|it| it.get(var_types))
     }
 
     pub fn len(&self) -> usize {
         self.map.len()
     }
 
-    pub fn contains_key(&self, key: &String) -> bool {
-        self.map.contains_key(key)
+    pub fn contains_key(&self, key: &String, var_types: &Vec<ASTType>) -> bool {
+        self.map
+            .get(key)
+            .map(|it| it.contains_key(var_types))
+            .unwrap_or(false)
     }
 
-    pub fn extend(&mut self, other: Self) -> Result<(), String> {
+    pub fn extend(&mut self, other: ASTResolvedGenericTypes) -> Result<(), String> {
         for (key, new_type) in other.map.into_iter() {
-            if let Some(prev_type) = self.get(&key) {
-                if &new_type != prev_type {
-                    if !prev_type.is_generic() {
-                        debug_i!(
-                            "Already resolved generic {key}, prev {prev_type}, new {new_type}"
-                        );
+            let inner = self.map.entry(key.clone()).or_insert(LinkedHashMap::new());
+            for (key1, t) in new_type.into_iter() {
+                if let Some(prev_type) = inner.get(&key1) {
+                    if &t != prev_type && t.is_generic() {
                         return Err(format!(
-                            "Already resolved generic {key}, prev {prev_type}, new {new_type}"
+                            "Already resolved generic {key}<{}>, prev {prev_type}, new {t}",
+                            SliceDisplay(&key1)
                         ));
                     }
                 }
+                inner.insert(key1, t);
             }
-            self.map.insert(key, new_type);
         }
         Ok(())
     }
 
-    pub fn insert(&mut self, key: String, value: ASTType) -> Option<ASTType> {
-        if let Some(t) = self.map.get(&key) {
+    pub fn insert(
+        &mut self,
+        key: String,
+        var_types: Vec<ASTType>,
+        value: ASTType,
+    ) -> Option<ASTType> {
+        let new = self.map.entry(key).or_insert(LinkedHashMap::new());
+        if let Some(t) = new.get(&var_types) {
             assert_eq!(t, &value);
         }
-        self.map.insert(key, value)
+
+        new.insert(var_types, value)
     }
 
     pub fn substitute(&self, ast_type: &ASTType) -> Option<ASTType> {
@@ -254,8 +268,8 @@ impl ASTResolvedGenericTypes {
                 _ => None,
             },
             ASTType::Generic(_, p, var_types) => {
-                if self.contains_key(p) {
-                    self.get(p).cloned()
+                if self.contains_key(p, var_types) {
+                    self.get(p, var_types).cloned()
                 } else {
                     None
                 }

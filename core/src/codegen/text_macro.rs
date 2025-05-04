@@ -271,9 +271,14 @@ impl TextMacroEvaluator {
         let p = actual_param.trim();
 
         let context_generic_types = if let Some(f) = function_def {
-            let mut result = f.generic_types.clone();
-            // TODO should we use var_types?
-            for ((name, var_types), _t) in f.resolved_generic_types.iter() {
+            let mut result = Vec::new(); //f.generic_types.clone();
+                                         // TODO should we use var_types?
+            for ((name, _var_types), _t) in f
+                .resolved_generic_types
+                .clone()
+                .remove_generics_prefix()
+                .iter()
+            {
                 if !result.contains(&name) {
                     result.push(name.clone());
                 }
@@ -296,7 +301,7 @@ impl TextMacroEvaluator {
                             None,
                             type_def_provider,
                             &context_generic_types,
-                            &f.resolved_generic_types,
+                            &f.resolved_generic_types.clone().remove_generics_prefix(),
                             &f.index.id(),
                         )?;
 
@@ -367,7 +372,7 @@ impl TextMacroEvaluator {
                     None,
                     type_def_provider,
                     &context_generic_types,
-                    &f.resolved_generic_types,
+                    &f.resolved_generic_types.clone().remove_generics_prefix(),
                     &f.index.id(),
                 )?
             } else {
@@ -413,7 +418,12 @@ impl TextMacroEvaluator {
             index: _,
         } = ast_type
         {
-            if let Some(typed_type) = function_def.resolved_generic_types.get(name, param_types) {
+            if let Some(typed_type) = function_def
+                .resolved_generic_types
+                .clone()
+                .remove_generics_prefix()
+                .get(name, param_types)
+            {
                 Some(typed_type.clone())
             } else if param_types.is_empty() {
                 type_def_provider.get_ast_typed_type_from_type_name(name)
@@ -486,8 +496,6 @@ impl TextMacroEvaluator {
             let vec = p.split(':').collect::<Vec<_>>();
             let par_type_name = vec.get(1).unwrap().trim();
             let par_name = vec.first().unwrap().trim();
-
-            // println!("found param type {par_type_name}");
 
             if par_type_name == "i32" {
                 (
