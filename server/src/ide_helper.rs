@@ -1303,6 +1303,7 @@ impl IDEHelper {
             function_code.push_str(&format!("<{}>", g.join(",")));
         }
 
+        println!("last_statement_type {last_statement_type}");
         function_code.push_str(&format!(
             "({}) -> {} {{\n",
             parameters_defs.join(", "),
@@ -1461,7 +1462,7 @@ impl IDEHelper {
                         let (i, _) = children
                             .iter()
                             .enumerate()
-                            .find(|(_, p)| p == &&&element.position())?;
+                            .find(|(_, p)| p == &&element.position())?;
 
                         let signature = IDESignature::new(function);
                         return Some(IDESignatureHelp {

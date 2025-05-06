@@ -880,7 +880,6 @@ mod tests {
     use crate::codegen::c::code_gen_c::CodeGenC;
     use crate::codegen::c::options::COptions;
     use crate::codegen::{AsmOptions, CodeGen};
-    use linked_hash_map::LinkedHashMap;
     use rasm_parser::parser::ast::ASTModifiers;
 
     use crate::codegen::enh_ast::{

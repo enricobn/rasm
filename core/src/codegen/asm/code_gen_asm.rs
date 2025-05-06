@@ -3,7 +3,6 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use linked_hash_map::LinkedHashMap;
 use pad::PadStr;
 use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
 use snailquote::unescape;

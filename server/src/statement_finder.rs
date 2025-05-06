@@ -94,11 +94,11 @@ impl StatementFinder {
                 ASTStatement::Expression(expr) => {
                     let real_position = Self::real_position(expr);
 
-                    if &real_position == position {
+                    if real_position == position {
                         return Some(position.clone());
                     } else {
                         match Self::find_expr(position, expr) {
-                            SFExprResult::InExpr => return Some(real_position),
+                            SFExprResult::InExpr => return Some(real_position.clone()),
                             SFExprResult::NotInExpr => {}
                             SFExprResult::InStatement(astposition) => return Some(astposition),
                         }
@@ -108,7 +108,7 @@ impl StatementFinder {
                 | ASTStatement::ConstStatement(_, expr, let_position, _) => {
                     let real_position = Self::real_position(expr);
                     let stmt_position = let_position.mv_left(4);
-                    if &real_position == position {
+                    if real_position == position {
                         // because of "let "
                         return Some(stmt_position);
                     } else {
@@ -125,7 +125,7 @@ impl StatementFinder {
     }
 
     pub fn find_expr(position: &ASTPosition, expr: &ASTExpression) -> SFExprResult {
-        if &expr.position() == position {
+        if expr.position() == position {
             return SFExprResult::InExpr;
         }
         match expr {
@@ -169,10 +169,10 @@ impl StatementFinder {
         }
     }
 
-    fn real_position(expr: &ASTExpression) -> ASTPosition {
+    fn real_position(expr: &ASTExpression) -> &ASTPosition {
         if let ASTExpression::ASTFunctionCallExpression(call) = expr {
             // due to dot notation, we calculate the "real" call position
-            let mut positions = vec![call.position().clone()];
+            let mut positions = vec![call.position()];
             positions.append(
                 &mut call
                     .parameters()
@@ -181,7 +181,7 @@ impl StatementFinder {
                     .collect::<Vec<_>>(),
             );
 
-            positions.iter().min().unwrap().clone()
+            positions.iter().min().unwrap()
         } else {
             expr.position()
         }

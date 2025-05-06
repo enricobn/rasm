@@ -16,7 +16,6 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use rasm_parser::parser::ast::ASTType;
 use rasm_utils::OptionDisplay;
 
 use crate::codegen::c::any::CInclude;

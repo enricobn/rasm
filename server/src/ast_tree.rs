@@ -8,7 +8,7 @@ pub enum ASTElement<'a> {
 }
 
 impl<'a> ASTElement<'a> {
-    pub fn position(&self) -> ASTPosition {
+    pub fn position(&self) -> &ASTPosition {
         match self {
             ASTElement::Statement(statement) => statement.position(),
             ASTElement::Expression(expression) => expression.position(),
@@ -141,11 +141,17 @@ impl<'a> ASTTree<'a> {
         match statement {
             ASTStatement::Expression(expr) => self.add_expr(expr),
             ASTStatement::LetStatement(_, expr, _) => {
-                self.internal_add(ASTElement::Expression(expr), Some(statement.position()));
+                self.internal_add(
+                    ASTElement::Expression(expr),
+                    Some(statement.position().clone()),
+                );
                 self.add_expr(expr);
             }
             ASTStatement::ConstStatement(_, expr, _, _) => {
-                self.internal_add(ASTElement::Expression(expr), Some(statement.position()));
+                self.internal_add(
+                    ASTElement::Expression(expr),
+                    Some(statement.position().clone()),
+                );
                 self.add_expr(expr);
             }
         }
@@ -155,7 +161,7 @@ impl<'a> ASTTree<'a> {
         match expr {
             ASTExpression::ASTFunctionCallExpression(function_call) => {
                 for e in function_call.parameters().iter() {
-                    self.internal_add(ASTElement::Expression(e), Some(expr.position()));
+                    self.internal_add(ASTElement::Expression(e), Some(expr.position().clone()));
                     self.add_expr(e);
                 }
             }
@@ -163,7 +169,10 @@ impl<'a> ASTTree<'a> {
             ASTExpression::Value(_, _) => {}
             ASTExpression::Lambda(lambda_def) => {
                 for statement in lambda_def.body.iter() {
-                    self.internal_add(ASTElement::Statement(statement), Some(expr.position()));
+                    self.internal_add(
+                        ASTElement::Statement(statement),
+                        Some(expr.position().clone()),
+                    );
                     self.add_statement(statement);
                 }
             }
@@ -172,8 +181,8 @@ impl<'a> ASTTree<'a> {
 
     fn internal_add(&mut self, element: ASTElement<'a>, parent: Option<ASTPosition>) {
         if let Some(p) = parent {
-            self.parents.insert(element.position(), p);
+            self.parents.insert(element.position().clone(), p);
         }
-        self.positions.insert(element.position(), element);
+        self.positions.insert(element.position().clone(), element);
     }
 }

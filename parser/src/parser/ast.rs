@@ -6,7 +6,6 @@ use std::ops::Deref;
 
 use derivative::Derivative;
 use itertools::Itertools;
-use rasm_utils::OptionDisplay;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, strum_macros::Display, PartialOrd, Ord)]
 pub enum ASTBuiltinFunctionType {
@@ -410,6 +409,9 @@ impl ASTType {
                 return_type: Box::new(return_type.add_generic_prefix(prefix)),
             });
         } else if let ASTType::Generic(position, name, var_types) = self {
+            if name.contains(":") {
+                panic!("generic has already been prefixed");
+            }
             return ASTType::Generic(
                 position,
                 format!("{prefix}:{name}"),
@@ -750,12 +752,12 @@ pub enum ASTExpression {
 }
 
 impl ASTExpression {
-    pub fn position(&self) -> ASTPosition {
+    pub fn position(&self) -> &ASTPosition {
         match self {
-            ASTExpression::ASTFunctionCallExpression(call) => call.position.clone(),
-            ASTExpression::ValueRef(_, position) => position.clone(),
-            ASTExpression::Value(_, position) => position.clone(),
-            ASTExpression::Lambda(def) => def.position.clone(),
+            ASTExpression::ASTFunctionCallExpression(call) => &call.position,
+            ASTExpression::ValueRef(_, position) => position,
+            ASTExpression::Value(_, position) => position,
+            ASTExpression::Lambda(def) => &def.position,
         }
     }
 }
@@ -794,11 +796,11 @@ pub enum ASTStatement {
 }
 
 impl ASTStatement {
-    pub fn position(&self) -> ASTPosition {
+    pub fn position(&self) -> &ASTPosition {
         match self {
             ASTStatement::Expression(expr) => expr.position(),
-            ASTStatement::LetStatement(_, _, position) => position.clone(),
-            ASTStatement::ConstStatement(_, _, position, _) => position.clone(),
+            ASTStatement::LetStatement(_, _, position) => position,
+            ASTStatement::ConstStatement(_, _, position, _) => position,
         }
     }
 }

@@ -354,11 +354,7 @@ fn substitute_types(
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
-    use crate::codegen::enhanced_module::EnhancedASTModule;
-    use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
-    use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
-    use crate::type_check::resolve_generic_types_from_effective_type;
+    use crate::codegen::enh_ast::{EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
     /*
     #[test]
     fn test_extract_generic_types_from_effective_type_simple() -> Result<(), EnhTypeCheckError> {

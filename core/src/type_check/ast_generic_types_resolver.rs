@@ -5,7 +5,7 @@ use rasm_parser::{
     catalog::ASTIndex,
     parser::ast::{ASTType, BuiltinTypeKind},
 };
-use rasm_utils::{debug_i, dedent, indent, LinkedHashMapDisplay, SliceDisplay};
+use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
 
 use super::ast_type_checker::{ASTTypeCheckErroKind, ASTTypeCheckError};
 

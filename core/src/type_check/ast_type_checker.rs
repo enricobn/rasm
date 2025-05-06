@@ -2,11 +2,10 @@ use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
     iter::zip,
-    time::Instant,
 };
 
 use itertools::Itertools;
-use log::info;
+
 use rasm_utils::{
     debug_i,
     debug_indent::{enable_log, log_enabled},
@@ -361,7 +360,7 @@ impl ASTTypeChecker {
                         let index = ASTIndex::new(
                             module_namespace.clone(),
                             module_id.clone(),
-                            e.position(),
+                            e.position().clone(),
                         );
                         if let Some(ref elst) = expected_last_statement_type {
                             if !elst.is_unit() {
@@ -430,8 +429,11 @@ impl ASTTypeChecker {
                         function,
                     );
 
-                    let e_index =
-                        ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
+                    let e_index = ASTIndex::new(
+                        module_namespace.clone(),
+                        module_id.clone(),
+                        e.position().clone(),
+                    );
 
                     let index = ASTIndex::new(
                         module_namespace.clone(),
@@ -477,8 +479,11 @@ impl ASTTypeChecker {
                         function,
                     );
 
-                    let e_index =
-                        ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
+                    let e_index = ASTIndex::new(
+                        module_namespace.clone(),
+                        module_id.clone(),
+                        e.position().clone(),
+                    );
 
                     let index = ASTIndex::new(
                         module_namespace.clone(),
@@ -531,7 +536,11 @@ impl ASTTypeChecker {
             OptionDisplay(&expected_expression_type)
         );
         indent!();
-        let index = ASTIndex::new(module_namespace.clone(), module_id.clone(), expr.position());
+        let index = ASTIndex::new(
+            module_namespace.clone(),
+            module_id.clone(),
+            expr.position().clone(),
+        );
 
         if let Some(r) = self.result.get(&index) {
             if !r.is_generic() && r.exact().is_some() {
@@ -870,7 +879,11 @@ impl ASTTypeChecker {
         let mut tmp = ASTTypeChecker::new();
 
         for e in call.parameters().iter() {
-            let e_index = ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
+            let e_index = ASTIndex::new(
+                module_namespace.clone(),
+                module_id.clone(),
+                e.position().clone(),
+            );
             if self.result.get(&e_index).is_none() {
                 // it's almost impossible to determine the right type of lambda without knowing the expected type,
                 // here we are calculating only the types for filtering the functions,
@@ -920,7 +933,11 @@ impl ASTTypeChecker {
         let mut parameter_types_filters = Vec::new();
 
         for e in call.parameters().iter() {
-            let e_index = ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position());
+            let e_index = ASTIndex::new(
+                module_namespace.clone(),
+                module_id.clone(),
+                e.position().clone(),
+            );
             if let Some(ast_type) = self.result.get(&e_index).and_then(|it| it.filter.clone()) {
                 parameter_types_filters.push(ast_type.clone());
             } else {
@@ -1107,12 +1124,7 @@ impl ASTTypeChecker {
         );
         indent!();
 
-        let mut function_signature = function_signature_entry.signature.clone();
-
-        if let Some(f) = function {
-            function_signature = function_signature
-                .add_generic_prefix(&format!("{}_{}", call_module_namespace, f.name));
-        }
+        let function_signature = &function_signature_entry.signature;
 
         let index = ASTIndex::new(
             call_module_namespace.clone(),
@@ -1160,7 +1172,7 @@ impl ASTTypeChecker {
                 let e_index = ASTIndex::new(
                     call_module_namespace.clone(),
                     call_module_id.clone(),
-                    e.position(),
+                    e.position().clone(),
                 );
                 let parameter_type = function_signature.parameters_types.get(i).unwrap();
                 let ps = resolved_generic_types.substitute(&parameter_type);
