@@ -506,6 +506,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
                 &EnhModuleId::none(),
                 &EnhASTNameSpace::global(),
                 function_def,
+                false,
             ),
         );
 
@@ -542,6 +543,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
                 &EnhModuleId::none(),
                 &EnhASTNameSpace::global(),
                 function_def,
+                false,
             ),
         );
     }

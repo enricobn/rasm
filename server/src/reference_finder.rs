@@ -2190,7 +2190,7 @@ mod tests {
         );
 
         let (enhanced_ast_module, errors) =
-            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
+            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, true);
 
         if !errors.is_empty() {
             panic!("{}", SliceDisplay(&errors));
@@ -2202,7 +2202,10 @@ mod tests {
             panic!("{}", SliceDisplay(&errors));
         }
 
-        (enhanced_ast_module, EnhASTModule::from_ast(module, info))
+        (
+            enhanced_ast_module,
+            EnhASTModule::from_ast(module, info, true),
+        )
     }
 
     fn init_log() {

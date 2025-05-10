@@ -5,6 +5,7 @@ use std::ops::Deref;
 use std::path::PathBuf;
 
 use derivative::Derivative;
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_utils::SliceDisplay;
 
@@ -305,25 +306,49 @@ impl EnhASTFunctionDef {
         id: &EnhModuleId,
         namespace: &EnhASTNameSpace,
         function: ASTFunctionDef,
+        prefix_generics: bool,
     ) -> Self {
+        let generic_types = if prefix_generics {
+            let generic_prefix = format!("{}_{}", namespace.safe_name(), function.name);
+            function
+                .generic_types
+                .into_iter()
+                .map(|it| format!("{generic_prefix}:{it}"))
+                .collect()
+        } else {
+            function.generic_types
+        };
+
         Self {
             original_name: function.name.clone(),
-            name: function.name,
-            parameters: EnhASTParameterDef::from_asts(id, namespace, function.parameters),
-            return_type: EnhASTType::from_ast(namespace, id, function.return_type),
+            name: function.name.clone(),
+            parameters: EnhASTParameterDef::from_asts(
+                id,
+                namespace,
+                function.parameters,
+                Some(&function.name),
+            ),
+            return_type: EnhASTType::from_ast(
+                namespace,
+                id,
+                function.return_type,
+                Some(&function.name),
+            ),
             body: {
                 match function.body {
                     ASTFunctionBody::RASMBody(statements) => EnhASTFunctionBody::RASMBody(
                         statements
                             .into_iter()
-                            .map(|it| EnhASTStatement::from_ast(id, namespace, it))
+                            .map(|it| {
+                                EnhASTStatement::from_ast(id, namespace, it, Some(&function.name))
+                            })
                             .collect(),
                     ),
                     ASTFunctionBody::NativeBody(value) => EnhASTFunctionBody::NativeBody(value),
                 }
             },
             inline: function.inline,
-            generic_types: function.generic_types,
+            generic_types,
             resolved_generic_types: EnhResolvedGenericTypes::new(),
             index: EnhASTIndex::from_position(id.path(), &function.position),
             modifiers: function.modifiers,
@@ -352,7 +377,12 @@ impl EnhASTLambdaDef {
         result
     }
 
-    pub fn from_ast(id: &EnhModuleId, namespace: &EnhASTNameSpace, lambda: ASTLambdaDef) -> Self {
+    pub fn from_ast(
+        id: &EnhModuleId,
+        namespace: &EnhASTNameSpace,
+        lambda: ASTLambdaDef,
+        function_name_for_fix_generics: Option<&str>,
+    ) -> Self {
         Self {
             parameter_names: lambda
                 .parameter_names
@@ -362,7 +392,9 @@ impl EnhASTLambdaDef {
             body: lambda
                 .body
                 .into_iter()
-                .map(|it| EnhASTStatement::from_ast(id, namespace, it))
+                .map(|it| {
+                    EnhASTStatement::from_ast(id, namespace, it, function_name_for_fix_generics)
+                })
                 .collect(),
             index: EnhASTIndex::from_position(id.path(), &lambda.position),
         }
@@ -749,6 +781,7 @@ impl EnhASTType {
         namespace: &'a EnhASTNameSpace,
         id: &'a EnhModuleId,
         ast_type: ASTType,
+        function_name_for_fix_generics: Option<&str>,
     ) -> Self {
         match ast_type {
             ASTType::Builtin(kind) => {
@@ -762,24 +795,44 @@ impl EnhASTType {
                         parameters,
                         return_type,
                     } => EnhBuiltinTypeKind::Lambda {
-                        parameters: EnhASTType::from_asts(namespace, id, parameters),
+                        parameters: EnhASTType::from_asts(
+                            namespace,
+                            id,
+                            parameters,
+                            function_name_for_fix_generics,
+                        ),
                         return_type: Box::new(EnhASTType::from_ast(
                             namespace,
                             id,
                             return_type.as_ref().clone(),
+                            function_name_for_fix_generics,
                         )),
                     },
                 };
                 EnhASTType::Builtin(builtin)
             }
-            ASTType::Generic(astposition, name, var_types) => EnhASTType::Generic(
-                EnhASTIndex::from_position(id.path(), &astposition),
-                name.clone(),
-                var_types
-                    .into_iter()
-                    .map(|it| EnhASTType::from_ast(namespace, id, it))
-                    .collect(),
-            ),
+            ASTType::Generic(astposition, name, var_types) => {
+                let gen_name = if let Some(fun_name) = function_name_for_fix_generics {
+                    format!("{}_{}:{name}", namespace.safe_name(), fun_name)
+                } else {
+                    name
+                };
+
+                if gen_name.match_indices(':').count() > 1 {
+                    panic!();
+                }
+
+                EnhASTType::Generic(
+                    EnhASTIndex::from_position(id.path(), &astposition),
+                    gen_name,
+                    var_types
+                        .into_iter()
+                        .map(|it| {
+                            EnhASTType::from_ast(namespace, id, it, function_name_for_fix_generics)
+                        })
+                        .collect(),
+                )
+            }
             ASTType::Custom {
                 name,
                 param_types,
@@ -787,7 +840,12 @@ impl EnhASTType {
             } => EnhASTType::Custom {
                 namespace: namespace.clone(),
                 name: name.clone(),
-                param_types: EnhASTType::from_asts(namespace, id, param_types),
+                param_types: EnhASTType::from_asts(
+                    namespace,
+                    id,
+                    param_types,
+                    function_name_for_fix_generics,
+                ),
                 index: EnhASTIndex::from_position(id.path(), &index),
             },
             ASTType::Unit => EnhASTType::Unit,
@@ -798,9 +856,10 @@ impl EnhASTType {
         namespace: &EnhASTNameSpace,
         id: &EnhModuleId,
         asts: Vec<ASTType>,
+        function_name_for_fix_generics: Option<&str>,
     ) -> Vec<EnhASTType> {
         asts.into_iter()
-            .map(|it| EnhASTType::from_ast(namespace, id, it))
+            .map(|it| EnhASTType::from_ast(namespace, id, it, function_name_for_fix_generics))
             .collect()
     }
 
@@ -825,6 +884,10 @@ impl EnhASTType {
             },
             EnhASTType::Generic(ref index, ref name, ref var_types) => {
                 if let Some(original_generic) = ASTType::get_original_generic(name) {
+                    if original_generic.match_indices(':').count() > 0 {
+                        panic!();
+                    }
+
                     EnhASTType::Generic(
                         index.clone(),
                         original_generic.to_owned(),
@@ -943,10 +1006,16 @@ impl EnhASTParameterDef {
         id: &EnhModuleId,
         namespace: &EnhASTNameSpace,
         parameter: ASTParameterDef,
+        function_name_for_fix_generics: Option<&str>,
     ) -> Self {
         Self {
             name: parameter.name,
-            ast_type: EnhASTType::from_ast(namespace, id, parameter.ast_type),
+            ast_type: EnhASTType::from_ast(
+                namespace,
+                id,
+                parameter.ast_type,
+                function_name_for_fix_generics,
+            ),
             ast_index: EnhASTIndex::from_position(id.path(), &parameter.position),
         }
     }
@@ -955,10 +1024,13 @@ impl EnhASTParameterDef {
         id: &EnhModuleId,
         namespace: &EnhASTNameSpace,
         parameters: Vec<ASTParameterDef>,
+        function_name_for_fix_generics: Option<&str>,
     ) -> Vec<EnhASTParameterDef> {
         parameters
             .into_iter()
-            .map(|it| EnhASTParameterDef::from_ast(id, namespace, it))
+            .map(|it| {
+                EnhASTParameterDef::from_ast(id, namespace, it, function_name_for_fix_generics)
+            })
             .collect()
     }
 }
@@ -990,7 +1062,7 @@ impl EnhASTStructPropertyDef {
     ) -> Self {
         Self {
             name: property.name,
-            ast_type: EnhASTType::from_ast(namespace, id, property.ast_type),
+            ast_type: EnhASTType::from_ast(namespace, id, property.ast_type, None),
             index: EnhASTIndex::from_position(id.path(), &property.position),
         }
     }
@@ -1029,7 +1101,12 @@ impl EnhASTFunctionCall {
         result
     }
 
-    pub fn from_ast(id: &EnhModuleId, namespace: &EnhASTNameSpace, call: ASTFunctionCall) -> Self {
+    pub fn from_ast(
+        id: &EnhModuleId,
+        namespace: &EnhASTNameSpace,
+        call: ASTFunctionCall,
+        function_name_for_fix_generics: Option<&str>,
+    ) -> Self {
         Self {
             namespace: namespace.clone(),
             original_function_name: call.function_name().clone(),
@@ -1037,10 +1114,22 @@ impl EnhASTFunctionCall {
             parameters: call
                 .parameters()
                 .iter()
-                .map(|it| EnhASTExpression::from_ast(id, namespace, it.clone()))
+                .map(|it| {
+                    EnhASTExpression::from_ast(
+                        id,
+                        namespace,
+                        it.clone(),
+                        function_name_for_fix_generics,
+                    )
+                })
                 .collect(),
             index: EnhASTIndex::from_position(id.path(), &call.position().clone()),
-            generics: EnhASTType::from_asts(namespace, id, call.generics().clone()),
+            generics: EnhASTType::from_asts(
+                namespace,
+                id,
+                call.generics().clone(),
+                function_name_for_fix_generics,
+            ),
             target: call.target().clone(),
         }
     }
@@ -1142,6 +1231,19 @@ impl EnhASTIndex {
             None => EnhModuleId::Other(String::new()),
         }
     }
+
+    pub fn to_ast_index(
+        &self,
+        modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    ) -> Option<ASTIndex> {
+        modules_catalog.info(&self.id()).map(|it| {
+            ASTIndex::new(
+                it.namespace().clone(),
+                it.id().clone(),
+                ASTPosition::new(self.row, self.column),
+            )
+        })
+    }
 }
 
 impl Display for EnhASTIndex {
@@ -1225,11 +1327,19 @@ impl EnhASTExpression {
         }
     }
 
-    pub fn from_ast(id: &EnhModuleId, namespace: &EnhASTNameSpace, expr: ASTExpression) -> Self {
+    pub fn from_ast(
+        id: &EnhModuleId,
+        namespace: &EnhASTNameSpace,
+        expr: ASTExpression,
+        function_name_for_fix_generics: Option<&str>,
+    ) -> Self {
         match expr {
             ASTExpression::ASTFunctionCallExpression(call) => {
                 EnhASTExpression::ASTFunctionCallExpression(EnhASTFunctionCall::from_ast(
-                    id, namespace, call,
+                    id,
+                    namespace,
+                    call,
+                    function_name_for_fix_generics,
                 ))
             }
             ASTExpression::ValueRef(name, position) => EnhASTExpression::ValueRef(
@@ -1241,9 +1351,12 @@ impl EnhASTExpression {
                 value_type.clone(),
                 EnhASTIndex::from_position(id.path(), &position),
             ),
-            ASTExpression::Lambda(lambda) => {
-                EnhASTExpression::Lambda(EnhASTLambdaDef::from_ast(id, namespace, lambda))
-            }
+            ASTExpression::Lambda(lambda) => EnhASTExpression::Lambda(EnhASTLambdaDef::from_ast(
+                id,
+                namespace,
+                lambda,
+                function_name_for_fix_generics,
+            )),
         }
     }
 
@@ -1346,13 +1459,19 @@ impl EnhASTStatement {
         id: &EnhModuleId,
         namespace: &EnhASTNameSpace,
         statement: ASTStatement,
+        function_name_for_fix_generics: Option<&str>,
     ) -> Self {
         match statement {
-            ASTStatement::Expression(expr) => {
-                EnhASTStatement::Expression(EnhASTExpression::from_ast(id, namespace, expr))
-            }
+            ASTStatement::Expression(expr) => EnhASTStatement::Expression(
+                EnhASTExpression::from_ast(id, namespace, expr, function_name_for_fix_generics),
+            ),
             ASTStatement::LetStatement(name, astexpression, position) => {
-                let expr = EnhASTExpression::from_ast(id, namespace, astexpression);
+                let expr = EnhASTExpression::from_ast(
+                    id,
+                    namespace,
+                    astexpression,
+                    function_name_for_fix_generics,
+                );
                 EnhASTStatement::LetStatement(
                     name.clone(),
                     expr.clone(),
@@ -1360,7 +1479,12 @@ impl EnhASTStatement {
                 )
             }
             ASTStatement::ConstStatement(name, astexpression, position, modifiers) => {
-                let expr = EnhASTExpression::from_ast(id, namespace, astexpression);
+                let expr = EnhASTExpression::from_ast(
+                    id,
+                    namespace,
+                    astexpression,
+                    function_name_for_fix_generics,
+                );
                 EnhASTStatement::ConstStatement(
                     name.clone(),
                     expr.clone(),
@@ -1444,18 +1568,20 @@ impl EnhASTModule {
         self.types.extend(module.types);
     }
 
-    pub fn from_ast(module: ASTModule, info: EnhModuleInfo) -> Self {
+    pub fn from_ast(module: ASTModule, info: EnhModuleInfo, prefix_generics: bool) -> Self {
         Self {
             path: info.path().unwrap_or(PathBuf::new()), // TODO I don't like it
             body: module
                 .body
                 .into_iter()
-                .map(|it| EnhASTStatement::from_ast(&info.id, &info.namespace, it))
+                .map(|it| EnhASTStatement::from_ast(&info.id, &info.namespace, it, None))
                 .collect(),
             functions: module
                 .functions
                 .into_iter()
-                .map(|it| EnhASTFunctionDef::from_ast(&info.id, &info.namespace, it))
+                .map(|it| {
+                    EnhASTFunctionDef::from_ast(&info.id, &info.namespace, it, prefix_generics)
+                })
                 .collect(),
             enums: module
                 .enums
@@ -1603,7 +1729,7 @@ impl EnhASTEnumVariantDef {
     ) -> Self {
         Self {
             name: variant_def.name,
-            parameters: EnhASTParameterDef::from_asts(id, namespace, variant_def.parameters),
+            parameters: EnhASTParameterDef::from_asts(id, namespace, variant_def.parameters, None),
             index: EnhASTIndex::from_position(id.path(), &variant_def.position),
         }
     }

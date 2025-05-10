@@ -357,9 +357,8 @@ impl CompileTarget {
             &mut statics,
             self,
             command_line_options.debug,
+            true,
         );
-
-        let enhanced_ast_module = enhanced_ast_module.fix_generics();
 
         if !errors.is_empty() {
             for error in errors {

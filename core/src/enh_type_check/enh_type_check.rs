@@ -1566,9 +1566,12 @@ impl<'a> EnhTypeCheck<'a> {
         namespace: &EnhASTNameSpace,
     ) -> EnhTypeFilter {
         match filter {
-            ASTTypeFilter::Exact(ast_type, module_info) => {
-                EnhTypeFilter::Exact(self.enh_ast_type(ast_type.clone(), module_info, namespace))
-            }
+            ASTTypeFilter::Exact(ast_type, module_info) => EnhTypeFilter::Exact(self.enh_ast_type(
+                ast_type.clone(),
+                module_info,
+                namespace,
+                None,
+            )),
             ASTTypeFilter::Any => EnhTypeFilter::Any,
             ASTTypeFilter::Lambda(s, asttype_filter) => EnhTypeFilter::Lambda(
                 *s,
@@ -1584,12 +1587,14 @@ impl<'a> EnhTypeCheck<'a> {
         ast_type: ASTType,
         module_info: &ModuleInfo,
         namespace: &EnhASTNameSpace,
+        function_name_for_fix_generics: Option<&str>,
     ) -> EnhASTType {
-        let ast_type = if ast_type.is_generic() {
+        /*let ast_type = if ast_type.is_generic() {
             ast_type.remove_generic_prefix()
         } else {
             ast_type
         };
+        */
 
         let (filter_module_id, filter_module_namespace) = {
             if let ASTType::Custom {
@@ -1620,7 +1625,14 @@ impl<'a> EnhTypeCheck<'a> {
 
                 let param_types = param_types
                     .into_iter()
-                    .map(|it| self.enh_ast_type(it, module_info, namespace))
+                    .map(|it| {
+                        self.enh_ast_type(
+                            it,
+                            module_info,
+                            namespace,
+                            function_name_for_fix_generics,
+                        )
+                    })
                     .collect();
 
                 /*
@@ -1647,10 +1659,22 @@ impl<'a> EnhTypeCheck<'a> {
             {
                 let parameters = parameters
                     .into_iter()
-                    .map(|it| self.enh_ast_type(it, module_info, namespace))
+                    .map(|it| {
+                        self.enh_ast_type(
+                            it,
+                            module_info,
+                            namespace,
+                            function_name_for_fix_generics,
+                        )
+                    })
                     .collect();
 
-                let return_type = self.enh_ast_type(*return_type, module_info, namespace);
+                let return_type = self.enh_ast_type(
+                    *return_type,
+                    module_info,
+                    namespace,
+                    function_name_for_fix_generics,
+                );
 
                 return EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                     parameters,
@@ -1669,7 +1693,12 @@ impl<'a> EnhTypeCheck<'a> {
         }
         */
 
-        EnhASTType::from_ast(filter_module_namespace, filter_module_id, ast_type)
+        EnhASTType::from_ast(
+            filter_module_namespace,
+            filter_module_id,
+            ast_type,
+            function_name_for_fix_generics,
+        )
     }
 
     fn get_type_check_entry(
@@ -2199,6 +2228,12 @@ mod tests {
     #[test]
     pub fn gameoflife_tc() {
         let project = dir_to_project("../rasm/resources/examples/gameoflife_tc");
+        test_project(project).unwrap();
+    }
+
+    #[test]
+    fn test_type_check_vec() {
+        let project = file_to_project("vec.rasm");
         test_project(project).unwrap();
     }
 

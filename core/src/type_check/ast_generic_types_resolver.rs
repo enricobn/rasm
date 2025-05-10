@@ -294,6 +294,11 @@ impl ASTResolvedGenericTypes {
                         position.clone()
                     };
                     */
+
+                    if name == "T" {
+                        panic!();
+                    }
+
                     ASTType::Custom {
                         name: name.clone(),
                         param_types: new_param_types,

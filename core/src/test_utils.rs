@@ -83,7 +83,7 @@ pub fn project_to_ast_typed_module(
     );
 
     let (module, errors) =
-        EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false);
+        EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, true);
 
     if !errors.is_empty() {
         return Err(errors);
@@ -94,7 +94,7 @@ pub fn project_to_ast_typed_module(
     let default_functions = target.get_default_functions(false);
 
     match convert_to_typed_module(
-        module.fix_generics(),
+        module,
         false,
         mandatory_functions,
         &mut statics,

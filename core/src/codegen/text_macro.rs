@@ -284,6 +284,20 @@ impl TextMacroEvaluator {
                 }
             }
             result
+        /*} else if let Some(f) = typed_function_def {
+        let mut result = Vec::new(); //f.generic_types.clone();
+                                     // TODO should we use var_types?
+        for ((name, _var_types), _t) in f
+            .resolved_generic_types
+            .clone()
+            .remove_generics_prefix()
+            .iter()
+        {
+            if !result.contains(&name) {
+                result.push(name.clone());
+            }
+        }
+        result*/
         } else {
             Vec::new()
         };
@@ -301,8 +315,9 @@ impl TextMacroEvaluator {
                             None,
                             type_def_provider,
                             &context_generic_types,
-                            &f.resolved_generic_types.clone().remove_generics_prefix(),
+                            &f.resolved_generic_types.clone(), /*.remove_generics_prefix()*/
                             &f.index.id(),
+                            Some(&f.original_name),
                         )?;
 
                         if let Some(t) = par_type {
@@ -337,6 +352,7 @@ impl TextMacroEvaluator {
                         &context_generic_types,
                         &EnhResolvedGenericTypes::new(),
                         &f.index.id(),
+                        Some(&f.original_name),
                     )?;
                     if !f.parameters.iter().any(|it| it.name == par_name) {
                         match &f.body {
@@ -372,8 +388,9 @@ impl TextMacroEvaluator {
                     None,
                     type_def_provider,
                     &context_generic_types,
-                    &f.resolved_generic_types.clone().remove_generics_prefix(),
+                    &f.resolved_generic_types, /*.remove_generics_prefix()*/
                     &f.index.id(),
+                    Some(&f.original_name),
                 )?
             } else {
                 self.parse_typed_argument(
@@ -384,6 +401,7 @@ impl TextMacroEvaluator {
                     &context_generic_types,
                     &EnhResolvedGenericTypes::new(),
                     &EnhModuleId::Other(String::new()), // TODO is it correct?
+                    None,                               // TODO is it correct?
                 )?
             };
 
@@ -489,6 +507,7 @@ impl TextMacroEvaluator {
         context_generic_types: &[String],
         resolved_generic_types: &EnhResolvedGenericTypes,
         id: &EnhModuleId,
+        function_name_for_fix_generics: Option<&str>,
     ) -> Result<(String, Option<EnhASTType>, Option<ASTTypedType>), String> {
         //println!("parse_typed_argument namespace {namespace}, p {p}");
         // TODO the check of :: is a trick since function names could have ::, try to do it better
@@ -527,7 +546,12 @@ impl TextMacroEvaluator {
                     }
                     Some((ref ast_type, _)) => {
                         //println!("parse_typed_argument {ast_type}");
-                        let eh_ast_type = EnhASTType::from_ast(namespace, id, ast_type.clone());
+                        let eh_ast_type = EnhASTType::from_ast(
+                            namespace,
+                            id,
+                            ast_type.clone(),
+                            function_name_for_fix_generics,
+                        );
                         let t = if let ast::ASTType::Generic(_position, _name, var_types) = ast_type
                         {
                             if let Some(t) = substitute(&eh_ast_type, resolved_generic_types) {

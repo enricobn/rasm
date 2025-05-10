@@ -489,9 +489,7 @@ impl ASTType {
     }
 
     pub fn remove_generic_prefix_from_str(name: &str) -> &str {
-        name.find(':')
-            .map(|i| name.split_at(i + 1).1)
-            .unwrap_or(name)
+        Self::get_original_generic(name).unwrap_or(name)
     }
 
     pub fn generics(&self) -> HashSet<String> {

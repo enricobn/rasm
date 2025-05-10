@@ -6,6 +6,7 @@ use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
 use log::info;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
+use rasm_parser::catalog::ASTIndex;
 
 use crate::codegen::c::code_gen_c::value_type_to_typed_type;
 use crate::codegen::compile_target::CompileTarget;
@@ -29,7 +30,7 @@ use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::{get_new_native_call, substitute};
-use rasm_parser::parser::ast::{ASTModifiers, ASTType, ASTValueType};
+use rasm_parser::parser::ast::{ASTModifiers, ASTPosition, ASTType, ASTValueType};
 use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1115,6 +1116,21 @@ pub fn convert_to_typed_module(
         match &function.body {
             ASTTypedFunctionBody::RASMBody(_) => {}
             ASTTypedFunctionBody::NativeBody(body) => {
+                /*
+                let function_def = function
+                    .index
+                    .to_ast_index(modules_catalog)
+                    .and_then(|it| modules_container.function(&it))
+                    .map(|it| {
+                        EnhASTFunctionDef::from_ast(
+                            &function.index.id(),
+                            &function.namespace,
+                            it.clone(),
+                            false,
+                        )
+                    });
+                    */
+
                 let new_body = evaluator
                     .translate(statics, Some(function), None, body, true, &conv_context)
                     .map_err(|it| {

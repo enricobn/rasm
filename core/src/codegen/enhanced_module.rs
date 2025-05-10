@@ -36,17 +36,22 @@ impl EnhancedASTModule {
         statics: &mut Statics,
         target: &CompileTarget,
         debug: bool,
+        prefix_generics: bool,
     ) -> (Self, Vec<CompilationError>) {
-        Self::new(
+        let result = Self::new(
             modules
                 .into_iter()
-                .map(|(module, info)| EnhASTModule::from_ast(module, info))
+                .map(|(module, info)| EnhASTModule::from_ast(module, info, prefix_generics))
                 .collect(),
             project,
             statics,
             target,
             debug,
-        )
+        );
+
+        // result.0.print();
+
+        result
     }
     pub fn new(
         modules: Vec<EnhASTModule>,

@@ -877,6 +877,9 @@ mod tests {
     }
 
     fn exact_custom(name: &str, param_types: Vec<ASTType>) -> ASTTypeFilter {
+        if name == "T" {
+            panic!();
+        }
         ASTTypeFilter::Exact(
             ASTType::Custom {
                 name: name.to_owned(),
