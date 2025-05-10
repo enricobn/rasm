@@ -93,10 +93,6 @@ pub fn print<T>(l: List<T>, printFunction: fn(T) -> ()) {
     }, {});
 }
 
-pub fn fmap<T,T1>(l: List<T>, f: fn(T) -> List<T1>) -> List<T1> {
-    flatten(map(l, f));
-}
-
 pub fn flatten<T>(l: List<List<T>>) -> List<T> {
     l.match(fn(head, tail) {
         listAppend(head, flatten(tail));

@@ -4,10 +4,6 @@ pub fn cartesianProduct<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T
     });
 }
 
-pub fn fmap<T,T1>(l: Vec<T>, f: fn(T) -> Vec<T1>) -> Vec<T1> {
-    flatten(map(l, f));
-}
-
 // TODO native implementation
 pub fn print<T>(file: File, v: Vec<T>) -> Option<IOError> {
     let v1 = map(v, fn(n) { print(file, n, ",");});

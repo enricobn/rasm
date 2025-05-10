@@ -99,10 +99,6 @@ pub fn flatten<T>(l: Iter<Iter<T>>) -> Iter<T> {
     { emptyIter<T>(); });
 }
 
-pub fn fmap<T,T1>(l: Iter<T>, f: fn(T) -> Iter<T1>) -> Iter<T1> {
-    l.map(f).flatten;
-}
-
 pub fn emptyIter<T>() -> Iter<T> {
     Iter({ None<IterValue<T>>(); });
 }

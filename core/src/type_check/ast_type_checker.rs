@@ -1733,7 +1733,8 @@ mod tests {
     }
 
     #[test]
-    fn test_gameoflife_tc() {
+    fn ast_type_check_gameoflife_tc() {
+        init_minimal_log();
         check_project("../rasm/resources/examples/gameoflife_tc");
     }
 

@@ -1,11 +1,16 @@
-use std::fmt::{Display, Formatter};
+use std::{
+    fmt::{Display, Formatter},
+    iter::zip,
+};
 
 use linked_hash_map::LinkedHashMap;
 use rasm_parser::{
-    catalog::ASTIndex,
+    catalog::{ASTIndex, ModuleInfo},
     parser::ast::{ASTType, BuiltinTypeKind},
 };
 use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
+
+use crate::type_check::ast_modules_container::ASTTypeFilter;
 
 use super::ast_type_checker::{ASTTypeCheckErroKind, ASTTypeCheckError};
 
@@ -117,8 +122,44 @@ impl ASTResolvedGenericTypes {
                 }
             }
             ASTType::Generic(_, p, var_types) => {
-                debug_i!("resolved generic type {p} to {effective_type}");
-                result.insert(p.clone(), var_types.clone(), effective_type.clone());
+                debug_i!(
+                    "resolved generic type {p}[{}] to {effective_type}",
+                    SliceDisplay(var_types)
+                );
+
+                if let ASTType::Custom {
+                    name,
+                    param_types,
+                    position,
+                } = effective_type
+                {
+                    // TODO check if all types are compatible
+
+                    /*
+                    if zip(param_types, var_types).all(|(p, v)| {
+                        ASTTypeFilter::Exact(p.clone(), ModuleInfo::global())
+                            .is_compatible(v, enhanced_astmodule)
+                            .unwrap()
+                    }) {
+                    */
+                    for (param_type, var_type) in zip(param_types, var_types) {
+                        if let ASTType::Generic(_, _, _) = var_type {
+                            result.extend(
+                                ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
+                                    var_type, param_type,
+                                )?,
+                            ).map_err(|it| Self::type_check_error(
+                                ASTTypeCheckErroKind::Error,
+                                it,
+                            ))?;
+                        }
+                    }
+
+                    result.insert(p.clone(), var_types.clone(), effective_type.clone());
+                    //}
+                } else {
+                    result.insert(p.clone(), var_types.clone(), effective_type.clone());
+                }
             }
             ASTType::Custom {
                 name: g_name,

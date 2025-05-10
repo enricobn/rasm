@@ -27,10 +27,6 @@ pub fn flatten<T>(o: Option<Option<T>>) -> Option<T> {
     match(o, fn(v) {v;}, {None(); });
 }
 
-pub fn fmap<T,T1>(o: Option<T>, f: fn(T) -> Option<T1>) -> Option<T1> {
-    flatten(map(o, f));
-}
-
 pub fn or<T>(o: Option<T>, o1: Option<T>) -> Option<T> {
     match(o, fn(v) { o; }, { o1; });
 }
