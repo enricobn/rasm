@@ -764,7 +764,7 @@ impl EnhASTType {
                 var_types.iter().map(|it| it.to_ast()).collect(),
             ),
             EnhASTType::Custom {
-                namespace,
+                namespace: _,
                 name,
                 param_types,
                 index,

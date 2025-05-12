@@ -736,7 +736,7 @@ impl IDEHelper {
             .map(|it| it.mv_right(1))
         {
             if let Some(enum_name) = lines.substr_on_same_line(&start_index, &end_index) {
-                if let Some((enum_info, enum_def)) = self
+                if let Some((_enum_info, enum_def)) = self
                     .container()
                     .get_enum_def(module_info.namespace(), enum_name)
                 {

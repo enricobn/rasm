@@ -23,7 +23,7 @@ pub fn compile_c(
     options: &COptions,
     project: &RasmProject,
     out_folder: &Path,
-    mut out_paths: Vec<PathBuf>,
+    out_paths: Vec<PathBuf>,
 ) -> Output {
     if out_paths.len() != 1 {
         panic!("Only one native file to compile is supported!");

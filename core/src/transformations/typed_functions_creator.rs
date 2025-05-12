@@ -69,7 +69,7 @@ pub trait TypedFunctionsCreator {
 
     fn for_enum(
         &self,
-        module: &EnhancedASTModule,
+        _module: &EnhancedASTModule,
         typed_module: &dyn TypeDefProvider,
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
@@ -83,7 +83,7 @@ pub trait TypedFunctionsCreator {
 
     fn for_struct(
         &self,
-        module: &EnhancedASTModule,
+        _module: &EnhancedASTModule,
         typed_module: &dyn TypeDefProvider,
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,

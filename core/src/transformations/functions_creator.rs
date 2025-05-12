@@ -138,7 +138,7 @@ pub trait FunctionsCreator {
         let mut signatures =
             BuiltinFunctions::struct_get_property_signatures(struct_def, property_def);
 
-        let ((parameters_names, parameters_positions, signature), ft) = signatures.remove(0);
+        let ((parameters_names, parameters_positions, signature), _ft) = signatures.remove(0);
 
         let mut result = Vec::new();
 
@@ -374,17 +374,12 @@ pub trait FunctionsCreator {
 
 pub struct FunctionsCreatorNasmi386 {
     backend: BackendNasmi386,
-    debug: bool,
     code_gen: CodeGenAsm,
 }
 
 impl FunctionsCreatorNasmi386 {
-    pub fn new(backend: BackendNasmi386, debug: bool, code_gen: CodeGenAsm) -> Self {
-        Self {
-            backend,
-            debug,
-            code_gen,
-        }
+    pub fn new(backend: BackendNasmi386, code_gen: CodeGenAsm) -> Self {
+        Self { backend, code_gen }
     }
 
     fn str_deref_body(&self, message_key: &str) -> String {
@@ -751,7 +746,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         body
     }
 
-    fn struct_property_body(&self, i: usize, name: &str) -> (String, bool) {
+    fn struct_property_body(&self, i: usize, _name: &str) -> (String, bool) {
         let mut body = String::new();
         self.code_gen.add_rows(
             &mut body,
@@ -773,7 +768,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         (body, true)
     }
 
-    fn struct_setter_body(&self, i: usize, name: &str) -> String {
+    fn struct_setter_body(&self, i: usize, _name: &str) -> String {
         let ws = self.backend.word_size();
         // TODO for now it does not work
         let optimize_copy = false;
@@ -867,7 +862,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
 
     fn enum_variant_constructor_body(
         &self,
-        module: &mut ASTModule,
+        _module: &mut ASTModule,
         enum_def: &ASTEnumDef,
         statics: &mut Statics,
         variant_num: usize,

@@ -721,7 +721,7 @@ impl Display for ASTTypedTypeDef {
         let gen_types = self
             .generic_types
             .iter()
-            .map(|((name, var_types), it)| format!("{it}"))
+            .map(|((_name, _var_types), it)| format!("{it}"))
             .collect::<Vec<_>>()
             .join(",");
         f.write_str(&format!("type {}<{gen_types}>", self.name))
@@ -1883,7 +1883,7 @@ fn typed_type(
                 )),
             }),
         },
-        EnhASTType::Generic(index, p, var_types) => {
+        EnhASTType::Generic(index, p, _var_types) => {
             panic!("Unresolved generic type '{p}' {message} : {index}");
         }
         EnhASTType::Custom {

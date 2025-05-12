@@ -855,7 +855,7 @@ impl<'a> EnhTypeCheck<'a> {
                     };
 
                     // TODO type classes, I don't know if it works
-                    if let EnhASTType::Generic(name, _, var_types) = t {
+                    if let EnhASTType::Generic(_name, _, var_types) = t {
                         resolved_generic_types.insert(g.to_string(), var_types.clone(), ast_type);
                     } else {
                         resolved_generic_types.insert(g.to_string(), Vec::new(), ast_type);
@@ -1069,6 +1069,7 @@ impl<'a> EnhTypeCheck<'a> {
             // TODO we don't consider when two functions have the same coefficient...
             // We get the function that has the minimal rank, if there's only one with that coefficient.
             panic!("There are more functions for call {call} : {}", call.index);
+            /*
             let min = valid_functions.iter().map(|it| it.1).min().unwrap();
 
             let mut dis_valid_functions = valid_functions
@@ -1107,6 +1108,7 @@ impl<'a> EnhTypeCheck<'a> {
             let (valid_function, _x, resolved_generic_types, expressions) =
                 dis_valid_functions.remove(0);
             Ok((valid_function, resolved_generic_types, expressions))
+            */
         } else {
             new_functions.append(&mut ok_inner_new_functions);
             //self.stack.pop();
@@ -2166,7 +2168,7 @@ impl<'a> EnhTypeCheck<'a> {
 
         if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
             parameters,
-            return_type,
+            return_type: _,
         })) = expected_type
         {
             function_references = function_references

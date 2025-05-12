@@ -76,7 +76,7 @@ impl CompileTarget {
     pub fn from(
         target: String,
         project: &RasmProject,
-        command_line_options: &CommandLineOptions,
+        _command_line_options: &CommandLineOptions,
     ) -> Self {
         match target.as_str() {
             NASMI386 => {
@@ -170,7 +170,6 @@ impl CompileTarget {
                 let backend = BackendNasmi386::new(debug);
                 Box::new(FunctionsCreatorNasmi386::new(
                     backend.clone(),
-                    debug,
                     CodeGenAsm::new(options.clone(), debug),
                 ))
             }
@@ -183,7 +182,7 @@ impl CompileTarget {
             CompileTarget::Nasmi386(options) => {
                 let backend = BackendNasmi386::new(debug);
                 let code_gen = CodeGenAsm::new(options.clone(), debug);
-                Box::new(TypedFunctionsCreatorNasmi386::new(backend, code_gen, debug))
+                Box::new(TypedFunctionsCreatorNasmi386::new(backend, code_gen))
             }
             CompileTarget::C(options) => {
                 let code_gen = CodeGenC::new(options.clone(), debug);

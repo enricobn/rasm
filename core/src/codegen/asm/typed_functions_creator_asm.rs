@@ -16,17 +16,12 @@ use super::{
 
 pub struct TypedFunctionsCreatorNasmi386 {
     backend: BackendNasmi386,
-    debug: bool,
     code_gen: CodeGenAsm,
 }
 
 impl TypedFunctionsCreatorNasmi386 {
-    pub fn new(backend: BackendNasmi386, code_gen: CodeGenAsm, debug: bool) -> Self {
-        Self {
-            backend,
-            debug,
-            code_gen,
-        }
+    pub fn new(backend: BackendNasmi386, code_gen: CodeGenAsm) -> Self {
+        Self { backend, code_gen }
     }
 
     fn loop_vec(

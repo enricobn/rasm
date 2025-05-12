@@ -397,7 +397,7 @@ impl AsmPrintRefMacro {
                 true,
             );
             // TODO type classes
-            for (i, ((generic_name, var_types), ast_typed_type)) in
+            for (i, ((generic_name, _var_types), ast_typed_type)) in
                 s.generic_types.iter().enumerate()
             {
                 code_gen.add(

@@ -1112,7 +1112,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         call_parameters: &mut FCP,
         param_name: &str,
         val_name: &str,
-        error_msg: &str,
+        _error_msg: &str,
         ast_index: &EnhASTIndex,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
@@ -2046,7 +2046,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
 pub fn get_reference_type_name(
     ast_type: &ASTTypedType,
-    type_def_provider: &dyn TypeDefProvider,
+    _type_def_provider: &dyn TypeDefProvider,
 ) -> Option<String> {
     match ast_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => Some("str".into()),

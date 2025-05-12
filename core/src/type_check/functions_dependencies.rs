@@ -247,7 +247,7 @@ fn function_dependencies_inner(
                                 {
                                     if let Some(ASTTypeFilter::Exact(
                                         call_expr_type,
-                                        call_expr_info,
+                                        _call_expr_info,
                                     )) = call_expr_entry.filter()
                                     {
                                         call_expr_dependencies(
@@ -448,7 +448,7 @@ fn function_dependencies_inner_2(
                                 if let Some(e_entry) = ast_type_check.result.get(&e_index) {
                                     if let Some(filter) = e_entry.filter() {
                                         match filter {
-                                            ASTTypeFilter::Exact(asttype, module_info) => {
+                                            ASTTypeFilter::Exact(asttype, _module_info) => {
                                                 if asttype.is_generic() {
                                                     debug_i!("asttype generic {asttype}");
                                                     indent!();
@@ -492,7 +492,7 @@ fn function_dependencies_inner_2(
                                                 }
                                             }
                                             ASTTypeFilter::Any => {}
-                                            ASTTypeFilter::Lambda(_, asttype_filter) => {}
+                                            ASTTypeFilter::Lambda(_, _asttype_filter) => {}
                                         }
                                         let signature_parameter_type =
                                             signature.parameters_types.get(i).unwrap();

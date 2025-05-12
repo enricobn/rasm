@@ -126,9 +126,9 @@ impl ASTResolvedGenericTypes {
                 );
 
                 if let ASTType::Custom {
-                    name,
+                    name: _,
                     param_types,
-                    position,
+                    position: _,
                 } = effective_type
                 {
                     // TODO check if all types are compatible

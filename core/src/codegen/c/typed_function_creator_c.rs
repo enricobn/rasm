@@ -178,7 +178,7 @@ impl TypedFunctionsCreatorC {
         }
 
         if !optimize_lambda_space {
-            for (i, (name, kind)) in lambda_space.iter().enumerate() {
+            for (_i, (name, kind)) in lambda_space.iter().enumerate() {
                 let t = kind.typed_type();
 
                 if let Some(type_name) = get_reference_type_name(t, type_def_provider) {
@@ -437,7 +437,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
     // enum itself and variant are two separated allocations and we always have to addref/deref both
     fn for_enum(
         &self,
-        module: &EnhancedASTModule,
+        _module: &EnhancedASTModule,
         type_def_provider: &dyn TypeDefProvider,
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,

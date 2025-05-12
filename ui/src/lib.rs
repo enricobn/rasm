@@ -66,7 +66,7 @@ impl UI {
     pub fn show(project: RasmProject, target: CompileTarget) -> iced::Result {
         let mut statics = Statics::new();
 
-        let (modules_container, catalog, errors) = project.container_and_catalog(
+        let (modules_container, _catalog, _errors) = project.container_and_catalog(
             &mut statics,
             &RasmProjectRunType::Main,
             &target,

@@ -581,7 +581,7 @@ impl EnhFunctionsContainer {
                             resolved_generic_types.get(filter_generic_name, filter_var_types);
                         debug_i!("already_resolved {}", OptionDisplay(&already_resolved_o));
                         match parameter_type {
-                            EnhASTType::Generic(_, gen_name, var_types) => {
+                            EnhASTType::Generic(_, _gen_name, _var_types) => {
                                 // TODO we don't know if the two generic types belong to the same context (Enum, Struct or function),
                                 //   to know it we need another attribute in ASTType::Builtin::Generic : the context
 
@@ -619,7 +619,7 @@ impl EnhFunctionsContainer {
                     } => {
                         match parameter_type {
                             EnhASTType::Builtin(_) => Ok(false),
-                            EnhASTType::Generic(_, gen_name, var_types) => {
+                            EnhASTType::Generic(_, _gen_name, var_types) => {
                                 /*
                                 if gen_name == "M" {
                                     println!(

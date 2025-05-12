@@ -163,7 +163,7 @@ impl ASTTypeCheckEntry {
 
     pub fn is_generic(&self) -> bool {
         match &self.filter {
-            Some(ASTTypeFilter::Exact(t, i)) => t.is_generic(),
+            Some(ASTTypeFilter::Exact(t, _i)) => t.is_generic(),
             Some(ASTTypeFilter::Lambda(_, rt)) => {
                 rt.as_ref().map(|it| it.is_generic()).unwrap_or(false)
             }
@@ -467,7 +467,7 @@ impl ASTTypeChecker {
                         }
                     }
                 }
-                ASTStatement::ConstStatement(name, e, position, astmodifiers) => {
+                ASTStatement::ConstStatement(name, e, position, _astmodifiers) => {
                     self.add_expr(
                         e,
                         inner_val_context,
@@ -957,7 +957,7 @@ impl ASTTypeChecker {
             let generics = parameters_types
                 .iter()
                 .filter_map(|p| {
-                    if let ASTType::Generic(_, g_name, var_types) = p {
+                    if let ASTType::Generic(_, g_name, _var_types) = p {
                         Some(g_name.clone())
                     } else {
                         None

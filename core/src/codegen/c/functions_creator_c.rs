@@ -39,7 +39,7 @@ impl CFunctionsCreator {
 }
 
 impl FunctionsCreator for CFunctionsCreator {
-    fn create_globals(&self, module: &mut EnhancedASTModule, statics: &mut Statics) {
+    fn create_globals(&self, _module: &mut EnhancedASTModule, _statics: &mut Statics) {
         // TODO
     }
 
@@ -185,7 +185,7 @@ impl FunctionsCreator for CFunctionsCreator {
 
     fn enum_variant_constructor_body(
         &self,
-        module: &mut ASTModule,
+        _module: &mut ASTModule,
         enum_def: &ASTEnumDef,
         _statics: &mut Statics,
         variant_num: usize,

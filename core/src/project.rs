@@ -475,7 +475,7 @@ impl RasmProject {
         let (mut modules, mut errors) = self.all_modules(statics, target, debug);
 
         if matches!(run_type, RasmProjectRunType::Test) {
-            modules.iter_mut().for_each(|(it, info)| {
+            modules.iter_mut().for_each(|(it, _info)| {
                 let new_body = it
                     .body
                     .iter()
@@ -522,7 +522,7 @@ impl RasmProject {
         test_modules
             .iter()
             .flat_map(|(module, info)| module.functions.iter().map(move |it| (it, info)))
-            .filter(|(function, info)| {
+            .filter(|(function, _info)| {
                 function.modifiers.public
                     && function.name.starts_with("test")
                     && (options.include_tests.is_empty()
@@ -652,6 +652,7 @@ impl RasmProject {
         }
     }
 
+    /*
     fn get_natives(&self) -> Vec<PathBuf> {
         fs::read_dir(
             Path::new(&self.root).join(
@@ -669,6 +670,7 @@ impl RasmProject {
         .map(|it| it.unwrap().path())
         .collect()
     }
+    */
 
     pub fn get_module(
         &self,

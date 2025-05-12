@@ -1291,7 +1291,7 @@ mod tests {
     use rasm_parser::parser::ast::ASTBuiltinFunctionType;
     use rasm_utils::{OptionDisplay, SliceDisplay};
 
-    use crate::completion_service::{CompletionItem, CompletionTrigger};
+    use crate::completion_service::CompletionTrigger;
     use crate::reference_finder::{CompletionResult, ReferenceFinder};
     use crate::selectable_item::{SelectableItem, SelectableItemTarget};
 

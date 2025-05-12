@@ -68,7 +68,7 @@ impl<'a> ASTTree<'a> {
     pub fn first_statement(&self) -> Option<&ASTPosition> {
         self.positions
             .iter()
-            .filter(|(pos, element)| match element {
+            .filter(|(_pos, element)| match element {
                 ASTElement::Statement(_) => true,
                 ASTElement::Expression(_) => false,
             })
@@ -79,7 +79,7 @@ impl<'a> ASTTree<'a> {
     pub fn last_statement(&self) -> Option<&ASTPosition> {
         self.positions
             .iter()
-            .filter(|(pos, element)| match element {
+            .filter(|(_pos, element)| match element {
                 ASTElement::Statement(_) => true,
                 ASTElement::Expression(_) => false,
             })
