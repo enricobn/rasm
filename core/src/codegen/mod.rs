@@ -144,7 +144,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn transform_before_in_function_def(&self, code_gen_context: &CTX, before: String) -> String;
 
-    fn main_init(&self, generated_code: &mut String);
+    fn main_init(&self, code: &mut String);
 
     fn call_lambda_parameter(
         &self,

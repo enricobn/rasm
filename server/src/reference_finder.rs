@@ -88,7 +88,7 @@ impl ReferenceFinder {
             ));
         }
 
-        let (module, _errors, info) = if let Some(m) = index
+        let (_module, _errors, info) = if let Some(m) = index
             .file_name
             .as_ref()
             .and_then(|it| project.get_module(it.as_path(), target))
@@ -2148,10 +2148,6 @@ mod tests {
         let mut index = get_index(project, file_n, row, column);
         index.builtin = Some(builtin);
         index
-    }
-
-    fn format_collection_items(items: &[CompletionItem]) -> Vec<String> {
-        items.iter().map(|it| it.descr.clone()).collect::<Vec<_>>()
     }
 
     fn vec_selectable_item_to_vec_target_index(vec: Vec<SelectableItem>) -> Vec<EnhASTIndex> {

@@ -68,17 +68,18 @@ impl CFunctionCallParameters {
     }
 
     fn get_value_from_lambda_space(
-        type_def_provider: &dyn TypeDefProvider,
-        i: usize,
-        ast_typed_type: &ASTTypedType,
-        dereference: bool,
+        _type_def_provider: &dyn TypeDefProvider,
+        _i: usize,
+        _ast_typed_type: &ASTTypedType,
+        _dereference: bool,
         name: &str,
     ) -> String {
+        /*
         let is_ref_type = get_reference_type_name(&ast_typed_type, type_def_provider).is_some();
 
         let deref_s = if dereference { "*" } else { "" };
 
-        /*
+
         let value = if is_ref_type {
             format!(
                 " (({})_lambda->args[{i}])",
@@ -97,11 +98,11 @@ impl CFunctionCallParameters {
 
     fn add_code_for_reference_type(
         &mut self,
-        module: &ASTTypedModule,
-        type_name: &str,
-        source: &str,
-        descr: &str,
-        statics: &mut Statics,
+        _module: &ASTTypedModule,
+        _type_name: &str,
+        _source: &str,
+        _descr: &str,
+        _statics: &mut Statics,
     ) {
         /*
         self.code_gen_c
@@ -121,9 +122,9 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
     fn add_label(
         &mut self,
         param_name: &str,
-        label: String,
+        _label: String,
         value: String,
-        comment: Option<&str>,
+        _comment: Option<&str>,
         typed_type: &ASTTypedType,
         statics: &Statics,
         namespace: &EnhASTNameSpace,
@@ -154,8 +155,8 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         &mut self,
         param_name: &str,
         value: &str,
-        comment: Option<&str>,
-        statics: &mut Statics,
+        _comment: Option<&str>,
+        _statics: &mut Statics,
     ) {
         self.parameters_values.insert(
             param_name.to_string(),
@@ -257,10 +258,10 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         def: &mut ASTTypedFunctionDef,
         parent_lambda_space: Option<&LambdaSpace>,
         context: &TypedValContext,
-        comment: Option<&str>,
+        _comment: Option<&str>,
         statics: &mut Statics,
         module: &ASTTypedModule,
-        code_gen_context: &CodeGenCContext,
+        _code_gen_context: &CodeGenCContext,
         lambda_in_stack: bool,
         param_type: &ASTTypedType,
         name: &str,
@@ -540,11 +541,11 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         &mut self,
         original_param_name: String,
         val_name: &str,
-        index_in_context: usize,
+        _index_in_context: usize,
         lambda_space: &Option<&LambdaSpace>,
-        indent: usize,
-        code_gen_context: &CodeGenCContext,
-        statics: &Statics,
+        _indent: usize,
+        _code_gen_context: &CodeGenCContext,
+        _statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
         typed_type: &ASTTypedType,
     ) {
@@ -598,10 +599,10 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         original_param_name: String,
         val_name: &str,
         lambda_space: &Option<&LambdaSpace>,
-        indent: usize,
-        code_gen_context: &CodeGenCContext,
-        ast_index: &EnhASTIndex,
-        statics: &Statics,
+        _indent: usize,
+        _code_gen_context: &CodeGenCContext,
+        _ast_index: &EnhASTIndex,
+        _statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
         typed_type: &ASTTypedType,
     ) {
@@ -664,13 +665,13 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
 
     fn resolve_native_parameters(
         &self,
-        code_gen_context: &CodeGenCContext,
+        _code_gen_context: &CodeGenCContext,
         body: &str,
         indent: usize,
         return_value: bool,
         is_inner_call: bool,
         return_type: Option<&ASTTypedType>,
-        is_lambda: bool,
+        _is_lambda: bool,
     ) -> String {
         let suffix = if is_inner_call { "" } else { ";" };
 

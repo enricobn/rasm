@@ -66,11 +66,11 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         &mut self,
         param_name: &str,
         label: String,
-        value: String,
+        _value: String,
         comment: Option<&str>,
-        typed_type: &ASTTypedType,
-        statics: &Statics,
-        namespace: &EnhASTNameSpace,
+        _typed_type: &ASTTypedType,
+        _statics: &Statics,
+        _namespace: &EnhASTNameSpace,
     ) {
         if self.inline {
             self.parameters_values
@@ -126,10 +126,10 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         comment: &str,
         param_type: ASTTypedType,
         statics: &mut Statics,
-        name: String,
+        _name: String,
         before: String,
         current: String,
-        t: &ASTTypedType,
+        _t: &ASTTypedType,
     ) {
         if self.immediate {
             panic!();
@@ -165,8 +165,8 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         module: &ASTTypedModule,
         code_gen_context: &CodeGenAsmContext,
         lambda_in_stack: bool,
-        param_type: &ASTTypedType,
-        name: &str,
+        _param_type: &ASTTypedType,
+        _name: &str,
     ) -> LambdaSpace {
         //let optimize = false;
         let sbp = self.backend.stack_base_pointer();
@@ -435,9 +435,9 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         lambda_space: &Option<&LambdaSpace>,
         indent: usize,
         code_gen_context: &CodeGenAsmContext,
-        statics: &Statics,
-        type_def_provider: &dyn TypeDefProvider,
-        typed_type: &ASTTypedType,
+        _statics: &Statics,
+        _type_def_provider: &dyn TypeDefProvider,
+        _typed_type: &ASTTypedType,
     ) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
 
@@ -466,9 +466,9 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         indent: usize,
         code_gen_context: &CodeGenAsmContext,
         ast_index: &EnhASTIndex,
-        statics: &Statics,
-        type_def_provider: &dyn TypeDefProvider,
-        typed_type: &ASTTypedType,
+        _statics: &Statics,
+        _type_def_provider: &dyn TypeDefProvider,
+        _typed_type: &ASTTypedType,
     ) {
         let index_in_context = code_gen_context
             .stack_vals
@@ -554,15 +554,14 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
 
     fn resolve_native_parameters(
         &self,
-        code_gen_context: &CodeGenAsmContext,
+        _code_gen_context: &CodeGenAsmContext,
         body: &str,
         ident: usize,
-        return_value: bool,
-        is_inner_value: bool,
+        _return_value: bool,
+        _is_inner_value: bool,
         return_type: Option<&ASTTypedType>,
         is_lambda: bool,
     ) -> String {
-        let sp = self.backend.stack_pointer();
         let bp = self.backend.stack_base_pointer();
 
         let _ = return_type;

@@ -38,8 +38,8 @@ impl TextMacroEval for CIncludeMacro {
         &self,
         statics: &mut Statics,
         text_macro: &TextMacro,
-        function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
+        _function_def: Option<&ASTTypedFunctionDef>,
+        _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         match text_macro.parameters.get(0).unwrap() {
             MacroParam::Plain(s, _, _) => {
@@ -70,7 +70,7 @@ impl TextMacroEval for CStructDeclarationMacro {
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
+        _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {
             if let Some(def) = function_def {
@@ -115,7 +115,7 @@ impl TextMacroEval for CStructTypeMacro {
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
+        _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         if let Some(def) = function_def {
             if let ASTTypedType::Struct { namespace, name } = &def.return_type {
@@ -161,7 +161,7 @@ impl TextMacroEval for CEnumVariantDeclarationMacro {
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
+        _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {
             if let Some(MacroParam::Plain(variant_name, _, _)) = text_macro.parameters.get(1) {
@@ -208,10 +208,10 @@ pub struct CEnumVariantAssignmentMacro;
 impl TextMacroEval for CEnumVariantAssignmentMacro {
     fn eval_macro(
         &self,
-        statics: &mut Statics,
+        _statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
+        _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {
             if let Some(MacroParam::Plain(variant_name, _, _)) = text_macro.parameters.get(1) {
@@ -260,11 +260,15 @@ impl TextMacroEval for CEnumDeclarationMacro {
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
+        _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {
             if let Some(def) = function_def {
-                if let ASTTypedType::Enum { namespace, name } = &def.return_type {
+                if let ASTTypedType::Enum {
+                    namespace: _,
+                    name: _,
+                } = &def.return_type
+                {
                     CInclude::add_to_statics(statics, "<stdlib.h>".to_string()); // for malloc
                     format!("struct RasmPointer_* {var_name} = rasmMalloc(sizeof(struct Enum));")
                 } else {
@@ -298,10 +302,10 @@ pub struct CCallMacro;
 impl TextMacroEval for CCallMacro {
     fn eval_macro(
         &self,
-        statics: &mut Statics,
+        _statics: &mut Statics,
         text_macro: &TextMacro,
-        function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
+        _function_def: Option<&ASTTypedFunctionDef>,
+        _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         let function_name =
             if let Some(MacroParam::Plain(function_name, _, _)) = text_macro.parameters.get(0) {
@@ -356,7 +360,7 @@ impl CAddRefMacro {
 impl TextMacroEval for CAddRefMacro {
     fn eval_macro(
         &self,
-        statics: &mut Statics,
+        _statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
@@ -440,7 +444,7 @@ impl TextMacroEval for CTypeNameMacro {
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
+        _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         let value = text_macro.parameters.get(0).unwrap();
         if let MacroParam::Ref(_name, _ast_type, ast_type_type) = value {
@@ -496,11 +500,11 @@ impl TextMacroEval for CCastAddress {
         &self,
         statics: &mut Statics,
         text_macro: &TextMacro,
-        function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
+        _function_def: Option<&ASTTypedFunctionDef>,
+        _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         let value = text_macro.parameters.get(0).unwrap();
-        if let MacroParam::Ref(name, ast_type, ast_type_type) = value {
+        if let MacroParam::Ref(name, _ast_type, ast_type_type) = value {
             let t = ast_type_type.clone().unwrap();
 
             CLambdas::add_to_statics_if_lambda(&t, statics);
@@ -534,7 +538,7 @@ impl CEnumSimpleMacro {
 impl TextMacroEval for CEnumSimpleMacro {
     fn eval_macro(
         &self,
-        statics: &mut Statics,
+        _statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
@@ -556,7 +560,7 @@ impl TextMacroEval for CEnumSimpleMacro {
                         panic!("Function not present {}", text_macro.index);
                     }
                 } else if let Some(def) = function_def {
-                    let (namespace, name) = if let Some(ASTTypedType::Enum { namespace, name }) =
+                    let (_namespace, name) = if let Some(ASTTypedType::Enum { namespace, name }) =
                         &def.parameters.get(0).map(|it| &it.ast_type)
                     {
                         (namespace, name)
@@ -577,18 +581,18 @@ impl TextMacroEval for CEnumSimpleMacro {
                     panic!("Function not present {}", text_macro.index);
                 };
 
-                if let Some((i, variant)) = enum_def
+                if let Some((_i, variant)) = enum_def
                     .variants
                     .iter()
                     .enumerate()
-                    .find(|(i, v)| &v.name == variant_name)
+                    .find(|(_i, v)| &v.name == variant_name)
                 {
                     let mut result = String::new();
                     if let EnhASTType::Custom {
-                        namespace,
+                        namespace: _,
                         name,
-                        param_types,
-                        index,
+                        param_types: _,
+                        index: _,
                     } = &enum_def.ast_type
                     {
                         result.push_str(&format!(

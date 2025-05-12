@@ -365,32 +365,6 @@ impl CodeGenAsm {
         )
     }
 
-    fn strip_ifdef(&self, code: &str, def: &str) -> String {
-        let mut result = String::new();
-        let owned = code.to_owned();
-
-        let mut state = 0;
-
-        for line in owned.lines() {
-            if line.trim() == "%endif" && state == 1 {
-                state = 0;
-                continue;
-            } else if line.trim().contains(&format!("%ifdef {def}")) {
-                if state == 1 {
-                    panic!();
-                }
-                state = 1;
-            }
-
-            if state == 0 {
-                result.push_str(line);
-                result.push('\n');
-            }
-        }
-
-        result
-    }
-
     pub fn tmp_registers(&self) -> Vec<String> {
         vec!["edx".to_owned(), "ecx".to_owned(), "ebx".to_owned()]
     }
@@ -825,9 +799,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         before: &mut String,
         kind: &TypedValKind,
         call_parameters: &Box<dyn FunctionCallParametersAsm + 'a>,
-        return_value: bool,
-        is_inner_call: bool,
-        statics: &Statics,
+        _return_value: bool,
+        _is_inner_call: bool,
+        _statics: &Statics,
     ) {
         let rr = self.return_register();
 
@@ -889,11 +863,11 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         function_call: &ASTTypedFunctionCall,
         before: &mut String,
         index_in_lambda_space: usize,
-        call_parameters: &Box<dyn FunctionCallParametersAsm + 'a>,
-        ast_type_type: &ASTTypedType,
-        statics: &Statics,
-        return_value: bool,
-        is_inner_call: bool,
+        _call_parameters: &Box<dyn FunctionCallParametersAsm + 'a>,
+        _ast_type_type: &ASTTypedType,
+        _statics: &Statics,
+        _return_value: bool,
+        _is_inner_call: bool,
     ) {
         let rr = self.return_register();
 
@@ -1020,7 +994,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         index: &EnhASTIndex,
         type_name: &String,
         namespace: &EnhASTNameSpace,
-        modifiers: &ASTModifiers,
+        _modifiers: &ASTModifiers,
     ) {
         let entry = statics.get_typed_const(name, namespace).unwrap();
 
@@ -1041,7 +1015,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         statics: &mut Statics,
         type_name: &String,
         typed_module: &ASTTypedModule,
-        t: &ASTTypedType,
+        _t: &ASTTypedType,
     ) -> String {
         let address_relative_to_bp = code_gen_context
             .stack_vals
@@ -1069,7 +1043,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         statics: &mut Statics,
         type_name: &String,
         typed_module: &ASTTypedModule,
-        t: &ASTTypedType,
+        _t: &ASTTypedType,
     ) {
         let address_relative_to_bp = code_gen_context
             .stack_vals
@@ -1113,7 +1087,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         before: &mut String,
         val_name: &String,
         typed_val_kind: &TypedValKind,
-        statics: &Statics,
+        _statics: &Statics,
         name: &str,
     ) -> ASTTypedType {
         let address_relative_to_bp = code_gen_context
@@ -1280,10 +1254,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
     fn function_def(
         &'a self,
-        code_gen_context: &CodeGenAsmContext,
+        _code_gen_context: &CodeGenAsmContext,
         out: &mut String,
         function_def: &ASTTypedFunctionDef,
-        statics: &mut Statics,
+        _statics: &mut Statics,
     ) {
         self.add(out, &format!("{}:", function_def.name), None, false);
     }
@@ -1300,9 +1274,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         &self,
         code_gen_context: &CodeGenAsmContext,
         before: &mut String,
-        statics: &mut Statics,
-        lambda_space: &LambdaSpace,
-        def: &ASTTypedFunctionDef,
+        _statics: &mut Statics,
+        _lambda_space: &LambdaSpace,
+        _def: &ASTTypedFunctionDef,
     ) {
         let register =
             code_gen_context
@@ -1397,11 +1371,11 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         &self,
         out: &mut String,
         function_name: &str,
-        call_parameters: Option<&Box<dyn FunctionCallParametersAsm + 'a>>,
-        return_value: bool,
-        is_inner_call: bool,
-        return_type: Option<&ASTTypedType>,
-        statics: &Statics,
+        _call_parameters: Option<&Box<dyn FunctionCallParametersAsm + 'a>>,
+        _return_value: bool,
+        _is_inner_call: bool,
+        _return_type: Option<&ASTTypedType>,
+        _statics: &Statics,
     ) {
         self.add(out, &format!("call    {}", function_name), None, true);
     }
@@ -1412,8 +1386,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         function_name: &str,
         args: &[(&str, Option<&str>)],
         comment: Option<&str>,
-        return_value: bool,
-        is_inner_call: bool,
+        _return_value: bool,
+        _is_inner_call: bool,
     ) {
         if let Some(c) = comment {
             self.add_comment(out, c, true);
@@ -1482,10 +1456,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
     fn generate_statics_code(
         &self,
-        project: &RasmProject,
+        _project: &RasmProject,
         statics: &Statics,
-        typed_module: &ASTTypedModule,
-        out_folder: &Path,
+        _typed_module: &ASTTypedModule,
+        _out_folder: &Path,
     ) -> (String, String) {
         let mut data = String::new();
         let mut bss = String::new();
@@ -1618,7 +1592,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         code_gen_context: &CodeGenAsmContext,
         out: &mut String,
         add_return: bool,
-        function_def: Option<&ASTTypedFunctionDef>,
+        _function_def: Option<&ASTTypedFunctionDef>,
     ) {
         self.restore(code_gen_context, out);
         let bp = self.backend.stack_base_pointer();

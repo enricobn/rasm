@@ -140,10 +140,10 @@ impl EnhResolvedGenericTypes {
                     debug_i!("resolved generic type {gen_type_gen_name} to {effective_type}");
 
                     if let EnhASTType::Custom {
-                        namespace,
-                        name,
+                        namespace: _,
+                        name: _,
                         param_types,
-                        index,
+                        index: _,
                     } = effective_type
                     {
                         if zip(param_types, var_types).all(|(p, v)| {
@@ -152,12 +152,14 @@ impl EnhResolvedGenericTypes {
                                 .unwrap()
                         }) {
                             for (param_type, var_type) in zip(param_types, var_types) {
-                                if let EnhASTType::Generic(_, g_name, g_var_types) = var_type {
-                                    result.extend(Self::resolve_generic_types_from_effective_type(
-                                        var_type,
-                                        param_type,
-                                        enhanced_astmodule,
-                                    )?);
+                                if let EnhASTType::Generic(_, _g_name, _g_var_types) = var_type {
+                                    result
+                                        .extend(Self::resolve_generic_types_from_effective_type(
+                                            var_type,
+                                            param_type,
+                                            enhanced_astmodule,
+                                        )?)
+                                        .map_err(|it| type_check_error(it.to_owned()))?;
                                 }
                             }
 

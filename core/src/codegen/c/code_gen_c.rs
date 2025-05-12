@@ -351,11 +351,11 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         self.add(code, "freeReferences();", None, true);
     }
 
-    fn transform_before_in_function_def(&self, stack: &CodeGenCContext, before: String) -> String {
+    fn transform_before_in_function_def(&self, _stack: &CodeGenCContext, before: String) -> String {
         before
     }
 
-    fn main_init(&self, generated_code: &mut String) {}
+    fn main_init(&self, _generated_code: &mut String) {}
 
     fn call_lambda_parameter(
         &self,
@@ -371,13 +371,13 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         let mut args = call_parameters
             .parameters_values()
             .iter()
-            .map(|(name, value)| (value.as_str(), None))
+            .map(|(_name, value)| (value.as_str(), None))
             .collect::<Vec<_>>();
         args.push((function_call.function_name.as_str(), None));
 
         if return_value {
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                parameters,
+                parameters: _,
                 return_type,
             }) = kind.typed_type()
             {
@@ -416,7 +416,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         let mut args = call_parameters
             .parameters_values()
             .iter()
-            .map(|(name, value)| (value.as_str(), None))
+            .map(|(_name, value)| (value.as_str(), None))
             .collect::<Vec<_>>();
         let (casted_lambda, return_type) =
             if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
@@ -510,10 +510,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         statics: &mut Statics,
         body: &mut String,
         typed_module: &ASTTypedModule,
-        index: &EnhASTIndex,
+        _index: &EnhASTIndex,
         type_name: &String,
         namespace: &EnhASTNameSpace,
-        modifiers: &ASTModifiers,
+        _modifiers: &ASTModifiers,
     ) {
         let entry = statics.get_typed_const(name, namespace).unwrap();
         Self::call_add_ref(
@@ -565,7 +565,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         &self,
         _code_gen_context: &CodeGenCContext,
         name: &str,
-        index: &EnhASTIndex,
+        _index: &EnhASTIndex,
         before: &mut String,
         statics: &mut Statics,
         type_name: &String,
@@ -599,7 +599,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         statics_key: &str,
         before: &mut String,
         _current: &mut String,
-        name: &str,
+        _name: &str,
         typed_type: &ASTTypedType,
         statics: &mut Statics,
     ) {
@@ -645,7 +645,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         value: &String,
         _typed_type: &ASTTypedType,
         namespace: &EnhASTNameSpace,
-        modifiers: Option<&ASTModifiers>,
+        _modifiers: Option<&ASTModifiers>,
     ) {
         if is_const {
             let entry = statics.get_typed_const(name, namespace).unwrap();
@@ -665,16 +665,16 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn set_let_for_value(
         &self,
-        code_gen_context: &CodeGenCContext,
+        _code_gen_context: &CodeGenCContext,
         before: &mut String,
         name: &str,
         is_const: bool,
         statics: &mut Statics,
-        body: &mut String,
+        _body: &mut String,
         value_type: &ASTValueType,
         typed_type: &ASTTypedType,
         namespace: &EnhASTNameSpace,
-        modifiers: Option<&ASTModifiers>,
+        _modifiers: Option<&ASTModifiers>,
     ) {
         let value = self.value_to_string(value_type);
 
@@ -705,7 +705,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn function_def(
         &'a self,
-        code_gen_context: &CodeGenCContext,
+        _code_gen_context: &CodeGenCContext,
         out: &mut String,
         function_def: &ASTTypedFunctionDef,
         statics: &mut Statics,
@@ -811,7 +811,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         }
     }
 
-    fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String) {
+    fn string_literal_return(&self, _statics: &mut Statics, before: &mut String, value: &String) {
         self.code_manipulator.add(
             before,
             &format!("char* return_value_ = \"{value}\";"),
@@ -852,7 +852,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         evaluator
     }
 
-    fn print_memory_info(&self, native_code: &mut String, statics: &Statics) {
+    fn print_memory_info(&self, _native_code: &mut String, _statics: &Statics) {
         todo!()
     }
 
@@ -860,7 +860,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         false // TODO
     }
 
-    fn initialize_static_values(&self, generated_code: &mut String) {
+    fn initialize_static_values(&self, _generated_code: &mut String) {
         // TODO
     }
 
@@ -876,13 +876,13 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         return_value: bool,
         is_inner_call: bool,
         return_type: Option<&ASTTypedType>,
-        statics: &Statics,
+        _statics: &Statics,
     ) {
         let args = call_parameters
             .unwrap()
             .parameters_values()
             .iter()
-            .map(|(name, value)| (value.as_str(), None))
+            .map(|(_name, value)| (value.as_str(), None))
             .collect::<Vec<_>>();
         if return_value {
             if let Some(rt) = return_type {
@@ -907,7 +907,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         out: &mut String,
         function_name: &str,
         args: &[(&str, Option<&str>)],
-        comment: Option<&str>,
+        _comment: Option<&str>,
         return_value: bool,
         is_inner_call: bool,
     ) {
@@ -933,16 +933,16 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         }
     }
 
-    fn preamble(&self, code: &mut String) {}
+    fn preamble(&self, _code: &mut String) {}
 
     fn reserve_local_vals(&self, _code_gen_context: &CodeGenCContext, _out: &mut String) {}
 
     fn generate_statics_code(
         &self,
-        project: &RasmProject,
+        _project: &RasmProject,
         statics: &Statics,
         typed_module: &ASTTypedModule,
-        out_folder: &Path,
+        _out_folder: &Path,
     ) -> (String, String) {
         let mut before = String::new();
         let after = String::new();
@@ -969,10 +969,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             for variant in s.variants.iter() {
                 if variant.parameters.is_empty() {
                     if let EnhASTType::Custom {
-                        namespace,
+                        namespace: _,
                         name,
-                        param_types,
-                        index,
+                        param_types: _,
+                        index: _,
                     } = &s.ast_type
                     {
                         let variant_const_name =
@@ -1048,7 +1048,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         }
 
         if let Some(clambdas) = statics.any::<CLambdas>() {
-            for (i, clambda) in clambdas.lambdas.values().enumerate() {
+            for (_i, clambda) in clambdas.lambdas.values().enumerate() {
                 self.add(
                     &mut before,
                     &format!("struct {} {{", clambda.name),
@@ -1135,10 +1135,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             for (i, variant) in s.variants.iter().enumerate() {
                 if variant.parameters.is_empty() {
                     if let EnhASTType::Custom {
-                        namespace,
+                        namespace: _,
                         name,
-                        param_types,
-                        index,
+                        param_types: _,
+                        index: _,
                     } = &s.ast_type
                     {
                         let variant_const_name =
@@ -1176,14 +1176,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn function_preamble(
         &self,
-        code_gen_context: &CodeGenCContext,
-        function_def: Option<&ASTTypedFunctionDef>,
-        out: &mut String,
+        _code_gen_context: &CodeGenCContext,
+        _function_def: Option<&ASTTypedFunctionDef>,
+        _out: &mut String,
     ) {
         // TODO
     }
 
-    fn define_debug(&self, out: &mut String) {
+    fn define_debug(&self, _out: &mut String) {
         todo!()
     }
 
@@ -1276,8 +1276,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         _code_gen_context: &CodeGenCContext,
         _name: &str,
         _is_const: bool,
-        statics: &Statics,
-        namespace: &EnhASTNameSpace,
+        _statics: &Statics,
+        _namespace: &EnhASTNameSpace,
     ) {
     }
 
