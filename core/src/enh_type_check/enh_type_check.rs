@@ -30,7 +30,7 @@ use crate::{
     type_check::{
         ast_modules_container::{ASTModulesContainer, ASTTypeFilter},
         ast_type_checker::{ASTTypeCheckEntry, ASTTypeCheckInfo, ASTTypeChecker},
-        resolve_generic_types_from_effective_type, substitute,
+        substitute,
     },
 };
 
@@ -887,7 +887,11 @@ impl<'a> EnhTypeCheck<'a> {
 
                 if !rt.is_generic() && function.return_type.is_generic() {
                     if let Ok(result) =
-                        resolve_generic_types_from_effective_type(&function.return_type, rt, module)
+                        EnhResolvedGenericTypes::resolve_generic_types_from_effective_type(
+                            &function.return_type,
+                            rt,
+                            module,
+                        )
                     {
                         if let Err(e) = resolved_generic_types.extend(result) {
                             errors.push(EnhTypeCheckError::new(
@@ -1220,7 +1224,11 @@ impl<'a> EnhTypeCheck<'a> {
             if !et.is_generic() {
                 if let Some(pt) = param_type {
                     resolved_generic_types
-                        .extend(resolve_generic_types_from_effective_type(pt, et, module)?)
+                        .extend(
+                            EnhResolvedGenericTypes::resolve_generic_types_from_effective_type(
+                                pt, et, module,
+                            )?,
+                        )
                         .map_err(|it| {
                             EnhTypeCheckError::new(
                                 expr.get_index().unwrap_or(&EnhASTIndex::none()).clone(),
@@ -1239,11 +1247,13 @@ impl<'a> EnhTypeCheck<'a> {
                     })) = param_type
                     {
                         resolved_generic_types
-                            .extend(resolve_generic_types_from_effective_type(
-                                return_type.deref(),
-                                et,
-                                module,
-                            )?)
+                            .extend(
+                                EnhResolvedGenericTypes::resolve_generic_types_from_effective_type(
+                                    return_type.deref(),
+                                    et,
+                                    module,
+                                )?,
+                            )
                             .map_err(|it| {
                                 EnhTypeCheckError::new(
                                     expr.get_index().unwrap_or(&EnhASTIndex::none()).clone(),
