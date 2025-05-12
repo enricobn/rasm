@@ -829,7 +829,7 @@ impl IDEHelper {
                 ModulePosition::Body(astmodule) => {
                     references.append(&mut Self::get_references_until(&astmodule.body, &id_index));
                 }
-                ModulePosition::Function(astmodule, astfunction_def) => {
+                ModulePosition::Function(_astmodule, astfunction_def) => {
                     if let ASTFunctionBody::RASMBody(ref body) = astfunction_def.body {
                         references = astfunction_def
                             .parameters

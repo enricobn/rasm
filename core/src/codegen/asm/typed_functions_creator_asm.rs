@@ -237,7 +237,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
 
     fn create_type_free_body(
         &self,
-        module: &EnhancedASTModule,
+        _module: &EnhancedASTModule,
         type_def: &ASTTypedTypeDef,
         function_name: &str,
         typed_module: &dyn TypeDefProvider,

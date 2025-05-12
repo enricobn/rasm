@@ -552,16 +552,16 @@ impl TextMacroEvaluator {
                             ast_type.clone(),
                             function_name_for_fix_generics,
                         );
-                        let t = if let ast::ASTType::Generic(_position, _name, var_types) = ast_type
-                        {
-                            if let Some(t) = substitute(&eh_ast_type, resolved_generic_types) {
-                                t
+                        let t =
+                            if let ast::ASTType::Generic(_position, _name, _var_types) = ast_type {
+                                if let Some(t) = substitute(&eh_ast_type, resolved_generic_types) {
+                                    t
+                                } else {
+                                    eh_ast_type
+                                }
                             } else {
                                 eh_ast_type
-                            }
-                        } else {
-                            eh_ast_type
-                        };
+                            };
                         (
                             par_name,
                             Some(t.clone()),

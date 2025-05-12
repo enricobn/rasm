@@ -1936,7 +1936,7 @@ mod tests {
             &CommandLineOptions::default(),
         );
 
-        let finder = ReferenceFinder::new(
+        ReferenceFinder::new(
             &eh_module,
             &module,
             CompileTarget::C(COptions::default()),

@@ -275,7 +275,7 @@ impl UI {
                 result.insert(info.index(index.clone()), SyntaxKind::UnTyped);
             }
             ASTType::Custom {
-                name,
+                name: _,
                 param_types,
                 position: index,
             } => {

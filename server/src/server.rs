@@ -193,7 +193,7 @@ async fn file<'a>(
 
     let target = CompileTarget::Nasmi386(AsmOptions::default());
 
-    let (module, errors, info) = &state
+    let (_module, _errors, info) = &state
         .project
         .get_module(file_path.as_path(), &target)
         .unwrap();

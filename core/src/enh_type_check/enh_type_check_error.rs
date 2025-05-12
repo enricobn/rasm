@@ -112,7 +112,7 @@ impl EnhTypeCheckError {
         if !self.messages.is_empty() {
             // f.write_str(&format!("{spaces}messages :\n"))?;
 
-            for (index, message, stack) in self.messages.iter() {
+            for (index, message, _stack) in self.messages.iter() {
                 if index.file_name.is_some() {
                     f.write_str(&format!("{spaces}{} : {}\n", message, index))?;
 
