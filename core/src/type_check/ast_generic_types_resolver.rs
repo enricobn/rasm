@@ -5,12 +5,10 @@ use std::{
 
 use linked_hash_map::LinkedHashMap;
 use rasm_parser::{
-    catalog::{ASTIndex, ModuleInfo},
+    catalog::ASTIndex,
     parser::ast::{ASTType, BuiltinTypeKind},
 };
 use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
-
-use crate::type_check::ast_modules_container::ASTTypeFilter;
 
 use super::ast_type_checker::{ASTTypeCheckErroKind, ASTTypeCheckError};
 
