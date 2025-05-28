@@ -681,6 +681,15 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
 
             let mut function = original_function.clone();
 
+            if function.parameters.len() != 1
+                || function.parameters.get(0).unwrap().name != "address"
+            {
+                panic!(
+                    "function {ref_function_name} must have a parameter named 'address' : {}",
+                    function.index
+                );
+            }
+
             let mut dummy = self.create_function(
                 &original_function.namespace,
                 &original_function.name,
@@ -712,6 +721,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                     false,
                     type_def_provider,
                 )
+                .map_err(|error| format!("{error} in function : {}", function.index))
                 .unwrap()
         } else {
             panic!("{ref_function_name} should be a native function.");
