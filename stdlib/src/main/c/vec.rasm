@@ -145,6 +145,35 @@ pub native vecOf<T>(o1: T, o2: T, o3: T) -> Vec<T> /{
     return result;
 }/
 
+pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T) -> Vec<T> /{
+    struct RasmPointer_ *result = $call(Vec, 4);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+
+    result_array[0] = o1;
+    result_array[1] = o2;
+    result_array[2] = o3;
+    result_array[3] = o4;
+
+    return result;
+}/
+
+pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T) -> Vec<T> /{
+    struct RasmPointer_ *result = $call(Vec, 5);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+
+    result_array[0] = o1;
+    result_array[1] = o2;
+    result_array[2] = o3;
+    result_array[3] = o4;
+    result_array[4] = o5;
+
+    return result;
+}/
+
 pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T, o8: T) -> Vec<T> /{
     struct RasmPointer_ *result = $call(Vec,8);
     struct Vector *result_vec = (struct Vector*)result->address;
@@ -161,6 +190,24 @@ pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T, o8: T) -> V
     result_array[7] = o8;
 
     return result;
+}/
+
+/*
+TODO test it and add it in Nasmi386
+*/
+pub native get<T>(vec: Vec<T>, i: i32) -> Option<T> /{
+    int l = $castAddress($vec)->length;
+    if (i >= l) {
+        $enumSimple(result,None);
+        return result;
+    } else {
+        struct RasmPointer_ *array_values = $castAddress($vec)->values;           \
+        $typeName(T) *array = ($typeName(T) *)array_values->address;     \
+        $typeName(T) value = array[i];
+
+        $addRef(value:T)
+        return $call(Some, value: T);
+    }
 }/
 
 native optIOError() -> Option<IOError> /{

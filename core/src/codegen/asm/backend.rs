@@ -157,7 +157,10 @@ impl Backend for BackendNasmi386 {
                     .arg("-o")
                     .arg(path.with_extension(""))
                     .arg(path.with_extension("o"))
-                    .args(libraries);
+                    .args(libraries)
+                    .arg("-z")
+                    .arg("noexecstack")
+                    .arg("-no-pie");
                 log_command(&gcc_command);
                 gcc_command
                     .stderr(Stdio::inherit())

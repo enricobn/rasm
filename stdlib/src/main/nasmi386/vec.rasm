@@ -48,6 +48,58 @@ pub native vecOf<T>(v1: T, v2: T, v3: T) -> Vec<T> /{
     pop     eax
 }/
 
+pub native vecOf<T>(v1: T, v2: T, v3: T, v4: T) -> Vec<T> /{
+    $call(rasmalloc, 20, " for vecOf 4")
+    push    eax
+    mov     dword eax, [eax]
+    mov     dword [eax], 4
+
+    push    ebx
+
+    mov     dword ebx, $v1
+    mov     dword [eax + 4], ebx
+
+    mov     dword ebx, $v2
+    mov     dword [eax + 8], ebx
+
+    mov     dword ebx, $v3
+    mov     dword [eax + 12], ebx
+
+    mov     dword ebx, $v4
+    mov     dword [eax + 16], ebx
+
+    pop     ebx
+    pop     eax
+}/
+
+
+pub native vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T) -> Vec<T> /{
+    $call(rasmalloc, 24, " for vecOf 5")
+    push    eax
+    mov     dword eax, [eax]
+    mov     dword [eax], 5
+
+    push    ebx
+
+    mov     dword ebx, $v1
+    mov     dword [eax + 4], ebx
+
+    mov     dword ebx, $v2
+    mov     dword [eax + 8], ebx
+
+    mov     dword ebx, $v3
+    mov     dword [eax + 12], ebx
+
+    mov     dword ebx, $v4
+    mov     dword [eax + 16], ebx
+
+    mov     dword ebx, $v5
+    mov     dword [eax + 20], ebx
+
+    pop     ebx
+    pop     eax
+}/
+
 pub native vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
     $call(rasmalloc, 36, " for vecOf 8")
     push    eax

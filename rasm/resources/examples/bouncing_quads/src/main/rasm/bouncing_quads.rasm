@@ -1,5 +1,5 @@
 /*
-time tmp/bouncing_quads 20
+time tmp/bouncing_quads 20 (with 10000 quads)
 
 Nasmi386 backend
 real    0m0,668s
@@ -20,10 +20,11 @@ struct Quad {
     x: i32,
     y: i32,
     xDir: XDirection,
-    yDir: YDirection
+    yDir: YDirection,
+    color: SDLColor
 }
 
-const QUADS = 10000;
+const QUADS = 50000;
 const WIDTH = 1024;
 const HEIGHT = 768;
 const QUADWIDTH = 10;
@@ -45,7 +46,7 @@ let quads = vecRange(0, QUADS).map(fn(it) {
                     let y = random(HEIGHT);
                     let xDir = if(random(2).eq(0), Right(), Left());
                     let yDir = if(random(2).eq(0), YDirection::Up(), YDirection::Down());
-                    Quad(x, y, xDir, yDir);
+                    Quad(x, y, xDir, yDir, SDLColor(random(255), random(255), random(255), 255));
                 });
 let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(fn(it) {it.toi32;}).getOrElse(5000));
 
@@ -64,42 +65,31 @@ fn update(event: Option<KeyEvent>, model: Model) -> Model {
 }
 
 fn update(quad: Quad) -> Quad {
-    let px = update(quad.x, quad.xDir);
-    let py = update(quad.y, quad.yDir);
-    Quad(px.first, py.first, px.second, py.second);
+    let px = update(quad.x, quad.xDir, WIDTH.sub(QUADWIDTH));
+    let py = update(quad.y, quad.yDir, HEIGHT.sub(QUADWIDTH));
+    Quad(px.first, py.first, px.second, py.second, quad.color);
 }
 
-fn update(x: i32, xDir: XDirection) -> Pair<i32, XDirection> {
-    let newX = x.move(xDir, 1);
+fn update<T>(x: i32, dir: T, max: i32) -> Pair<i32, T> {
+    let newX = x.move(dir, 1);
 
-    if (x.greater(WIDTH),
-        Pair(WIDTH, xDir.flip),
+    if (x.greater(max),
+        Pair(max, dir.flip),
         x.less(0),
-        Pair(0, xDir.flip),
-        Pair(newX, xDir));
-}
-
-fn update(y: i32, yDir: YDirection) -> Pair<i32, YDirection> {
-    let newY = y.move(yDir, 1);
-
-    if (y.greater(HEIGHT),
-        Pair(HEIGHT, yDir.flip),
-        y.less(0),
-        Pair(0, yDir.flip),
-        Pair(newY, yDir));
+        Pair(0, dir.flip),
+        Pair(newX, dir));
 }
 
 fn render(ren: SDLRenderer, model: Model) {
     sdlSetRenderDrawColor(ren, BLACK);
     sdlRenderClear(ren);
 
-    sdlSetRenderDrawColor(ren, WHITE);
-
     model.quads.forEach(fn(quad) {
+        sdlSetRenderDrawColor(ren, quad.color);
         sdlRenderFillRect(ren, SDLRect(quad.x, quad.y, QUADWIDTH, QUADWIDTH));
     });
 
-    let fpsText = createSDLText(ren, model.font, add("FPS: ", toString(model.fps.fps)), GREEN);
+    let fpsText = createSDLText(ren, model.font, add("FPS: ", toString(model.fps.fps)), BLACK);
     renderAndRelease(ren, fpsText, SDLRect(400, 2, 100, 24));
 
     sdlRenderPresent(ren);
