@@ -773,3 +773,24 @@ pub native charsVec(s: str) -> Vec<char> /{
     pop     ecx
     pop     ebx
 }/
+
+pub native get<T>(vec: Vec<T>, i: i32) -> Option<T> /{
+    push    ebx
+    mov     dword ebx, $vec  ; address to the allocation table
+    mov     dword ebx, [ebx] ; address to the "Vec struct"
+    mov     dword eax, [ebx] ; length
+    cmp     eax, $i
+    jle      .greater
+    mov     eax, dword $i
+    inc     eax              ; since now in ebx there's the address of length
+    shl     eax,2            ; eax * 4
+    add     eax,ebx
+    mov     dword eax, [eax]
+    $addRef(eax: T)
+    $call(Some, eax:T)
+    jmp     .end
+.greater:
+    mov     dword eax, [_enum_stdlib_option_Option_None]
+.end:
+    pop     ebx
+}/

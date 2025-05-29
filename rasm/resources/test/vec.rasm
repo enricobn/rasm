@@ -47,3 +47,8 @@ if(allMatch(vecRange(0, 2), fn(n) { eq(n, 2);}), { println("true");}, { println(
 if(allMatch(vecRange(0, 2), fn(n) { n.greater(-1);}), { println("true");}, { println("false");});
 
 println(vecOf(1.1, 2.2));
+let intvec = vecOf(10,20);
+
+println(intvec.get(2));
+println(intvec.get(1));
+println(intvec.last);

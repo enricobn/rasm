@@ -190,24 +190,6 @@ pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T, o8: T) -> V
     return result;
 }/
 
-/*
-TODO test it and add it in Nasmi386
-*/
-pub native get<T>(vec: Vec<T>, i: i32) -> Option<T> /{
-    int l = $castAddress($vec)->length;
-    if (i >= l) {
-        $enumSimple(result,None);
-        return result;
-    } else {
-        struct RasmPointer_ *array_values = $castAddress($vec)->values;           \
-        $typeName(T) *array = ($typeName(T) *)array_values->address;     \
-        $typeName(T) value = array[i];
-
-        $addRef(value:T)
-        return $call(Some, value: T);
-    }
-}/
-
 native optIOError() -> Option<IOError> /{
     $include(<errno.h>)
 
@@ -522,5 +504,20 @@ pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
 
     for (int i = 0; i < length; i++) {
         $castAddress($f)->functionPtr(array[i], f);
+    }
+}/
+
+pub native get<T>(vec: Vec<T>, i: i32) -> Option<T> /{
+    int l = $castAddress($vec)->length;
+    if (i >= l) {
+        $enumSimple(result,None);
+        return result;
+    } else {
+        struct RasmPointer_ *array_values = $castAddress($vec)->values;           \
+        $typeName(T) *array = ($typeName(T) *)array_values->address;     \
+        $typeName(T) value = array[i];
+
+        $addRef(value:T)
+        return $call(Some, value: T);
     }
 }/
