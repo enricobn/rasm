@@ -47,7 +47,9 @@ use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
 use walkdir::WalkDir;
 
 use super::c_compiler::CLibAssets;
-use super::text_macro_c::{CAddRefMacro, CCastAddress, CEnumSimpleMacro, CTypeNameMacro};
+use super::text_macro_c::{
+    CAddRefMacro, CCastAddress, CEnumSimpleMacro, CIsRefMacro, CTypeNameMacro,
+};
 use super::typed_function_creator_c::TypedFunctionsCreatorC;
 
 #[derive(Clone)]
@@ -848,6 +850,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         evaluator.add("typeName", CTypeNameMacro::new());
         evaluator.add("castAddress", CCastAddress::new());
         evaluator.add("enumSimple", CEnumSimpleMacro::new());
+        evaluator.add("isRef", CIsRefMacro::new());
 
         evaluator
     }

@@ -15,8 +15,10 @@ pub native VecAddRef<T>(address: Vec<T>) /{
         addRef(vector->values);
         $typeName(T) *array = ($typeName(T) *)vector->values->address;
 
-        for (int i=0; i < vector->length; i++) {
-            $addRef(array[i]: T);
+        if ($isRef(T)) {
+            for (int i=0; i < vector->length; i++) {
+                $addRef(array[i]: T);
+            }
         }
     }
     addRef(address);
@@ -29,8 +31,10 @@ pub native VecDeref<T>(address: Vec<T>) /{
     if (vector->values != NULL) {
         $typeName(T) *array = ($typeName(T) *)vector->values->address;
 
-        for (int i=0; i < vector->length; i++) {
-            $deref(array[i]: T);
+        if ($isRef(T)) {
+            for (int i=0; i < vector->length; i++) {
+                $deref(array[i]: T);
+            }
         }
 
         deref(vector->values);

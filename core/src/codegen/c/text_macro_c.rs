@@ -625,3 +625,79 @@ impl TextMacroEval for CEnumSimpleMacro {
         Vec::new()
     }
 }
+
+pub struct CIsRefMacro;
+
+impl CIsRefMacro {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl TextMacroEval for CIsRefMacro {
+    fn eval_macro(
+        &self,
+        statics: &mut Statics,
+        text_macro: &TextMacro,
+        function_def: Option<&ASTTypedFunctionDef>,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> String {
+        let value = text_macro.parameters.get(0).unwrap();
+        if let MacroParam::Ref(_name, ast_type, ast_type_type) = value {
+            let t = ast_type_type.clone().unwrap();
+
+            CLambdas::add_to_statics_if_lambda(&t, statics);
+
+            if ast_type.clone().unwrap().is_reference(type_def_provider) {
+                "1".to_owned()
+            } else {
+                "0".to_owned()
+            }
+        } else if let MacroParam::Plain(name, _, _) = value {
+            if let Some(def) = function_def {
+                let resolved_generic_types =
+                    def.resolved_generic_types.clone().remove_generics_prefix();
+
+                // TODO type classes, I would like to resolve something like M<T>
+                //let gen_name = format!("{}_{}:{}", def.namespace, def.name, name);
+                if let Some(t) = resolved_generic_types.get(&name, &Vec::new()) {
+                    CLambdas::add_to_statics_if_lambda(&t, statics);
+
+                    let is_ref = if let Some(type_name) =
+                        get_reference_type_name(t, type_def_provider)
+                    {
+                        if let Some(t_def) = type_def_provider.get_type_def_by_name(&type_name) {
+                            t_def.is_ref
+                        } else {
+                            true
+                        }
+                    } else {
+                        false
+                    };
+                    if is_ref {
+                        "1".to_owned()
+                    } else {
+                        "0".to_owned()
+                    }
+                } else {
+                    panic!(
+                        "Cannot find generic type {name} : {}",
+                        resolved_generic_types
+                    )
+                }
+            } else {
+                panic!("Cannot resolve generic type {name} without a function.")
+            }
+        } else {
+            panic!("First argument should be a reference to a value.")
+        }
+    }
+
+    fn is_pre_macro(&self) -> bool {
+        false
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
+    }
+}
