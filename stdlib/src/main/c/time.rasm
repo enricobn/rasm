@@ -1,5 +1,6 @@
 pub native now() -> TimeVal /{
     $include(<sys/time.h>)
+    $include(<time.h>)
 
     struct timeval tv;
 
