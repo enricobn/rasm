@@ -234,6 +234,22 @@ impl ASTTypeChecker {
         }
     }
 
+    fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) {
+        /*
+                if format!("{entry}").contains("fn (Vec<f32>) -> PathElement") {
+            println!("inserting {index} {entry}");
+        }
+        if index.info().id().0.contains("option.rasm") {
+            if index.position().row == 15 && index.position().column == 5 {
+                println!("inserting option {index} {entry}");
+                println!("inserting 15:5 {entry}");
+            }
+        }
+        */
+
+        self.result.insert(index, entry);
+    }
+
     pub fn from_modules_container(modules_container: &ASTModulesContainer) -> (Self, ValContext) {
         let mut type_checker = ASTTypeChecker::new();
         let mut static_val_context = ValContext::new(None);
@@ -457,7 +473,7 @@ impl ASTTypeChecker {
                                     ));
                                 }
                             }
-                            self.result.insert(
+                            self.insert(
                                 index,
                                 ASTTypeCheckEntry::new(
                                     entry.filter.clone(),
@@ -504,7 +520,7 @@ impl ASTTypeChecker {
                                     ));
                                 }
                             }
-                            self.result.insert(
+                            self.insert(
                                 index,
                                 ASTTypeCheckEntry::new(
                                     entry.filter.clone(),
@@ -566,7 +582,7 @@ impl ASTTypeChecker {
             }
             ASTExpression::ValueRef(name, _) => {
                 if let Some(kind) = val_context.get(name) {
-                    self.result.insert(
+                    self.insert(
                         index.clone(),
                         ASTTypeCheckEntry::reference(
                             ASTTypeFilter::exact(kind.ast_type(), module_namespace, module_id),
@@ -575,7 +591,7 @@ impl ASTTypeChecker {
                         ),
                     );
                 } else if let Some(kind) = statics.get(name) {
-                    self.result.insert(
+                    self.insert(
                         index.clone(),
                         ASTTypeCheckEntry::reference(
                             ASTTypeFilter::exact(kind.ast_type(), module_namespace, module_id),
@@ -672,7 +688,7 @@ impl ASTTypeChecker {
                             }
                         };
 
-                        self.result.insert(
+                        self.insert(
                             index.clone(),
                             ASTTypeCheckEntry::reference(
                                 ASTTypeFilter::exact(
@@ -698,7 +714,7 @@ impl ASTTypeChecker {
                 }
             }
             ASTExpression::Value(value_type, _position) => {
-                self.result.insert(
+                self.insert(
                     index.clone(),
                     ASTTypeCheckEntry::primitive(
                         ASTTypeFilter::Exact(
@@ -742,7 +758,7 @@ impl ASTTypeChecker {
                                     e,
                                 ));
                             } else {
-                                self.result.insert(
+                                self.insert(
                                     par_index.clone(),
                                     ASTTypeCheckEntry::param(
                                         ASTTypeFilter::exact(
@@ -758,6 +774,21 @@ impl ASTTypeChecker {
 
                         Some((return_type.as_ref(), parameters))
                     } else {
+                        for (name, par_position) in lambda.parameter_names.iter() {
+                            let par_index = ASTIndex::new(
+                                module_namespace.clone(),
+                                module_id.clone(),
+                                par_position.clone(),
+                            );
+
+                            self.insert_unknown_lambda_par(
+                                &mut lambda_val_context,
+                                name,
+                                &par_index,
+                                module_namespace,
+                                module_id,
+                            );
+                        }
                         None
                     };
 
@@ -824,7 +855,7 @@ impl ASTTypeChecker {
                                 )
                             {
                                 if let Some(rt) = rgt.substitute(et) {
-                                    self.result.insert(
+                                    self.insert(
                                         index,
                                         ASTTypeCheckEntry::new(
                                             Some(ASTTypeFilter::Exact(rt, e_module_id.clone())),
@@ -840,6 +871,37 @@ impl ASTTypeChecker {
         }
 
         dedent!();
+    }
+
+    fn insert_unknown_lambda_par(
+        &mut self,
+        lambda_val_context: &mut ValContext,
+        name: &str,
+        par_index: &ASTIndex,
+        module_namespace: &ModuleNamespace,
+        module_id: &ModuleId,
+    ) {
+        match lambda_val_context.insert_unknown_lambda_parameter(name.to_owned(), par_index) {
+            Ok(valkind_o) => {
+                if let Some(ast_type) = valkind_o.map(|it| it.ast_type()) {
+                    self.insert(
+                        par_index.clone(),
+                        ASTTypeCheckEntry::param(
+                            ASTTypeFilter::Exact(
+                                ast_type.clone(),
+                                ModuleInfo::new(module_namespace.clone(), module_id.clone()),
+                            ),
+                            name.to_owned(),
+                        ),
+                    );
+                }
+            }
+            Err(e) => self.errors.push(ASTTypeCheckError::new(
+                ASTTypeCheckErroKind::Error,
+                par_index.clone(),
+                e,
+            )),
+        }
     }
 
     fn add_call(
@@ -890,8 +952,20 @@ impl ASTTypeChecker {
                 // we hope that knowing only that it's a lambda, eventually the return type and the number of parameters is sufficient
 
                 if let ASTExpression::Lambda(def) = e {
+                    let mut lambda_val_context = ValContext::new(Some(&val_context));
+                    for (name, pos) in def.parameter_names.iter() {
+                        let par_index =
+                            ASTIndex::new(module_namespace.clone(), module_id.clone(), pos.clone());
+                        self.insert_unknown_lambda_par(
+                            &mut lambda_val_context,
+                            name,
+                            &par_index,
+                            module_namespace,
+                            module_id,
+                        );
+                    }
                     let ret_type = if let Some(body_ret_type) = tmp.add_body(
-                        val_context,
+                        &mut lambda_val_context,
                         statics,
                         &def.body,
                         None,
@@ -913,7 +987,7 @@ impl ASTTypeChecker {
                     );
 
                     if let Some(found) = tmp.result.get(&index) {
-                        self.result.insert(index.clone(), found.clone());
+                        self.insert(index.clone(), found.clone());
                     }
                 } else {
                     self.add_expr(
@@ -1059,7 +1133,7 @@ impl ASTTypeChecker {
                     None
                 };
 
-                self.result.insert(
+                self.insert(
                     index,
                     ASTTypeCheckEntry::new(
                         filter,
@@ -1248,7 +1322,7 @@ impl ASTTypeChecker {
         );
 
         if is_lambda {
-            self.result.insert(
+            self.insert(
                 index.clone(),
                 ASTTypeCheckEntry::new(
                     Some(ASTTypeFilter::exact(
@@ -1260,7 +1334,7 @@ impl ASTTypeChecker {
                 ),
             );
         } else {
-            self.result.insert(
+            self.insert(
                 index.clone(),
                 ASTTypeCheckEntry::new(
                     Some(ASTTypeFilter::exact(

@@ -513,7 +513,7 @@ impl RasmProject {
     ) -> (ASTModule, EnhModuleInfo) {
         let mut module_src = String::new();
 
-        module_src.push_str("let test = argv(1).getOrElse(\"_ALL_\");");
+        module_src.push_str("let test = argv(1).getOrElse(\"_ALL_\");\n");
 
         module_src.push_str("let tests = Vec()");
 

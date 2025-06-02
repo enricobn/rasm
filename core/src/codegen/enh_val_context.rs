@@ -1,9 +1,13 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use linked_hash_map::{Iter, LinkedHashMap};
 use rasm_utils::debug_i;
 
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTParameterDef, EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::{EnhValKind, TypedValKind};
 use crate::enh_type_check::typed_ast::{ASTTypedParameterDef, ASTTypedType};
+
+static COUNT_UNKNOWN_LAMBDA_PAR: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone, Debug)]
 pub struct EnhValContext {
@@ -26,6 +30,28 @@ impl EnhValContext {
             par_index,
             let_index,
         }
+    }
+
+    pub fn insert_unknown_lambda_par(
+        &mut self,
+        name: &str,
+        index: &EnhASTIndex,
+    ) -> Result<Option<EnhValKind>, String> {
+        self.insert_par(
+            name.to_owned(),
+            EnhASTParameterDef {
+                name: name.to_owned(),
+                ast_type: EnhASTType::Generic(
+                    EnhASTIndex::none(),
+                    format!(
+                        "L_{}",
+                        COUNT_UNKNOWN_LAMBDA_PAR.fetch_add(1, Ordering::Relaxed)
+                    ),
+                    Vec::new(), // TODO type classes
+                ),
+                ast_index: index.clone(),
+            },
+        )
     }
 
     pub fn insert_par(

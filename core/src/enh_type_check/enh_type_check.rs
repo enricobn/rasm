@@ -1747,21 +1747,16 @@ impl<'a> EnhTypeCheck<'a> {
         );
         indent!();
 
-        if namespace.safe_name().contains("reference") {
-            if let EnhASTExpression::ValueRef(name, _, _) = typed_expression {
-                if name == "add" {
-                    println!(
-                        "type_of_expression {typed_expression} expected type {}",
-                        OptionDisplay(&expected_type)
-                    );
-                }
-            }
-        }
-
         if let Some(enh_index) = typed_expression.get_index() {
             if let Some(t) = self.get_type_check_entry(enh_index, namespace) {
                 if let Some(f) = t.filter() {
                     if !f.is_generic() {
+                        /*
+                        println!(
+                            "optimized {f} -> {enh_index} {}",
+                            OptionDisplay(&typed_expression.get_index())
+                        );
+                        */
                         let filter = self.enh_filter_from_ast(f, namespace);
                         dedent!();
                         return Ok(filter);
@@ -1848,12 +1843,6 @@ impl<'a> EnhTypeCheck<'a> {
                     if let Some(c) = statics.get_const(name, const_namespace) {
                         EnhTypeFilter::Exact(c.ast_type.clone())
                     } else {
-                        //if name == "stdlib_i32_eq_i32_i32_bool" || name == "breakout_breakout_update_stdlib_option_Option_sdl_sdl_KeyEvent__breakout_breakout_State__breakout_breakout_State" {
-                        // println!("stdlib_i32_eq_i32_i32_bool");
-                        //for (f, _) in new_functions.iter() {
-                        //    println!("function name {} {}", f.name, f.original_name);
-                        //}
-                        //}
                         let mut function_references = self.functions_referenced_by_name(
                             module,
                             expected_type,
@@ -2092,18 +2081,7 @@ impl<'a> EnhTypeCheck<'a> {
             } else {
                 for (i, (name, index)) in lambda_def.parameter_names.iter().enumerate() {
                     val_context
-                        .insert_par(
-                            name.to_owned(),
-                            EnhASTParameterDef {
-                                name: name.to_owned(),
-                                ast_type: EnhASTType::Generic(
-                                    EnhASTIndex::none(),
-                                    format!("L_{i}"),
-                                    Vec::new(), // TODO type classes
-                                ),
-                                ast_index: index.clone(),
-                            },
-                        )
+                        .insert_unknown_lambda_par(name, index)
                         .map_err(|e| {
                             EnhTypeCheckError::new(index.clone(), e.clone(), self.stack.clone())
                         })?;
@@ -2224,6 +2202,14 @@ mod tests {
         let project = dir_to_project("../rasm/resources/examples/breakout");
         test_project(project).unwrap();
     }
+
+    /*
+    #[test]
+    pub fn svglib() {
+        let project = dir_to_project("/home/enrico/development/rasm/svglib/");
+        test_project(project).unwrap();
+    }
+    */
 
     #[test]
     pub fn let1() {

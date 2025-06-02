@@ -1,10 +1,14 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::debug_i;
 
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleNamespace},
-    parser::ast::{ASTParameterDef, ASTType, BuiltinTypeKind},
+    parser::ast::{ASTParameterDef, ASTPosition, ASTType, BuiltinTypeKind},
 };
+
+static COUNT_UNKNOWN_LAMBDA_PAR: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone, Debug)]
 pub enum ValKind {
@@ -37,21 +41,28 @@ pub struct ValContext {
     pub value_to_address: LinkedHashMap<String, ValKind>,
     let_index: usize,
     par_index: usize,
+    unknown_lambda_par_index: usize,
 }
 
 impl ValContext {
     pub fn new(parent_context: Option<&ValContext>) -> Self {
-        let (value_to_address, par_index, let_index) = {
+        let (value_to_address, par_index, let_index, unknown_lambda_par_index) = {
             if let Some(pc) = parent_context {
-                (pc.value_to_address.clone(), pc.par_index, pc.let_index)
+                (
+                    pc.value_to_address.clone(),
+                    pc.par_index,
+                    pc.let_index,
+                    pc.unknown_lambda_par_index,
+                )
             } else {
-                (LinkedHashMap::new(), 0, 0)
+                (LinkedHashMap::new(), 0, 0, 0)
             }
         };
         Self {
             value_to_address,
             par_index,
             let_index,
+            unknown_lambda_par_index,
         }
     }
 
@@ -91,6 +102,38 @@ impl ValContext {
             ValKind::LetRef(self.let_index, ast_type, ast_index.clone()),
         );
         self.let_index += 1;
+        if result.is_some() {
+            Err(format!("already defined {key}: {}", ast_index))
+        } else {
+            Ok(result)
+        }
+    }
+
+    pub fn insert_unknown_lambda_parameter(
+        &mut self,
+        key: String,
+        ast_index: &ASTIndex,
+    ) -> Result<Option<ValKind>, String> {
+        debug_i!("adding unknown lambda parameter {key} to context");
+
+        let par = ASTParameterDef::new(
+            &key,
+            ASTType::Generic(
+                ASTPosition::none(),
+                format!(
+                    "L_{}",
+                    COUNT_UNKNOWN_LAMBDA_PAR.fetch_add(1, Ordering::Relaxed)
+                ),
+                Vec::new(),
+            ),
+            ast_index.position().clone(),
+        );
+
+        let result = self.value_to_address.insert(
+            key.clone(),
+            ValKind::ParameterRef(self.unknown_lambda_par_index, par),
+        );
+        self.unknown_lambda_par_index += 1;
         if result.is_some() {
             Err(format!("already defined {key}: {}", ast_index))
         } else {
