@@ -59,7 +59,7 @@ sdlLoop(ren, initialState,
 sdlDestroyRenderer(ren);
 sdlDestroyWindow(win);
 
-// TODO keys are not as expected space is 44 but should be 32!
+// TODO keys are not as expected, space is 44 but should be 32!
 fn update(event: Option<KeyEvent>, state: State) -> State {
     let resources = state.resources;
     let keys = state.keys;
@@ -114,11 +114,11 @@ fn loadHighScores() -> Vec<HighScore> {
         let scores = readFile("scores.txt");
         let lines = scores.lines;
         lines.fmap(fn(line) {
-            let splitted = splitToList(line, ",");
+            let splitted = line.splitToList(",");
             splitted.map3(fn(score, sec, nano) {
-                toi32(score).fmap(fn(sc) {
-                    toi32(sec).fmap(fn(s) {
-                        toi32(nano).map(fn(n) {
+                score.toi32.fmap(fn(sc) {
+                    sec.toi32.fmap(fn(s) {
+                        nano.toi32.map(fn(n) {
                             HighScore(sc, TimeVal(s, n));
                         });
                     });

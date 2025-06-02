@@ -11,9 +11,9 @@ pub fn initialBall(now: TimeVal) -> Ball {
 }
 
 pub fn update(ball: Ball, actualTime: TimeVal) -> Ball {
-    let elapsed = elapsedTime(actualTime, ball.lastUpdate);
+    let elapsed = actualTime.elapsedTime(ball.lastUpdate);
 
-    let diff = divf(elapsed, 3000);
+    let diff = elapsed.divf(3000);
 
     let updatedX = update(ball.x, ball.xDir, diff);
     let newX = updatedX.first;
@@ -28,20 +28,20 @@ pub fn update(ball: Ball, actualTime: TimeVal) -> Ball {
 
 fn update(x: f32, xDir: XDirection, diff: f32) -> Pair<f32,XDirection> {
     let newX = x.move(xDir, diff);
-    let rightMargin = sub(WIDTH, BALLSIZE);
+    let rightMargin = WIDTH.sub(BALLSIZE);
 
-    if (greater(newX, rightMargin),
-        { Pair(rightMargin.sub(newX.sub(rightMargin)), flip(xDir)); },
+    if (newX.greater(rightMargin),
+        { Pair(rightMargin.sub(newX.sub(rightMargin)), xDir.flip); },
         less(newX, 0),
-        { Pair(sub(0.0, newX), flip(xDir)); },
+        { Pair(sub(0.0, newX), xDir.flip); },
         { Pair(newX, xDir);}
     );
 }
 
 fn update(y: f32, yDir: YDirection, diff: f32) -> Pair<f32,YDirection> {
     let newY = y.move(yDir, diff);
-    if(less(newY, HEADERHEIGHT),
-        { Pair(tof32(HEADERHEIGHT).add(tof32(HEADERHEIGHT).sub(newY)), flip(yDir));},
+    if(newY.less(HEADERHEIGHT),
+        { Pair(HEADERHEIGHT.tof32.add(HEADERHEIGHT.tof32.sub(newY)), yDir.flip);},
         { Pair(newY, yDir);}
     );
 }
@@ -72,8 +72,8 @@ pub fn afterCollision(ball: Ball, brick: Brick) -> Ball {
     let yDiff1 = ball.y.sub(brick.y);
     let yDiff2 = brick.y.add(BRICKHEIGHT).sub(ball.y);
 
-    let xDiff = min(xDiff1, xDiff2);
-    let yDiff = min(yDiff1, yDiff2);
+    let xDiff = xDiff1.min(xDiff2);
+    let yDiff = yDiff1.min(yDiff2);
 
     if(xDiff.less(yDiff), { ball.xDir(ball.xDir.flip);}, { ball.yDir(ball.yDir.flip);});
 }
