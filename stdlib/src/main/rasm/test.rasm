@@ -1,26 +1,36 @@
-pub struct Suite {
+pub struct TestSuite {
     name: str,
-    tests: Vec<RunTest>
+    tests: Vec<RunTest>,
+    suites: Vec<TestSuite>
 }
 
-pub fn Suite(name: str) -> Suite {
-    Suite(name, Vec());
+pub fn TestSuite(name: str) -> TestSuite {
+    TestSuite(name, Vec(), Vec());
 }
 
-pub fn add(suite: Suite, name: str, index: str, function: fn() -> Assertions) -> Suite {
-    let newSuite = suite.tests.push(RunTest(name, index, function));
-    Suite(suite.name, newSuite);
+pub fn add(suite: TestSuite, name: str, test: fn() -> Assertions) -> TestSuite {
+    suite.tests(fn(it) { it.push(RunTest(name, test));});
 }
 
-pub fn run(suite: Suite) -> bool {
-    println("running ", suite.name);
-    let failures = suite.tests.filter(fn(it) { it.run();});
-    if(failures.isEmpty.not, {
-        println();
-        println("failures:");
-        failures.forEach(fn(it) { println(it.name);});
-        false;
-    } , { true; });
+pub fn add(suite: TestSuite, s: TestSuite) -> TestSuite {
+    suite.suites(fn(it) { it.push(s);});
+}
+
+pub fn run(suite: TestSuite, test: Option<str>) -> bool {
+    println("Running suite ", suite.name());
+    
+    let suitesResult = suite.suites.foldLeft(false, fn(prev, it) { prev.or(it.run(test)); });
+
+    let testsResult = suite.tests
+        .filter(fn(it) { 
+            test.match( fn(gen) { gen.eq(it.name()); }, { true; });})
+        .foldLeft(false, fn(prev,it) { prev.or(it.run()); });
+
+    if (suitesResult.or(testsResult), 
+        { println(suite.name, " \033[31mTests failed\033[0m"); }, 
+        {});
+
+    suitesResult.or(testsResult);
 }
 
 pub struct Assertions {
@@ -29,12 +39,11 @@ pub struct Assertions {
 
 pub struct RunTest {
    name: str,
-   index: str,
    function: fn() -> Assertions
 }
 
 pub fn run(test: RunTest) -> bool {
-    runTest(test.name, test.index, test.function);
+    runTest(test.name, test.function);
 }
 
 pub fn Assertions() -> Assertions {
@@ -85,7 +94,7 @@ pub fn assertEquals<T>(assertions: Assertions, expected: T, current: T) -> Asser
     }, {assertions; });
 }
 
-pub fn runTest(name: str, index: str, testRun: fn() -> Assertions) -> bool {
+pub fn runTest(name: str, testRun: fn() -> Assertions) -> bool {
     print(name);
     let startTime = now();
     let runResult = testRun();
@@ -96,7 +105,7 @@ pub fn runTest(name: str, index: str, testRun: fn() -> Assertions) -> bool {
 
     runResult.failed.first.match(
         fn(error) {
-            let message = " - \033[31mFAILED\033[0m : ".append(index).append(" : ");
+            let message = " - \033[31mFAILED\033[0m : ";
             print(message);
             println(error);
             true;
