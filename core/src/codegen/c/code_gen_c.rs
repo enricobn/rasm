@@ -1332,7 +1332,7 @@ mod tests {
                 //"$call(Option::Some, value:T)",
                 "$call(Option::None<T>)",
                 &EnhValContext::new(None),
-                &DummyTypeDefProvider::new(),
+                &DummyTypeDefProvider::empty(),
                 &mut statics,
             )
             .unwrap();

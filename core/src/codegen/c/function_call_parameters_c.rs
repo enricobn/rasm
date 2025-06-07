@@ -312,21 +312,13 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         let lambda_var_name = format!("lambda_var_{}", ID.fetch_add(1, Ordering::SeqCst));
 
         let (pointer_operator, dereference_operator) = if lambda_in_stack {
-            self.code_manipulator.add(
+            self.code_manipulator.add_rows(
                 &mut self.before,
-                &format!("struct {c_lambda_name} {lambda_var_name};"),
-                None,
-                true,
-            );
-            self.code_manipulator.add(
-                &mut self.before,
-                &format!("struct RasmPointer_ {lambda_var_name}_;"),
-                None,
-                true,
-            );
-            self.code_manipulator.add(
-                &mut self.before,
-                &format!("{lambda_var_name}_.address = &{lambda_var_name};"),
+                vec![
+                    &format!("struct {c_lambda_name} {lambda_var_name};"),
+                    &format!("struct RasmPointer_ {lambda_var_name}_;"),
+                    &format!("{lambda_var_name}_.address = &{lambda_var_name};"),
+                ],
                 None,
                 true,
             );

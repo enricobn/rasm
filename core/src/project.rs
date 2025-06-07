@@ -110,6 +110,15 @@ impl RasmProject {
             .map(|it| self.main_rasm_source_folder().join(Path::new(&it)))
     }
 
+    pub fn main_test_src_file(&self) -> Option<PathBuf> {
+        let result = self.test_rasm_folder().join(Path::new("main.rasm"));
+        if result.exists() {
+            Some(result)
+        } else {
+            None
+        }
+    }
+
     pub fn out_folder(&self) -> PathBuf {
         if !self.root.is_dir() {
             return PathBuf::from(".");
@@ -300,6 +309,15 @@ impl RasmProject {
                 self.root.parent().unwrap().canonicalize().unwrap()
             },
         )
+    }
+
+    pub fn main_out_file_name(&self, command_line_options: &CommandLineOptions) -> String {
+        match command_line_options.action {
+            crate::commandline::CommandLineAction::Test => {
+                format!("{}_test", self.config.package.name)
+            }
+            _ => self.config.package.name.clone(),
+        }
     }
 
     fn all_test_modules(
@@ -495,98 +513,11 @@ impl RasmProject {
         if !matches!(run_type, RasmProjectRunType::Main) {
             let (test_modules, test_errors) = self.all_test_modules(statics, target, debug);
 
-            let test_module = self.main_test_module(&mut errors, &test_modules, options);
-
-            modules.push(test_module);
             modules.extend(test_modules);
             errors.extend(test_errors);
         }
 
         (modules, errors)
-    }
-
-    fn main_test_module(
-        &self,
-        errors: &mut Vec<CompilationError>,
-        test_modules: &[(ASTModule, EnhModuleInfo)],
-        options: &CommandLineOptions,
-    ) -> (ASTModule, EnhModuleInfo) {
-        let mut module_src = String::new();
-
-        module_src.push_str("let test = argv(1).getOrElse(\"_ALL_\");\n");
-
-        module_src.push_str("let tests = Vec()");
-
-        let mut count = 0;
-
-        test_modules
-            .iter()
-            .flat_map(|(module, info)| module.functions.iter().map(move |it| (it, info)))
-            .filter(|(function, _info)| {
-                function.modifiers.public
-                    && function.name.starts_with("test")
-                    && (options.include_tests.is_empty()
-                        || options.include_tests.contains(&function.name))
-            })
-            .for_each(|(function, info)| {
-                let valid = if let ASTType::Custom {
-                    name,
-                    param_types: _,
-                    position: _,
-                } = &function.return_type
-                {
-                    name == "Assertions"
-                } else {
-                    false
-                };
-
-                let index = EnhASTIndex::from_position(info.path(), &function.position);
-
-                if !valid {
-                    errors.push(CompilationError {
-                        index,
-                        error_kind: CompilationErrorKind::Generic(
-                            "Test function must return Assertions".to_string(),
-                        ),
-                    });
-                } else {
-                    module_src.push_str(&format!(
-                        ".push(RunTest(\"{}\", \"{}\",{{{}();}}))\n",
-                        function.name, index, function.name
-                    ));
-                    count += 1;
-                }
-            });
-
-        if count == 0 {
-            module_src = "println(\"No tests found!\");\n".to_string();
-        } else {
-            module_src.push_str(";\n");
-            module_src.push_str("if(tests.filter(fn(it){test.eq(\"_ALL_\").or(it.name.eq(test));}).foldLeft(false, fn(prev,it) {prev.or(it.run());}), { println(\"\\033[31mTests failed\\033[0m\");}, {});\n");
-        }
-
-        // let mut test_main_module_body = Vec::new();
-        // let mut expr = ASTExpression::Value(ValueType::Boolean(false), ASTIndex::none());
-        // let namespace = ASTNameSpace::new(self.config.package.name.clone(), "".to_string());
-
-        let (module, errors) = Parser::new(Lexer::new(module_src.clone())).parse();
-
-        if !errors.is_empty() {
-            println!("generated test code:\n{module_src}");
-
-            for error in errors {
-                println!("{error}");
-            }
-            panic!();
-        }
-
-        return (
-            module,
-            EnhModuleInfo::new(
-                EnhModuleId::Other("::test".to_owned()),
-                EnhASTNameSpace::global(),
-            ),
-        );
     }
 
     pub fn path_to_module_info(&self, path: &str) -> Option<ModuleInfo> {
@@ -689,7 +620,12 @@ impl RasmProject {
             };
             (self.main_rasm_source_folder(), body)
         } else if path.starts_with(self.test_rasm_folder()) {
-            (self.test_rasm_folder(), false)
+            let body = if let Some(main_src_file) = self.main_test_src_file() {
+                path.canonicalize().unwrap() == main_src_file.as_path().canonicalize().unwrap()
+            } else {
+                false
+            };
+            (self.test_rasm_folder(), body)
         } else {
             if let Some(native_source_folder) = self.main_native_source_folder(target.folder()) {
                 if !native_source_folder.exists() {
@@ -744,7 +680,17 @@ impl RasmProject {
                 false
             };
 
-            if is_main {
+            let is_test_main = if let Some(main_src_file) = self.main_test_src_file() {
+                path.canonicalize()
+                    .unwrap_or_else(|_| panic!("Cannot find {}", path.to_string_lossy()))
+                    == main_src_file
+                        .canonicalize()
+                        .expect("Cannot find main source file")
+            } else {
+                false
+            };
+
+            if is_main || is_test_main {
                 if first_body_statement.is_none() {
                     Self::add_generic_error(
                         path,

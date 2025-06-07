@@ -32,6 +32,7 @@ Road to language version 1.0.0 (not compiler)
 
 Major
 -----
+- optimize can_lambda_be_in_stack: it can be done one time, for all types
 - divide C generated source to multiple files, to optimize make
 - command line tool:
   - add "new" for creating a new project

@@ -1345,7 +1345,7 @@ impl<'a> EnhTypeCheck<'a> {
                 Some(EnhASTFunctionBody::RASMBody(new_statements))
             }
             EnhASTFunctionBody::NativeBody(native_body) => {
-                let type_def_provider = DummyTypeDefProvider::new();
+                let type_def_provider = DummyTypeDefProvider::empty();
 
                 let evaluator = self.target.get_evaluator(self.debug);
                 let text_macro_names = evaluator

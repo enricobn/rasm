@@ -53,7 +53,7 @@ pub fn compile_c(
     }
     make_file_content.push_str("\n");
     make_file_content.push_str("MAIN = ");
-    make_file_content.push_str(&project.config.package.name);
+    make_file_content.push_str(&project.main_out_file_name(command_line_options));
     make_file_content.push_str("\n");
 
     make_file_content.push_str("INCLUDE =");

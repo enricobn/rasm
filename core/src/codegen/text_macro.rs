@@ -937,7 +937,7 @@ mod tests {
             &text_macro,
             None,
             false,
-            &DummyTypeDefProvider::new(),
+            &DummyTypeDefProvider::empty(),
         );
 
         assert_eq!(
@@ -958,7 +958,7 @@ mod tests {
                 None,
                 "a line\n$call(nprint,10)\nanother line\n",
                 false,
-                &DummyTypeDefProvider::new(),
+                &DummyTypeDefProvider::empty(),
             )
             .unwrap();
 
@@ -980,7 +980,7 @@ mod tests {
                 None,
                 "a line\n$call(println, \"Hello, world\")\nanother line\n",
                 false,
-                &DummyTypeDefProvider::new(),
+                &DummyTypeDefProvider::empty(),
             )
             .unwrap();
 
@@ -1023,7 +1023,7 @@ mod tests {
                 None,
                 "a line\n$call(println, $s)\nanother line\n",
                 false,
-                &DummyTypeDefProvider::new(),
+                &DummyTypeDefProvider::empty(),
             )
             .unwrap();
 
@@ -1061,7 +1061,7 @@ mod tests {
                 None,
                 "a line\n$ccall(printf, $s)\nanother line\n",
                 false,
-                &DummyTypeDefProvider::new(),
+                &DummyTypeDefProvider::empty(),
             )
             .unwrap();
 
@@ -1083,7 +1083,7 @@ mod tests {
                 None,
                 "mov     eax, 1          ; $call(any)",
                 false,
-                &DummyTypeDefProvider::new(),
+                &DummyTypeDefProvider::empty(),
             )
             .unwrap();
 
@@ -1114,7 +1114,7 @@ mod tests {
                 Some(&function_def),
                 None,
                 "$call(slen, $s)",
-                &DummyTypeDefProvider::new(),
+                &DummyTypeDefProvider::empty(),
             )
             .unwrap();
 
@@ -1140,7 +1140,7 @@ mod tests {
                 None,
                 "$call(List_0_addRef,eax:List_0)",
                 false,
-                &DummyTypeDefProvider::new(),
+                &DummyTypeDefProvider::empty(),
             )
             .unwrap();
 
@@ -1178,7 +1178,7 @@ mod tests {
             None,
             Some(&function_def),
             "$call(List_0_addRef,$s:i32)",
-            &DummyTypeDefProvider::new(),
+            &DummyTypeDefProvider::empty(),
         );
 
         assert_eq!(
@@ -1215,7 +1215,7 @@ mod tests {
                 Some(&function_def),
                 None,
                 "($call(aFun,$par))->value",
-                &DummyTypeDefProvider::new(),
+                &DummyTypeDefProvider::empty(),
             )
             .unwrap();
 

@@ -1,0 +1,14 @@
+struct AStruct {
+    function: fn() -> ()
+}
+
+let s = createAStruct();
+s.function.call();
+
+fn createAStruct() -> AStruct {
+    AStruct(aFunction);
+}
+
+fn aFunction() {
+    println("Hello");
+}

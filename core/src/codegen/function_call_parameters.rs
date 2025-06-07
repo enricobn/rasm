@@ -118,6 +118,9 @@ pub trait FunctionCallParameters<CTX> {
         body: &ASTTypedFunctionBody,
         context: &TypedValContext,
     ) -> Vec<(String, TypedValKind)> {
+        if context.is_empty() {
+            return Vec::new();
+        }
         if let ASTTypedFunctionBody::RASMBody(statements) = body {
             statements
                 .iter()

@@ -428,6 +428,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             &mut id,
             4,
             &EnhASTNameSpace::root_namespace(&project),
+            true,
         );
 
         body.push_str(&self.transform_before_in_function_def(&code_gen_context, before));
@@ -497,7 +498,11 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         }
 
         vec![(
-            format!("{}.{}", project.config.package.name, target.extension()),
+            format!(
+                "{}.{}",
+                project.main_out_file_name(command_line_options),
+                target.extension()
+            ),
             generated_code,
         )]
     }
@@ -523,9 +528,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         code_gen_context: &CTX,
         parent_fcp: Option<&FCP>,
         namespace: &EnhASTNameSpace,
-        function_call: &&ASTTypedFunctionCall,
+        function_call: &ASTTypedFunctionCall,
         context: &TypedValContext,
-        parent_def: &Option<&ASTTypedFunctionDef>,
+        parent_def: Option<&ASTTypedFunctionDef>,
         before: &mut String,
         current: &mut String,
         parameters: Vec<ASTTypedParameterDef>,
@@ -541,6 +546,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         typed_module: &ASTTypedModule,
         is_last: bool,
         is_inner_call: bool,
+        lambda_in_stack: bool,
     ) -> Vec<LambdaCall> {
         let mut lambda_calls = Vec::new();
 
@@ -622,7 +628,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             namespace,
                             call,
                             context,
-                            *parent_def,
+                            parent_def,
                             lambda_space_opt,
                             indent + 1,
                             false,
@@ -631,6 +637,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             typed_module,
                             false,
                             true,
+                            lambda_in_stack,
                         );
 
                         call_parameters.add_on_top_of_after(&af.join("\n"));
@@ -668,6 +675,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             &mut *id,
                             &mut lambda_calls,
                             namespace,
+                            lambda_in_stack,
                         );
                     }
                     ASTTypedExpression::Lambda(lambda_def) => {
@@ -705,14 +713,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         *id += 1;
 
                         debug!("{}Adding lambda {}", " ".repeat(indent * 4), param_name);
-
-                        let function_def = typed_module
-                            .functions_by_name
-                            .get(&function_call.function_name)
-                            .unwrap();
-
-                        let lambda_in_stack = function_def.return_type.is_unit()
-                            || can_lambda_be_in_stack(&function_def.return_type, typed_module);
 
                         // I add the parameters of the lambda itself
                         for i in 0..parameters_types.len() {
@@ -885,6 +885,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         id: &mut usize,
         typed_module: &ASTTypedModule,
         modifiers: Option<&ASTModifiers>,
+        lambda_in_stack: bool,
     ) -> Vec<LambdaCall> {
         self.define_let(code_gen_context, name, is_const, statics, namespace);
 
@@ -928,6 +929,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             typed_module,
                             false,
                             false,
+                            lambda_in_stack,
                         ),
                         call.index.clone(),
                     )
@@ -950,6 +952,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             typed_module,
                             false,
                             false,
+                            lambda_in_stack,
                         ),
                         call.index.clone(),
                     )
@@ -1119,6 +1122,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         id: &mut usize,
         lambda_calls: &mut Vec<LambdaCall>,
         namespace: &EnhASTNameSpace,
+        lambda_in_stack: bool,
     ) {
         if let Some(val_kind) = context.get(val_name) {
             match val_kind {
@@ -1177,13 +1181,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 return_type: Box::new(def.return_type.clone()),
             });
 
-            let lambda_in_stack =
-                def.return_type.is_unit() || can_lambda_be_in_stack(&def.return_type, typed_module);
-
             let lambda_space = call_parameters.add_lambda(
                 &mut def,
                 None,
-                context,
+                &TypedValContext::new(None),
                 Some(&format!("reference to function {val_name}")),
                 statics,
                 typed_module,
@@ -1273,6 +1274,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             i += 1;
         }
 
+        let lambda_in_stack = function_def.return_type.is_unit()
+            || can_lambda_be_in_stack(&function_def.return_type, typed_module);
+
         let mut after = String::new();
 
         match &function_def.body {
@@ -1292,6 +1296,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     id,
                     indent,
                     &function_def.namespace,
+                    lambda_in_stack,
                 );
             }
             ASTTypedFunctionBody::NativeBody(body) => {
@@ -1347,6 +1352,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         id: &mut usize,
         indent: usize,
         namespace: &EnhASTNameSpace,
+        lambda_in_stack: bool,
     ) {
         let inline = function_def.map(|it| it.inline).unwrap_or(false);
         let fun_return_type = function_def
@@ -1373,6 +1379,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 typed_module,
                                 i == len - 1,
                                 false,
+                                lambda_in_stack,
                             );
 
                             before.push_str(&bf);
@@ -1411,6 +1418,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 id,
                                 lambda_calls,
                                 namespace,
+                                lambda_in_stack,
                             );
 
                             before.push_str(&parameters.before());
@@ -1514,6 +1522,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         id,
                         typed_module,
                         None,
+                        lambda_in_stack,
                     );
                     lambda_calls.append(&mut new_lambda_calls);
                 }
@@ -1535,6 +1544,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         id,
                         typed_module,
                         Some(modifiers),
+                        lambda_in_stack,
                     );
                     lambda_calls.append(&mut new_lambda_calls);
                 }
@@ -1564,6 +1574,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         typed_module: &ASTTypedModule,
         is_last: bool,
         is_inner_call: bool,
+        lambda_in_stack: bool,
     ) -> (String, String, Vec<String>, Vec<LambdaCall>) {
         // before, after, lambda calls
         let mut before = String::new();
@@ -1595,7 +1606,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 namespace,
                 &function_call,
                 context,
-                &parent_def,
+                parent_def,
                 &mut before,
                 &mut current,
                 def.parameters,
@@ -1611,6 +1622,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 typed_module,
                 is_last,
                 is_inner_call,
+                lambda_in_stack,
             )
         } else if let Some(kind) = context.get(&function_call.function_name) {
             let ast_type = kind.typed_type();
@@ -1667,7 +1679,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     namespace,
                     &function_call,
                     context,
-                    &parent_def,
+                    parent_def,
                     &mut before,
                     &mut current,
                     parameters_defs,
@@ -1683,6 +1695,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     typed_module,
                     is_last,
                     is_inner_call,
+                    lambda_in_stack,
                 )
             } else {
                 panic!("Cannot find function, there's a parameter with name '{}', but it's not a lambda", function_call.function_name);
@@ -2069,53 +2082,91 @@ pub fn get_reference_type_name(
     }
 }
 
+/// returns true if the return type of the enclosing function definition,
+/// does no contain a lambda, so all the lambdas in the function can be optimized in stack
 pub fn can_lambda_be_in_stack(
-    lambda_return_type: &ASTTypedType,
+    function_def_return_type: &ASTTypedType,
     type_def_provider: &dyn TypeDefProvider,
 ) -> bool {
-    let mut already_checked = LinkedHashSet::new();
-    can_lambda_be_in_stack_(lambda_return_type, type_def_provider, &mut already_checked)
+    let mut already_checked = LinkedHashMap::new();
+    can_lambda_be_in_stack_(
+        function_def_return_type,
+        type_def_provider,
+        &mut already_checked,
+    )
 }
 
 fn can_lambda_be_in_stack_(
     lambda_return_type: &ASTTypedType,
     type_def_provider: &dyn TypeDefProvider,
-    already_checked: &mut LinkedHashSet<String>,
+    already_checked: &mut LinkedHashMap<String, bool>,
 ) -> bool {
     match lambda_return_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => false,
         ASTTypedType::Enum { namespace: _, name } => {
-            if already_checked.contains(name) {
-                return true;
+            if let Some(value) = already_checked.get(name) {
+                return *value;
             }
 
-            already_checked.insert(name.to_owned());
-
             if let Some(e) = type_def_provider.get_enum_def_by_name(name) {
-                e.variants
+                // for recursion
+                already_checked.insert(name.to_owned(), true);
+
+                let result = e
+                    .variants
                     .iter()
                     .flat_map(|it| it.parameters.iter())
                     .all(|it| {
                         can_lambda_be_in_stack_(&it.ast_type, type_def_provider, already_checked)
-                    })
+                    });
+                already_checked.insert(name.to_owned(), result);
+                result
             } else {
                 panic!();
             }
         }
         ASTTypedType::Struct { namespace: _, name } => {
-            if already_checked.contains(name) {
-                return true;
+            if let Some(value) = already_checked.get(name) {
+                return *value;
             }
 
-            already_checked.insert(name.to_owned());
             if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
-                s.properties.iter().all(|it| {
+                // for recursion
+                already_checked.insert(name.to_owned(), true);
+
+                let result = s.properties.iter().all(|it| {
                     can_lambda_be_in_stack_(&it.ast_type, type_def_provider, already_checked)
-                })
+                });
+                already_checked.insert(name.to_owned(), result);
+                result
             } else {
                 panic!()
             }
         }
+        ASTTypedType::Type {
+            namespace: _,
+            name,
+            is_ref: _,
+            native_type: _,
+        } => {
+            if let Some(value) = already_checked.get(name) {
+                return *value;
+            }
+
+            if let Some(s) = type_def_provider.get_type_def_by_name(name) {
+                // for recursion
+                already_checked.insert(name.to_owned(), true);
+
+                let result = s.generic_types.iter().all(|((_, _), it)| {
+                    can_lambda_be_in_stack_(it, type_def_provider, already_checked)
+                });
+                already_checked.insert(name.to_owned(), result);
+                result
+            } else {
+                panic!()
+            }
+        }
+
         _ => true,
     }
 }
@@ -2125,14 +2176,20 @@ mod tests {
 
     use std::path::PathBuf;
 
+    use rasm_parser::parser::ast::ASTModifiers;
     use tempdir::TempDir;
 
     use crate::codegen::asm::code_gen_asm::CodeGenAsm;
+    use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType};
     use crate::codegen::enh_val_context::EnhValContext;
     use crate::codegen::statics::Statics;
-    use crate::codegen::typedef_provider::DummyTypeDefProvider;
-    use crate::codegen::{AsmOptions, CodeGen};
+    use crate::codegen::typedef_provider::{DummyTypeDefProvider, TypeDefProvider};
+    use crate::codegen::{can_lambda_be_in_stack, AsmOptions, CodeGen};
     use crate::commandline::CommandLineOptions;
+    use crate::enh_type_check::typed_ast::{
+        ASTTypedStructDef, ASTTypedStructPropertyDef, ASTTypedType, ASTTypedTypeDef,
+        ResolvedGenericTypedTypes,
+    };
     use crate::project::RasmProject;
     use crate::test_utils::project_to_ast_typed_module;
 
@@ -2151,7 +2208,7 @@ mod tests {
                 None,
                 "mov    eax, 1; $call(something)",
                 &EnhValContext::new(None),
-                &DummyTypeDefProvider::new(),
+                &DummyTypeDefProvider::empty(),
                 &mut statics,
             )
             .unwrap()
@@ -2169,7 +2226,7 @@ mod tests {
                 None,
                 "call something",
                 &EnhValContext::new(None),
-                &DummyTypeDefProvider::new(),
+                &DummyTypeDefProvider::empty(),
                 &mut statics,
             )
             .unwrap()
@@ -2187,7 +2244,7 @@ mod tests {
                 None,
                 "$call(something)",
                 &EnhValContext::new(None),
-                &DummyTypeDefProvider::new(),
+                &DummyTypeDefProvider::empty(),
                 &mut statics,
             )
             .unwrap()
@@ -2221,6 +2278,148 @@ mod tests {
         );
 
         assert_eq!(1, result.len());
-        assert_eq!("breakout.c", result.get(0).unwrap().0);
+        assert_eq!("breakout_test.c", result.get(0).unwrap().0);
+    }
+
+    #[test]
+    fn test_can_lambda_be_in_stack() {
+        let mut structs = Vec::new();
+
+        let ast_typed_type = ASTTypedType::Struct {
+            namespace: EnhASTNameSpace::global(),
+            name: "Struct".to_owned(),
+        };
+
+        structs.push(create_struct(
+            "Struct".to_owned(),
+            vec![
+                ASTTypedStructPropertyDef {
+                    name: "s".to_owned(),
+                    ast_type: ast_typed_type.clone(),
+                },
+                ASTTypedStructPropertyDef {
+                    name: "f".to_owned(),
+                    ast_type: create_lambda(),
+                },
+            ],
+        ));
+
+        let type_def_provider = DummyTypeDefProvider::new(Vec::new(), structs, Vec::new());
+
+        assert!(!can_lambda_be_in_stack(&ast_typed_type, &type_def_provider));
+    }
+
+    #[test]
+    fn test_can_lambda_be_in_stack_recurse() {
+        let mut structs = Vec::new();
+
+        let inner_struct = ASTTypedType::Struct {
+            namespace: EnhASTNameSpace::global(),
+            name: "InnerStruct".to_owned(),
+        };
+
+        let outer_struct = ASTTypedType::Struct {
+            namespace: EnhASTNameSpace::global(),
+            name: "OuterStruct".to_owned(),
+        };
+
+        structs.push(create_struct(
+            "InnerStruct".to_owned(),
+            vec![ASTTypedStructPropertyDef {
+                name: "f".to_owned(),
+                ast_type: create_lambda(),
+            }],
+        ));
+
+        structs.push(create_struct(
+            "OuterStruct".to_owned(),
+            vec![ASTTypedStructPropertyDef {
+                name: "s".to_owned(),
+                ast_type: inner_struct,
+            }],
+        ));
+
+        let type_def_provider = DummyTypeDefProvider::new(Vec::new(), structs, Vec::new());
+
+        assert!(!can_lambda_be_in_stack(&outer_struct, &type_def_provider));
+    }
+
+    #[test]
+    fn test_can_lambda_be_in_stack_native_type() {
+        let mut structs = Vec::new();
+        let mut types = Vec::new();
+
+        let outer_type = ASTTypedType::Type {
+            namespace: EnhASTNameSpace::global(),
+            name: "OuterType".to_owned(),
+            is_ref: true,
+            native_type: None,
+        };
+
+        let inner_struct = ASTTypedType::Struct {
+            namespace: EnhASTNameSpace::global(),
+            name: "InnerStruct".to_owned(),
+        };
+
+        let mut generic_types = ResolvedGenericTypedTypes::new();
+        generic_types.insert("T".to_owned(), Vec::new(), inner_struct.clone());
+
+        types.push(ASTTypedTypeDef {
+            namespace: EnhASTNameSpace::global(),
+            modifiers: ASTModifiers::public(),
+            original_name: "OT".to_owned(),
+            name: "OuterType".to_owned(),
+            generic_types,
+            is_ref: true,
+            ast_type: EnhASTType::Unit,
+            ast_typed_type: outer_type.clone(),
+            index: EnhASTIndex::none(),
+            native_type: None,
+        });
+
+        structs.push(create_struct(
+            "InnerStruct".to_owned(),
+            vec![ASTTypedStructPropertyDef {
+                name: "s".to_owned(),
+                ast_type: create_lambda(),
+            }],
+        ));
+
+        let type_def_provider = DummyTypeDefProvider::new(Vec::new(), structs, types);
+
+        assert!(!can_lambda_be_in_stack(&outer_type, &type_def_provider));
+    }
+
+    fn create_struct(
+        name: String,
+        properties: Vec<ASTTypedStructPropertyDef>,
+    ) -> ASTTypedStructDef {
+        let ast_typed_type = ASTTypedType::Struct {
+            namespace: EnhASTNameSpace::global(),
+            name: name.clone(),
+        };
+        ASTTypedStructDef {
+            namespace: EnhASTNameSpace::global(),
+            modifiers: ASTModifiers::public(),
+            name: name.clone(),
+            properties,
+            ast_type: EnhASTType::Custom {
+                namespace: EnhASTNameSpace::global(),
+                name: name,
+                param_types: Vec::new(),
+                index: EnhASTIndex::none(),
+            },
+            ast_typed_type: ast_typed_type.clone(),
+            index: EnhASTIndex::none(),
+        }
+    }
+
+    fn create_lambda() -> ASTTypedType {
+        ASTTypedType::Builtin(
+            crate::enh_type_check::typed_ast::BuiltinTypedTypeKind::Lambda {
+                parameters: Vec::new(),
+                return_type: Box::new(ASTTypedType::Unit),
+            },
+        )
     }
 }

@@ -399,19 +399,23 @@ pub trait TypeDefProvider {
 }
 
 #[derive(Debug)]
-pub struct DummyTypeDefProvider {}
+pub struct DummyTypeDefProvider {
+    enums: Vec<ASTTypedEnumDef>,
+    structs: Vec<ASTTypedStructDef>,
+    types: Vec<ASTTypedTypeDef>,
+}
 
 impl TypeDefProvider for DummyTypeDefProvider {
     fn enums(&self) -> &[ASTTypedEnumDef] {
-        &[]
+        &self.enums
     }
 
     fn structs(&self) -> &[ASTTypedStructDef] {
-        &[]
+        &self.structs
     }
 
     fn types(&self) -> &[ASTTypedTypeDef] {
-        &[]
+        &self.types
     }
 
     fn name(&self) -> String {
@@ -420,7 +424,23 @@ impl TypeDefProvider for DummyTypeDefProvider {
 }
 
 impl DummyTypeDefProvider {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(
+        enums: Vec<ASTTypedEnumDef>,
+        structs: Vec<ASTTypedStructDef>,
+        types: Vec<ASTTypedTypeDef>,
+    ) -> Self {
+        Self {
+            enums,
+            structs,
+            types,
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            enums: Vec::new(),
+            structs: Vec::new(),
+            types: Vec::new(),
+        }
     }
 }
