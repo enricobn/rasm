@@ -1,7 +1,8 @@
-let result = Suite("My tests")
-    .add("test1", "given a failure it should fail", { test1();})
-    .add("test2", "given a success it should succeeds", { test2();})
-    .run();
+let result = TestSuite("My tests")
+    .add("test1", test1)
+    .add("test2", test2)
+    .run(None());
+
 println(result);
 
 fn test1() -> Assertions {

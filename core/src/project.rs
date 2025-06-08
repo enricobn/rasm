@@ -46,9 +46,7 @@ use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::transformations::enrich_module;
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast::ASTExpression::{self, ASTFunctionCallExpression};
-use rasm_parser::parser::ast::{
-    ASTModifiers, ASTModule, ASTPosition, ASTStatement, ASTType, ASTValueType,
-};
+use rasm_parser::parser::ast::{ASTModifiers, ASTModule, ASTPosition, ASTStatement, ASTValueType};
 use rasm_parser::parser::Parser;
 
 #[derive(Debug, Clone)]

@@ -566,8 +566,10 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
 
         let _ = return_type;
         let mut result = String::new();
-        self.code_gen
-            .add_comment(&mut result, "inlining call", true);
+        if self.inline {
+            self.code_gen
+                .add_comment(&mut result, "inlining call", true);
+        }
         result.push_str(body);
 
         let wl = self.backend.word_len() as i32;

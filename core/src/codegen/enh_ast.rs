@@ -1244,6 +1244,25 @@ impl EnhASTIndex {
             )
         })
     }
+
+    pub fn to_vscode_string(&self) -> String {
+        if let Some(path) = &self.file_name {
+            if path.exists() {
+                let file = format!(
+                    "file://{}",
+                    path.canonicalize()
+                        .expect(&format!("Cannot find file {}", path.to_string_lossy()))
+                        .to_str()
+                        .unwrap()
+                );
+                return format!("{file}#L{}%2C{}", self.row, self.column);
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        }
+    }
 }
 
 impl Display for EnhASTIndex {

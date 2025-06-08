@@ -23,6 +23,7 @@ use crate::codegen::enh_ast::{
 use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 
+use crate::codegen::lambda_in_stack::can_lambda_be_in_stack;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
@@ -50,6 +51,7 @@ pub mod enh_val_context;
 pub mod enhanced_module;
 pub mod function_call_parameters;
 pub mod lambda;
+pub mod lambda_in_stack;
 pub mod stack;
 pub mod statics;
 pub mod text_macro;
@@ -1229,6 +1231,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         if function_def.index.file_name.is_some() {
             self.add_comment(definitions, &format!("{}", function_def.index), false);
+            self.add_comment(definitions, &function_def.index.to_vscode_string(), false);
         }
         self.add_comment(
             definitions,
@@ -2082,114 +2085,19 @@ pub fn get_reference_type_name(
     }
 }
 
-/// returns true if the return type of the enclosing function definition,
-/// does no contain a lambda, so all the lambdas in the function can be optimized in stack
-pub fn can_lambda_be_in_stack(
-    function_def_return_type: &ASTTypedType,
-    type_def_provider: &dyn TypeDefProvider,
-) -> bool {
-    let mut already_checked = LinkedHashMap::new();
-    can_lambda_be_in_stack_(
-        function_def_return_type,
-        type_def_provider,
-        &mut already_checked,
-    )
-}
-
-fn can_lambda_be_in_stack_(
-    lambda_return_type: &ASTTypedType,
-    type_def_provider: &dyn TypeDefProvider,
-    already_checked: &mut LinkedHashMap<String, bool>,
-) -> bool {
-    match lambda_return_type {
-        ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => false,
-        ASTTypedType::Enum { namespace: _, name } => {
-            if let Some(value) = already_checked.get(name) {
-                return *value;
-            }
-
-            if let Some(e) = type_def_provider.get_enum_def_by_name(name) {
-                // for recursion
-                already_checked.insert(name.to_owned(), true);
-
-                let result = e
-                    .variants
-                    .iter()
-                    .flat_map(|it| it.parameters.iter())
-                    .all(|it| {
-                        can_lambda_be_in_stack_(&it.ast_type, type_def_provider, already_checked)
-                    });
-                already_checked.insert(name.to_owned(), result);
-                result
-            } else {
-                panic!();
-            }
-        }
-        ASTTypedType::Struct { namespace: _, name } => {
-            if let Some(value) = already_checked.get(name) {
-                return *value;
-            }
-
-            if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
-                // for recursion
-                already_checked.insert(name.to_owned(), true);
-
-                let result = s.properties.iter().all(|it| {
-                    can_lambda_be_in_stack_(&it.ast_type, type_def_provider, already_checked)
-                });
-                already_checked.insert(name.to_owned(), result);
-                result
-            } else {
-                panic!()
-            }
-        }
-        ASTTypedType::Type {
-            namespace: _,
-            name,
-            is_ref: _,
-            native_type: _,
-        } => {
-            if let Some(value) = already_checked.get(name) {
-                return *value;
-            }
-
-            if let Some(s) = type_def_provider.get_type_def_by_name(name) {
-                // for recursion
-                already_checked.insert(name.to_owned(), true);
-
-                let result = s.generic_types.iter().all(|((_, _), it)| {
-                    can_lambda_be_in_stack_(it, type_def_provider, already_checked)
-                });
-                already_checked.insert(name.to_owned(), result);
-                result
-            } else {
-                panic!()
-            }
-        }
-
-        _ => true,
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
     use std::path::PathBuf;
 
-    use rasm_parser::parser::ast::ASTModifiers;
     use tempdir::TempDir;
 
     use crate::codegen::asm::code_gen_asm::CodeGenAsm;
-    use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType};
     use crate::codegen::enh_val_context::EnhValContext;
     use crate::codegen::statics::Statics;
-    use crate::codegen::typedef_provider::{DummyTypeDefProvider, TypeDefProvider};
-    use crate::codegen::{can_lambda_be_in_stack, AsmOptions, CodeGen};
+    use crate::codegen::typedef_provider::DummyTypeDefProvider;
+    use crate::codegen::{AsmOptions, CodeGen};
     use crate::commandline::CommandLineOptions;
-    use crate::enh_type_check::typed_ast::{
-        ASTTypedStructDef, ASTTypedStructPropertyDef, ASTTypedType, ASTTypedTypeDef,
-        ResolvedGenericTypedTypes,
-    };
     use crate::project::RasmProject;
     use crate::test_utils::project_to_ast_typed_module;
 
@@ -2279,147 +2187,5 @@ mod tests {
 
         assert_eq!(1, result.len());
         assert_eq!("breakout_test.c", result.get(0).unwrap().0);
-    }
-
-    #[test]
-    fn test_can_lambda_be_in_stack() {
-        let mut structs = Vec::new();
-
-        let ast_typed_type = ASTTypedType::Struct {
-            namespace: EnhASTNameSpace::global(),
-            name: "Struct".to_owned(),
-        };
-
-        structs.push(create_struct(
-            "Struct".to_owned(),
-            vec![
-                ASTTypedStructPropertyDef {
-                    name: "s".to_owned(),
-                    ast_type: ast_typed_type.clone(),
-                },
-                ASTTypedStructPropertyDef {
-                    name: "f".to_owned(),
-                    ast_type: create_lambda(),
-                },
-            ],
-        ));
-
-        let type_def_provider = DummyTypeDefProvider::new(Vec::new(), structs, Vec::new());
-
-        assert!(!can_lambda_be_in_stack(&ast_typed_type, &type_def_provider));
-    }
-
-    #[test]
-    fn test_can_lambda_be_in_stack_recurse() {
-        let mut structs = Vec::new();
-
-        let inner_struct = ASTTypedType::Struct {
-            namespace: EnhASTNameSpace::global(),
-            name: "InnerStruct".to_owned(),
-        };
-
-        let outer_struct = ASTTypedType::Struct {
-            namespace: EnhASTNameSpace::global(),
-            name: "OuterStruct".to_owned(),
-        };
-
-        structs.push(create_struct(
-            "InnerStruct".to_owned(),
-            vec![ASTTypedStructPropertyDef {
-                name: "f".to_owned(),
-                ast_type: create_lambda(),
-            }],
-        ));
-
-        structs.push(create_struct(
-            "OuterStruct".to_owned(),
-            vec![ASTTypedStructPropertyDef {
-                name: "s".to_owned(),
-                ast_type: inner_struct,
-            }],
-        ));
-
-        let type_def_provider = DummyTypeDefProvider::new(Vec::new(), structs, Vec::new());
-
-        assert!(!can_lambda_be_in_stack(&outer_struct, &type_def_provider));
-    }
-
-    #[test]
-    fn test_can_lambda_be_in_stack_native_type() {
-        let mut structs = Vec::new();
-        let mut types = Vec::new();
-
-        let outer_type = ASTTypedType::Type {
-            namespace: EnhASTNameSpace::global(),
-            name: "OuterType".to_owned(),
-            is_ref: true,
-            native_type: None,
-        };
-
-        let inner_struct = ASTTypedType::Struct {
-            namespace: EnhASTNameSpace::global(),
-            name: "InnerStruct".to_owned(),
-        };
-
-        let mut generic_types = ResolvedGenericTypedTypes::new();
-        generic_types.insert("T".to_owned(), Vec::new(), inner_struct.clone());
-
-        types.push(ASTTypedTypeDef {
-            namespace: EnhASTNameSpace::global(),
-            modifiers: ASTModifiers::public(),
-            original_name: "OT".to_owned(),
-            name: "OuterType".to_owned(),
-            generic_types,
-            is_ref: true,
-            ast_type: EnhASTType::Unit,
-            ast_typed_type: outer_type.clone(),
-            index: EnhASTIndex::none(),
-            native_type: None,
-        });
-
-        structs.push(create_struct(
-            "InnerStruct".to_owned(),
-            vec![ASTTypedStructPropertyDef {
-                name: "s".to_owned(),
-                ast_type: create_lambda(),
-            }],
-        ));
-
-        let type_def_provider = DummyTypeDefProvider::new(Vec::new(), structs, types);
-
-        assert!(!can_lambda_be_in_stack(&outer_type, &type_def_provider));
-    }
-
-    fn create_struct(
-        name: String,
-        properties: Vec<ASTTypedStructPropertyDef>,
-    ) -> ASTTypedStructDef {
-        let ast_typed_type = ASTTypedType::Struct {
-            namespace: EnhASTNameSpace::global(),
-            name: name.clone(),
-        };
-        ASTTypedStructDef {
-            namespace: EnhASTNameSpace::global(),
-            modifiers: ASTModifiers::public(),
-            name: name.clone(),
-            properties,
-            ast_type: EnhASTType::Custom {
-                namespace: EnhASTNameSpace::global(),
-                name: name,
-                param_types: Vec::new(),
-                index: EnhASTIndex::none(),
-            },
-            ast_typed_type: ast_typed_type.clone(),
-            index: EnhASTIndex::none(),
-        }
-    }
-
-    fn create_lambda() -> ASTTypedType {
-        ASTTypedType::Builtin(
-            crate::enh_type_check::typed_ast::BuiltinTypedTypeKind::Lambda {
-                parameters: Vec::new(),
-                return_type: Box::new(ASTTypedType::Unit),
-            },
-        )
     }
 }

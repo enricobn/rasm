@@ -1167,13 +1167,13 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         let wl = self.backend.word_len();
         let label = statics.add_str(value);
 
-        let tmp_reg = code_gen_context.stack_vals.reserve_tmp_register(
-            body,
-            "set_let_for_string_literal",
-            self,
-        );
-
         if is_const {
+            let tmp_reg = code_gen_context.stack_vals.reserve_tmp_register(
+                body,
+                "set_let_for_string_literal",
+                self,
+            );
+
             let key = statics.add_typed_const(
                 name.to_owned(),
                 typed_type.clone(),
@@ -1188,7 +1188,19 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
                 &tmp_reg,
                 Some(&format!("const {name} string value")),
             );
+
+            code_gen_context.stack_vals.release_tmp_register(
+                self,
+                body,
+                "set_let_for_string_literal",
+            );
         } else {
+            let tmp_reg = code_gen_context.stack_vals.reserve_tmp_register(
+                before,
+                "set_let_for_string_literal",
+                self,
+            );
+
             self.indirect_mov(
                 before,
                 &label,
@@ -1196,11 +1208,13 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
                 &tmp_reg,
                 None,
             );
-        }
 
-        code_gen_context
-            .stack_vals
-            .release_tmp_register(self, body, "set_let_for_string_literal");
+            code_gen_context.stack_vals.release_tmp_register(
+                self,
+                before,
+                "set_let_for_string_literal",
+            );
+        }
     }
 
     fn set_let_for_value(
@@ -1278,6 +1292,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         _lambda_space: &LambdaSpace,
         _def: &ASTTypedFunctionDef,
     ) {
+        // this register is released at the end of the function and is searched by descr
         let register =
             code_gen_context
                 .stack_vals
