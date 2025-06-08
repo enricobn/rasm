@@ -2079,7 +2079,7 @@ impl<'a> EnhTypeCheck<'a> {
                         })?;
                 }
             } else {
-                for (i, (name, index)) in lambda_def.parameter_names.iter().enumerate() {
+                for (_, (name, index)) in lambda_def.parameter_names.iter().enumerate() {
                     val_context
                         .insert_unknown_lambda_par(name, index)
                         .map_err(|e| {

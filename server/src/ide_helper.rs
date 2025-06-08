@@ -7,7 +7,6 @@ use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::{ValContext, ValKind};
-use rasm_core::commandline::CommandLineOptions;
 use rasm_core::errors::CompilationError;
 use rasm_core::project::{RasmProject, RasmProjectRunType};
 use rasm_core::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
@@ -269,7 +268,6 @@ pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<Com
         &RasmProjectRunType::Main,
         &CompileTarget::C(COptions::default()),
         false,
-        &CommandLineOptions::default(),
     );
 
     (IDEHelper::from_container(container), errors)

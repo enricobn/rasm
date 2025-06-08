@@ -335,21 +335,6 @@ mod tests {
         CompletionItem::for_function(&function2).unwrap();
     }
 
-    fn init() {
-        Builder::from_default_env()
-            .format(|buf, record| {
-                writeln!(
-                    buf,
-                    "{} [{}] - {}",
-                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S.%3f"),
-                    record.level(),
-                    record.args()
-                )
-            })
-            .try_init()
-            .unwrap_or(());
-    }
-
     pub fn test_namespace() -> EnhASTNameSpace {
         EnhASTNameSpace::new("test".to_string(), "test".to_string())
     }

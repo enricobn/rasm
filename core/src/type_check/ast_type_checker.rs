@@ -1444,7 +1444,6 @@ mod tests {
             statics::Statics,
             val_context::ValContext,
         },
-        commandline::CommandLineOptions,
         project::{RasmProject, RasmProjectRunType},
         test_utils::project_and_container,
         type_check::{
@@ -1469,13 +1468,8 @@ mod tests {
         let target = CompileTarget::C(COptions::default());
 
         let mut statics = Statics::new();
-        let (container, _catalog, _errors) = project.container_and_catalog(
-            &mut statics,
-            &RasmProjectRunType::Main,
-            &target,
-            false,
-            &CommandLineOptions::default(),
-        );
+        let (container, _catalog, _errors) =
+            project.container_and_catalog(&mut statics, &RasmProjectRunType::Main, &target, false);
 
         let mut statics = ValContext::new(None);
 
@@ -1866,13 +1860,8 @@ mod tests {
         let target = CompileTarget::C(COptions::default());
 
         let mut statics = Statics::new();
-        let (container, catalog, _errors) = project.container_and_catalog(
-            &mut statics,
-            &RasmProjectRunType::Main,
-            &target,
-            false,
-            &CommandLineOptions::default(),
-        );
+        let (container, catalog, _errors) =
+            project.container_and_catalog(&mut statics, &RasmProjectRunType::Main, &target, false);
 
         let mut type_checker = ASTTypeChecker::new();
         let mut val_context = ValContext::new(None);
@@ -1943,13 +1932,8 @@ mod tests {
         let target = CompileTarget::C(COptions::default());
 
         let mut statics = Statics::new();
-        let (container, catalog, _errors) = project.container_and_catalog(
-            &mut statics,
-            &RasmProjectRunType::Main,
-            &target,
-            false,
-            &CommandLineOptions::default(),
-        );
+        let (container, catalog, _errors) =
+            project.container_and_catalog(&mut statics, &RasmProjectRunType::Main, &target, false);
 
         let mut type_checker = ASTTypeChecker::new();
         let mut val_context = ValContext::new(None);
@@ -2065,13 +2049,8 @@ mod tests {
         let target = CompileTarget::C(COptions::default());
 
         let mut statics = Statics::new();
-        let (container, catalog, _errors) = project.container_and_catalog(
-            &mut statics,
-            &RasmProjectRunType::Main,
-            &target,
-            false,
-            &CommandLineOptions::default(),
-        );
+        let (container, catalog, _errors) =
+            project.container_and_catalog(&mut statics, &RasmProjectRunType::Main, &target, false);
 
         let result = ASTTypeChecker::from_modules_container(&container);
 

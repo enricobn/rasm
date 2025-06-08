@@ -13,7 +13,6 @@ use iced::{
 use module_view::TEXT_SCROLLABLE_ID;
 use rasm_core::{
     codegen::{compile_target::CompileTarget, statics::Statics, val_context::ValContext},
-    commandline::CommandLineOptions,
     project::{RasmProject, RasmProjectRunType},
     type_check::{
         ast_modules_container::ASTModulesContainer,
@@ -66,13 +65,8 @@ impl UI {
     pub fn show(project: RasmProject, target: CompileTarget) -> iced::Result {
         let mut statics = Statics::new();
 
-        let (modules_container, _catalog, _errors) = project.container_and_catalog(
-            &mut statics,
-            &RasmProjectRunType::Main,
-            &target,
-            false,
-            &CommandLineOptions::default(),
-        );
+        let (modules_container, _catalog, _errors) =
+            project.container_and_catalog(&mut statics, &RasmProjectRunType::Main, &target, false);
 
         let mut static_val_context = ValContext::new(None);
 

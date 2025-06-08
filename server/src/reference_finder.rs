@@ -1286,7 +1286,6 @@ mod tests {
     use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTModule, EnhASTType};
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
-    use rasm_core::commandline::CommandLineOptions;
     use rasm_core::project::{RasmProject, RasmProjectRunType};
     use rasm_parser::parser::ast::ASTBuiltinFunctionType;
     use rasm_utils::{OptionDisplay, SliceDisplay};
@@ -1305,7 +1304,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -1387,7 +1385,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -1478,7 +1475,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -1521,7 +1517,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -1555,7 +1550,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -1589,7 +1583,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -1722,7 +1715,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -1784,7 +1776,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -1829,7 +1820,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -1878,7 +1868,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -1933,7 +1922,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         ReferenceFinder::new(
@@ -2010,7 +1998,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -2073,7 +2060,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let finder = ReferenceFinder::new(
@@ -2177,13 +2163,8 @@ mod tests {
 
         let mut statics = Statics::new();
         let target = CompileTarget::Nasmi386(AsmOptions::default());
-        let (modules, _errors) = project.get_all_modules(
-            &mut statics,
-            &RasmProjectRunType::Main,
-            &target,
-            false,
-            &CommandLineOptions::default(),
-        );
+        let (modules, _errors) =
+            project.get_all_modules(&mut statics, &RasmProjectRunType::Main, &target, false);
 
         let (enhanced_ast_module, errors) =
             EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, true);
@@ -2239,7 +2220,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let (eh_module, module) = get_reference_finder_for_project(&project, file_name);
@@ -2290,7 +2270,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let (eh_module, module) = get_reference_finder_for_project(&project, file_name);

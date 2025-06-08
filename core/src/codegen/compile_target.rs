@@ -309,13 +309,8 @@ impl CompileTarget {
             RasmProjectRunType::Main
         };
 
-        let (modules, errors) = project.get_all_modules(
-            &mut statics,
-            &run_type,
-            self,
-            command_line_options.debug,
-            &command_line_options,
-        );
+        let (modules, errors) =
+            project.get_all_modules(&mut statics, &run_type, self, command_line_options.debug);
 
         if !errors.is_empty() {
             for error in errors {
@@ -331,7 +326,6 @@ impl CompileTarget {
             &run_type,
             self,
             command_line_options.debug,
-            &command_line_options,
         );
 
         info!("parse ended in {:?}", start.elapsed());

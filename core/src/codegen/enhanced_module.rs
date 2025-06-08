@@ -53,6 +53,7 @@ impl EnhancedASTModule {
 
         result
     }
+
     pub fn new(
         modules: Vec<EnhASTModule>,
         project: &RasmProject,
@@ -111,6 +112,17 @@ impl EnhancedASTModule {
         let errors = enhanced_module.check_for_duplicates();
 
         (enhanced_module, errors)
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            body: Vec::new(),
+            functions_by_name: EnhFunctionsContainer::new(),
+            enums: Vec::new(),
+            structs: Vec::new(),
+            types: Vec::new(),
+            body_namespace: EnhASTNameSpace::global(),
+        }
     }
 
     pub fn add_function(&mut self, original_name: String, function_def: EnhASTFunctionDef) {

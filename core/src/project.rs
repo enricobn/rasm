@@ -427,7 +427,6 @@ impl RasmProject {
         run_type: &RasmProjectRunType,
         target: &CompileTarget,
         debug: bool,
-        options: &CommandLineOptions,
     ) -> (
         ASTModulesContainer,
         impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
@@ -435,7 +434,7 @@ impl RasmProject {
     ) {
         let mut catalog = RasmProjectCatalog::new();
         let mut container = ASTModulesContainer::new();
-        let (mut modules, errors) = self.get_all_modules(statics, run_type, target, debug, options);
+        let (mut modules, errors) = self.get_all_modules(statics, run_type, target, debug);
 
         let mut resources_body = Vec::new();
 
@@ -486,7 +485,6 @@ impl RasmProject {
         run_type: &RasmProjectRunType,
         target: &CompileTarget,
         debug: bool,
-        options: &CommandLineOptions,
     ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
         let (mut modules, mut errors) = self.all_modules(statics, target, debug);
 
@@ -1003,7 +1001,6 @@ mod tests {
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enh_ast::EnhModuleId;
     use crate::codegen::statics::Statics;
-    use crate::commandline::CommandLineOptions;
     use crate::project::RasmProjectRunType;
 
     use super::RasmProject;
@@ -1031,7 +1028,6 @@ mod tests {
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
             false,
-            &CommandLineOptions::default(),
         );
 
         let info = catalog.info(&EnhModuleId::Path(

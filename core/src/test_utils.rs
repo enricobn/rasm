@@ -30,13 +30,8 @@ pub fn project_and_container(
     let project = rasm_project;
 
     let mut statics = Statics::new();
-    let (modules, _errors) = project.get_all_modules(
-        &mut statics,
-        &RasmProjectRunType::Main,
-        &target,
-        false,
-        &CommandLineOptions::default(),
-    );
+    let (modules, _errors) =
+        project.get_all_modules(&mut statics, &RasmProjectRunType::Main, &target, false);
 
     let mut container = ASTModulesContainer::new();
 
@@ -62,13 +57,7 @@ pub fn project_to_ast_typed_module(
     let run_type = RasmProjectRunType::Main;
     let command_line_options = CommandLineOptions::default();
 
-    let (modules, _errors) = project.get_all_modules(
-        &mut statics,
-        &run_type,
-        &target,
-        false,
-        &command_line_options,
-    );
+    let (modules, _errors) = project.get_all_modules(&mut statics, &run_type, &target, false);
 
     //resolved_module.print();
 
@@ -79,7 +68,6 @@ pub fn project_to_ast_typed_module(
         &run_type,
         &target,
         command_line_options.debug,
-        &command_line_options,
     );
 
     let (module, errors) =

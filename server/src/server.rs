@@ -28,7 +28,6 @@ use axum::{routing::get, Router};
 use log::info;
 use rasm_core::codegen::asm::code_gen_asm::AsmOptions;
 use rasm_core::codegen::enh_ast::EnhASTIndex;
-use rasm_core::commandline::CommandLineOptions;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::ASTIndex;
 use serde::Deserialize;
@@ -37,7 +36,6 @@ use walkdir::WalkDir;
 use crate::ide_helper::IDEHelper;
 
 use rasm_core::codegen::compile_target::CompileTarget;
-use rasm_core::codegen::enhanced_module::EnhancedASTModule;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use rasm_core::project::{RasmProject, RasmProjectRunType};
@@ -87,32 +85,12 @@ struct FileQueryParams {
 }
 
 struct ServerState {
-    enhanced_modules: EnhancedASTModule,
     project: RasmProject,
 }
 
 impl ServerState {
     fn new(project: RasmProject) -> Result<Self, EnhTypeCheckError> {
-        let mut statics = Statics::new();
-        let target = CompileTarget::Nasmi386(AsmOptions::default());
-
-        let (modules, _errors) = project.get_all_modules(
-            &mut statics,
-            &RasmProjectRunType::Main,
-            &target,
-            false,
-            &CommandLineOptions::default(),
-        );
-
-        let (enhanced_ast_module, _errors) =
-            EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, true);
-
-        // TODO errors
-
-        Ok(Self {
-            enhanced_modules: enhanced_ast_module,
-            project,
-        })
+        Ok(Self { project })
     }
 }
 
@@ -200,13 +178,8 @@ async fn file<'a>(
 
     let mut statics = Statics::new();
 
-    let (container, catalog, _) = project.container_and_catalog(
-        &mut statics,
-        &RasmProjectRunType::Main,
-        &target,
-        false,
-        &CommandLineOptions::default(),
-    );
+    let (container, catalog, _) =
+        project.container_and_catalog(&mut statics, &RasmProjectRunType::Main, &target, false);
 
     let ide_helper = IDEHelper::from_container(container);
 

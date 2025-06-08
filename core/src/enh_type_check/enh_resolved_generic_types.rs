@@ -391,3 +391,123 @@ impl Display for EnhResolvedGenericTypes {
 fn type_check_error(message: String) -> EnhTypeCheckError {
     EnhTypeCheckError::new(EnhASTIndex::none(), message, Vec::new())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        codegen::{
+            enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind},
+            enhanced_module::EnhancedASTModule,
+        },
+        enh_type_check::{
+            enh_resolved_generic_types::EnhResolvedGenericTypes,
+            enh_type_check_error::EnhTypeCheckError,
+        },
+    };
+
+    #[test]
+    fn test_extract_generic_types_from_effective_type_simple() -> Result<(), EnhTypeCheckError> {
+        let generic_type = generic("T");
+        let effective_type = i32();
+        let result = EnhResolvedGenericTypes::resolve_generic_types_from_effective_type(
+            &generic_type,
+            &effective_type,
+            &EnhancedASTModule::empty(),
+        )?;
+
+        let mut expected_result = EnhResolvedGenericTypes::new();
+        expected_result.insert("T".into(), Vec::new(), i32());
+
+        assert_eq!(result, expected_result);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_generic_types_from_effective_type_custom() -> Result<(), EnhTypeCheckError> {
+        let generic_type = EnhASTType::Custom {
+            namespace: EnhASTNameSpace::global(),
+            name: "List".into(),
+            param_types: vec![generic("T")],
+            index: EnhASTIndex::none(),
+        };
+        let effective_type = EnhASTType::Custom {
+            namespace: EnhASTNameSpace::global(),
+            name: "List".into(),
+            param_types: vec![i32()],
+            index: EnhASTIndex::none(),
+        };
+
+        let result = EnhResolvedGenericTypes::resolve_generic_types_from_effective_type(
+            &generic_type,
+            &effective_type,
+            &EnhancedASTModule::empty(),
+        )?;
+
+        let mut expected_result = EnhResolvedGenericTypes::new();
+        expected_result.insert("T".into(), Vec::new(), i32());
+
+        assert_eq!(result, expected_result);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_generic_types_from_effective_type_lambda() -> Result<(), EnhTypeCheckError> {
+        let generic_type = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+            parameters: vec![generic("T")],
+            return_type: Box::new(generic("T")),
+        });
+
+        let effective_type = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+            parameters: vec![generic("T")],
+            return_type: Box::new(i32()),
+        });
+
+        let result = EnhResolvedGenericTypes::resolve_generic_types_from_effective_type(
+            &generic_type,
+            &effective_type,
+            &EnhancedASTModule::empty(),
+        )?;
+
+        let mut expected_result = EnhResolvedGenericTypes::new();
+        expected_result.insert("T".into(), Vec::new(), i32());
+
+        assert_eq!(result, expected_result);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_generic_types_from_effective_type_lambda1() -> Result<(), EnhTypeCheckError> {
+        let generic_type = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+            parameters: vec![generic("T")],
+            return_type: Box::new(generic("T")),
+        });
+
+        let effective_type = EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+            parameters: vec![i32()],
+            return_type: Box::new(generic("T")),
+        });
+
+        let result = EnhResolvedGenericTypes::resolve_generic_types_from_effective_type(
+            &generic_type,
+            &effective_type,
+            &EnhancedASTModule::empty(),
+        )?;
+
+        let mut expected_result = EnhResolvedGenericTypes::new();
+        expected_result.insert("T".into(), Vec::new(), i32());
+
+        assert_eq!(result, expected_result);
+        Ok(())
+    }
+
+    fn generic(name: &str) -> EnhASTType {
+        EnhASTType::Generic(EnhASTIndex::none(), name.into(), Vec::new())
+    }
+
+    fn i32() -> EnhASTType {
+        EnhASTType::Builtin(EnhBuiltinTypeKind::I32)
+    }
+}

@@ -26,7 +26,7 @@ fn can_lambda_be_in_stack_(
 ) -> bool {
     match lambda_return_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => false,
-        ASTTypedType::Enum { namespace, name } => {
+        ASTTypedType::Enum { namespace: _, name } => {
             if let Some(value) = already_checked.get(lambda_return_type) {
                 return *value;
             }
@@ -48,9 +48,7 @@ fn can_lambda_be_in_stack_(
                 panic!();
             }
         }
-        ASTTypedType::Struct { namespace, name } => {
-            let full_name = format!("{namespace}_{name}");
-
+        ASTTypedType::Struct { namespace: _, name } => {
             if let Some(value) = already_checked.get(lambda_return_type) {
                 return *value;
             }

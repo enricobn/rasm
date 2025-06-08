@@ -800,7 +800,6 @@ mod tests {
 
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
-        commandline::CommandLineOptions,
         project::{RasmProject, RasmProjectRunType},
         type_check::ast_modules_container::ModuleNamespace,
     };
@@ -861,13 +860,8 @@ mod tests {
         let target = CompileTarget::C(COptions::default());
         let mut statics = Statics::new();
 
-        let (container, _catalog, _errors) = project.container_and_catalog(
-            &mut statics,
-            &RasmProjectRunType::Main,
-            &target,
-            false,
-            &CommandLineOptions::default(),
-        );
+        let (container, _catalog, _errors) =
+            project.container_and_catalog(&mut statics, &RasmProjectRunType::Main, &target, false);
 
         container
     }
