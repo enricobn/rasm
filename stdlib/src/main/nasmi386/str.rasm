@@ -199,7 +199,8 @@ pub native eq(s1: str, s2: str) -> bool /{
     pop   ebx
 }/
 
-pub inline native eq(a: char, b: char) -> bool /{
+pub native eq(a: char, b: char) -> bool /{
+    $inline()
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true

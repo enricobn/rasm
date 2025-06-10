@@ -314,7 +314,6 @@ mod tests {
             }],
             return_type: EnhASTType::Unit,
             body: EnhASTFunctionBody::RASMBody(vec![]),
-            inline: false,
             generic_types: vec![],
             resolved_generic_types: EnhResolvedGenericTypes::new(),
             index: EnhASTIndex::none(),

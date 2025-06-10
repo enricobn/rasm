@@ -488,7 +488,6 @@ impl Parser {
                 parameters: Vec::new(),
                 body: RASMBody(Vec::new()),
                 return_type: ASTType::Unit,
-                inline: false,
                 generic_types,
                 position: name_token.position,
                 modifiers,
@@ -498,7 +497,7 @@ impl Parser {
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
-        } else if let Some((name_token, inline, param_types, modifiers, next_i)) =
+        } else if let Some((name_token, param_types, modifiers, next_i)) =
             NativeFnParser::new(self).try_parse()?
         {
             let name = name_token.alpha().unwrap();
@@ -507,7 +506,6 @@ impl Parser {
                 parameters: Vec::new(),
                 body: NativeBody("".into()),
                 return_type: ASTType::Unit,
-                inline,
                 generic_types: param_types,
                 position: name_token.position.clone(),
                 modifiers,
@@ -721,7 +719,6 @@ impl Parser {
             parameters: Vec::new(),
             body: RASMBody(Vec::new()),
             return_type: ASTType::Unit,
-            inline: false,
             generic_types: Vec::new(),
             position: ASTPosition::none(),
             modifiers: ASTModifiers::public(),
@@ -1550,7 +1547,6 @@ mod tests {
             body: ASTFunctionBody::RASMBody(Vec::new()),
             parameters: Vec::new(),
             return_type: ASTType::Unit,
-            inline: false,
             generic_types: vec!["T".into(), "T1".into()],
             position: ASTPosition::new(1, 4),
             modifiers: ASTModifiers::private(),

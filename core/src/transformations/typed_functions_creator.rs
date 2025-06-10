@@ -135,7 +135,6 @@ pub trait TypedFunctionsCreator {
             original_name: fun_name.to_ascii_lowercase(),
             parameters,
             body,
-            inline: false,
             return_type: ASTTypedType::Unit,
             resolved_generic_types: ResolvedGenericTypedTypes::new(),
             index: EnhASTIndex::none(),

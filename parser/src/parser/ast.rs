@@ -94,7 +94,6 @@ pub struct ASTFunctionDef {
     pub parameters: Vec<ASTParameterDef>,
     pub return_type: ASTType,
     pub body: ASTFunctionBody,
-    pub inline: bool,
     pub generic_types: Vec<String>,
     pub position: ASTPosition,
     pub modifiers: ASTModifiers,
@@ -231,7 +230,6 @@ impl ASTFunctionDef {
 
     pub fn from_signature(
         signature: ASTFunctionSignature,
-        is_inline: bool,
         is_public: bool,
         position: ASTPosition,
         parameters_names: Vec<String>,
@@ -256,7 +254,6 @@ impl ASTFunctionDef {
             .collect(),
             return_type: signature.return_type,
             body,
-            inline: is_inline,
             generic_types: signature.generics,
             position,
             modifiers: ASTModifiers { public: is_public },
@@ -1079,7 +1076,6 @@ mod tests {
             }],
             return_type: ASTType::Generic(ASTPosition::none(), "T".to_string(), Vec::new()),
             body: ASTFunctionBody::RASMBody(vec![]),
-            inline: false,
             generic_types: vec!["T".to_string()],
             position: ASTPosition::none(),
             modifiers: ASTModifiers::private(),

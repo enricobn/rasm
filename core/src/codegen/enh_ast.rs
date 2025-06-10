@@ -156,7 +156,6 @@ pub struct EnhASTFunctionDef {
     pub parameters: Vec<EnhASTParameterDef>,
     pub return_type: EnhASTType,
     pub body: EnhASTFunctionBody,
-    pub inline: bool,
     pub generic_types: Vec<String>,
     pub resolved_generic_types: EnhResolvedGenericTypes,
     pub index: EnhASTIndex,
@@ -347,7 +346,6 @@ impl EnhASTFunctionDef {
                     ASTFunctionBody::NativeBody(value) => EnhASTFunctionBody::NativeBody(value),
                 }
             },
-            inline: function.inline,
             generic_types,
             resolved_generic_types: EnhResolvedGenericTypes::new(),
             index: EnhASTIndex::from_position(id.path(), &function.position),
@@ -1978,7 +1976,6 @@ mod tests {
             }],
             return_type: EnhASTType::Generic(EnhASTIndex::none(), "T".to_string(), Vec::new()),
             body: EnhASTFunctionBody::RASMBody(vec![]),
-            inline: false,
             generic_types: vec!["T".to_string()],
             resolved_generic_types: EnhResolvedGenericTypes::new(),
             index: EnhASTIndex::none(),

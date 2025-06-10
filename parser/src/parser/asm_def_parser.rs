@@ -12,9 +12,7 @@ impl<'a> NativeFnParser<'a> {
         Self { parser }
     }
 
-    pub fn try_parse(
-        &self,
-    ) -> Result<Option<(Token, bool, Vec<String>, ASTModifiers, usize)>, String> {
+    pub fn try_parse(&self) -> Result<Option<(Token, Vec<String>, ASTModifiers, usize)>, String> {
         let mut current_n = 0;
         let modifiers =
             if let Some(TokenKind::KeyWord(KeywordKind::Pub)) = self.parser.get_token_kind_n(0) {
@@ -23,18 +21,9 @@ impl<'a> NativeFnParser<'a> {
             } else {
                 ASTModifiers::private()
             };
-        if let Some(kind) = self.parser.get_token_kind_n(current_n) {
-            if let TokenKind::KeyWord(KeywordKind::Inline) = kind {
-                if let Some((function_name, type_params, next_i)) =
-                    self.try_parse_no_inline(current_n + 1)?
-                {
-                    return Ok(Some((function_name, true, type_params, modifiers, next_i)));
-                }
-            } else if let Some((function_name, type_params, next_i)) =
-                self.try_parse_no_inline(current_n)?
-            {
-                return Ok(Some((function_name, false, type_params, modifiers, next_i)));
-            }
+
+        if let Some((function_name, type_params, next_i)) = self.try_parse_no_inline(current_n)? {
+            return Ok(Some((function_name, type_params, modifiers, next_i)));
         }
         Ok(None)
     }
@@ -80,24 +69,18 @@ mod tests {
     #[test]
     fn test() {
         let parse_result = try_parse(
-            "inline native aFun<T>(o: Option<T>) /{
+            "native aFun<T>(o: Option<T>) /{
         }/",
         );
-        let expected_token = Token::new(TokenKind::AlphaNumeric("aFun".to_string()), 1, 15);
+        let expected_token = Token::new(TokenKind::AlphaNumeric("aFun".to_string()), 1, 8);
 
         assert_eq!(
             parse_result,
-            Some((
-                expected_token,
-                true,
-                vec!["T".into()],
-                ASTModifiers::private(),
-                7
-            )),
+            Some((expected_token, vec!["T".into()], ASTModifiers::private(), 6)),
         );
     }
 
-    fn try_parse(source: &str) -> Option<(Token, bool, Vec<String>, ASTModifiers, usize)> {
+    fn try_parse(source: &str) -> Option<(Token, Vec<String>, ASTModifiers, usize)> {
         let parser = get_parser(source);
 
         let sut = NativeFnParser::new(&parser);

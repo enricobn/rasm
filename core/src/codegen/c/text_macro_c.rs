@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use linked_hash_set::LinkedHashSet;
 use rasm_utils::OptionDisplay;
 
 use crate::codegen::c::any::CInclude;

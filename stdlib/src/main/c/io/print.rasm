@@ -1,5 +1,7 @@
-pub inline native STDOut() -> File /{
+pub native STDOut() -> File /{
     $include(<stdio.h>)
+    $inline()
+    
     return stdout;
 }/
 

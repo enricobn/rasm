@@ -25,7 +25,7 @@ use crate::codegen::function_call_parameters::FunctionCallParameters;
 
 use crate::codegen::lambda_in_stack::can_lambda_be_in_stack;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{MacroParam, TextMacro, TextMacroEvaluator};
+use crate::codegen::text_macro::{InlineRegistry, MacroParam, TextMacro, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::commandline::CommandLineOptions;
 use crate::enh_type_check::typed_ast::{
@@ -384,7 +384,11 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn value_to_string(&self, value_type: &ASTValueType) -> String;
 
-    fn create_function_definition(&self, function_def: &ASTTypedFunctionDef) -> bool;
+    fn create_function_definition(
+        &self,
+        statics: &Statics,
+        function_def: &ASTTypedFunctionDef,
+    ) -> bool;
 
     fn replace_inline_call_including_source(&self) -> bool;
 
@@ -707,7 +711,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             parameters: Vec::new(), // parametrs are calculated later
                             return_type: rt,
                             body: ASTTypedFunctionBody::RASMBody(lambda_def.body.clone()),
-                            inline: false,
                             resolved_generic_types: ResolvedGenericTypedTypes::new(),
                             index: lambda_def.index.clone(),
                         };
@@ -1357,7 +1360,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         namespace: &EnhASTNameSpace,
         lambda_in_stack: bool,
     ) {
-        let inline = function_def.map(|it| it.inline).unwrap_or(false);
+        let inline = function_def
+            .map(|it| InlineRegistry::is_inline(statics, it))
+            .unwrap_or(false);
         let fun_return_type = function_def
             .map(|it| it.return_type.clone())
             .unwrap_or(ASTTypedType::Unit);
@@ -1455,7 +1460,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                     parameters: lambda_parameters, // parametrs are calculated later
                                     return_type: rt,
                                     body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
-                                    inline: false,
                                     resolved_generic_types: ResolvedGenericTypedTypes::new(),
                                     index: lambda_def.index.clone(),
                                 };
@@ -1603,6 +1607,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 context.names(),
                 lambda_space
             );
+            let inline = InlineRegistry::is_inline(statics, &def);
             self.call_function_(
                 code_gen_context,
                 parent_fcp,
@@ -1613,7 +1618,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 &mut before,
                 &mut current,
                 def.parameters,
-                def.inline,
+                inline,
                 Some(def.body),
                 real_function_name,
                 lambda_space,
@@ -1794,7 +1799,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         for function_def in typed_module.functions_by_name.values() {
             // ValContext ???
             //if !function_def.inline {
-            if self.create_function_definition(function_def) {
+            if self.create_function_definition(&statics, function_def) {
                 let mut definitions = String::new();
                 let mut body = String::new();
 

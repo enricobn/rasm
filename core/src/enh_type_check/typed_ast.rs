@@ -18,6 +18,7 @@ use crate::codegen::enh_ast::{
 use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
+use crate::codegen::text_macro::InlineRegistry;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::TypedValKind;
 use crate::enh_type_check::enh_functions_container::EnhTypeFilter;
@@ -40,7 +41,6 @@ pub struct ASTTypedFunctionDef {
     pub parameters: Vec<ASTTypedParameterDef>,
     pub return_type: ASTTypedType,
     pub body: ASTTypedFunctionBody,
-    pub inline: bool,
     pub resolved_generic_types: ResolvedGenericTypedTypes,
     pub index: EnhASTIndex,
 }
@@ -1511,7 +1511,6 @@ pub fn function_def(
         original_name: def.original_name.clone(),
         body: body(conv_context, &def.body),
         return_type: function_return_type,
-        inline: def.inline,
         parameters: def
             .parameters
             .iter()

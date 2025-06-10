@@ -1,4 +1,5 @@
-pub inline native tof32(n: i32) -> f32 /{
+pub native tof32(n: i32) -> f32 /{
+    $inline()
     return ((float) $n);
 }/
 
@@ -9,59 +10,73 @@ pub native toi32(n: f32) -> Option<i32> /{
     ;
 }/
 
-pub inline native divf(n1: i32, n2: i32) -> f32 /{
+pub native divf(n1: i32, n2: i32) -> f32 /{
+    $inline()
     return (((float)$n1) / ((float) $n2));
 }/
 
-pub inline native sub(a: f32, b: f32) -> f32 /{
+pub native sub(a: f32, b: f32) -> f32 /{
+    $inline()
     return ($a - $b);
 }/
 
-pub inline native add(a: f32, b: f32) -> f32 /{
+pub native add(a: f32, b: f32) -> f32 /{
+    $inline()
     return ($a + $b);
 }/
 
-pub inline native add(a: f32, b: i32) -> f32 /{
+pub native add(a: f32, b: i32) -> f32 /{
+    $inline()
     return ($a + $b);
 }/
 
-pub inline native mul(a: f32, b: f32) -> f32 /{
+pub native mul(a: f32, b: f32) -> f32 /{
+    $inline()
     return ($a * $b);
 }/
 
-pub inline native div(a: f32, b: f32) -> f32 /{
+pub native div(a: f32, b: f32) -> f32 /{
+    $inline()
     return ($a / $b);
 }/
 
-pub inline native sub(a: f32, b: i32) -> f32 /{
+pub native sub(a: f32, b: i32) -> f32 /{
+    $inline()
     return ($a - $b);
 }/
 
-pub inline native sub(a: i32, b: f32) -> f32 /{
+pub native sub(a: i32, b: f32) -> f32 /{
+    $inline()
     return ($a - $b);
 }/
 
-pub inline native greater(a: f32, b: f32) -> bool /{
+pub native greater(a: f32, b: f32) -> bool /{
+    $inline()
     return ($a > $b);
 }/
 
-pub inline native greater(a: f32, b: i32) -> bool /{
+pub native greater(a: f32, b: i32) -> bool /{
+    $inline()
     return ($a > $b);
 }/
 
-pub inline native less(a: f32, b: f32) -> bool /{
+pub native less(a: f32, b: f32) -> bool /{
+    $inline()
     return ($a < $b);
 }/
 
-pub inline native less(a: f32, b: i32) -> bool /{
+pub native less(a: f32, b: i32) -> bool /{
+    $inline()
     return ($a < $b);
 }/
 
-pub inline native mul(f1: f32, n2: i32) -> f32 /{
+pub native mul(f1: f32, n2: i32) -> f32 /{
+    $inline()
     return ($f1 * $n2);
 }/
 
-pub inline native div(a: f32, b: i32) -> f32 /{
+pub native div(a: f32, b: i32) -> f32 /{
+    $inline()
     return ($a / $b);
 }/
 

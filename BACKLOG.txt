@@ -26,7 +26,6 @@ Road to language version 1.0.0 (not compiler)
 -----------------------------------------------
 - types should be declared as "native type" and should be defined with /{ }/. 
   It will be a compiler responsibility to interpret the content, as in native functions
-- remove inline as a keyword, it should be specified in some way in native functions
 - remove i32 and f32 types, add int and float types
 - array type
 

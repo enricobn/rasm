@@ -60,7 +60,6 @@ pub trait FunctionsCreator {
             position.builtin = Some(ASTBuiltinFunctionType::StructConstructor);
             let function_def = ASTFunctionDef::from_signature(
                 signature,
-                false,
                 struct_def.modifiers.public,
                 position,
                 parameters_names,
@@ -86,7 +85,6 @@ pub trait FunctionsCreator {
 
         let function_def = ASTFunctionDef::from_signature(
             signature,
-            false,
             enum_def.modifiers.public,
             ASTPosition::builtin(&enum_def.position, ASTBuiltinFunctionType::Match),
             parameters_names,
@@ -115,7 +113,6 @@ pub trait FunctionsCreator {
 
         let function_def = ASTFunctionDef::from_signature(
             signature,
-            false,
             enum_def.modifiers.public,
             ASTPosition::builtin(&variant.position, ASTBuiltinFunctionType::MatchOne),
             parameters_names,
@@ -154,7 +151,6 @@ pub trait FunctionsCreator {
 
             result.push(ASTFunctionDef::from_signature(
                 lambda_signature,
-                false,
                 struct_def.modifiers.public,
                 ASTPosition::builtin(&property_def.position, ft),
                 lambda_parameters_names,
@@ -185,10 +181,10 @@ pub trait FunctionsCreator {
         signature: ASTFunctionSignature,
     ) -> ASTFunctionDef {
         let (native_body, inline) = self.struct_property_body(i, &property_def.name);
+        // TODO unused inline
 
         ASTFunctionDef::from_signature(
             signature,
-            inline,
             struct_def.modifiers.public,
             ASTPosition::builtin(&property_def.position, ASTBuiltinFunctionType::StructGetter),
             parameters_names,
@@ -209,7 +205,6 @@ pub trait FunctionsCreator {
 
         ASTFunctionDef::from_signature(
             signature,
-            false,
             struct_def.modifiers.public,
             ASTPosition::builtin(&property_def.position, ASTBuiltinFunctionType::StructSetter),
             parameters_names,
@@ -230,7 +225,6 @@ pub trait FunctionsCreator {
 
         ASTFunctionDef::from_signature(
             signature,
-            false,
             struct_def.modifiers.public,
             ASTPosition::builtin(
                 &property_def.position,
@@ -335,8 +329,6 @@ pub trait FunctionsCreator {
 
             let function_def = ASTFunctionDef::from_signature(
                 signature,
-                // TODO we cannot inline parametric variant constructor, but I don't know why
-                inline && variant.parameters.is_empty(),
                 enum_def.modifiers.public,
                 variant.position.clone(),
                 parameters_names,
@@ -484,7 +476,6 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
                 ),
             }],
             body,
-            inline: false,
             return_type: ASTType::Unit,
             generic_types: Vec::new(),
             position: ASTPosition::builtin(
@@ -521,7 +512,6 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
                 ),
             }],
             body,
-            inline: false,
             return_type: ASTType::Unit,
             generic_types: Vec::new(),
             position: ASTPosition::builtin(
@@ -751,6 +741,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         self.code_gen.add_rows(
             &mut body,
             vec![
+                "$inline()",
                 "push ebx",
                 &format!("mov   {} ebx, $v", self.backend.word_size()),
                 &format!("mov   {} ebx, [ebx]", self.backend.word_size()),

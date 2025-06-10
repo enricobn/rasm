@@ -2356,7 +2356,6 @@ mod tests {
             } else {
                 EnhASTFunctionBody::RASMBody(Vec::new())
             },
-            inline: false,
             generic_types: vec![],
             resolved_generic_types: EnhResolvedGenericTypes::new(),
             index: EnhASTIndex::none(),

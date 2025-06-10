@@ -281,10 +281,16 @@ impl FunctionsCreator for CFunctionsCreator {
     fn struct_property_body(&self, _i: usize, name: &str) -> (String, bool) {
         let mut result = String::new();
 
-        self.code_manipulator
-            .add(&mut result, &format!("return (($typeName($v)"), None, false);
-        self.code_manipulator
-            .add(&mut result, &format!(")$v->address)->{name};"), None, false);
+        self.code_manipulator.add_rows(
+            &mut result,
+            vec![
+                "$inline()",
+                &format!("return (($typeName($v)"),
+                &format!(")$v->address)->{name};"),
+            ],
+            None,
+            false,
+        );
         (result, true)
     }
 

@@ -1,17 +1,20 @@
 /** Adds two numbers **/
-pub inline native add(n1: i32, n2: i32) -> i32 /{
+pub native add(n1: i32, n2: i32) -> i32 /{
+    $inline()
     mov     eax, $n1
     add     eax, $n2
 }/
 
 /** Subtracts two numbers **/
-pub inline native sub(n1: i32, n2: i32) -> i32 /{
+pub native sub(n1: i32, n2: i32) -> i32 /{
+    $inline()
     mov     eax, $n1
     sub     eax, $n2
 }/
 
 /** Multiply two numbers, but we return only the low 32 bit (edx is saved) **/
-pub inline native mul(n1: i32, n2: i32) -> i32 /{
+pub native mul(n1: i32, n2: i32) -> i32 /{
+    $inline()
     push    edx
     mov     dword eax,$n1
     imul    dword eax,$n2
@@ -82,7 +85,8 @@ pub native toString(n: i32) -> str /{
  *  a  <= b
  *  false = 0 true = 1
  **/
-pub inline native lessOrEqual(a: i32, b: i32) -> bool /{
+pub native lessOrEqual(a: i32, b: i32) -> bool /{
+    $inline()
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -94,7 +98,8 @@ pub inline native lessOrEqual(a: i32, b: i32) -> bool /{
  *  a  < b
  *  false = 0 true = 1
  **/
-pub inline native less(a: i32, b: i32) -> bool /{
+pub native less(a: i32, b: i32) -> bool /{
+    $inline()
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -106,7 +111,8 @@ pub inline native less(a: i32, b: i32) -> bool /{
  *  a  <= b
  *  false = 0 true = 1
  **/
-pub inline native greater(a: i32, b: i32) -> bool /{
+pub native greater(a: i32, b: i32) -> bool /{
+    $inline()
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true
@@ -118,7 +124,8 @@ pub inline native greater(a: i32, b: i32) -> bool /{
  *  a  == b
  *  false = 0 true = 1
  **/
-pub inline native eq(a: i32, b: i32) -> bool /{
+pub native eq(a: i32, b: i32) -> bool /{
+    $inline()
     mov     eax,$a
     cmp     eax,$b
     mov     eax,1 ; true

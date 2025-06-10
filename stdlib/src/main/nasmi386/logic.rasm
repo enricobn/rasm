@@ -1,14 +1,17 @@
-pub inline native or(a: bool, b: bool) -> bool /{
+pub native or(a: bool, b: bool) -> bool /{
+    $inline()
     mov     eax,$a
     or      dword eax,$b
 }/
 
-pub inline native and(a: bool, b: bool) -> bool /{
+pub native and(a: bool, b: bool) -> bool /{
+    $inline()
     mov     eax,$a
     and     dword eax,$b
 }/
 
-pub inline native not(a: bool) -> bool /{
+pub native not(a: bool) -> bool /{
+    $inline()
     mov     eax,$a
     xor     dword eax,1
 }/

@@ -4,6 +4,7 @@ use std::fmt::{Debug, Display, Formatter};
 
 use lazy_static::lazy_static;
 use linked_hash_map::LinkedHashMap;
+use linked_hash_set::LinkedHashSet;
 use regex::Regex;
 
 use crate::codegen::code_manipulator::CodeManipulator;
@@ -898,6 +899,65 @@ impl TextMacroEval for AddRefMacro {
     }
 }
 
+pub struct InlineRegistry {
+    inline_functions: LinkedHashSet<String>,
+}
+
+impl InlineRegistry {
+    pub fn add_to_statics(statics: &mut Statics, function: &ASTTypedFunctionDef) {
+        if let Some(registry) = statics.any_mut::<InlineRegistry>() {
+            registry.inline_functions.insert(function.name.clone());
+        } else {
+            let mut l = InlineRegistry {
+                inline_functions: LinkedHashSet::new(),
+            };
+            l.inline_functions.insert(function.name.clone());
+            statics.add_any(l);
+        }
+    }
+
+    pub fn is_inline(statics: &Statics, function: &ASTTypedFunctionDef) -> bool {
+        if let Some(registry) = statics.any::<InlineRegistry>() {
+            registry.inline_functions.contains(&function.name)
+        } else {
+            false
+        }
+    }
+}
+
+pub struct InlineMacro;
+
+impl InlineMacro {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl TextMacroEval for InlineMacro {
+    fn eval_macro(
+        &self,
+        statics: &mut Statics,
+        text_macro: &TextMacro,
+        function_def: Option<&ASTTypedFunctionDef>,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> String {
+        if let Some(f) = function_def {
+            InlineRegistry::add_to_statics(statics, &f);
+            String::new()
+        } else {
+            panic!("Cannot use the inline macro outside of a function.")
+        }
+    }
+
+    fn is_pre_macro(&self) -> bool {
+        true
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::codegen::asm::code_gen_asm::CodeGenAsm;
@@ -1011,7 +1071,6 @@ mod tests {
             body: ASTTypedFunctionBody::NativeBody("".into()),
             resolved_generic_types: ResolvedGenericTypedTypes::new(),
             return_type: ASTTypedType::Unit,
-            inline: false,
             index: EnhASTIndex::none(),
         };
 
@@ -1049,7 +1108,6 @@ mod tests {
             body: ASTTypedFunctionBody::NativeBody("".into()),
             resolved_generic_types: ResolvedGenericTypedTypes::new(),
             return_type: ASTTypedType::Unit,
-            inline: false,
             index: EnhASTIndex::none(),
         };
 
@@ -1104,7 +1162,6 @@ mod tests {
             body: ASTTypedFunctionBody::NativeBody("".into()),
             resolved_generic_types: ResolvedGenericTypedTypes::new(),
             return_type: ASTTypedType::Unit,
-            inline: false,
             index: EnhASTIndex::none(),
         };
 
@@ -1165,7 +1222,6 @@ mod tests {
             body: EnhASTFunctionBody::NativeBody("".into()),
             generic_types: Vec::new(),
             return_type: EnhASTType::Unit,
-            inline: false,
             index: EnhASTIndex::none(),
             resolved_generic_types: EnhResolvedGenericTypes::new(),
             modifiers: ASTModifiers::private(),
@@ -1204,7 +1260,6 @@ mod tests {
             }],
             return_type: ASTTypedType::Unit,
             body: ASTTypedFunctionBody::RASMBody(Vec::new()),
-            inline: false,
             resolved_generic_types: ResolvedGenericTypedTypes::new(),
             index: EnhASTIndex::none(),
         };

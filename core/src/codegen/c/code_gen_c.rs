@@ -32,7 +32,7 @@ use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{RefType, TextMacroEvaluator};
+use crate::codegen::text_macro::{InlineMacro, InlineRegistry, RefType, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{CodeGen, CodeGenOptions, TypedValKind};
 use crate::enh_type_check::typed_ast::{
@@ -724,8 +724,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         // probably sometimes we need to add the lambda def here
         CLambdas::add_to_statics_if_lambda(&function_def.return_type, statics);
 
-        let inline =
-            function_def.inline || &function_def.name == "addRef" || &function_def.name == "deref";
+        let inline = InlineRegistry::is_inline(statics, function_def)
+            || &function_def.name == "addRef"
+            || &function_def.name == "deref";
 
         let inline_str = if inline { " inline " } else { "" };
 
@@ -851,6 +852,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         evaluator.add("castAddress", CCastAddress::new());
         evaluator.add("enumSimple", CEnumSimpleMacro::new());
         evaluator.add("isRef", CIsRefMacro::new());
+        evaluator.add("inline", InlineMacro::new());
 
         evaluator
     }
@@ -1262,7 +1264,11 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         }
     }
 
-    fn create_function_definition(&self, _function_def: &ASTTypedFunctionDef) -> bool {
+    fn create_function_definition(
+        &self,
+        statics: &Statics,
+        _function_def: &ASTTypedFunctionDef,
+    ) -> bool {
         true
     }
 

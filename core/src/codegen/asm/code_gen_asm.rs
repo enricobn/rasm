@@ -16,7 +16,7 @@ use crate::{
         lambda::LambdaSpace,
         stack::{StackEntryType, StackVals},
         statics::{MemoryUnit, MemoryValue, Statics},
-        text_macro::{AddRefMacro, RefType, TextMacroEvaluator},
+        text_macro::{AddRefMacro, InlineMacro, InlineRegistry, RefType, TextMacroEvaluator},
         typedef_provider::TypeDefProvider,
         CodeGen, CodeGenOptions, TypedValKind,
     },
@@ -703,7 +703,6 @@ impl CodeGenAsm {
             body: ASTTypedFunctionBody::NativeBody(body),
             return_type: ASTTypedType::Unit,
             resolved_generic_types: ResolvedGenericTypedTypes::new(),
-            inline: false,
             index: EnhASTIndex::none(),
         })
     }
@@ -1711,12 +1710,17 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         );
         let print_ref_macro = AsmPrintRefMacro::new(self.clone());
         evaluator.add("printRef", print_ref_macro);
+        evaluator.add("inline", InlineMacro::new());
 
         evaluator
     }
 
-    fn create_function_definition(&self, function_def: &ASTTypedFunctionDef) -> bool {
-        !function_def.inline
+    fn create_function_definition(
+        &self,
+        statics: &Statics,
+        function_def: &ASTTypedFunctionDef,
+    ) -> bool {
+        !InlineRegistry::is_inline(statics, function_def)
     }
 
     fn replace_inline_call_including_source(&self) -> bool {

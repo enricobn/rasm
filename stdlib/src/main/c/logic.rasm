@@ -1,11 +1,14 @@
-pub inline native or(a: bool, b: bool) -> bool /{
+pub native or(a: bool, b: bool) -> bool /{
+    $inline()
     return ($a || $b);
 }/
 
-pub inline native and(a: bool, b: bool) -> bool /{
+pub native and(a: bool, b: bool) -> bool /{
+    $inline()
     return ($a && $b);
 }/
 
-pub inline native not(a: bool) -> bool /{
+pub native not(a: bool) -> bool /{
+    $inline()
     return (!$a);
 }/

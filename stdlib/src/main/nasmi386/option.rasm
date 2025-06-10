@@ -1,3 +1,4 @@
 // TODO it's a trick
-pub inline native toUnit<T>(o: Option<T>) /{
+pub native toUnit<T>(o: Option<T>) /{
+    $inline()
 }/

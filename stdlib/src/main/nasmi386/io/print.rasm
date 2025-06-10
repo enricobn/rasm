@@ -1,4 +1,5 @@
-pub inline native STDOut() -> File /{
+pub native STDOut() -> File /{
+    $inline()
     mov dword eax, 1
 }/
 
