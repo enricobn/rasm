@@ -9,6 +9,7 @@ use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_utils::SliceDisplay;
 
+use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::enh_type_check::enh_type_check::EnhTypeCheck;
@@ -618,27 +619,9 @@ impl EnhASTType {
         } = self
         {
             if let Some(t) = type_def_provider.get_typed_type_def_from_type_name(name) {
-                t.is_ref
-            } else {
-                true
-            }
-        } else {
-            false
-        }
-    }
-
-    pub fn is_reference_by_module(&self, module: &EnhASTModule) -> bool {
-        if let EnhASTType::Builtin(EnhBuiltinTypeKind::String) = self {
-            true
-        } else if let EnhASTType::Custom {
-            namespace: _,
-            name,
-            param_types: _,
-            index: _,
-        } = self
-        {
-            if let Some(t) = module.types.iter().find(|it| &it.name == name) {
-                t.is_ref
+                // TODO this method depends on the target, it should be put in CodeGen or Target
+                // for now works because asm and C have the same behavior
+                CodeGenC::parse_type_body_C(&t.body).has_references
             } else {
                 true
             }
@@ -1852,10 +1835,9 @@ pub struct EnhASTTypeDef {
     pub namespace: EnhASTNameSpace,
     pub name: String,
     pub type_parameters: Vec<String>,
-    pub is_ref: bool,
+    pub body: String,
     pub index: EnhASTIndex,
     pub modifiers: ASTModifiers,
-    pub native_type: Option<String>,
 }
 impl EnhASTTypeDef {
     pub fn fix_generics(self) -> Self {
@@ -1880,10 +1862,9 @@ impl EnhASTTypeDef {
             namespace: namespace.clone(),
             name: type_def.name,
             type_parameters: type_def.type_parameters,
-            is_ref: type_def.is_ref,
+            body: type_def.body,
             index: EnhASTIndex::from_position(path.clone(), &type_def.position),
             modifiers: type_def.modifiers,
-            native_type: type_def.native_type,
         }
     }
 }

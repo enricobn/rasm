@@ -1,4 +1,4 @@
-pub type Vec<T>(true, "struct Vector*");
+pub type Vec<T> /{ hasReferences = true, nativeType = struct Vector* }/
 
 native Vec(length: i32) -> RasmPointer /{
     struct RasmPointer_ *result = rasmMalloc(sizeof(struct Vector));

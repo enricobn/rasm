@@ -120,8 +120,7 @@ pub trait TypeDefProvider {
             ASTTypedType::Type {
                 namespace: _,
                 name,
-                is_ref: _,
-                native_type: _,
+                body: _,
             } => Some(&self.get_type_def_by_name(name).unwrap().modifiers),
             ASTTypedType::Unit => None,
         }

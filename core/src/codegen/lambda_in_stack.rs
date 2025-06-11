@@ -69,8 +69,7 @@ fn can_lambda_be_in_stack_(
         ASTTypedType::Type {
             namespace: _,
             name,
-            is_ref: _,
-            native_type: _,
+            body: _,
         } => {
             if let Some(value) = already_checked.get(lambda_return_type) {
                 return *value;
@@ -181,8 +180,7 @@ mod tests {
         let outer_type = ASTTypedType::Type {
             namespace: EnhASTNameSpace::global(),
             name: "OuterType".to_owned(),
-            is_ref: true,
-            native_type: None,
+            body: String::new(),
         };
 
         let inner_struct = ASTTypedType::Struct {
@@ -199,11 +197,10 @@ mod tests {
             original_name: "OT".to_owned(),
             name: "OuterType".to_owned(),
             generic_types,
-            is_ref: true,
             ast_type: EnhASTType::Unit,
             ast_typed_type: outer_type.clone(),
             index: EnhASTIndex::none(),
-            native_type: None,
+            body: String::new(),
         });
 
         structs.push(create_struct(

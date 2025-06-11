@@ -215,8 +215,7 @@ pub enum ASTTypedType {
     Type {
         namespace: EnhASTNameSpace,
         name: String,
-        is_ref: bool,
-        native_type: Option<String>,
+        body: String,
     },
     Unit,
 }
@@ -321,8 +320,7 @@ impl ASTTypedType {
             ASTTypedType::Type {
                 namespace,
                 name: _,
-                is_ref: _,
-                native_type: _,
+                body: _,
             } => Some(namespace.clone()),
             ASTTypedType::Unit => None,
         }
@@ -362,8 +360,7 @@ impl Display for ASTTypedType {
             ASTTypedType::Type {
                 namespace: _,
                 name,
-                native_type: _,
-                is_ref: _,
+                body: _,
             } => f.write_str(&name.to_string()),
             ASTTypedType::Unit => f.write_str("()"),
         }
@@ -667,11 +664,10 @@ pub struct ASTTypedTypeDef {
     pub original_name: String,
     pub name: String,
     pub generic_types: ResolvedGenericTypedTypes,
-    pub is_ref: bool,
+    pub body: String,
     pub ast_type: EnhASTType,
     pub ast_typed_type: ASTTypedType,
     pub index: EnhASTIndex,
-    pub native_type: Option<String>,
 }
 
 pub trait CustomTypedTypeDef: Display + Debug {
@@ -976,8 +972,7 @@ impl<'a> ConvContext<'a> {
                 let type_typed_type = ASTTypedType::Type {
                     namespace: type_def.namespace.clone(),
                     name: new_name.clone(),
-                    native_type: type_def.native_type.clone(),
-                    is_ref: type_def.is_ref,
+                    body: type_def.body.clone(),
                 };
 
                 self.type_defs.push(ASTTypedTypeDef {
@@ -985,12 +980,11 @@ impl<'a> ConvContext<'a> {
                     original_name: name.clone(),
                     name: new_name,
                     generic_types: resolved_generic_typed_types,
-                    is_ref: type_def.is_ref,
+                    body: type_def.body.clone(),
                     ast_type: ast_type.clone(),
                     ast_typed_type: type_typed_type.clone(),
                     index: type_def.index.clone(),
                     modifiers: type_def.modifiers.clone(),
-                    native_type: type_def.native_type.clone(),
                 });
 
                 self.types.insert(ast_type.clone(), type_typed_type.clone());
@@ -1678,8 +1672,7 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> EnhASTType {
         ASTTypedType::Type {
             namespace,
             name,
-            native_type: _,
-            is_ref: _,
+            body: _,
         } => EnhASTType::Custom {
             namespace: namespace.clone(),
             name: name.into(),

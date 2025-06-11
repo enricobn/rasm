@@ -1,4 +1,4 @@
-pub type File(false);
+pub type File /{ hasReferences = false }/
 
 pub enum FilePermission {
     Read,

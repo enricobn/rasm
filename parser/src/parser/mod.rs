@@ -538,17 +538,8 @@ impl Parser {
             self.state.push(StructDef);
             self.i = next_i;
         } else if let Some((type_def, next_i)) = self.parse_type_def()? {
-            let token = self.get_token_kind_n(next_i - self.i);
-            if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) = token {
-                self.types.push(type_def);
-                self.i = next_i + 1;
-            } else {
-                return Err(format!(
-                    "Missing semicolon, got {:?} : {}",
-                    token,
-                    self.get_position(0)
-                ));
-            }
+            self.types.push(type_def);
+            self.i = next_i;
         } else {
             self.state.push(ParserState::Statement);
         }
@@ -1327,70 +1318,21 @@ impl Parser {
                     (Vec::new(), self.get_i() + base_n + 2)
                 };
 
-                let mut n = next_i - self.get_i();
-                if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
-                    self.get_token_kind_n(n)
-                {
-                    let is_ref = match self.get_token_kind_n(n + 1) {
-                        None => {
-                            return Err(format!(
-                                "Unexpected end of stream: {}",
-                                self.get_position(0)
-                            ))
-                        }
-                        Some(TokenKind::KeyWord(KeywordKind::False)) => false,
-                        Some(TokenKind::KeyWord(KeywordKind::True)) => true,
-                        Some(k) => {
-                            return Err(format!(
-                                "Expected a boolean value but got {k}: {}",
-                                self.get_position(0)
-                            ))
-                        }
-                    };
-
-                    let native_type = if let Some(TokenKind::Punctuation(PunctuationKind::Comma)) =
-                        self.get_token_kind_n(n + 2)
-                    {
-                        match self.get_token_kind_n(n + 3) {
-                            Some(TokenKind::StringLiteral(native_type_name)) => {
-                                n += 2;
-                                Some(native_type_name.clone())
-                            }
-                            Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close)) => {
-                                None
-                            }
-                            _ => {
-                                return Err(format!(
-                                "Unexpected native type, it should be a string but it is {}: {}",
-                                OptionDisplay(&self.get_token_kind_n(n + 3)),
-                                self.get_position(n + 3)
-                            ));
-                            }
-                        }
-                    } else {
-                        None
-                    };
-
-                    if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Close)) =
-                        self.get_token_kind_n(n + 2)
-                    {
-                        Ok(Some((
-                            ASTTypeDef {
-                                type_parameters,
-                                name: name.clone(),
-                                is_ref,
-                                position: self.get_position(base_n + 1).clone(),
-                                modifiers,
-                                native_type,
-                            },
-                            self.get_i() + n + 3,
-                        )))
-                    } else {
-                        Err(format!("Error parsing type: {}", self.get_position(0)))
-                    }
+                let n = next_i - self.get_i();
+                if let Some(TokenKind::NativeBlock(body)) = self.get_token_kind_n(n) {
+                    Ok(Some((
+                        ASTTypeDef {
+                            type_parameters,
+                            name: name.clone(),
+                            body: body.to_owned(),
+                            position: self.get_position(base_n + 1).clone(),
+                            modifiers,
+                        },
+                        self.get_i() + n + 1,
+                    )))
                 } else {
                     Err(format!(
-                        "Expected '(' but got '{:?}': {}",
+                        "Expected native block but got '{:?}': {}",
                         self.get_token_kind_n(n),
                         self.get_position(n)
                     ))
@@ -1756,6 +1698,19 @@ mod tests {
         assert_eq!(module.functions.len(), 1);
 
         assert!(!errors.is_empty());
+    }
+
+    #[test]
+    fn parse_type() {
+        let lexer = Lexer::new("type Vec<T> /{ hasReferences = false }/".into());
+
+        let parser = Parser::new(lexer);
+
+        let (module, _) = parser.parse();
+
+        let t = module.types.get(0).unwrap();
+
+        assert_eq!(t.body, " hasReferences = false ");
     }
 
     fn parse(source: &str) -> ASTModule {

@@ -1,4 +1,7 @@
-pub type RasmPointer(false, "struct RasmPointer_ *");
+pub type RasmPointer /{
+    hasReferences = false,
+    nativeType = struct RasmPointer_*
+}/
 
 pub native exitMain(status: i32) /{
     exit($status);

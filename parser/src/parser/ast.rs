@@ -370,25 +370,6 @@ impl ASTType {
         return matches!(self, ASTType::Generic(..));
     }
 
-    pub fn is_reference_by_module(&self, module: &ASTModule) -> bool {
-        if let ASTType::Builtin(BuiltinTypeKind::String) = self {
-            true
-        } else if let ASTType::Custom {
-            name,
-            param_types: _,
-            position: _,
-        } = self
-        {
-            if let Some(t) = module.types.iter().find(|it| &it.name == name) {
-                t.is_ref
-            } else {
-                true
-            }
-        } else {
-            false
-        }
-    }
-
     pub fn add_generic_prefix(self, prefix: &dyn Display) -> Self {
         if format!("{prefix}").contains(":") {
             panic!("unsupported prefix {prefix}");
@@ -989,10 +970,9 @@ impl Display for ASTStructDef {
 pub struct ASTTypeDef {
     pub name: String,
     pub type_parameters: Vec<String>,
-    pub is_ref: bool,
+    pub body: String,
     pub position: ASTPosition,
     pub modifiers: ASTModifiers,
-    pub native_type: Option<String>,
 }
 
 impl CustomTypeDef for ASTTypeDef {

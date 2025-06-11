@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 use std::iter::zip;
 use std::ops::Deref;
@@ -15,6 +16,7 @@ use lambda::{LambdaCall, LambdaSpace};
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_utils::{debug_i, OptionDisplay};
 
+use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{
     EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef, EnhASTType,
@@ -2077,10 +2079,10 @@ pub fn get_reference_type_name(
         ASTTypedType::Type {
             namespace: _,
             name,
-            native_type: _,
-            is_ref,
+            body,
         } => {
-            if *is_ref {
+            // TODO: it's not C
+            if CodeGenC::parse_type_body_C(body).has_references {
                 Some(name.clone())
             } else {
                 None
@@ -2088,6 +2090,18 @@ pub fn get_reference_type_name(
         }
         _ => None,
     }
+}
+
+pub fn parse_type_body(body: &str) -> HashMap<&str, &str> {
+    let mut result = HashMap::new();
+    let lines = body.split(",").collect::<Vec<&str>>();
+    for line in lines {
+        let parts = line.split("=").collect::<Vec<&str>>();
+        if parts.len() == 2 {
+            result.insert(parts[0].trim(), parts[1].trim());
+        }
+    }
+    result
 }
 
 #[cfg(test)]

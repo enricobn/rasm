@@ -705,17 +705,6 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         );
 
         for (i, par) in struct_def.properties.iter().enumerate() {
-            /*
-            let mut add_ref_code = String::new();
-            if par.ast_type.is_reference_by_module(module) {
-                self.backend.call_add_ref_simple(
-                    &mut add_ref_code,
-                    "ebx",
-                    &format!(" for {} property {}", struct_def.name, par.name),
-                    statics,
-                );
-            }
-             */
             self.code_gen.add_rows(
                 &mut body,
                 vec![

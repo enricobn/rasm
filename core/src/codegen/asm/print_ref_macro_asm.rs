@@ -173,8 +173,7 @@ impl AsmPrintRefMacro {
             ASTTypedType::Type {
                 namespace: _,
                 name,
-                native_type: _,
-                is_ref: _,
+                body: _,
             } => (
                 name.clone(),
                 self.print_ref_type(&name, src, type_def_provider, indent + 1, code_gen),

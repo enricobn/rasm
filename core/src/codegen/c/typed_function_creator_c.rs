@@ -306,8 +306,7 @@ impl TypedFunctionsCreatorC {
             crate::enh_type_check::typed_ast::ASTTypedType::Type {
                 namespace: EnhASTNameSpace::global(),
                 name: "CTargetLambda".to_string(),
-                native_type: Some("void **".to_string()),
-                is_ref: true,
+                body: "hasReferences=true,nativeType=void **".to_owned(),
             },
             body,
             false,

@@ -1,6 +1,7 @@
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::debug_i;
 
+use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::get_reference_type_name;
@@ -47,7 +48,8 @@ pub trait TypedFunctionsCreator {
         statics: &mut Statics,
         typed_type_def: &ASTTypedTypeDef,
     ) {
-        if typed_type_def.is_ref {
+        let is_ref = CodeGenC::parse_type_body_C(&typed_type_def.body).has_references;
+        if is_ref {
             self.create_type_free(
                 module,
                 typed_type_def,
@@ -281,5 +283,5 @@ pub fn enum_has_references(
 }
 
 pub fn type_has_references(type_def: &ASTTypedTypeDef) -> bool {
-    type_def.is_ref
+    CodeGenC::parse_type_body_C(&type_def.body).has_references
 }

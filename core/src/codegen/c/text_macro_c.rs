@@ -668,7 +668,7 @@ impl TextMacroEval for CIsRefMacro {
                         get_reference_type_name(t, type_def_provider)
                     {
                         if let Some(t_def) = type_def_provider.get_type_def_by_name(&type_name) {
-                            t_def.is_ref
+                            CodeGenC::parse_type_body_C(&t_def.body).has_references
                         } else {
                             true
                         }

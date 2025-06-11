@@ -14,6 +14,7 @@ use crate::{
         enh_val_context::TypedValContext,
         get_reference_type_name,
         lambda::LambdaSpace,
+        parse_type_body,
         stack::{StackEntryType, StackVals},
         statics::{MemoryUnit, MemoryValue, Statics},
         text_macro::{AddRefMacro, InlineMacro, InlineRegistry, RefType, TextMacroEvaluator},
@@ -82,6 +83,10 @@ pub struct CodeGenAsm {
     code_manipulator: CodeManipulatorNasm,
 }
 
+pub struct AsmTypeDefBody {
+    pub has_references: bool,
+}
+
 impl CodeGenAsm {
     pub fn new(options: AsmOptions, debug: bool) -> Self {
         /*
@@ -98,6 +103,19 @@ impl CodeGenAsm {
             debug,
             code_manipulator: CodeManipulatorNasm::new(),
         }
+    }
+
+    pub fn parse_type_body_asm(body: &str) -> AsmTypeDefBody {
+        let properties = parse_type_body(body);
+        let mut has_references = false;
+        for (name, value) in properties {
+            if name == "hasReferences" {
+                has_references = value == "true";
+            } else {
+                panic!("asm type body: unknown property {name}");
+            }
+        }
+        AsmTypeDefBody { has_references }
     }
 
     /// little endian

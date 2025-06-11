@@ -243,7 +243,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
         typed_module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
-        if !type_def.is_ref {
+        if !CodeGenAsm::parse_type_body_asm(&type_def.body).has_references {
             return String::new();
         }
 

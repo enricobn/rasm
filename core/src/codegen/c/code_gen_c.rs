@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use core::panic;
 use std::fs;
 use std::path::Path;
 
@@ -34,7 +35,7 @@ use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{InlineMacro, InlineRegistry, RefType, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{CodeGen, CodeGenOptions, TypedValKind};
+use crate::codegen::{parse_type_body, CodeGen, CodeGenOptions, TypedValKind};
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
@@ -86,12 +87,36 @@ pub struct CodeGenC {
     debug: bool,
 }
 
+pub struct CTypeDefBody {
+    pub has_references: bool,
+    pub native_type: String,
+}
+
 impl CodeGenC {
     pub fn new(options: COptions, debug: bool) -> Self {
         Self {
             code_manipulator: CCodeManipulator,
             c_options: options,
             debug,
+        }
+    }
+
+    pub fn parse_type_body_C(body: &str) -> CTypeDefBody {
+        let properties = parse_type_body(body);
+        let mut has_references = false;
+        let mut native_type = String::new();
+        for (name, value) in properties {
+            if name == "hasReferences" {
+                has_references = value == "true";
+            } else if name == "nativeType" {
+                native_type = value.to_owned();
+            } else {
+                panic!("Unknown property: {name}");
+            }
+        }
+        CTypeDefBody {
+            has_references,
+            native_type,
         }
     }
 
@@ -129,14 +154,8 @@ impl CodeGenC {
             ASTTypedType::Type {
                 namespace,
                 name,
-                native_type,
-                is_ref: _,
-            } => native_type
-                .clone()
-                .unwrap_or_else(|| {
-                    panic!("type in C must define a native type: {namespace}:{name}")
-                })
-                .to_string(),
+                body,
+            } => CodeGenC::parse_type_body_C(body).native_type,
         }
     }
 
@@ -165,18 +184,13 @@ impl CodeGenC {
             ASTTypedType::Type {
                 namespace,
                 name,
-                native_type,
-                is_ref,
+                body,
             } => {
-                if *is_ref {
+                let native_type = CodeGenC::parse_type_body_C(body);
+                if native_type.has_references {
                     "struct RasmPointer_*".to_string()
                 } else {
-                    native_type
-                        .clone()
-                        .unwrap_or_else(|| {
-                            panic!("type in C must define a native type: {namespace}:{name}")
-                        })
-                        .to_string()
+                    native_type.native_type
                 }
             }
         }
@@ -212,7 +226,11 @@ impl CodeGenC {
                     !enum_has_parametric_variants,
                 )
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-                (type_def.is_ref, true, false)
+                (
+                    CodeGenC::parse_type_body_C(&type_def.body).has_references,
+                    true,
+                    false,
+                )
             } else if "str" == type_name || "_fn" == type_name {
                 (false, false, false)
             } else {
@@ -288,7 +306,11 @@ impl CodeGenC {
                     !enum_has_parametric_variants,
                 )
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-                (type_def.is_ref, true, false)
+                (
+                    CodeGenC::parse_type_body_C(&type_def.body).has_references,
+                    true,
+                    false,
+                )
             } else if "str" == type_name || "_fn" == type_name {
                 (false, false, false)
             } else {

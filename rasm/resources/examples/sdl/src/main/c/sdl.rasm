@@ -1,9 +1,9 @@
-pub type SDLRenderer(false, "SDL_Renderer*");
-pub type SDLWindow(false, "SDL_Window*");
-pub type SDLSurface(false, "SDL_Surface*");
-pub type SDLTexture(false, "SDL_Texture*");
-pub type SDLFont(false, "TTF_Font*");
-type NativeSDLRect(false, "SDL_Rect*");
+pub type SDLRenderer /{ hasReferences = false, nativeType = SDL_Renderer* }/
+pub type SDLWindow /{ hasReferences = false, nativeType = SDL_Window* }/
+pub type SDLSurface /{ hasReferences = false, nativeType = SDL_Surface* }/
+pub type SDLTexture /{ hasReferences = false, nativeType = SDL_Texture* }/
+pub type SDLFont /{ hasReferences = false, nativeType = TTF_Font* }/
+type NativeSDLRect /{ hasReferences = false, nativeType = SDL_Rect* }/
 
 native isSDLNull<T>(value: T) -> bool /{
     return (value == NULL);

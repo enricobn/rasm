@@ -1,4 +1,4 @@
-pub type Vec<T>(true);
+pub type Vec<T> /{ hasReferences = true }/
 
 pub native vecOf<T>(value: T) -> Vec<T> /{
     $call(rasmalloc, 8, " for vecOf")

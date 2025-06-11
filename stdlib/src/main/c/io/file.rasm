@@ -1,4 +1,7 @@
-pub type File(false, "FILE*");
+pub type File /{
+    hasReferences = false,
+    nativeType = FILE*
+}/
 
 pub native readFile(path: str) -> str /{
     $include(<stdio.h>)
