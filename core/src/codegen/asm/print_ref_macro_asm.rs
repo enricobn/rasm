@@ -6,6 +6,7 @@ use crate::{
         get_reference_type_name,
         statics::Statics,
         text_macro::{get_type, MacroParam, TextMacro, TextMacroEval},
+        type_def_body::TypeDefBodyTarget,
         typedef_provider::TypeDefProvider,
         CodeGen,
     },
@@ -325,7 +326,7 @@ impl AsmPrintRefMacro {
                 self.println_str(&mut result, &variant.name, code_gen);
 
                 for (j, par) in variant.parameters.iter().enumerate() {
-                    if get_reference_type_name(&par.ast_type, type_def_provider).is_some() {
+                    if get_reference_type_name(&par.ast_type, &TypeDefBodyTarget::Asm).is_some() {
                         let ast_type = if matches!(
                             &par.ast_type,
                             ASTTypedType::Builtin(BuiltinTypedTypeKind::String)

@@ -34,8 +34,9 @@ use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{InlineMacro, InlineRegistry, RefType, TextMacroEvaluator};
+use crate::codegen::type_def_body::{parse_type_body_c, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{parse_type_body, CodeGen, CodeGenOptions, TypedValKind};
+use crate::codegen::{get_reference_type_name, CodeGen, CodeGenOptions, TypedValKind};
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
@@ -87,36 +88,12 @@ pub struct CodeGenC {
     debug: bool,
 }
 
-pub struct CTypeDefBody {
-    pub has_references: bool,
-    pub native_type: String,
-}
-
 impl CodeGenC {
     pub fn new(options: COptions, debug: bool) -> Self {
         Self {
             code_manipulator: CCodeManipulator,
             c_options: options,
             debug,
-        }
-    }
-
-    pub fn parse_type_body_C(body: &str) -> CTypeDefBody {
-        let properties = parse_type_body(body);
-        let mut has_references = false;
-        let mut native_type = String::new();
-        for (name, value) in properties {
-            if name == "hasReferences" {
-                has_references = value == "true";
-            } else if name == "nativeType" {
-                native_type = value.to_owned();
-            } else {
-                panic!("Unknown property: {name}");
-            }
-        }
-        CTypeDefBody {
-            has_references,
-            native_type,
         }
     }
 
@@ -152,10 +129,10 @@ impl CodeGenC {
                 format!("struct Enum*")
             }
             ASTTypedType::Type {
-                namespace,
-                name,
+                namespace: _,
+                name: _,
                 body,
-            } => CodeGenC::parse_type_body_C(body).native_type,
+            } => parse_type_body_c(body).native_type,
         }
     }
 
@@ -182,11 +159,11 @@ impl CodeGenC {
                 name: _,
             } => "struct RasmPointer_*".to_string(),
             ASTTypedType::Type {
-                namespace,
-                name,
+                namespace: _,
+                name: _,
                 body,
             } => {
-                let native_type = CodeGenC::parse_type_body_C(body);
+                let native_type = parse_type_body_c(body);
                 if native_type.has_references {
                     "struct RasmPointer_*".to_string()
                 } else {
@@ -214,7 +191,7 @@ impl CodeGenC {
         let (has_references, is_type, is_static) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
                 (
-                    struct_has_references(struct_def, type_def_provider),
+                    struct_has_references(struct_def, type_def_provider, TypeDefBodyTarget::C),
                     false,
                     false,
                 )
@@ -227,7 +204,7 @@ impl CodeGenC {
                 )
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (
-                    CodeGenC::parse_type_body_C(&type_def.body).has_references,
+                    parse_type_body_c(&type_def.body).has_references,
                     true,
                     false,
                 )
@@ -294,7 +271,7 @@ impl CodeGenC {
         let (has_references, is_type, is_static) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
                 (
-                    struct_has_references(struct_def, type_def_provider),
+                    struct_has_references(struct_def, type_def_provider, TypeDefBodyTarget::C),
                     false,
                     false,
                 )
@@ -307,7 +284,7 @@ impl CodeGenC {
                 )
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (
-                    CodeGenC::parse_type_body_C(&type_def.body).has_references,
+                    parse_type_body_c(&type_def.body).has_references,
                     true,
                     false,
                 )
@@ -1314,6 +1291,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn code_manipulator(&self) -> &dyn CodeManipulator {
         &self.code_manipulator
+    }
+
+    fn type_def_body_target(&self) -> TypeDefBodyTarget {
+        TypeDefBodyTarget::C
+    }
+
+    fn get_reference_type_name(&self, ast_type: &ASTTypedType) -> Option<String> {
+        get_reference_type_name(ast_type, &TypeDefBodyTarget::C)
     }
 }
 

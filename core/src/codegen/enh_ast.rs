@@ -9,8 +9,8 @@ use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_utils::SliceDisplay;
 
-use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::enhanced_module::EnhancedASTModule;
+use crate::codegen::type_def_body::{type_body_has_references, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::enh_type_check::enh_type_check::EnhTypeCheck;
 use crate::project::RasmProject;
@@ -608,7 +608,11 @@ impl EnhASTType {
         };
     }
 
-    pub fn is_reference(&self, type_def_provider: &dyn TypeDefProvider) -> bool {
+    pub fn is_reference(
+        &self,
+        type_def_provider: &dyn TypeDefProvider,
+        target: TypeDefBodyTarget,
+    ) -> bool {
         if let EnhASTType::Builtin(EnhBuiltinTypeKind::String) = self {
             true
         } else if let EnhASTType::Custom {
@@ -619,9 +623,7 @@ impl EnhASTType {
         } = self
         {
             if let Some(t) = type_def_provider.get_typed_type_def_from_type_name(name) {
-                // TODO this method depends on the target, it should be put in CodeGen or Target
-                // for now works because asm and C have the same behavior
-                CodeGenC::parse_type_body_C(&t.body).has_references
+                type_body_has_references(&t.body, &target)
             } else {
                 true
             }

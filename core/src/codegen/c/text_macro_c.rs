@@ -16,7 +16,6 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use linked_hash_set::LinkedHashSet;
 use rasm_utils::OptionDisplay;
 
 use crate::codegen::c::any::CInclude;
@@ -24,6 +23,7 @@ use crate::codegen::enh_ast::EnhASTType;
 use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, RefType, TextMacro, TextMacroEval};
+use crate::codegen::type_def_body::{parse_type_body_c, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::enh_type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedType, CustomTypedTypeDef, DefaultFunctionCall,
@@ -392,7 +392,8 @@ impl TextMacroEval for CAddRefMacro {
                 ),
             };
 
-            if let Some(type_name) = get_reference_type_name(ast_typed_type, type_def_provider) {
+            if let Some(type_name) = get_reference_type_name(ast_typed_type, &TypeDefBodyTarget::C)
+            {
                 let descr = &format!("addref macro type {type_name}");
 
                 match self.ref_type {
@@ -649,7 +650,11 @@ impl TextMacroEval for CIsRefMacro {
 
             CLambdas::add_to_statics_if_lambda(&t, statics);
 
-            if ast_type.clone().unwrap().is_reference(type_def_provider) {
+            if ast_type
+                .clone()
+                .unwrap()
+                .is_reference(type_def_provider, TypeDefBodyTarget::C)
+            {
                 "1".to_owned()
             } else {
                 "0".to_owned()
@@ -665,10 +670,10 @@ impl TextMacroEval for CIsRefMacro {
                     CLambdas::add_to_statics_if_lambda(&t, statics);
 
                     let is_ref = if let Some(type_name) =
-                        get_reference_type_name(t, type_def_provider)
+                        get_reference_type_name(t, &TypeDefBodyTarget::C)
                     {
                         if let Some(t_def) = type_def_provider.get_type_def_by_name(&type_name) {
-                            CodeGenC::parse_type_body_C(&t_def.body).has_references
+                            parse_type_body_c(&t_def.body).has_references
                         } else {
                             true
                         }

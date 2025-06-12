@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::Path,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -14,10 +15,10 @@ use crate::{
         enh_val_context::TypedValContext,
         get_reference_type_name,
         lambda::LambdaSpace,
-        parse_type_body,
         stack::{StackEntryType, StackVals},
         statics::{MemoryUnit, MemoryValue, Statics},
         text_macro::{AddRefMacro, InlineMacro, InlineRegistry, RefType, TextMacroEvaluator},
+        type_def_body::TypeDefBodyTarget,
         typedef_provider::TypeDefProvider,
         CodeGen, CodeGenOptions, TypedValKind,
     },
@@ -81,10 +82,7 @@ pub struct CodeGenAsm {
     options: AsmOptions,
     debug: bool,
     code_manipulator: CodeManipulatorNasm,
-}
-
-pub struct AsmTypeDefBody {
-    pub has_references: bool,
+    types_reference: HashMap<ASTTypedType, Option<String>>,
 }
 
 impl CodeGenAsm {
@@ -102,20 +100,8 @@ impl CodeGenAsm {
             options,
             debug,
             code_manipulator: CodeManipulatorNasm::new(),
+            types_reference: HashMap::new(),
         }
-    }
-
-    pub fn parse_type_body_asm(body: &str) -> AsmTypeDefBody {
-        let properties = parse_type_body(body);
-        let mut has_references = false;
-        for (name, value) in properties {
-            if name == "hasReferences" {
-                has_references = value == "true";
-            } else {
-                panic!("asm type body: unknown property {name}");
-            }
-        }
-        AsmTypeDefBody { has_references }
     }
 
     /// little endian
@@ -151,11 +137,17 @@ impl CodeGenAsm {
 
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-                (struct_has_references(struct_def, type_def_provider), false)
+                (
+                    struct_has_references(struct_def, type_def_provider, TypeDefBodyTarget::Asm),
+                    false,
+                )
             } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                (enum_has_references(enum_def, type_def_provider), false)
+                (
+                    enum_has_references(enum_def, type_def_provider, TypeDefBodyTarget::Asm),
+                    false,
+                )
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-                (type_has_references(type_def), true)
+                (type_has_references(type_def, TypeDefBodyTarget::Asm), true)
             } else if "str" == type_name || "_fn" == type_name {
                 (true, false)
             } else {
@@ -252,11 +244,17 @@ impl CodeGenAsm {
 
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-                (struct_has_references(struct_def, type_def_provider), false)
+                (
+                    struct_has_references(struct_def, type_def_provider, TypeDefBodyTarget::Asm),
+                    false,
+                )
             } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                (enum_has_references(enum_def, type_def_provider), false)
+                (
+                    enum_has_references(enum_def, type_def_provider, TypeDefBodyTarget::Asm),
+                    false,
+                )
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-                (type_has_references(type_def), true)
+                (type_has_references(type_def, TypeDefBodyTarget::Asm), true)
             } else if "str" == type_name || "_fn" == type_name {
                 (true, false)
             } else {
@@ -664,7 +662,8 @@ impl CodeGenAsm {
         if !lambda_space.is_empty() {
             for (i, (val_name, kind)) in lambda_space.iter().enumerate() {
                 let ast_typed_type = kind.typed_type();
-                if let Some(type_name) = get_reference_type_name(ast_typed_type, type_def_provider)
+                if let Some(type_name) =
+                    get_reference_type_name(ast_typed_type, &TypeDefBodyTarget::Asm)
                 {
                     if !initialized {
                         self.add(&mut body, "push   ebx", None, true);
@@ -1771,5 +1770,19 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
     fn code_manipulator(&self) -> &dyn CodeManipulator {
         &self.code_manipulator
+    }
+
+    fn type_def_body_target(&self) -> TypeDefBodyTarget {
+        TypeDefBodyTarget::Asm
+    }
+
+    fn get_reference_type_name(&self, ast_type: &ASTTypedType) -> Option<String> {
+        get_reference_type_name(ast_type, &TypeDefBodyTarget::Asm)
+        /*
+        let entry = self.types_reference.entry(ast_type.clone());
+        entry
+            .or_insert(get_reference_type_name(ast_type, &TypeDefBodyTarget::Asm))
+            .clone()
+            */
     }
 }

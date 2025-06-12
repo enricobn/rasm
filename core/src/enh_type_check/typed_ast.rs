@@ -18,7 +18,6 @@ use crate::codegen::enh_ast::{
 use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::InlineRegistry;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::TypedValKind;
 use crate::enh_type_check::enh_functions_container::EnhTypeFilter;

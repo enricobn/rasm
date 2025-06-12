@@ -289,10 +289,6 @@ impl CompletableItem {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
-
-    use env_logger::Builder;
-
     use rasm_core::codegen::enh_ast::{
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
         EnhASTType, EnhBuiltinTypeKind,

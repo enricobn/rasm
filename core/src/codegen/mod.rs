@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::env;
 use std::iter::zip;
 use std::ops::Deref;
@@ -16,7 +15,6 @@ use lambda::{LambdaCall, LambdaSpace};
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_utils::{debug_i, OptionDisplay};
 
-use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{
     EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef, EnhASTType,
@@ -28,6 +26,7 @@ use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda_in_stack::can_lambda_be_in_stack;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{InlineRegistry, MacroParam, TextMacro, TextMacroEvaluator};
+use crate::codegen::type_def_body::{type_body_has_references, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::commandline::CommandLineOptions;
 use crate::enh_type_check::typed_ast::{
@@ -57,6 +56,7 @@ pub mod lambda_in_stack;
 pub mod stack;
 pub mod statics;
 pub mod text_macro;
+pub mod type_def_body;
 pub mod typedef_provider;
 pub mod val_context;
 
@@ -395,6 +395,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
     fn replace_inline_call_including_source(&self) -> bool;
 
     fn code_manipulator(&self) -> &dyn CodeManipulator;
+
+    fn type_def_body_target(&self) -> TypeDefBodyTarget;
+
+    fn get_reference_type_name(&self, ast_type: &ASTTypedType) -> Option<String>;
 
     fn generate(
         &'a self,
@@ -1057,7 +1061,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             }
 
             if self.options().dereference() {
-                if let Some(type_name) = get_reference_type_name(&return_type, typed_module) {
+                if let Some(type_name) =
+                    get_reference_type_name(&return_type, &self.type_def_body_target())
+                {
                     self.add_const_ref(
                         &name,
                         statics,
@@ -1085,7 +1091,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             self.insert_on_top(&not_empty_after_lines.join("\n"), after);
 
             if self.options().dereference() {
-                if let Some(type_name) = get_reference_type_name(&return_type, typed_module) {
+                if let Some(type_name) =
+                    get_reference_type_name(&return_type, &self.type_def_body_target())
+                {
                     self.call_add_ref_for_let_val(
                         code_gen_context,
                         name,
@@ -2069,7 +2077,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
 pub fn get_reference_type_name(
     ast_type: &ASTTypedType,
-    _type_def_provider: &dyn TypeDefProvider,
+    target: &TypeDefBodyTarget,
 ) -> Option<String> {
     match ast_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => Some("str".into()),
@@ -2081,8 +2089,7 @@ pub fn get_reference_type_name(
             name,
             body,
         } => {
-            // TODO: it's not C
-            if CodeGenC::parse_type_body_C(body).has_references {
+            if type_body_has_references(body, target) {
                 Some(name.clone())
             } else {
                 None
@@ -2090,18 +2097,6 @@ pub fn get_reference_type_name(
         }
         _ => None,
     }
-}
-
-pub fn parse_type_body(body: &str) -> HashMap<&str, &str> {
-    let mut result = HashMap::new();
-    let lines = body.split(",").collect::<Vec<&str>>();
-    for line in lines {
-        let parts = line.split("=").collect::<Vec<&str>>();
-        if parts.len() == 2 {
-            result.insert(parts[0].trim(), parts[1].trim());
-        }
-    }
-    result
 }
 
 #[cfg(test)]

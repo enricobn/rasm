@@ -4,6 +4,7 @@ use crate::{
     codegen::{
         statics::Statics,
         text_macro::{MacroParam, TextMacro, TextMacroEval},
+        type_def_body::TypeDefBodyTarget,
         typedef_provider::TypeDefProvider,
         CodeGen,
     },
@@ -147,7 +148,7 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
                         MacroParam::Ref(s, t, _) => {
                             let is_ref =
                             if let Some(tt) = t {
-                                tt.is_reference(type_def_provider)
+                                tt.is_reference(type_def_provider, TypeDefBodyTarget::Asm)
                             } else {
                                 false
                             };

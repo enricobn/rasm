@@ -26,6 +26,7 @@ use crate::codegen::enh_ast::{EnhASTFunctionBody, EnhASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
+use crate::codegen::type_def_body::TypeDefBodyTarget;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen};
 use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
@@ -181,7 +182,7 @@ impl TypedFunctionsCreatorC {
             for (_i, (name, kind)) in lambda_space.iter().enumerate() {
                 let t = kind.typed_type();
 
-                if let Some(type_name) = get_reference_type_name(t, type_def_provider) {
+                if let Some(type_name) = get_reference_type_name(t, &TypeDefBodyTarget::C) {
                     let source = format!("lambda_space->{name}");
 
                     if &type_name == "_fn" {
@@ -387,7 +388,8 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         }
 
         for property in struct_def.properties.iter() {
-            if let Some(type_name) = get_reference_type_name(&property.ast_type, type_def_provider)
+            if let Some(type_name) =
+                get_reference_type_name(&property.ast_type, &TypeDefBodyTarget::C)
             {
                 CLambdas::add_to_statics_if_lambda(&property.ast_type, statics);
                 let source = format!("($castAddress($address))->{}", property.name);
@@ -576,7 +578,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
 
             for parameter in &variant.parameters {
                 if let Some(type_name) =
-                    get_reference_type_name(&parameter.ast_type, type_def_provider)
+                    get_reference_type_name(&parameter.ast_type, &TypeDefBodyTarget::C)
                 {
                     CLambdas::add_to_statics_if_lambda(&parameter.ast_type, statics);
                     let source = format!("variant->{}", parameter.name);
@@ -725,5 +727,9 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         } else {
             panic!("{ref_function_name} should be a native function.");
         }
+    }
+
+    fn type_def_body_target(&self) -> TypeDefBodyTarget {
+        TypeDefBodyTarget::C
     }
 }

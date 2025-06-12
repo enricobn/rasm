@@ -9,7 +9,6 @@ use crate::{
         enh_ast::{EnhASTIndex, EnhASTNameSpace},
         enh_val_context::TypedValContext,
         function_call_parameters::FunctionCallParameters,
-        get_reference_type_name,
         lambda::LambdaSpace,
         stack::StackVals,
         statics::{MemoryUnit, MemoryValue, Statics},
@@ -149,7 +148,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
             true,
         );
 
-        if let Some(name) = get_reference_type_name(&param_type, module) {
+        if let Some(name) = self.code_gen.get_reference_type_name(&param_type) {
             self.add_code_for_reference_type(module, &name, "eax", comment, statics);
         }
         self.parameter_added_to_stack();

@@ -934,9 +934,9 @@ impl TextMacroEval for InlineMacro {
     fn eval_macro(
         &self,
         statics: &mut Statics,
-        text_macro: &TextMacro,
+        _text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
+        _type_def_provider: &dyn TypeDefProvider,
     ) -> String {
         if let Some(f) = function_def {
             InlineRegistry::add_to_statics(statics, &f);

@@ -1,11 +1,11 @@
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::debug_i;
 
-use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
+use crate::codegen::type_def_body::{type_body_has_references, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
@@ -48,7 +48,7 @@ pub trait TypedFunctionsCreator {
         statics: &mut Statics,
         typed_type_def: &ASTTypedTypeDef,
     ) {
-        let is_ref = CodeGenC::parse_type_body_C(&typed_type_def.body).has_references;
+        let is_ref = type_body_has_references(&typed_type_def.body, &self.type_def_body_target());
         if is_ref {
             self.create_type_free(
                 module,
@@ -77,7 +77,7 @@ pub trait TypedFunctionsCreator {
         statics: &mut Statics,
         enum_def: &ASTTypedEnumDef,
     ) {
-        if enum_has_references(enum_def, typed_module) {
+        if enum_has_references(enum_def, typed_module, self.type_def_body_target()) {
             self.create_enum_free(enum_def, "deref", typed_module, functions_by_name, statics);
             self.create_enum_free(enum_def, "addRef", typed_module, functions_by_name, statics);
         }
@@ -91,7 +91,7 @@ pub trait TypedFunctionsCreator {
         statics: &mut Statics,
         struct_def: &ASTTypedStructDef,
     ) {
-        if struct_has_references(struct_def, typed_module) {
+        if struct_has_references(struct_def, typed_module, self.type_def_body_target()) {
             self.create_struct_free(
                 struct_def,
                 "deref",
@@ -259,29 +259,33 @@ pub trait TypedFunctionsCreator {
         typed_module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String;
+
+    fn type_def_body_target(&self) -> TypeDefBodyTarget;
 }
 
 pub fn struct_has_references(
     struct_def: &ASTTypedStructDef,
     type_def_provider: &dyn TypeDefProvider,
+    target: TypeDefBodyTarget,
 ) -> bool {
     struct_def
         .properties
         .iter()
-        .any(|it| get_reference_type_name(&it.ast_type, type_def_provider).is_some())
+        .any(|it| get_reference_type_name(&it.ast_type, &target).is_some())
 }
 
 pub fn enum_has_references(
     enum_def: &ASTTypedEnumDef,
     type_def_provider: &dyn TypeDefProvider,
+    target: TypeDefBodyTarget,
 ) -> bool {
     enum_def
         .variants
         .iter()
         .flat_map(|it| it.parameters.iter())
-        .any(|it| get_reference_type_name(&it.ast_type, type_def_provider).is_some())
+        .any(|it| get_reference_type_name(&it.ast_type, &target).is_some())
 }
 
-pub fn type_has_references(type_def: &ASTTypedTypeDef) -> bool {
-    CodeGenC::parse_type_body_C(&type_def.body).has_references
+pub fn type_has_references(type_def: &ASTTypedTypeDef, target: TypeDefBodyTarget) -> bool {
+    type_body_has_references(&type_def.body, &target)
 }

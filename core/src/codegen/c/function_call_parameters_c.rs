@@ -25,6 +25,7 @@ use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
+use crate::codegen::type_def_body::TypeDefBodyTarget;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen};
 use crate::enh_type_check::typed_ast::{
@@ -197,7 +198,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
             true,
         );
 
-        if let Some(type_name) = get_reference_type_name(&param_type, module) {
+        if let Some(type_name) = get_reference_type_name(&param_type, &TypeDefBodyTarget::C) {
             if type_name == "_fn" {
                 TypedFunctionsCreatorC::addref_deref_lambda(
                     &self.code_manipulator,
@@ -220,7 +221,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
             }
         }
 
-        if let Some(type_name) = get_reference_type_name(&param_type, module) {
+        if let Some(type_name) = get_reference_type_name(&param_type, &TypeDefBodyTarget::C) {
             let mut deref_code = String::new();
 
             if type_name == "_fn" {
@@ -248,7 +249,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
 
         self.parameters_values.insert(name, tmp_val_name);
 
-        if let Some(name) = get_reference_type_name(&param_type, module) {
+        if let Some(name) = get_reference_type_name(&param_type, &TypeDefBodyTarget::C) {
             self.add_code_for_reference_type(module, &name, &name, comment, statics);
         }
     }
@@ -294,9 +295,9 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         let no_references = references.is_empty();
 
         let no_ref_count_for_lambda_space = lambda_in_stack
-            && references
-                .iter()
-                .all(|it| get_reference_type_name(it.1.typed_type(), module).is_none());
+            && references.iter().all(|it| {
+                get_reference_type_name(it.1.typed_type(), &TypeDefBodyTarget::C).is_none()
+            });
 
         let mut context = TypedValContext::new(None);
         for (key, kind) in references {

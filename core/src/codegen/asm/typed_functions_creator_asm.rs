@@ -1,7 +1,11 @@
 use crate::{
     codegen::{
-        enhanced_module::EnhancedASTModule, get_reference_type_name, statics::Statics,
-        typedef_provider::TypeDefProvider, CodeGen,
+        enhanced_module::EnhancedASTModule,
+        get_reference_type_name,
+        statics::Statics,
+        type_def_body::{parse_type_body_asm, TypeDefBodyTarget},
+        typedef_provider::TypeDefProvider,
+        CodeGen,
     },
     enh_type_check::typed_ast::{ASTTypedEnumDef, ASTTypedStructDef, ASTTypedTypeDef},
     transformations::typed_functions_creator::{
@@ -104,7 +108,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
             false,
         );
 
-        if struct_has_references(struct_def, module) {
+        if struct_has_references(struct_def, module, TypeDefBodyTarget::Asm) {
             self.code_gen.add_rows(
                 &mut result,
                 vec![
@@ -116,7 +120,9 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                 true,
             );
             for (i, property) in struct_def.clone().properties.iter().enumerate() {
-                if let Some(name) = get_reference_type_name(&property.ast_type, module) {
+                if let Some(name) =
+                    get_reference_type_name(&property.ast_type, &TypeDefBodyTarget::Asm)
+                {
                     let descr = &format!("{}.{} : {}", struct_def.name, property.name, name);
                     if function_name == "deref" {
                         result.push_str(&self.code_gen.call_deref(
@@ -166,7 +172,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
 
         let key = statics.add_str(&descr);
 
-        if enum_has_references(enum_def, module) {
+        if enum_has_references(enum_def, module, TypeDefBodyTarget::Asm) {
             self.code_gen.add_rows(
                 &mut result,
                 vec![
@@ -197,7 +203,9 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                         false,
                     );
                     for (j, par) in variant.parameters.iter().rev().enumerate() {
-                        if let Some(name) = get_reference_type_name(&par.ast_type, module) {
+                        if let Some(name) =
+                            get_reference_type_name(&par.ast_type, &TypeDefBodyTarget::Asm)
+                        {
                             let descr = &format!("{}.{} : {}", enum_def.name, par.name, name);
                             if function_name == "deref" {
                                 result.push_str(&self.code_gen.call_deref(
@@ -243,7 +251,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
         typed_module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
-        if !CodeGenAsm::parse_type_body_asm(&type_def.body).has_references {
+        if !parse_type_body_asm(&type_def.body).has_references {
             return String::new();
         }
 
@@ -259,10 +267,12 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
             false,
         );
 
-        if type_has_references(type_def) {
+        if type_has_references(type_def, TypeDefBodyTarget::Asm) {
             for (i, (_generic_name, generic_type_def)) in type_def.generic_types.iter().enumerate()
             {
-                if let Some(name) = get_reference_type_name(generic_type_def, typed_module) {
+                if let Some(name) =
+                    get_reference_type_name(generic_type_def, &TypeDefBodyTarget::Asm)
+                {
                     let descr = "$descr";
                     let call_deref = if function_name == "deref" {
                         self.code_gen
@@ -287,5 +297,9 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
             }
         }
         result
+    }
+
+    fn type_def_body_target(&self) -> TypeDefBodyTarget {
+        TypeDefBodyTarget::Asm
     }
 }
