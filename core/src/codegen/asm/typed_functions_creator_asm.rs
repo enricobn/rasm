@@ -251,7 +251,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
         typed_module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
-        if !TypeDefBodyCache::get_asm(&type_def.body).has_references {
+        if !TypeDefBodyCache::type_body_has_references(&type_def.body, &TypeDefBodyTarget::Asm) {
             return String::new();
         }
 

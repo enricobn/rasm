@@ -163,11 +163,11 @@ impl CodeGenC {
                 name: _,
                 body,
             } => {
-                let native_type = TypeDefBodyCache::get_c(body);
-                if native_type.has_references {
+                let type_def_body = TypeDefBodyCache::get_c(body);
+                if type_def_body.has_references {
                     "struct RasmPointer_*".to_string()
                 } else {
-                    native_type.native_type.clone()
+                    type_def_body.native_type.clone()
                 }
             }
         }
@@ -188,31 +188,32 @@ impl CodeGenC {
         descr_for_debug: &str,
         type_def_provider: &dyn TypeDefProvider,
     ) {
-        let (has_references, is_type, is_static) =
-            if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-                (
-                    struct_has_references(struct_def, type_def_provider, TypeDefBodyTarget::C),
-                    false,
-                    false,
-                )
-            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                let enum_has_parametric_variants = Self::enum_has_parametric_variants(enum_def);
-                (
-                    enum_has_parametric_variants,
-                    false,
-                    !enum_has_parametric_variants,
-                )
-            } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-                (
-                    TypeDefBodyCache::get_c(&type_def.body).has_references,
-                    true,
-                    false,
-                )
-            } else if "str" == type_name || "_fn" == type_name {
-                (false, false, false)
-            } else {
-                panic!("call_add_ref, cannot find type {type_name}");
-            };
+        let (has_references, is_type, is_static) = if let Some(struct_def) =
+            type_def_provider.get_struct_def_by_name(type_name)
+        {
+            (
+                struct_has_references(struct_def, type_def_provider, TypeDefBodyTarget::C),
+                false,
+                false,
+            )
+        } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+            let enum_has_parametric_variants = Self::enum_has_parametric_variants(enum_def);
+            (
+                enum_has_parametric_variants,
+                false,
+                !enum_has_parametric_variants,
+            )
+        } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
+            (
+                TypeDefBodyCache::type_body_has_references(&type_def.body, &TypeDefBodyTarget::C),
+                true,
+                false,
+            )
+        } else if "str" == type_name || "_fn" == type_name {
+            (false, false, false)
+        } else {
+            panic!("call_add_ref, cannot find type {type_name}");
+        };
 
         if has_references {
             if is_type {
@@ -268,31 +269,32 @@ impl CodeGenC {
         descr_for_debug: &str,
         type_def_provider: &dyn TypeDefProvider,
     ) {
-        let (has_references, is_type, is_static) =
-            if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
-                (
-                    struct_has_references(struct_def, type_def_provider, TypeDefBodyTarget::C),
-                    false,
-                    false,
-                )
-            } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                let enum_has_parametric_variants = Self::enum_has_parametric_variants(enum_def);
-                (
-                    enum_has_parametric_variants,
-                    false,
-                    !enum_has_parametric_variants,
-                )
-            } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
-                (
-                    TypeDefBodyCache::get_c(&type_def.body).has_references,
-                    true,
-                    false,
-                )
-            } else if "str" == type_name || "_fn" == type_name {
-                (false, false, false)
-            } else {
-                panic!("call_add_ref, cannot find type {type_name}");
-            };
+        let (has_references, is_type, is_static) = if let Some(struct_def) =
+            type_def_provider.get_struct_def_by_name(type_name)
+        {
+            (
+                struct_has_references(struct_def, type_def_provider, TypeDefBodyTarget::C),
+                false,
+                false,
+            )
+        } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
+            let enum_has_parametric_variants = Self::enum_has_parametric_variants(enum_def);
+            (
+                enum_has_parametric_variants,
+                false,
+                !enum_has_parametric_variants,
+            )
+        } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
+            (
+                TypeDefBodyCache::type_body_has_references(&type_def.body, &TypeDefBodyTarget::C),
+                true,
+                false,
+            )
+        } else if "str" == type_name || "_fn" == type_name {
+            (false, false, false)
+        } else {
+            panic!("call_add_ref, cannot find type {type_name}");
+        };
 
         if has_references {
             if is_type {

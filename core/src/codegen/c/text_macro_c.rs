@@ -673,7 +673,10 @@ impl TextMacroEval for CIsRefMacro {
                         get_reference_type_name(t, &TypeDefBodyTarget::C)
                     {
                         if let Some(t_def) = type_def_provider.get_type_def_by_name(&type_name) {
-                            TypeDefBodyCache::get_c(&t_def.body).has_references
+                            TypeDefBodyCache::type_body_has_references(
+                                &t_def.body,
+                                &TypeDefBodyTarget::C,
+                            )
                         } else {
                             true
                         }

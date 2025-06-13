@@ -41,18 +41,21 @@ impl TypeDefBodyCache {
 impl TypeDefBodyCache {
     pub fn get_c(body: &str) -> CTypeDefBody {
         let mut cache = GLOBAL_TYPE_DEF_CACHE.lock().unwrap();
+        // TODO can we remove clone?
         cache.get_c_internal(body).clone()
     }
 
     pub fn get_asm(body: &str) -> AsmTypeDefBody {
         let mut cache = GLOBAL_TYPE_DEF_CACHE.lock().unwrap();
+        // TODO can we remove clone?
         cache.get_asm_internal(body).clone()
     }
 
     pub fn type_body_has_references(body: &str, kind: &TypeDefBodyTarget) -> bool {
+        let mut cache = GLOBAL_TYPE_DEF_CACHE.lock().unwrap();
         match kind {
-            TypeDefBodyTarget::C => Self::get_c(body).has_references,
-            TypeDefBodyTarget::Asm => Self::get_asm(body).has_references,
+            TypeDefBodyTarget::C => cache.get_c_internal(body).has_references,
+            TypeDefBodyTarget::Asm => cache.get_asm_internal(body).has_references,
         }
     }
 }
