@@ -23,7 +23,7 @@ use crate::codegen::enh_ast::EnhASTType;
 use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{MacroParam, RefType, TextMacro, TextMacroEval};
-use crate::codegen::type_def_body::{parse_type_body_c, TypeDefBodyTarget};
+use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::enh_type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedType, CustomTypedTypeDef, DefaultFunctionCall,
@@ -673,7 +673,7 @@ impl TextMacroEval for CIsRefMacro {
                         get_reference_type_name(t, &TypeDefBodyTarget::C)
                     {
                         if let Some(t_def) = type_def_provider.get_type_def_by_name(&type_name) {
-                            parse_type_body_c(&t_def.body).has_references
+                            TypeDefBodyCache::get_c(&t_def.body).has_references
                         } else {
                             true
                         }

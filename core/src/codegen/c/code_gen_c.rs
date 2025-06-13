@@ -34,7 +34,7 @@ use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{InlineMacro, InlineRegistry, RefType, TextMacroEvaluator};
-use crate::codegen::type_def_body::{parse_type_body_c, TypeDefBodyTarget};
+use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen, CodeGenOptions, TypedValKind};
 use crate::enh_type_check::typed_ast::{
@@ -132,7 +132,7 @@ impl CodeGenC {
                 namespace: _,
                 name: _,
                 body,
-            } => parse_type_body_c(body).native_type,
+            } => TypeDefBodyCache::get_c(body).native_type.clone(),
         }
     }
 
@@ -163,11 +163,11 @@ impl CodeGenC {
                 name: _,
                 body,
             } => {
-                let native_type = parse_type_body_c(body);
+                let native_type = TypeDefBodyCache::get_c(body);
                 if native_type.has_references {
                     "struct RasmPointer_*".to_string()
                 } else {
-                    native_type.native_type
+                    native_type.native_type.clone()
                 }
             }
         }
@@ -204,7 +204,7 @@ impl CodeGenC {
                 )
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (
-                    parse_type_body_c(&type_def.body).has_references,
+                    TypeDefBodyCache::get_c(&type_def.body).has_references,
                     true,
                     false,
                 )
@@ -284,7 +284,7 @@ impl CodeGenC {
                 )
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (
-                    parse_type_body_c(&type_def.body).has_references,
+                    TypeDefBodyCache::get_c(&type_def.body).has_references,
                     true,
                     false,
                 )
@@ -1265,7 +1265,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn create_function_definition(
         &self,
-        statics: &Statics,
+        _statics: &Statics,
         _function_def: &ASTTypedFunctionDef,
     ) -> bool {
         true

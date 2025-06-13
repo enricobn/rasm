@@ -26,7 +26,7 @@ use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda_in_stack::can_lambda_be_in_stack;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{InlineRegistry, MacroParam, TextMacro, TextMacroEvaluator};
-use crate::codegen::type_def_body::{type_body_has_references, TypeDefBodyTarget};
+use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::commandline::CommandLineOptions;
 use crate::enh_type_check::typed_ast::{
@@ -2089,7 +2089,7 @@ pub fn get_reference_type_name(
             name,
             body,
         } => {
-            if type_body_has_references(body, target) {
+            if TypeDefBodyCache::type_body_has_references(body, target) {
                 Some(name.clone())
             } else {
                 None

@@ -5,7 +5,7 @@ use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
-use crate::codegen::type_def_body::{type_body_has_references, TypeDefBodyTarget};
+use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedParameterDef,
@@ -48,7 +48,10 @@ pub trait TypedFunctionsCreator {
         statics: &mut Statics,
         typed_type_def: &ASTTypedTypeDef,
     ) {
-        let is_ref = type_body_has_references(&typed_type_def.body, &self.type_def_body_target());
+        let is_ref = TypeDefBodyCache::type_body_has_references(
+            &typed_type_def.body,
+            &self.type_def_body_target(),
+        );
         if is_ref {
             self.create_type_free(
                 module,
@@ -287,5 +290,5 @@ pub fn enum_has_references(
 }
 
 pub fn type_has_references(type_def: &ASTTypedTypeDef, target: TypeDefBodyTarget) -> bool {
-    type_body_has_references(&type_def.body, &target)
+    TypeDefBodyCache::type_body_has_references(&type_def.body, &target)
 }

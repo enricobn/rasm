@@ -10,7 +10,7 @@ use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_utils::SliceDisplay;
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
-use crate::codegen::type_def_body::{type_body_has_references, TypeDefBodyTarget};
+use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::enh_type_check::enh_type_check::EnhTypeCheck;
 use crate::project::RasmProject;
@@ -623,7 +623,7 @@ impl EnhASTType {
         } = self
         {
             if let Some(t) = type_def_provider.get_typed_type_def_from_type_name(name) {
-                type_body_has_references(&t.body, &target)
+                TypeDefBodyCache::type_body_has_references(&t.body, &target)
             } else {
                 true
             }

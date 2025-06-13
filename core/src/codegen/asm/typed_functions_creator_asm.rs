@@ -3,7 +3,7 @@ use crate::{
         enhanced_module::EnhancedASTModule,
         get_reference_type_name,
         statics::Statics,
-        type_def_body::{parse_type_body_asm, TypeDefBodyTarget},
+        type_def_body::{TypeDefBodyCache, TypeDefBodyTarget},
         typedef_provider::TypeDefProvider,
         CodeGen,
     },
@@ -251,7 +251,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
         typed_module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
-        if !parse_type_body_asm(&type_def.body).has_references {
+        if !TypeDefBodyCache::get_asm(&type_def.body).has_references {
             return String::new();
         }
 

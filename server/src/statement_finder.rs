@@ -124,7 +124,7 @@ impl StatementFinder {
         None
     }
 
-    pub fn find_expr(position: &ASTPosition, expr: &ASTExpression) -> SFExprResult {
+    fn find_expr(position: &ASTPosition, expr: &ASTExpression) -> SFExprResult {
         if expr.position() == position {
             return SFExprResult::InExpr;
         }
