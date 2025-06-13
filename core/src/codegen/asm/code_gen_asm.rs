@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     path::Path,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -82,7 +81,6 @@ pub struct CodeGenAsm {
     options: AsmOptions,
     debug: bool,
     code_manipulator: CodeManipulatorNasm,
-    types_reference: HashMap<ASTTypedType, Option<String>>,
 }
 
 impl CodeGenAsm {
@@ -100,7 +98,6 @@ impl CodeGenAsm {
             options,
             debug,
             code_manipulator: CodeManipulatorNasm::new(),
-            types_reference: HashMap::new(),
         }
     }
 
@@ -138,14 +135,11 @@ impl CodeGenAsm {
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
                 (
-                    struct_has_references(struct_def, type_def_provider, TypeDefBodyTarget::Asm),
+                    struct_has_references(struct_def, TypeDefBodyTarget::Asm),
                     false,
                 )
             } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                (
-                    enum_has_references(enum_def, type_def_provider, TypeDefBodyTarget::Asm),
-                    false,
-                )
+                (enum_has_references(enum_def, TypeDefBodyTarget::Asm), false)
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (type_has_references(type_def, TypeDefBodyTarget::Asm), true)
             } else if "str" == type_name || "_fn" == type_name {
@@ -245,14 +239,11 @@ impl CodeGenAsm {
         let (has_references, is_type) =
             if let Some(struct_def) = type_def_provider.get_struct_def_by_name(type_name) {
                 (
-                    struct_has_references(struct_def, type_def_provider, TypeDefBodyTarget::Asm),
+                    struct_has_references(struct_def, TypeDefBodyTarget::Asm),
                     false,
                 )
             } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
-                (
-                    enum_has_references(enum_def, type_def_provider, TypeDefBodyTarget::Asm),
-                    false,
-                )
+                (enum_has_references(enum_def, TypeDefBodyTarget::Asm), false)
             } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
                 (type_has_references(type_def, TypeDefBodyTarget::Asm), true)
             } else if "str" == type_name || "_fn" == type_name {

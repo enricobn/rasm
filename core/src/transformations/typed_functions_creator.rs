@@ -80,7 +80,7 @@ pub trait TypedFunctionsCreator {
         statics: &mut Statics,
         enum_def: &ASTTypedEnumDef,
     ) {
-        if enum_has_references(enum_def, typed_module, self.type_def_body_target()) {
+        if enum_has_references(enum_def, self.type_def_body_target()) {
             self.create_enum_free(enum_def, "deref", typed_module, functions_by_name, statics);
             self.create_enum_free(enum_def, "addRef", typed_module, functions_by_name, statics);
         }
@@ -94,7 +94,7 @@ pub trait TypedFunctionsCreator {
         statics: &mut Statics,
         struct_def: &ASTTypedStructDef,
     ) {
-        if struct_has_references(struct_def, typed_module, self.type_def_body_target()) {
+        if struct_has_references(struct_def, self.type_def_body_target()) {
             self.create_struct_free(
                 struct_def,
                 "deref",
@@ -266,22 +266,14 @@ pub trait TypedFunctionsCreator {
     fn type_def_body_target(&self) -> TypeDefBodyTarget;
 }
 
-pub fn struct_has_references(
-    struct_def: &ASTTypedStructDef,
-    type_def_provider: &dyn TypeDefProvider,
-    target: TypeDefBodyTarget,
-) -> bool {
+pub fn struct_has_references(struct_def: &ASTTypedStructDef, target: TypeDefBodyTarget) -> bool {
     struct_def
         .properties
         .iter()
         .any(|it| get_reference_type_name(&it.ast_type, &target).is_some())
 }
 
-pub fn enum_has_references(
-    enum_def: &ASTTypedEnumDef,
-    type_def_provider: &dyn TypeDefProvider,
-    target: TypeDefBodyTarget,
-) -> bool {
+pub fn enum_has_references(enum_def: &ASTTypedEnumDef, target: TypeDefBodyTarget) -> bool {
     enum_def
         .variants
         .iter()

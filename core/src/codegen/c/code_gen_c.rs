@@ -192,7 +192,7 @@ impl CodeGenC {
             type_def_provider.get_struct_def_by_name(type_name)
         {
             (
-                struct_has_references(struct_def, type_def_provider, TypeDefBodyTarget::C),
+                struct_has_references(struct_def, TypeDefBodyTarget::C),
                 false,
                 false,
             )
@@ -273,7 +273,7 @@ impl CodeGenC {
             type_def_provider.get_struct_def_by_name(type_name)
         {
             (
-                struct_has_references(struct_def, type_def_provider, TypeDefBodyTarget::C),
+                struct_has_references(struct_def, TypeDefBodyTarget::C),
                 false,
                 false,
             )

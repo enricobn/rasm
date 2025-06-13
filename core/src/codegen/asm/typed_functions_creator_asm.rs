@@ -108,7 +108,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
             false,
         );
 
-        if struct_has_references(struct_def, module, TypeDefBodyTarget::Asm) {
+        if struct_has_references(struct_def, TypeDefBodyTarget::Asm) {
             self.code_gen.add_rows(
                 &mut result,
                 vec![
@@ -172,7 +172,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
 
         let key = statics.add_str(&descr);
 
-        if enum_has_references(enum_def, module, TypeDefBodyTarget::Asm) {
+        if enum_has_references(enum_def, TypeDefBodyTarget::Asm) {
             self.code_gen.add_rows(
                 &mut result,
                 vec![
