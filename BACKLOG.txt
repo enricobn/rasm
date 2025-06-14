@@ -24,14 +24,11 @@ Bug
 
 Road to language version 1.0.0 (not compiler)
 -----------------------------------------------
-- types should be declared as "native type" and should be defined with /{ }/. 
-  It will be a compiler responsibility to interpret the content, as in native functions
 - remove i32 and f32 types, add int and float types
 - array type
 
 Major
 -----
-- optimize can_lambda_be_in_stack: it can be done one time, for all types
 - divide C generated source to multiple files, to optimize make
 - command line tool:
   - add "new" for creating a new project
