@@ -73,9 +73,6 @@ Major
 - threads library
 - use Result in standard library
 - standardize compiler errors with source
-- tests: there should not be a particular code generation of the compiler, it could be another source root that depends on main,
-  and there should be a library to define a test Suite, add tests (with a lambda that can be replaced by a function reference?) 
-  or suites then run them an return the result that can be rendered in various formats, by default printed to the console
 
 Minor
 ------
