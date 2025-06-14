@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::{collections::HashMap, sync::RwLock};
 
 use once_cell::sync::Lazy;
 
@@ -8,8 +8,8 @@ use crate::{
 };
 
 // Global thread-safe cache for type def bodies
-static GLOBAL_LAMBDA_IN_STACK: Lazy<Mutex<HashMap<ASTTypedType, bool>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static GLOBAL_LAMBDA_IN_STACK: Lazy<RwLock<HashMap<ASTTypedType, bool>>> =
+    Lazy::new(|| RwLock::new(HashMap::new()));
 
 /// returns true if the return type of the enclosing function definition,
 /// does no contain a lambda, so all the lambdas in the function can be optimized in stack
@@ -20,122 +20,74 @@ pub fn can_lambda_be_in_stack(
     can_lambda_be_in_stack_(function_def_return_type, type_def_provider)
 }
 
+fn with_cache<F>(key: &ASTTypedType, compute: F) -> bool
+where
+    F: FnOnce() -> bool,
+{
+    // Check cache first
+    if let Some(cached) = GLOBAL_LAMBDA_IN_STACK.read().unwrap().get(key) {
+        return *cached;
+    }
+
+    // Set temporary value for recursion protection
+    GLOBAL_LAMBDA_IN_STACK
+        .write()
+        .unwrap()
+        .insert(key.clone(), true);
+
+    // Compute actual result
+    let result = compute();
+
+    // Update cache with final result
+    GLOBAL_LAMBDA_IN_STACK
+        .write()
+        .unwrap()
+        .insert(key.clone(), result);
+
+    result
+}
+
 fn can_lambda_be_in_stack_(
     lambda_return_type: &ASTTypedType,
     type_def_provider: &dyn TypeDefProvider,
 ) -> bool {
     match lambda_return_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => false,
-        ASTTypedType::Enum { namespace: _, name } => {
-            {
-                if let Some(value) = GLOBAL_LAMBDA_IN_STACK
-                    .lock()
-                    .unwrap()
-                    .get(lambda_return_type)
-                {
-                    return *value;
-                }
-            }
-
-            if let Some(e) = type_def_provider.get_enum_def_by_name(name) {
-                // for recursion
-                {
-                    GLOBAL_LAMBDA_IN_STACK
-                        .lock()
-                        .unwrap()
-                        .insert(lambda_return_type.clone(), true);
-                }
-
-                let result = e
-                    .variants
-                    .iter()
-                    .flat_map(|it| it.parameters.iter())
-                    .all(|it| can_lambda_be_in_stack_(&it.ast_type, type_def_provider));
-                {
-                    GLOBAL_LAMBDA_IN_STACK
-                        .lock()
-                        .unwrap()
-                        .insert(lambda_return_type.clone(), result);
-                }
-                result
-            } else {
-                panic!();
-            }
-        }
-        ASTTypedType::Struct { namespace: _, name } => {
-            {
-                if let Some(value) = GLOBAL_LAMBDA_IN_STACK
-                    .lock()
-                    .unwrap()
-                    .get(lambda_return_type)
-                {
-                    return *value;
-                }
-            }
-
-            if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
-                // for recursion
-                {
-                    GLOBAL_LAMBDA_IN_STACK
-                        .lock()
-                        .unwrap()
-                        .insert(lambda_return_type.clone(), true);
-                }
-
-                let result = s
-                    .properties
-                    .iter()
-                    .all(|it| can_lambda_be_in_stack_(&it.ast_type, type_def_provider));
-                {
-                    GLOBAL_LAMBDA_IN_STACK
-                        .lock()
-                        .unwrap()
-                        .insert(lambda_return_type.clone(), result);
-                }
-                result
-            } else {
-                panic!()
-            }
-        }
+        ASTTypedType::Enum { namespace: _, name } => with_cache(lambda_return_type, || {
+            type_def_provider
+                .get_enum_def_by_name(name)
+                .map(|e| {
+                    e.variants
+                        .iter()
+                        .flat_map(|it| it.parameters.iter())
+                        .all(|it| can_lambda_be_in_stack_(&it.ast_type, type_def_provider))
+                })
+                .expect(&format!("Enum {} not found", name))
+        }),
+        ASTTypedType::Struct { namespace: _, name } => with_cache(lambda_return_type, || {
+            type_def_provider
+                .get_struct_def_by_name(name)
+                .map(|s| {
+                    s.properties
+                        .iter()
+                        .all(|it| can_lambda_be_in_stack_(&it.ast_type, type_def_provider))
+                })
+                .expect(&format!("Struct {} not found", name))
+        }),
         ASTTypedType::Type {
             namespace: _,
             name,
             body: _,
-        } => {
-            {
-                if let Some(value) = GLOBAL_LAMBDA_IN_STACK
-                    .lock()
-                    .unwrap()
-                    .get(lambda_return_type)
-                {
-                    return *value;
-                }
-            }
-
-            if let Some(s) = type_def_provider.get_type_def_by_name(name) {
-                // for recursion
-                {
-                    GLOBAL_LAMBDA_IN_STACK
-                        .lock()
-                        .unwrap()
-                        .insert(lambda_return_type.clone(), true);
-                }
-
-                let result = s
-                    .generic_types
-                    .iter()
-                    .all(|((_, _), it)| can_lambda_be_in_stack_(it, type_def_provider));
-                {
-                    GLOBAL_LAMBDA_IN_STACK
-                        .lock()
-                        .unwrap()
-                        .insert(lambda_return_type.clone(), result);
-                }
-                result
-            } else {
-                panic!()
-            }
-        }
+        } => with_cache(lambda_return_type, || {
+            type_def_provider
+                .get_type_def_by_name(name)
+                .map(|t| {
+                    t.generic_types
+                        .iter()
+                        .all(|((_, _), it)| can_lambda_be_in_stack_(&it, type_def_provider))
+                })
+                .expect(&format!("Type {} not found", name))
+        }),
 
         _ => true,
     }
