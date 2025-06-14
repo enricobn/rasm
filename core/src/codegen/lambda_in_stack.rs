@@ -1,9 +1,15 @@
-use linked_hash_map::LinkedHashMap;
+use std::{collections::HashMap, sync::Mutex};
+
+use once_cell::sync::Lazy;
 
 use crate::{
     codegen::typedef_provider::TypeDefProvider,
     enh_type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind},
 };
+
+// Global thread-safe cache for type def bodies
+static GLOBAL_LAMBDA_IN_STACK: Lazy<Mutex<HashMap<ASTTypedType, bool>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// returns true if the return type of the enclosing function definition,
 /// does no contain a lambda, so all the lambdas in the function can be optimized in stack
@@ -11,56 +17,81 @@ pub fn can_lambda_be_in_stack(
     function_def_return_type: &ASTTypedType,
     type_def_provider: &dyn TypeDefProvider,
 ) -> bool {
-    let mut already_checked = LinkedHashMap::new();
-    can_lambda_be_in_stack_(
-        function_def_return_type,
-        type_def_provider,
-        &mut already_checked,
-    )
+    can_lambda_be_in_stack_(function_def_return_type, type_def_provider)
 }
 
 fn can_lambda_be_in_stack_(
     lambda_return_type: &ASTTypedType,
     type_def_provider: &dyn TypeDefProvider,
-    already_checked: &mut LinkedHashMap<ASTTypedType, bool>,
 ) -> bool {
     match lambda_return_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => false,
         ASTTypedType::Enum { namespace: _, name } => {
-            if let Some(value) = already_checked.get(lambda_return_type) {
-                return *value;
+            {
+                if let Some(value) = GLOBAL_LAMBDA_IN_STACK
+                    .lock()
+                    .unwrap()
+                    .get(lambda_return_type)
+                {
+                    return *value;
+                }
             }
 
             if let Some(e) = type_def_provider.get_enum_def_by_name(name) {
                 // for recursion
-                already_checked.insert(lambda_return_type.clone(), true);
+                {
+                    GLOBAL_LAMBDA_IN_STACK
+                        .lock()
+                        .unwrap()
+                        .insert(lambda_return_type.clone(), true);
+                }
 
                 let result = e
                     .variants
                     .iter()
                     .flat_map(|it| it.parameters.iter())
-                    .all(|it| {
-                        can_lambda_be_in_stack_(&it.ast_type, type_def_provider, already_checked)
-                    });
-                already_checked.insert(lambda_return_type.clone(), result);
+                    .all(|it| can_lambda_be_in_stack_(&it.ast_type, type_def_provider));
+                {
+                    GLOBAL_LAMBDA_IN_STACK
+                        .lock()
+                        .unwrap()
+                        .insert(lambda_return_type.clone(), result);
+                }
                 result
             } else {
                 panic!();
             }
         }
         ASTTypedType::Struct { namespace: _, name } => {
-            if let Some(value) = already_checked.get(lambda_return_type) {
-                return *value;
+            {
+                if let Some(value) = GLOBAL_LAMBDA_IN_STACK
+                    .lock()
+                    .unwrap()
+                    .get(lambda_return_type)
+                {
+                    return *value;
+                }
             }
 
             if let Some(s) = type_def_provider.get_struct_def_by_name(name) {
                 // for recursion
-                already_checked.insert(lambda_return_type.clone(), true);
+                {
+                    GLOBAL_LAMBDA_IN_STACK
+                        .lock()
+                        .unwrap()
+                        .insert(lambda_return_type.clone(), true);
+                }
 
-                let result = s.properties.iter().all(|it| {
-                    can_lambda_be_in_stack_(&it.ast_type, type_def_provider, already_checked)
-                });
-                already_checked.insert(lambda_return_type.clone(), result);
+                let result = s
+                    .properties
+                    .iter()
+                    .all(|it| can_lambda_be_in_stack_(&it.ast_type, type_def_provider));
+                {
+                    GLOBAL_LAMBDA_IN_STACK
+                        .lock()
+                        .unwrap()
+                        .insert(lambda_return_type.clone(), result);
+                }
                 result
             } else {
                 panic!()
@@ -71,18 +102,35 @@ fn can_lambda_be_in_stack_(
             name,
             body: _,
         } => {
-            if let Some(value) = already_checked.get(lambda_return_type) {
-                return *value;
+            {
+                if let Some(value) = GLOBAL_LAMBDA_IN_STACK
+                    .lock()
+                    .unwrap()
+                    .get(lambda_return_type)
+                {
+                    return *value;
+                }
             }
 
             if let Some(s) = type_def_provider.get_type_def_by_name(name) {
                 // for recursion
-                already_checked.insert(lambda_return_type.clone(), true);
+                {
+                    GLOBAL_LAMBDA_IN_STACK
+                        .lock()
+                        .unwrap()
+                        .insert(lambda_return_type.clone(), true);
+                }
 
-                let result = s.generic_types.iter().all(|((_, _), it)| {
-                    can_lambda_be_in_stack_(it, type_def_provider, already_checked)
-                });
-                already_checked.insert(lambda_return_type.clone(), result);
+                let result = s
+                    .generic_types
+                    .iter()
+                    .all(|((_, _), it)| can_lambda_be_in_stack_(it, type_def_provider));
+                {
+                    GLOBAL_LAMBDA_IN_STACK
+                        .lock()
+                        .unwrap()
+                        .insert(lambda_return_type.clone(), result);
+                }
                 result
             } else {
                 panic!()
