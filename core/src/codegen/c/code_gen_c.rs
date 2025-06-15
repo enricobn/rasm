@@ -65,7 +65,15 @@ impl CCodeManipulator {
 
 impl CodeManipulator for CCodeManipulator {
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
-        self.add(out, &format!("// {comment}"), None, indent);
+        if !comment.is_empty() {
+            self.add(out, &format!("// {comment}"), None, indent);
+        }
+    }
+
+    fn push_comment(&self, out: &mut String, comment: &str, indent: bool) {
+        if !comment.is_empty() {
+            self.push(out, &format!("// {comment}"), None, indent);
+        }
     }
 
     fn remove_comments_from_line(&self, line: String) -> String {

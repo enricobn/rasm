@@ -18,6 +18,7 @@
 
 pub trait CodeManipulator {
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool);
+    fn push_comment(&self, out: &mut String, comment: &str, indent: bool);
 
     fn add_rows(&self, out: &mut String, code: Vec<&str>, comment: Option<&str>, indent: bool) {
         if let Some(cm) = comment {
@@ -29,9 +30,12 @@ pub trait CodeManipulator {
     }
 
     fn add(&self, out: &mut String, code: &str, comment: Option<&str>, indent: bool) {
-        if code.is_empty() {
-            out.push('\n');
-        } else {
+        self.push(out, code, comment, indent);
+        out.push('\n');
+    }
+
+    fn push(&self, out: &mut String, code: &str, comment: Option<&str>, indent: bool) {
+        if !code.is_empty() {
             if indent {
                 out.push_str("    ");
             }
@@ -39,9 +43,8 @@ pub trait CodeManipulator {
         }
 
         if let Some(c) = comment {
-            self.add_comment(out, c, indent);
+            self.push_comment(out, c, indent);
         }
-        out.push('\n');
     }
 
     fn add_empty_line(&self, out: &mut String) {
@@ -62,7 +65,15 @@ impl CodeManipulatorNasm {
 
 impl CodeManipulator for CodeManipulatorNasm {
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
-        self.add(out, &format!("; {comment}"), None, indent);
+        if !comment.is_empty() {
+            self.add(out, &format!("; {comment}"), None, indent);
+        }
+    }
+
+    fn push_comment(&self, out: &mut String, comment: &str, indent: bool) {
+        if !comment.is_empty() {
+            self.push(out, &format!("; {comment}"), None, indent);
+        }
     }
 
     fn remove_comments_from_line(&self, line: String) -> String {
