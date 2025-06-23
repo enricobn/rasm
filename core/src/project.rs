@@ -57,7 +57,7 @@ pub struct RasmProject {
     pub in_memory_files: LinkedHashMap<PathBuf, String>,
 }
 #[derive(RustEmbed)]
-#[folder = "../core/resources/corelib/rasm"]
+#[folder = "../core/resources/corelib"]
 pub struct RasmCoreLibAssets;
 
 #[derive(PartialEq, Eq)]
@@ -399,26 +399,20 @@ impl RasmProject {
         &self,
         target: &CompileTarget,
     ) -> Vec<(ASTModule, Vec<CompilationError>, EnhModuleInfo)> {
-        let mut result = RasmCoreLibAssets::iter()
+        RasmCoreLibAssets::iter()
             .filter(|it| it.ends_with(".rasm"))
-            .map(|it| {
-                if let Some(asset) = RasmCoreLibAssets::get(&it) {
-                    self.core_module(&it, &asset.data)
+            .filter_map(|it| {
+                if it.starts_with("rasm") || it.starts_with(target.folder()) {
+                    if let Some(asset) = RasmCoreLibAssets::get(&it) {
+                        Some(self.core_module(&it, &asset.data))
+                    } else {
+                        panic!()
+                    }
                 } else {
-                    panic!()
+                    None
                 }
             })
-            .collect::<Vec<_>>();
-
-        result.append(
-            &mut target
-                .get_core_lib_files()
-                .iter()
-                .map(|it| self.core_module(it.0, &it.1.data))
-                .collect::<Vec<_>>(),
-        );
-
-        result
+            .collect::<Vec<_>>()
     }
 
     pub fn container_and_catalog(
