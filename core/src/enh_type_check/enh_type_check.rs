@@ -802,7 +802,7 @@ impl<'a> EnhTypeCheck<'a> {
                 call.index.clone(),
                 Self::invalid_function_message(namespace, first_type, call, expected_return_type),
                 self.stack.clone(),
-                EnhTypeCheckErrorKind::Standard,
+                EnhTypeCheckErrorKind::Important,
             ));
         }
 
