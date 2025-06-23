@@ -85,6 +85,19 @@ impl EnhTypeCheckError {
         result
     }
 
+    fn get_all_last_level_important_children(&self) -> Vec<EnhTypeCheckError> {
+        let mut result = Vec::new();
+        if self.children.is_empty() && self.kind == EnhTypeCheckErrorKind::Important {
+            result.push(self.clone());
+        } else {
+            for child in self.children.iter() {
+                result.extend(child.get_all_last_level_important_children());
+            }
+        }
+
+        result
+    }
+
     fn write_one(
         &self,
         f: &mut Formatter<'_>,
@@ -95,6 +108,8 @@ impl EnhTypeCheckError {
 
         let kind = if self.kind == EnhTypeCheckErrorKind::Important {
             "!"
+        } else if self.kind == EnhTypeCheckErrorKind::Ignorable {
+            "?"
         } else {
             ""
         };
@@ -104,9 +119,22 @@ impl EnhTypeCheckError {
             self.main.1, self.main.0
         ))?;
 
-        if matches!(self.kind, EnhTypeCheckErrorKind::Ignorable) {
-            //f.write_str(&format!("{spaces}  ignored\n"))?;
-            // return Ok(());
+        let llc = self.get_all_last_level_important_children();
+
+        if llc.len() == 1 {
+            if self.children.is_empty() {
+                return Ok(());
+            } else {
+                return llc[0].write_one(f, indent + 1, prev_stack);
+                /*
+                for (index, message, _stack) in llc[0].messages.iter() {
+                    if index.file_name.is_some() {
+                        f.write_str(&format!("{spaces}{} : {}\n", message, index))?;
+                    }
+                }
+                return Ok(());
+                */
+            }
         }
 
         if !self.messages.is_empty() {
