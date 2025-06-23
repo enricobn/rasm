@@ -810,6 +810,22 @@ impl<'a> ConvContext<'a> {
                     name: new_name.clone(),
                 };
 
+                self.enums
+                    .insert(enum_type.clone(), enum_typed_type.clone());
+
+                // we add an incomplete enum for recursion
+                let new_enum_def = ASTTypedEnumDef {
+                    namespace: enum_def.namespace.clone(),
+                    modifiers: enum_def.modifiers.clone(),
+                    name: new_name.clone(),
+                    variants: Vec::new(),
+                    ast_type: enum_type.clone(),
+                    ast_typed_type: enum_typed_type.clone(),
+                    index: enum_def.index.clone(),
+                };
+
+                self.enum_defs.push(new_enum_def);
+
                 let variants = enum_def
                     .variants
                     .iter()
@@ -826,15 +842,14 @@ impl<'a> ConvContext<'a> {
                     })
                     .collect();
 
-                /*
-                   during enum variants generation we could generate the same enum type
-                */
-                if let Some(enum_typed_type) = self.get_enum(enum_type) {
-                    dedent!();
-                    return enum_typed_type;
-                }
+                self.enum_defs = self
+                    .enum_defs
+                    .iter()
+                    .filter(|it| it.name != new_name)
+                    .cloned()
+                    .collect();
 
-                self.enum_defs.push(ASTTypedEnumDef {
+                let new_enum_def = ASTTypedEnumDef {
                     namespace: enum_def.namespace.clone(),
                     modifiers: enum_def.modifiers.clone(),
                     name: new_name,
@@ -842,10 +857,9 @@ impl<'a> ConvContext<'a> {
                     ast_type: enum_type.clone(),
                     ast_typed_type: enum_typed_type.clone(),
                     index: enum_def.index.clone(),
-                });
+                };
 
-                self.enums
-                    .insert(enum_type.clone(), enum_typed_type.clone());
+                self.enum_defs.push(new_enum_def);
 
                 enum_typed_type
                 // }
@@ -904,6 +918,19 @@ impl<'a> ConvContext<'a> {
                 self.structs
                     .insert(struct_type.clone(), struct_typed_type.clone());
 
+                // we add an incomplete struct for recursion
+                let new_struct_def = ASTTypedStructDef {
+                    namespace: struct_def.namespace.clone(),
+                    modifiers: struct_def.modifiers.clone(),
+                    name: new_name.clone(),
+                    properties: Vec::new(),
+                    ast_type: struct_type.clone(),
+                    ast_typed_type: struct_typed_type.clone(),
+                    index: struct_def.index.clone(),
+                };
+
+                self.struct_defs.push(new_struct_def);
+
                 let properties = struct_def
                     .properties
                     .iter()
@@ -913,12 +940,19 @@ impl<'a> ConvContext<'a> {
                 let new_struct_def = ASTTypedStructDef {
                     namespace: struct_def.namespace.clone(),
                     modifiers: struct_def.modifiers.clone(),
-                    name: new_name,
+                    name: new_name.clone(),
                     properties,
                     ast_type: struct_type.clone(),
                     ast_typed_type: struct_typed_type.clone(),
                     index: struct_def.index.clone(),
                 };
+
+                self.struct_defs = self
+                    .struct_defs
+                    .iter()
+                    .filter(|it| it.name != new_name)
+                    .cloned()
+                    .collect::<Vec<_>>();
 
                 self.struct_defs.push(new_struct_def);
 
