@@ -1,27 +1,14 @@
-enum ASTType {
-    Str,
-    Void
-}
-
 fn toString(t: ASTType) -> str {
     t.match({ "Str";}, { "Void"; });
 }
 
-struct ASTEnumVariantDef {
-    name: str,
-    parameters: Vec<ASTType>
-}
-
-struct ASTEnumDef {
-    name: str,
-    variants: Vec<ASTEnumVariantDef>
-}
-
 let def = ASTEnumDef("ABC", 
+    Vec(),
     vecOf(
         ASTEnumVariantDef("A", Vec()),
         ASTEnumVariantDef("B", Vec()),
-        ASTEnumVariantDef("C", Vec()))
+        ASTEnumVariantDef("C", Vec())),
+    ASTModifiers(false)
     );
 
 println(matchMacro(def));

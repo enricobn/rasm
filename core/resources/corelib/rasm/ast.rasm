@@ -1,0 +1,121 @@
+pub struct ASTModule {
+    body: Vec<ASTStatement>,
+    functions: Vec<ASTFunctionDef>,
+    enums: Vec<ASTEnumDef>,
+    structs: Vec<ASTStructDef>,
+    types: Vec<ASTTypeDef>
+}
+
+pub enum ASTStatement {
+    Expression(expr: ASTExpression),
+    LetStatement(name: str, expr: ASTExpression),
+    ConstStatement(name: str, exr: ASTExpression, modifiers: ASTModifiers)
+}
+
+pub struct ASTModifiers {
+    public: bool
+}
+
+pub enum ASTExpression {
+    ASTFunctionCallExpression(call: ASTFunctionCall),
+    ValueRef(name: str),
+    Value(value: ASTValueType),
+    Lambda(lambda: ASTLambdaDef)
+}
+
+pub struct ASTFunctionCall {
+    functionName: str,
+    parameters: Vec<ASTExpression>,
+    generics: Vec<ASTType>,
+    target: Option<str>
+}
+
+pub enum ASTValueType {
+    String(value: str),
+    Boolean(value: bool),
+    I32(value: i32),
+    Char(value: str),
+    F32(value: f32)
+}
+
+pub enum ASTType {
+    Builtin(kind: BuiltinTypeKind),
+    Generic(
+        name: str,
+        types: Vec<ASTType>,
+    ),
+    Custom(name: str, generics: Vec<ASTType>),
+    Unit
+}
+
+pub enum BuiltinTypeKind {
+    Bool,
+    Char,
+    I32,
+    F32,
+    String,
+    Lambda(
+        parameters: Vec<ASTType>,
+        returnType: ASTType
+    )
+}
+
+pub struct ASTLambdaDef {
+    parameterNames: Vec<str>,
+    body: Vec<ASTStatement>
+}
+
+pub struct ASTFunctionDef {
+    name: str,
+    parameters: Vec<ASTParameterDef>,
+    returnType: ASTType,
+    body: ASTFunctionBody,
+    genericTypes: Vec<str>,
+    modifiers: ASTModifiers,
+    target: Option<str>
+}
+
+pub struct ASTParameterDef {
+    name: str,
+    astType: ASTType
+}
+
+pub fn toString(def: ASTParameterDef) -> str {
+    def.name.add(" : TODO"); // TODO .append(def.astType);
+}
+
+pub enum ASTFunctionBody {
+    RASMBody(statements: Vec<ASTStatement>),
+    NativeBody(body: str)
+}
+
+pub struct ASTEnumDef {
+    name: str,
+    typeParameters: Vec<str>,
+    variants: Vec<ASTEnumVariantDef>,
+    modifiers: ASTModifiers
+}
+
+pub struct ASTEnumVariantDef {
+    name: str,
+    parameters: Vec<ASTParameterDef>
+}
+
+pub struct ASTStructDef {
+    name: str,
+    typeParameters: Vec<str>,
+    properties: Vec<ASTStructPropertyDef>,
+    modifiers: ASTModifiers
+}
+
+pub struct ASTStructPropertyDef {
+    name: str,
+    astType: ASTType
+}
+
+pub struct ASTTypeDef {
+    name: str,
+    typeParameters: Vec<str>,
+    body: str,
+    modifiers: ASTModifiers
+}

@@ -679,6 +679,12 @@ fn test_type_classes() {
     run_test("type_classes", vec![], "11\n");
 }
 
+#[test]
+fn test_print_macro() {
+    // TODO: output
+    run_test("macro/print_macro", vec![], "");
+}
+
 // Compile tests
 
 #[test]
