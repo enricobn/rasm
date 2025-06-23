@@ -16,7 +16,6 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use linked_hash_map::LinkedHashMap;
 use log::info;
 use rasm_utils::OptionDisplay;
 use std::fs::File;
@@ -25,7 +24,6 @@ use std::path::Path;
 use std::process::exit;
 use std::time::Instant;
 
-use rust_embed::{EmbeddedFile, RustEmbed};
 use toml::Value;
 
 use crate::codegen::asm::backend::Backend;
@@ -56,12 +54,7 @@ use crate::type_check::ast_type_checker::ASTTypeChecker;
 use super::asm::backend::BackendNasmi386;
 use super::asm::code_gen_asm::CodeGenAsm;
 use super::asm::typed_functions_creator_asm::TypedFunctionsCreatorNasmi386;
-use super::c::c_compiler::CLibAssets;
 use super::c::typed_function_creator_c::TypedFunctionsCreatorC;
-
-#[derive(RustEmbed)]
-#[folder = "../core/resources/corelib/nasmi386"]
-struct Nasmi386CoreLibAssets;
 
 #[derive(Clone)]
 pub enum CompileTarget {
@@ -189,33 +182,6 @@ impl CompileTarget {
                 Box::new(TypedFunctionsCreatorC::new(code_gen))
             }
         }
-    }
-
-    pub fn get_core_lib_files(&self) -> LinkedHashMap<String, EmbeddedFile> {
-        let mut result = LinkedHashMap::new();
-
-        match self {
-            CompileTarget::Nasmi386(_) => {
-                Nasmi386CoreLibAssets::iter()
-                    .filter(|it| it.ends_with(".rasm"))
-                    .for_each(|it| {
-                        if let Some(asset) = Nasmi386CoreLibAssets::get(&it) {
-                            result.insert(it.to_string(), asset);
-                        }
-                    });
-            }
-            CompileTarget::C(_) => {
-                CLibAssets::iter()
-                    .filter(|it| it.ends_with(".rasm"))
-                    .for_each(|it| {
-                        if let Some(asset) = CLibAssets::get(&it) {
-                            result.insert(it.to_string(), asset);
-                        }
-                    });
-            }
-        }
-
-        result
     }
 
     pub fn get_evaluator(&self, debug: bool) -> TextMacroEvaluator {
