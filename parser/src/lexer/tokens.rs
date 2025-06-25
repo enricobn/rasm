@@ -186,6 +186,9 @@ impl Display for TokenKind {
                 PunctuationKind::Equal => {
                     write!(f, "=")
                 }
+                PunctuationKind::Esclamation => {
+                    write!(f, "!")
+                }
             },
             TokenKind::StringLiteral(s) => {
                 write!(f, "\"{}\"", s)
@@ -205,6 +208,7 @@ pub enum PunctuationKind {
     Colon,
     Comma,
     Equal,
+    Esclamation,
     RightArrow,
     SemiColon,
 }

@@ -609,6 +609,7 @@ pub struct ASTFunctionCall {
     position: ASTPosition,
     generics: Vec<ASTType>,
     target: Option<String>,
+    is_macro: bool,
 }
 
 impl ASTFunctionCall {
@@ -618,6 +619,7 @@ impl ASTFunctionCall {
         position: ASTPosition,
         generics: Vec<ASTType>,
         target: Option<String>,
+        is_macro: bool,
     ) -> Self {
         Self {
             function_name,
@@ -625,6 +627,7 @@ impl ASTFunctionCall {
             position,
             generics,
             target,
+            is_macro,
         }
     }
 
@@ -1008,9 +1011,11 @@ pub fn lambda_unit() -> ASTType {
 
 #[cfg(test)]
 mod tests {
+    use rhai::Engine;
+
     use crate::parser::ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTModifiers, ASTParameterDef, ASTPosition, ASTType,
-        BuiltinTypeKind,
+        ASTFunctionBody, ASTFunctionDef, ASTModifiers, ASTModule, ASTParameterDef, ASTPosition,
+        ASTType, BuiltinTypeKind,
     };
 
     #[test]
@@ -1066,7 +1071,7 @@ mod tests {
     }
 
     #[test]
-    fn disaplay_type_class() {
+    fn display_type_class() {
         let t = ASTType::Generic(
             ASTPosition::none(),
             "M".to_owned(),
@@ -1074,5 +1079,17 @@ mod tests {
         );
 
         assert_eq!("M<str>", format!("{t}"));
+    }
+
+    #[test]
+    fn rhai_test() {
+        let mut engine = Engine::new();
+        engine.register_type_with_name::<ASTModule>("ASTModule");
+
+        // Your first Rhai Script
+        let script = "print(40 + 2);";
+
+        // Run the script - prints "42"
+        engine.run(script).unwrap();
     }
 }

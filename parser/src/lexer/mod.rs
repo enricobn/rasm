@@ -132,6 +132,7 @@ impl Lexer {
             ";" => Some(TokenKind::Punctuation(PunctuationKind::SemiColon)),
             "->" => Some(TokenKind::Punctuation(PunctuationKind::RightArrow)),
             "=" => Some(TokenKind::Punctuation(PunctuationKind::Equal)),
+            "!" => Some(TokenKind::Punctuation(PunctuationKind::Esclamation)),
             _ => None,
         }
     }

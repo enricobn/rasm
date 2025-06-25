@@ -1879,6 +1879,7 @@ mod tests {
             ASTPosition::new(2, 16),
             Vec::new(),
             None,
+            false,
         );
         let o = ASTExpression::ASTFunctionCallExpression(some);
 
@@ -1896,6 +1897,7 @@ mod tests {
             ASTPosition::new(2, 5),
             Vec::new(),
             None,
+            false,
         );
 
         type_checker.add_call(
@@ -1951,6 +1953,7 @@ mod tests {
             ASTPosition::new(2, 16),
             Vec::new(),
             None,
+            false,
         );
         let o = ASTExpression::ASTFunctionCallExpression(some);
 

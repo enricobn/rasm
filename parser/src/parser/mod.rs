@@ -226,8 +226,14 @@ impl Parser {
             if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
                 if let TokenKind::Punctuation(PunctuationKind::Dot) = token.kind {
                     self.i += 1;
-                    if let Some((function_name, generics, next_i, function_name_i, target)) =
-                        self.try_parse_function_call()
+                    if let Some((
+                        function_name,
+                        generics,
+                        next_i,
+                        function_name_i,
+                        target,
+                        is_macro,
+                    )) = self.try_parse_function_call()
                     {
                         self.parser_data.pop();
                         let call = ASTFunctionCall::new(
@@ -236,6 +242,7 @@ impl Parser {
                             self.get_position(function_name_i),
                             generics,
                             target,
+                            is_macro,
                         );
                         self.parser_data.push(ParserData::FunctionCall(call));
                         self.state.push(ParserState::FunctionCall);
@@ -244,6 +251,15 @@ impl Parser {
                     } else if let Some(TokenKind::AlphaNumeric(name)) =
                         self.get_token_kind().cloned()
                     {
+                        let is_macro =
+                            if let Some(TokenKind::Punctuation(PunctuationKind::Esclamation)) =
+                                self.get_token_kind_n(1).cloned()
+                            {
+                                self.i += 1;
+                                true
+                            } else {
+                                false
+                            };
                         self.parser_data.pop();
                         let call = ASTFunctionCall::new(
                             name.clone(),
@@ -251,6 +267,7 @@ impl Parser {
                             self.get_position(0),
                             Vec::new(),
                             None,
+                            is_macro,
                         );
                         self.parser_data
                             .push(ParserData::Expression(ASTFunctionCallExpression(call)));
@@ -636,8 +653,14 @@ impl Parser {
         {
             self.state.pop();
             self.i += 1;
-        } else if let Some((function_name, generics, next_i, function_name_index, target)) =
-            self.try_parse_function_call()
+        } else if let Some((
+            function_name,
+            generics,
+            next_i,
+            function_name_index,
+            target,
+            is_macro,
+        )) = self.try_parse_function_call()
         {
             let call = ASTFunctionCall::new(
                 function_name,
@@ -645,6 +668,7 @@ impl Parser {
                 self.get_position(function_name_index),
                 generics,
                 target,
+                is_macro,
             );
             self.parser_data.push(ParserData::FunctionCall(call));
             self.state.push(ParserState::FunctionCall);
@@ -1004,7 +1028,7 @@ impl Parser {
 
     fn try_parse_function_call(
         &mut self,
-    ) -> Option<(String, Vec<ASTType>, usize, usize, Option<String>)> {
+    ) -> Option<(String, Vec<ASTType>, usize, usize, Option<String>, bool)> {
         if let Some(TokenKind::AlphaNumeric(ref f_name)) = self.get_token_kind() {
             let (function_name, next_n, function_name_n, target) =
                 if let Some((function_name, next_n)) = self.try_parse_call_with_target() {
@@ -1057,6 +1081,16 @@ impl Parser {
                     }
                 }
             }
+
+            let is_macro = if let Some(TokenKind::Punctuation(PunctuationKind::Esclamation)) =
+                self.get_token_kind_n(n)
+            {
+                n += 1;
+                true
+            } else {
+                false
+            };
+
             if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
                 self.get_token_kind_n(n)
             {
@@ -1066,6 +1100,7 @@ impl Parser {
                     self.i + n + 1,
                     function_name_n,
                     target,
+                    is_macro,
                 ));
             }
         }
@@ -1205,7 +1240,7 @@ impl Parser {
             {
                 if let Some(TokenKind::Number(n1)) = self.get_token_kind_n(2) {
                     (
-                        ASTValueType::F32((n.to_owned() + "." + n1).parse().map_err(|err| {
+                        ASTValueType::F32(format!("{n}.{n1}").parse().map_err(|err| {
                             format!(
                                 "Cannot parse '{n}.{n1}' as an f32, {err}: {}",
                                 self.get_position(0)
@@ -1258,7 +1293,6 @@ impl Parser {
         }
         Ok(None)
     }
-
     fn try_parse_let(&self, is_const: bool) -> Result<Option<(String, usize, bool)>, String> {
         let kind = if is_const {
             KeywordKind::Const
@@ -1547,6 +1581,7 @@ mod tests {
             ASTPosition::new(1, 1),
             vec![ASTType::Builtin(BuiltinTypeKind::I32)],
             None,
+            false,
         );
 
         assert_eq!(
@@ -1576,6 +1611,7 @@ mod tests {
                 Vec::new(),
             )],
             None,
+            false,
         );
 
         if let ASTFunctionBody::RASMBody(ref body) = module.functions.first().unwrap().body {
@@ -1605,6 +1641,7 @@ mod tests {
             ASTPosition::new(1, 1),
             Vec::new(),
             None,
+            false,
         );
 
         assert_eq!(

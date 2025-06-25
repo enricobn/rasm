@@ -1,11 +1,11 @@
-let module = printlnMacro("a print", ASTExpression::Value(ASTValueType::String("Hello, World!")));
+printlnMacro!("a print", ASTExpression::Value(ASTValueType::String("Hello, World!")));
 
-pub fn printlnMacro(s: str, e: ASTExpression) -> ASTModule {
-    ASTModule(
+pub fn printlnMacro(s: str, e: ASTExpression) -> Result<ASTModule,str> {
+    Ok(ASTModule(
         vecOf(
-            simpleCall("println", Vec())
+            simpleCall("println", vecOf(ASTExpression::Value(ASTValueType::String(s)), e))
         ), Vec(), Vec(), Vec(), Vec()
-    );
+    ));
 }
 
 fn simpleCall(f: str, parameters: Vec<ASTExpression>) -> ASTStatement {

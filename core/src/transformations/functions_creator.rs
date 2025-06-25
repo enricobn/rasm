@@ -260,6 +260,7 @@ pub trait FunctionsCreator {
                     ),
                     Vec::new(),
                     None,
+                    false,
                 )),
                 ASTPosition::builtin(
                     &property_def.position,
@@ -290,6 +291,7 @@ pub trait FunctionsCreator {
                     ),
                     Vec::new(),
                     None,
+                    false,
                 ),
             )),
         ]

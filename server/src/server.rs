@@ -322,6 +322,7 @@ fn token_to_string(token: &Token, row: usize) -> String {
             PunctuationKind::Equal => "=".to_owned(),
             PunctuationKind::RightArrow => "->".to_owned(),
             PunctuationKind::SemiColon => ";".to_owned(),
+            PunctuationKind::Esclamation => "!".to_owned(),
         },
         TokenKind::StringLiteral(s) => format!("\"{s}\""),
         TokenKind::CharLiteral(c) => format!("'{c}'"),
