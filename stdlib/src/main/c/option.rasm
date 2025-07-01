@@ -1,3 +1,0 @@
-// TODO it's a trick
-pub native toUnit<T>(o: Option<T>) /{
-}/

@@ -969,7 +969,9 @@ impl<'a> EnhTypeCheck<'a> {
                             valid = false;
                             return Err(EnhTypeCheckError::new_with_kind(
                                 expr.get_index().unwrap_or(&EnhASTIndex::none()).clone(),
-                                format!("not matching type expected {t} got {param_type}"),
+                                format!(
+                                    "not matching type expected {t} got {param_type} for {call}"
+                                ),
                                 self.stack.clone(),
                                 EnhTypeCheckErrorKind::Ignorable,
                             ));

@@ -17,6 +17,3 @@ log.workspace = true
 snailquote.workspace = true
 strum.workspace = true
 strum_macros.workspace = true
-
-# external
-rhai = "1.22.0"

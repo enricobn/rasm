@@ -14,7 +14,6 @@ use crate::codegen::enh_ast::{
 use crate::enh_type_check::enh_functions_container::{EnhFunctionsContainer, EnhTypeFilter};
 use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use crate::project::RasmProject;
-use crate::transformations::globals_creator::add_folder;
 use rasm_parser::parser::ast;
 
 use super::enh_ast::EnhModuleInfo;
@@ -89,19 +88,6 @@ impl EnhancedASTModule {
             types,
             body_namespace,
         };
-
-        // TODO it is already done in RasmProject::container_and_catalog, but here we haven't get
-        // the modules from the container
-        add_folder(
-            &mut enhanced_module,
-            "RASMRESOURCEFOLDER",
-            project.main_resources_folder(),
-        );
-        add_folder(
-            &mut enhanced_module,
-            "RASMTESTRESOURCEFOLDER",
-            project.test_resources_folder(),
-        );
 
         target
             .functions_creator(debug)

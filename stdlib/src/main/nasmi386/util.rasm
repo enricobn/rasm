@@ -19,3 +19,7 @@ pub native random() -> i32 /{
     pop ecx
     pop ebx
 }/
+
+pub native toUnit<T>(o: T) /{
+    $inline()
+}/

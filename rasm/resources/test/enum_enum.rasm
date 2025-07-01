@@ -1,0 +1,50 @@
+pub enum AnEnum {
+    AnEnumV1(s: str),
+    AnEnumV2
+}
+
+pub fn toString(e: AnEnum) -> str {
+    match(e, fn(s) { "AnEnumV1(".add(s).add(")";}, fn() { "AnEnumV2";});
+}
+
+pub enum AnotherEnum {
+    AnotherEnumV1(v: AnEnum)
+}
+
+pub fn toString(e: AnotherEnum) -> str {
+    match(e, fn(v) {
+        "AnotherEnumV1(".append(v).append(")");
+    });
+}
+
+pub struct AStruct {
+    v: AnEnum
+}
+
+pub fn toString(s: AStruct) -> str {
+    "AStruct(".append(s.v).append(")");
+}
+
+pub struct AnotherStruct {
+    v: AnotherEnum
+}
+
+pub fn toString(s: AnotherStruct) -> str {
+    "AnotherStruct(".append(s.v).append(")");
+}
+
+pub fn printAnotherEnum(e: AnotherEnum) {
+    println("AnotherEnum: ", e);
+}
+
+let e = AnotherEnumV1(AnEnumV1("value"));
+println("e: ", e);
+
+let s = AStruct(AnEnumV1("value"));
+println("s: ", s);
+
+let s1 = AnotherStruct(e);
+println("s1: ", s1);
+println("s1 scnd take: ", AnotherStruct(AnotherEnumV1(AnEnumV1("value"))));
+
+printAnotherEnum(AnotherEnumV1(AnEnumV1("value")));

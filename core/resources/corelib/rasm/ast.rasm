@@ -31,7 +31,7 @@ pub struct ASTFunctionCall {
 }
 
 pub enum ASTValueType {
-    String(value: str),
+    ASTString(value: str),
     Boolean(value: bool),
     I32(value: i32),
     Char(value: str),

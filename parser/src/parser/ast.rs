@@ -655,6 +655,10 @@ impl ASTFunctionCall {
     pub fn target(&self) -> &Option<String> {
         &self.target
     }
+
+    pub fn is_macro(&self) -> bool {
+        self.is_macro
+    }
 }
 
 impl Display for ASTFunctionCall {
@@ -1011,11 +1015,10 @@ pub fn lambda_unit() -> ASTType {
 
 #[cfg(test)]
 mod tests {
-    use rhai::Engine;
 
     use crate::parser::ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTModifiers, ASTModule, ASTParameterDef, ASTPosition,
-        ASTType, BuiltinTypeKind,
+        ASTFunctionBody, ASTFunctionDef, ASTModifiers, ASTParameterDef, ASTPosition, ASTType,
+        BuiltinTypeKind,
     };
 
     #[test]
@@ -1079,17 +1082,5 @@ mod tests {
         );
 
         assert_eq!("M<str>", format!("{t}"));
-    }
-
-    #[test]
-    fn rhai_test() {
-        let mut engine = Engine::new();
-        engine.register_type_with_name::<ASTModule>("ASTModule");
-
-        // Your first Rhai Script
-        let script = "print(40 + 2);";
-
-        // Run the script - prints "42"
-        engine.run(script).unwrap();
     }
 }

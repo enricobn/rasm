@@ -337,10 +337,8 @@ fn verify_expression(
                     Err(verify_error(
                         expr.get_index().unwrap_or(EnhASTIndex::none()),
                         format!(
-                            "Expected {} ({}) but got {} ({})",
-                            et,
+                            "Expected {} but got {}",
                             module.get_type_from_typed_type(et).unwrap(),
-                            real_type,
                             module.get_type_from_typed_type(&real_type).unwrap(),
                         ),
                     ))

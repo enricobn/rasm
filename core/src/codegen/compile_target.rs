@@ -17,6 +17,7 @@
  */
 
 use log::info;
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_utils::OptionDisplay;
 use std::fs::File;
 use std::io::Write;
@@ -32,7 +33,7 @@ use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator_c::CFunctionsCreator;
 use crate::codegen::c::options::COptions;
 use crate::codegen::enh_ast::{
-    EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind,
+    EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind, EnhModuleInfo,
 };
 use crate::codegen::enh_val_context::EnhValContext;
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -275,24 +276,23 @@ impl CompileTarget {
             RasmProjectRunType::Main
         };
 
-        let (modules, errors) =
-            project.get_all_modules(&mut statics, &run_type, self, command_line_options.debug);
-
-        if !errors.is_empty() {
-            for error in errors {
-                eprintln!("{error}");
-            }
-            panic!()
-        }
-
-        let mut statics_for_cc = Statics::new();
+        //let mut statics_for_cc = Statics::new();
 
         let (container, catalog, errors) = project.container_and_catalog(
-            &mut statics_for_cc,
+            &mut statics,
             &run_type,
             self,
             command_line_options.debug,
         );
+
+        let modules = container
+            .modules()
+            .iter()
+            .map(|(id, ns, m)| {
+                let (e_id, e_ns) = catalog.catalog_info(id).unwrap();
+                ((*m).clone(), EnhModuleInfo::new(e_id.clone(), e_ns.clone()))
+            })
+            .collect::<Vec<_>>();
 
         info!("parse ended in {:?}", start.elapsed());
 

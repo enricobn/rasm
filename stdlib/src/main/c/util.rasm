@@ -14,3 +14,7 @@ pub native random() -> i32 /{
 
     return rand();
 }/
+
+pub native toUnit<T>(o: T) /{
+    $inline()
+}/
