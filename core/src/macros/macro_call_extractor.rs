@@ -11,9 +11,55 @@ use rasm_parser::{
 
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 
-pub fn transform_macro_calls(container: ASTModulesContainer) -> ASTModulesContainer {
+pub struct MacroCallExtractor {
+    pub container: ASTModulesContainer,
+    pub calls: Vec<MacroCall>,
+}
+
+impl MacroCallExtractor {
+    pub fn container(&self) -> &ASTModulesContainer {
+        &self.container
+    }
+
+    pub fn calls(&self) -> &Vec<MacroCall> {
+        &self.calls
+    }
+}
+
+pub struct MacroCall {
+    pub id: usize,
+    pub module_namespace: ModuleNamespace,
+    pub module_id: ModuleId,
+    pub position: ASTPosition,
+    pub transformed_macro: ASTFunctionCall,
+}
+
+impl MacroCall {
+    pub fn id(&self) -> usize {
+        self.id
+    }
+
+    pub fn module_namespace(&self) -> &ModuleNamespace {
+        &self.module_namespace
+    }
+
+    pub fn module_id(&self) -> &ModuleId {
+        &self.module_id
+    }
+
+    pub fn position(&self) -> &ASTPosition {
+        &self.position
+    }
+
+    pub fn transformed_macro(&self) -> &ASTFunctionCall {
+        &self.transformed_macro
+    }
+}
+
+pub fn extract_macro_calls(container: ASTModulesContainer) -> MacroCallExtractor {
     info!("transform_macro_calls");
-    let mut result = ASTModulesContainer::new();
+    let mut new_container = ASTModulesContainer::new();
+    let mut calls = Vec::new();
     for (id, namespace, module) in container.modules().into_iter() {
         let mut new_module = module.clone().clone();
         new_module.functions.clear();
@@ -21,16 +67,17 @@ pub fn transform_macro_calls(container: ASTModulesContainer) -> ASTModulesContai
             let mut new_function = function.clone();
             if let ASTFunctionBody::RASMBody(ref body) = function.body {
                 let new_statements =
-                    transform_macro_calls_in_body(&container, &namespace, &id, body);
+                    transform_macro_calls_in_body(&container, &namespace, &id, body, &mut calls);
                 new_function.body = ASTFunctionBody::RASMBody(new_statements);
             }
 
             new_module.add_function(new_function);
         }
 
-        new_module.body = transform_macro_calls_in_body(&container, &namespace, &id, &module.body);
+        new_module.body =
+            transform_macro_calls_in_body(&container, &namespace, &id, &module.body, &mut calls);
 
-        result.add(
+        new_container.add(
             new_module,
             namespace.clone(),
             id.clone(),
@@ -40,7 +87,18 @@ pub fn transform_macro_calls(container: ASTModulesContainer) -> ASTModulesContai
     }
 
     info!("end transform_macro_calls");
-    result
+    MacroCallExtractor {
+        container: new_container,
+        calls,
+    }
+}
+
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static MACRO_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+fn get_next_macro_id() -> usize {
+    MACRO_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
 }
 
 fn transform_macro_calls_in_body(
@@ -48,6 +106,7 @@ fn transform_macro_calls_in_body(
     module_namespace: &ModuleNamespace,
     module_id: &ModuleId,
     body: &Vec<ASTStatement>,
+    calls: &mut Vec<MacroCall>,
 ) -> Vec<ASTStatement> {
     let mut new_statements = Vec::with_capacity(body.len());
     for statement in body.iter() {
@@ -124,18 +183,33 @@ fn transform_macro_calls_in_body(
                     })
                     .collect::<Vec<_>>();
 
-                    let new_statement = ASTStatement::Expression(
-                        ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
-                            call.function_name().clone(),
-                            new_parameters,
-                            call.position().clone(),
-                            call.generics().clone(),
-                            call.target().clone(),
-                            false,
-                        )),
+                    let macro_call = ASTFunctionCall::new(
+                        call.function_name().clone(),
+                        new_parameters,
+                        call.position().clone(),
+                        call.generics().clone(),
+                        call.target().clone(),
+                        false,
                     );
 
-                    println!("new_statement {new_statement}");
+                    let macro_id = get_next_macro_id();
+
+                    let new_statement = ASTStatement::LetStatement(
+                        format!("macroCall{macro_id}"),
+                        ASTExpression::Value(
+                            ASTValueType::I32(macro_id.try_into().unwrap()),
+                            call.position().mv_right(1),
+                        ),
+                        call.position().clone(),
+                    );
+
+                    calls.push(MacroCall {
+                        id: macro_id,
+                        module_namespace: module_namespace.clone(),
+                        module_id: module_id.clone(),
+                        position: call.position().clone(),
+                        transformed_macro: macro_call,
+                    });
 
                     new_statements.push(new_statement);
                     continue;
@@ -228,7 +302,7 @@ fn simple_call(
         parameters,
         position,
         Vec::new(),
-        None,
+        target,
         false,
     ))
 }
