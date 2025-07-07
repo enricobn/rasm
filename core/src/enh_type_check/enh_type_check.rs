@@ -373,6 +373,8 @@ impl<'a> EnhTypeCheck<'a> {
                                 ));
                             }
                             function_generics = Vec::new(); // TODO check if there are remaining generic types
+                        } else if let EnhASTType::Generic(_, _, _) = et {
+                            function_generics = Vec::new();
                         } else {
                             return Err(EnhTypeCheckError::new_with_kind(
                                 index.clone(),
