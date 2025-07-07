@@ -878,6 +878,36 @@ impl ASTModule {
     }
 }
 
+impl Display for ASTModule {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for s in self.structs.iter() {
+            f.write_str(&format!("{s}"))?;
+        }
+        for e in self.enums.iter() {
+            f.write_str(&format!("{e}"))?;
+        }
+        for t in self.types.iter() {
+            f.write_str(&format!("{t}"))?;
+        }
+        for s in self.body.iter() {
+            f.write_str(&format!("{s}"))?;
+        }
+        for function in self.functions.iter() {
+            f.write_str(&format!("{function} {{\n"))?;
+            match &function.body {
+                ASTFunctionBody::RASMBody(body) => {
+                    for s in body.iter() {
+                        f.write_str(&format!("  {s}"))?;
+                    }
+                }
+                ASTFunctionBody::NativeBody(body) => f.write_str(&body)?,
+            }
+            f.write_str("}\n")?;
+        }
+        Ok(())
+    }
+}
+
 pub trait CustomTypeDef: Display {
     fn name(&self) -> &str;
     fn modifiers(&self) -> &ASTModifiers;
