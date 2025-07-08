@@ -3,13 +3,13 @@ CC = cc
 LFLAGS = -Wall $(DEBUG)
 CFLAGS = -c -std=c17 -Wno-incompatible-pointer-types -Wno-int-conversion $(DEBUG) $(OPTIMIZE) $(SAVE-TEMPS)
 
-all : $(MAIN)
+all : $(OUT)
 
-$(MAIN) : $(MAIN).o $(OTHERS)
+$(OUT) : $(OBJECTS)
 	@echo 'Building $@'
 	$(CC) $(LFLAGS) -o $@ $^ $(LIB)
 
-%.o : %.c 
+%.o : %.c
 	@echo 'Compiling $<'
 	$(CC) $(CFLAGS) $(DEBUG) $(INCLUDE) $<
 

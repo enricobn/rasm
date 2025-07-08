@@ -26,42 +26,6 @@ impl RasmProjectCatalog {
             enh_map: HashMap::new(),
         }
     }
-
-    pub fn add(&mut self, info: EnhModuleInfo) {
-        if self
-            .map
-            .insert(
-                info.id.clone(),
-                ModuleEntry {
-                    id: info.module_id(),
-                    namespace: info.module_namespace(),
-                    enh_namespace: info.namespace.clone(),
-                },
-            )
-            .is_some()
-        {
-            panic!("already added {}", &info.id);
-        }
-        if let Some(existing_namespace) = &self
-            .map_namespaces
-            .insert(info.namespace.clone(), info.module_namespace())
-        {
-            if existing_namespace != &info.module_namespace() {
-                panic!(
-                    "already added existing {existing_namespace} {}",
-                    info.module_namespace()
-                );
-            }
-        }
-
-        if self
-            .enh_map
-            .insert(info.module_id(), info.clone())
-            .is_some()
-        {
-            panic!("already added {}", &info.id);
-        }
-    }
 }
 
 impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> for RasmProjectCatalog {
@@ -96,5 +60,43 @@ impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> for RasmProjectCatalog {
             None
         }
         */
+    }
+
+    fn add(&mut self, id: EnhModuleId, namespace: EnhASTNameSpace) {
+        let info = EnhModuleInfo::new(id, namespace);
+
+        if self
+            .map
+            .insert(
+                info.id.clone(),
+                ModuleEntry {
+                    id: info.module_id(),
+                    namespace: info.module_namespace(),
+                    enh_namespace: info.namespace.clone(),
+                },
+            )
+            .is_some()
+        {
+            panic!("already added {}", &info.id);
+        }
+        if let Some(existing_namespace) = &self
+            .map_namespaces
+            .insert(info.namespace.clone(), info.module_namespace())
+        {
+            if existing_namespace != &info.module_namespace() {
+                panic!(
+                    "already added existing {existing_namespace} {}",
+                    info.module_namespace()
+                );
+            }
+        }
+
+        if self
+            .enh_map
+            .insert(info.module_id(), info.clone())
+            .is_some()
+        {
+            panic!("already added {}", &info.id);
+        }
     }
 }

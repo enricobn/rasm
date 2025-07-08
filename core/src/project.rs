@@ -25,7 +25,6 @@ use std::path::{Path, PathBuf};
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 use crate::commandline::CommandLineOptions;
-use crate::macros::macro_call_extractor::extract_macro_calls;
 use crate::project_catalog::RasmProjectCatalog;
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use linked_hash_map::LinkedHashMap;
@@ -468,7 +467,7 @@ impl RasmProject {
                 false,
                 !info.namespace.is_same_lib(&self.config.package.name),
             );
-            catalog.add(info);
+            catalog.add(info.id, info.namespace);
         }
 
         (container, catalog, errors)

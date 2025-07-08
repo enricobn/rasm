@@ -1,3 +1,8 @@
+pub enum MacroResult {
+    MacroModule(module: ASTModule),
+    MacroError(message: str)
+}
+
 pub struct ASTModule {
     body: Vec<ASTStatement>,
     functions: Vec<ASTFunctionDef>,
@@ -6,10 +11,23 @@ pub struct ASTModule {
     types: Vec<ASTTypeDef>
 }
 
+pub fn toString(module: ASTModule) -> str {
+    module.body
+    .foldLeft("", fn (prev, current) { prev.append(current).add("\n"); });
+}
+
 pub enum ASTStatement {
     Expression(expr: ASTExpression),
     LetStatement(name: str, expr: ASTExpression),
-    ConstStatement(name: str, exr: ASTExpression, modifiers: ASTModifiers)
+    ConstStatement(name: str, expr: ASTExpression, modifiers: ASTModifiers)
+}
+
+pub fn toString(stmt: ASTStatement) -> str {
+    stmt.match(
+        fn (expr) { "expr";}, 
+        fn (name,expr) { "let"; },
+        fn (name, expr, modifiers) { "const "; }
+    );
 }
 
 pub struct ASTModifiers {

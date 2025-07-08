@@ -18,10 +18,11 @@
 
 use log::info;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
+use rasm_parser::catalog::{ModuleId, ModuleNamespace};
 use rasm_utils::OptionDisplay;
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::time::Instant;
 
@@ -33,7 +34,8 @@ use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator_c::CFunctionsCreator;
 use crate::codegen::c::options::COptions;
 use crate::codegen::enh_ast::{
-    EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind, EnhModuleInfo,
+    EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind, EnhModuleId,
+    EnhModuleInfo,
 };
 use crate::codegen::enh_val_context::EnhValContext;
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -43,6 +45,8 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::CompilationError;
+use crate::macros::macro_call_extractor::extract_macro_calls;
+use crate::macros::macro_module::create_macro_module;
 use crate::project::{RasmProject, RasmProjectRunType};
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
@@ -50,6 +54,7 @@ use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
 use crate::enh_type_check::typed_ast::{
     ASTTypedFunctionDef, ASTTypedModule, DefaultFunction, DefaultFunctionCall,
 };
+use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 
 use super::asm::backend::BackendNasmi386;
@@ -278,13 +283,82 @@ impl CompileTarget {
 
         //let mut statics_for_cc = Statics::new();
 
-        let (container, catalog, errors) = project.container_and_catalog(
+        let (container, mut catalog, errors) = project.container_and_catalog(
             &mut statics,
             &run_type,
             self,
             command_line_options.debug,
         );
 
+        if !errors.is_empty() {
+            for error in errors {
+                eprintln!("{error}");
+            }
+            panic!()
+        }
+
+        let extractor = extract_macro_calls(container);
+
+        if extractor.calls().is_empty() {
+            let out_file = out_folder.join(project.main_out_file_name(&command_line_options));
+            self.compile(
+                &project,
+                extractor.container,
+                catalog,
+                start,
+                statics,
+                command_line_options,
+                out_folder,
+                out_file,
+            );
+        } else {
+            let macro_module = create_macro_module(&extractor);
+
+            let mut container = extractor.container;
+            container.remove_body();
+
+            container.add(
+                macro_module,
+                ModuleNamespace("".to_owned()),
+                ModuleId("__macro".to_owned()),
+                true,
+                true,
+            );
+
+            catalog.add(
+                EnhModuleId::Other("__macro".to_owned()),
+                EnhASTNameSpace::global(),
+            );
+
+            let out_file = out_folder.join(format!(
+                "{}_macro",
+                project.main_out_file_name(&command_line_options)
+            ));
+
+            self.compile(
+                &project,
+                container,
+                catalog,
+                start,
+                statics,
+                command_line_options,
+                out_folder,
+                out_file,
+            );
+        }
+    }
+
+    fn compile(
+        &self,
+        project: &RasmProject,
+        container: ASTModulesContainer,
+        catalog: impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        start: Instant,
+        mut statics: Statics,
+        command_line_options: CommandLineOptions,
+        out_folder: PathBuf,
+        out_file: PathBuf,
+    ) {
         let modules = container
             .modules()
             .iter()
@@ -296,12 +370,6 @@ impl CompileTarget {
 
         info!("parse ended in {:?}", start.elapsed());
 
-        if !errors.is_empty() {
-            for error in errors {
-                eprintln!("{error}");
-            }
-            panic!()
-        }
         let start = Instant::now();
 
         let (ast_type_check, _) = ASTTypeChecker::from_modules_container(&container);
@@ -377,9 +445,14 @@ impl CompileTarget {
                     let out = out_paths.remove(0);
 
                     if command_line_options.only_compile {
-                        backend.compile(&out);
+                        backend.compile(&out, &out_file.with_extension("o"));
                     } else {
-                        backend.compile_and_link(&out, &options.requires);
+                        backend.compile_and_link(
+                            &out,
+                            &out_file.with_extension("o"),
+                            &out_file,
+                            &options.requires,
+                        );
                     }
                 }
                 _ => {
@@ -395,6 +468,7 @@ impl CompileTarget {
                     &project,
                     &out_folder,
                     out_paths,
+                    &out_file,
                 );
 
                 info!("compiler ended in {:?}", start.elapsed());

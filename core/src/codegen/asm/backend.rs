@@ -17,11 +17,17 @@ pub trait Backend: Send + Sync {
 
     fn word_len(&self) -> usize;
 
-    fn compile_and_link(&self, source_file: &Path, requires: &[String]);
+    fn compile_and_link(
+        &self,
+        source_file: &Path,
+        intermediate_file: &Path,
+        out_file: &Path,
+        requires: &[String],
+    );
 
-    fn compile(&self, source_file: &Path);
+    fn compile(&self, source_file: &Path, out_file: &Path);
 
-    fn link(&self, path: &Path, requires: &[String]);
+    fn link(&self, source_file: &Path, out_file: &Path, requires: &[String]);
 
     fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String>;
 
@@ -92,13 +98,19 @@ impl Backend for BackendNasmi386 {
         4
     }
 
-    fn compile_and_link(&self, source_file: &Path, requires: &[String]) {
-        self.compile(source_file);
+    fn compile_and_link(
+        &self,
+        source_file: &Path,
+        intermediate_file: &Path,
+        out_file: &Path,
+        requires: &[String],
+    ) {
+        self.compile(source_file, intermediate_file);
 
-        self.link(source_file, requires);
+        self.link(intermediate_file, out_file, requires);
     }
 
-    fn compile(&self, source_file: &Path) {
+    fn compile(&self, source_file: &Path, out_file: &Path) {
         let start = Instant::now();
         info!("source file : '{:?}'", source_file);
         let mut nasm_command = Command::new("nasm");
@@ -108,7 +120,9 @@ impl Backend for BackendNasmi386 {
             .arg("-g")
             .arg("-F")
             .arg("dwarf")
-            .arg(source_file);
+            .arg(source_file)
+            .arg("-o")
+            .arg(out_file);
         log_command(&nasm_command);
         let result = nasm_command
             .stderr(Stdio::inherit())
@@ -121,7 +135,7 @@ impl Backend for BackendNasmi386 {
         }
     }
 
-    fn link(&self, path: &Path, requires: &[String]) {
+    fn link(&self, src_file: &Path, out_file: &Path, requires: &[String]) {
         let start = Instant::now();
         let result = match self.linker {
             Linker::Ld => {
@@ -129,12 +143,12 @@ impl Backend for BackendNasmi386 {
                 ld_command
                     .arg("-m")
                     .arg("elf_i386")
-                    .arg(path.with_extension("o"))
+                    .arg(src_file)
                     .arg("-lc")
                     .arg("-I")
                     .arg("/lib32/ld-linux.so.2")
                     .arg("-o")
-                    .arg(path.with_extension(""));
+                    .arg(out_file);
                 log_command(&ld_command);
                 ld_command
                     .stderr(Stdio::inherit())
@@ -155,8 +169,8 @@ impl Backend for BackendNasmi386 {
                     .arg("-gdwarf")
                     //.arg("-static")
                     .arg("-o")
-                    .arg(path.with_extension(""))
-                    .arg(path.with_extension("o"))
+                    .arg(out_file)
+                    .arg(src_file)
                     .args(libraries)
                     .arg("-z")
                     .arg("noexecstack")

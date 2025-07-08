@@ -23,9 +23,10 @@ pub fn compile_c(
     options: &COptions,
     project: &RasmProject,
     out_folder: &Path,
-    out_paths: Vec<PathBuf>,
+    src_paths: Vec<PathBuf>,
+    out_file: &PathBuf,
 ) -> Output {
-    if out_paths.len() != 1 {
+    if src_paths.len() != 1 {
         panic!("Only one native file to compile is supported!");
     }
 
@@ -42,9 +43,20 @@ pub fn compile_c(
         make_file_content.push_str("DEBUG = -g\n");
     }
 
+    make_file_content.push_str("OUT = ");
+    make_file_content.push_str(out_file.file_name().unwrap().to_str().unwrap());
+
     let additional_files = generate_pre_compile_artifacts(out_folder);
 
-    make_file_content.push_str("OTHERS =");
+    make_file_content.push_str("\nOBJECTS =");
+
+    for add_file in src_paths.iter() {
+        let mut f = PathBuf::from(add_file);
+        f.set_extension("o");
+        make_file_content.push_str(" ");
+        make_file_content.push_str(f.file_name().unwrap().to_str().unwrap());
+    }
+
     for add_file in additional_files.iter() {
         let mut f = PathBuf::from(add_file);
         f.set_extension("o");

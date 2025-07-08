@@ -8,4 +8,6 @@ pub trait ModulesCatalog<ID, NAMESPACE>: Send + Sync {
     fn catalog(&self) -> Vec<(&ID, &NAMESPACE, &ModuleId, &ModuleNamespace)>;
 
     fn namespace(&self, namespace: &NAMESPACE) -> Option<&ModuleNamespace>;
+
+    fn add(&mut self, id: ID, namespace: NAMESPACE);
 }

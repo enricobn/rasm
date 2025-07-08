@@ -10,7 +10,7 @@ use crate::macros::macro_call_extractor::MacroCallExtractor;
 /// Creates a new module from a macro call extractor, with a function for each macro call and a body
 /// that gets a number as an argument, that is the macro id, then calls the related function and
 /// prints the result.
-pub fn create_macro_module(mce: MacroCallExtractor) -> ASTModule {
+pub fn create_macro_module(mce: &MacroCallExtractor) -> ASTModule {
     let mut body = String::new();
     body.push_str("let id = argv(1).fmap(fn(it) { it.toi32(); }).getOrElse(-1);\n");
     body.push_str("let functionToCall = \n");
@@ -18,7 +18,7 @@ pub fn create_macro_module(mce: MacroCallExtractor) -> ASTModule {
     for (i, call) in mce.calls().iter().enumerate() {
         let function_name = format!("macroCall{}", call.id());
         let conditional = if i == 0 { "if" } else { ".elseIf" };
-        body.push_str(&format!("{conditional}(id.eq(n), {function_name})\n"));
+        body.push_str(&format!("{conditional}(id.eq({i}), {function_name})\n"));
     }
     body.push_str(".else(macroEmpty);\n");
     body.push_str("print(functionToCall());\n");
@@ -26,10 +26,21 @@ pub fn create_macro_module(mce: MacroCallExtractor) -> ASTModule {
     for call in mce.calls().iter() {
         let function_name = format!("macroCall{}", call.id());
 
-        body.push_str(&format!("fn {function_name}() -> str {{\n"));
-        body.push_str(&format!("{}.toString();", call.transformed_macro()));
+        body.push_str(&format!("pub fn {function_name}() -> str {{\n"));
+        body.push_str(&format!(
+            "let macroResult = {};\n",
+            call.transformed_macro()
+        ));
+        body.push_str(
+            "macroResult.match(fn (module) { module.toString(); }, fn (message) { message; };\n",
+        );
+        //body.push_str(&format!("{}.toString();", call.transformed_macro()));
         body.push_str("}\n");
     }
+
+    body.push_str("pub fn macroEmpty() -> str {\"\";}");
+
+    // println!("macro body:\n{}", body);
 
     let (module, errors) = Parser::new(Lexer::new(body)).parse();
 
@@ -78,6 +89,6 @@ mod tests {
             }],
         };
 
-        println!("{}", create_macro_module(mce));
+        println!("{}", create_macro_module(&mce));
     }
 }

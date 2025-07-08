@@ -633,6 +633,12 @@ impl ASTModulesContainer {
             return None;
         }
     }
+
+    pub fn remove_body(&mut self) {
+        for (module, _) in self.modules.values_mut() {
+            module.body.clear();
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
