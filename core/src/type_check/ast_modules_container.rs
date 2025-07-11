@@ -21,6 +21,7 @@ use crate::type_check::{
     ast_generic_types_resolver::ASTResolvedGenericTypes, ast_type_checker::ASTTypeChecker,
 };
 
+#[derive(Clone)]
 pub struct ASTFunctionSignatureEntry {
     pub signature: ASTFunctionSignature,
     pub namespace: ModuleNamespace,
@@ -124,6 +125,7 @@ impl Display for ASTFunctionSignatureEntry {
     }
 }
 
+#[derive(Clone)]
 pub struct ASTModulesContainer {
     struct_defs: HashMap<String, Vec<(ModuleInfo, ASTStructDef)>>,
     enum_defs: HashMap<String, Vec<(ModuleInfo, ASTEnumDef)>>,

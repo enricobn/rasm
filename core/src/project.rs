@@ -863,6 +863,8 @@ impl RasmProject {
         main_file: &str,
         data: &[u8],
     ) -> (ASTModule, Vec<CompilationError>, EnhModuleInfo) {
+        // info!("core module for {main_file}");
+        // print!("source:\n{}", String::from_utf8_lossy(data));
         let main_path = Path::new(&main_file);
 
         let namespace = EnhASTNameSpace::new(
@@ -871,7 +873,7 @@ impl RasmProject {
         );
         // for now, we don't set the file name in the Lexer and the Parser, because it is not readable as a standard file,
         // and we can get errors trying to open it for example in an IDE
-        let lexer = Lexer::new(String::from_utf8_lossy(data).parse().unwrap());
+        let lexer = Lexer::new(String::from_utf8_lossy(data).to_string());
 
         let parser = Parser::new(lexer);
         let (module, errors) = parser.parse();

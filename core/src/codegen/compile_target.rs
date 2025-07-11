@@ -23,7 +23,7 @@ use rasm_utils::OptionDisplay;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::exit;
+use std::process::{exit, Command};
 use std::time::Instant;
 
 use toml::Value;
@@ -314,7 +314,7 @@ impl CompileTarget {
         } else {
             let macro_module = create_macro_module(&extractor);
 
-            let mut container = extractor.container;
+            let mut container = extractor.container.clone();
             container.remove_body();
 
             container.add(
@@ -324,6 +324,8 @@ impl CompileTarget {
                 true,
                 true,
             );
+
+            let mut orig_catalog = catalog.clone_catalog();
 
             catalog.add(
                 EnhModuleId::Other("__macro".to_owned()),
@@ -335,6 +337,7 @@ impl CompileTarget {
                 project.main_out_file_name(&command_line_options)
             ));
 
+            info!("compiling macro module");
             self.compile(
                 &project,
                 container,
@@ -343,8 +346,17 @@ impl CompileTarget {
                 statics,
                 command_line_options,
                 out_folder,
-                out_file,
+                out_file.clone(),
             );
+
+            for call in extractor.calls() {
+                let mut command = Command::new(out_file.clone());
+                command.arg(call.id.to_string());
+
+                let output = command.output().unwrap();
+
+                println!("{}", String::from_utf8_lossy(&output.stdout))
+            }
         }
     }
 

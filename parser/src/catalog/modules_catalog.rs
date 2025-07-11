@@ -10,4 +10,6 @@ pub trait ModulesCatalog<ID, NAMESPACE>: Send + Sync {
     fn namespace(&self, namespace: &NAMESPACE) -> Option<&ModuleNamespace>;
 
     fn add(&mut self, id: ID, namespace: NAMESPACE);
+
+    fn clone_catalog(&self) -> Box<dyn ModulesCatalog<ID, NAMESPACE>>;
 }

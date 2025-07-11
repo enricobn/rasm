@@ -624,7 +624,7 @@ impl Parser {
             self.i = next_i;
         } else if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
             self.add_error(Self::token_message(
-                "Unexpected token",
+                "Unexpected token processing statement",
                 self.get_token_kind(),
             ));
             self.state.pop();
@@ -1213,7 +1213,7 @@ impl Parser {
                 }
                 _ => {
                     return Err(format!(
-                        "Unexpected token {:?}: {}",
+                        "Unexpected token parsing lambda parameters {:?}: {}",
                         kind_o.unwrap(),
                         self.get_position(n),
                     ));

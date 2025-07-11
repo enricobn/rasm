@@ -6,12 +6,14 @@ use rasm_parser::catalog::{
 
 use crate::codegen::enh_ast::{EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 
+#[derive(Clone)]
 struct ModuleEntry {
     id: ModuleId,
     namespace: ModuleNamespace,
     enh_namespace: EnhASTNameSpace,
 }
 
+#[derive(Clone)]
 pub struct RasmProjectCatalog {
     map: HashMap<EnhModuleId, ModuleEntry>,
     map_namespaces: HashMap<EnhASTNameSpace, ModuleNamespace>,
@@ -98,5 +100,9 @@ impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> for RasmProjectCatalog {
         {
             panic!("already added {}", &info.id);
         }
+    }
+
+    fn clone_catalog(&self) -> Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>> {
+        Box::new(self.clone())
     }
 }
