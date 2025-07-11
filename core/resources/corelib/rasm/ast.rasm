@@ -12,8 +12,11 @@ pub struct ASTModule {
 }
 
 pub fn toString(module: ASTModule) -> str {
-    module.body
-    .foldLeft("", fn (prev, current) { prev.append(current).add("\n"); });
+    // TODO functions
+    // TODO enums
+    // TODO structs
+    // TODO types
+    module.body.join("\n");
 }
 
 pub enum ASTStatement {
@@ -24,10 +27,10 @@ pub enum ASTStatement {
 
 pub fn toString(stmt: ASTStatement) -> str {
     stmt.match(
-        fn (expr) { "expr";}, 
-        fn (name,expr) { "let"; },
-        fn (name, expr, modifiers) { "const "; }
-    );
+        fn (expr) { toString(expr);}, 
+        fn (name, expr) { "let ".add(name).append(expr); },
+        fn (name, expr, modifiers) { "const ".add(name).append(expr); }
+    ).add(";");
 }
 
 pub struct ASTModifiers {
@@ -41,11 +44,26 @@ pub enum ASTExpression {
     Lambda(lambda: ASTLambdaDef)
 }
 
+pub fn toString(expr: ASTExpression) -> str {
+    expr.match(
+        fn(call) { call.toString();},
+        fn(name) { name; },
+        fn(value) { value.toString(); },
+        fn(lambda) { lambda.toString(); }
+    );
+}
+
 pub struct ASTFunctionCall {
     functionName: str,
     parameters: Vec<ASTExpression>,
     generics: Vec<ASTType>,
     target: Option<str>
+}
+
+pub fn toString(call: ASTFunctionCall) -> str {
+    call.functionName.append("(")
+    .append(call.parameters.join(", "))
+    .append(")");
 }
 
 pub enum ASTValueType {
@@ -54,6 +72,16 @@ pub enum ASTValueType {
     I32(value: i32),
     Char(value: str),
     F32(value: f32)
+}
+
+pub fn toString(v: ASTValueType) -> str {
+    v.match(
+        fn(value) { "\"".add(value).add("\""); }, 
+        fn(value) { if(value, "true", "false"); },
+        fn(value) { value.toString(); },
+        fn(value) { value; },
+        fn(value) { value.toString(); }
+    );
 }
 
 pub enum ASTType {
@@ -81,6 +109,15 @@ pub enum BuiltinTypeKind {
 pub struct ASTLambdaDef {
     parameterNames: Vec<str>,
     body: Vec<ASTStatement>
+}
+
+pub fn toString(def: ASTLambdaDef) -> str {
+    "fn(".add(
+        def.parameterNames.join(","))
+    .add(") {")
+        .append(def.body.join("\n"))
+        .add("}")
+        ;
 }
 
 pub struct ASTFunctionDef {
