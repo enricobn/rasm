@@ -258,6 +258,9 @@ impl Lexer {
                         return token;
                     } else {
                         actual.push(c);
+                        if c == '\n' {
+                            self.add_error(format!("String literals must be on one line."));
+                        }
                     }
                 }
                 LexStatus::StringEscape => {
