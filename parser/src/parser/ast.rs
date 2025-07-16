@@ -191,7 +191,7 @@ impl Display for ASTFunctionDef {
         let rt = if self.return_type != ASTType::Unit {
             format!("{}", self.return_type)
         } else {
-            "()".into()
+            "()".to_owned()
         };
 
         let fun_or_asm = if let ASTFunctionBody::RASMBody(_) = self.body {
@@ -902,7 +902,7 @@ impl Display for ASTModule {
                 }
                 ASTFunctionBody::NativeBody(body) => f.write_str(&body)?,
             }
-            f.write_str("}\n")?;
+            f.write_str("}\n\n")?;
         }
         Ok(())
     }
@@ -945,7 +945,7 @@ impl Display for ASTEnumDef {
             .map(|it| format!("  {it}"))
             .collect::<Vec<_>>()
             .join("\n");
-        f.write_str(&format!("enum {} {{\n{variants}\n}}", self.name))
+        f.write_str(&format!("enum {} {{\n{variants}\n}}\n\n", self.name))
     }
 }
 
