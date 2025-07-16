@@ -597,7 +597,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
                 "pop ebx",
             ],
             None,
-            false,
+            true,
         );
 
         body
@@ -671,7 +671,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             .call_function_owned(&mut body, "[ebx]", &args, None, false, false);
 
         self.code_gen
-            .add_rows(&mut body, vec![".end:", "pop ebx"], None, false);
+            .add_rows(&mut body, vec![".end:", "pop ebx"], None, true);
 
         body
     }
