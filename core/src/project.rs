@@ -41,9 +41,7 @@ use toml::{Table, Value};
 use walkdir::WalkDir;
 
 use crate::codegen::get_std_lib_path;
-use crate::codegen::statics::Statics;
 use crate::errors::{CompilationError, CompilationErrorKind};
-use crate::transformations::enrich_module;
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast::ASTExpression::{self, ASTFunctionCallExpression};
 use rasm_parser::parser::ast::{ASTModifiers, ASTModule, ASTPosition, ASTStatement, ASTValueType};
@@ -320,9 +318,7 @@ impl RasmProject {
 
     fn all_test_modules(
         &self,
-        statics: &mut Statics,
         target: &CompileTarget,
-        debug: bool,
     ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
         info!("Reading tests");
 
@@ -331,8 +327,7 @@ impl RasmProject {
 
         self.get_modules(self.test_rasm_folder(), target)
             .into_iter()
-            .for_each(|(mut module, module_errors, info)| {
-                enrich_module(&target, statics, &mut module, debug, &info);
+            .for_each(|(module, module_errors, info)| {
                 modules.push((module, info));
                 errors.extend(module_errors);
             });
@@ -342,9 +337,7 @@ impl RasmProject {
 
     fn all_modules(
         &self,
-        statics: &mut Statics,
         target: &CompileTarget,
-        debug: bool,
     ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
@@ -386,8 +379,7 @@ impl RasmProject {
         pairs
             .into_iter()
             .flatten()
-            .for_each(|(mut project_module, module_errors, info)| {
-                enrich_module(target, statics, &mut project_module, debug, &info);
+            .for_each(|(project_module, module_errors, info)| {
                 modules.push((project_module, info));
                 errors.extend(module_errors);
             });
@@ -417,10 +409,8 @@ impl RasmProject {
 
     pub fn container_and_catalog(
         &self,
-        statics: &mut Statics,
         run_type: &RasmProjectRunType,
         target: &CompileTarget,
-        debug: bool,
     ) -> (
         ASTModulesContainer,
         impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
@@ -428,7 +418,7 @@ impl RasmProject {
     ) {
         let mut catalog = RasmProjectCatalog::new();
         let mut container = ASTModulesContainer::new();
-        let (mut modules, errors) = self.get_all_modules(statics, run_type, target, debug);
+        let (mut modules, errors) = self.get_all_modules(run_type, target);
 
         let mut resources_body = Vec::new();
 
@@ -475,12 +465,10 @@ impl RasmProject {
 
     pub fn get_all_modules(
         &self,
-        statics: &mut Statics,
         run_type: &RasmProjectRunType,
         target: &CompileTarget,
-        debug: bool,
     ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
-        let (mut modules, mut errors) = self.all_modules(statics, target, debug);
+        let (mut modules, mut errors) = self.all_modules(target);
 
         if matches!(run_type, RasmProjectRunType::Test) {
             modules.iter_mut().for_each(|(it, _info)| {
@@ -501,7 +489,7 @@ impl RasmProject {
         }
 
         if !matches!(run_type, RasmProjectRunType::Main) {
-            let (test_modules, test_errors) = self.all_test_modules(statics, target, debug);
+            let (test_modules, test_errors) = self.all_test_modules(target);
 
             modules.extend(test_modules);
             errors.extend(test_errors);
@@ -996,7 +984,6 @@ mod tests {
     use crate::codegen::c::options::COptions;
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enh_ast::EnhModuleId;
-    use crate::codegen::statics::Statics;
     use crate::project::RasmProjectRunType;
 
     use super::RasmProject;
@@ -1018,12 +1005,9 @@ mod tests {
         env::set_var("RASM_STDLIB", "../stdlib");
         let sut = RasmProject::new(PathBuf::from("resources/test/helloworld.rasm"));
 
-        let mut statics = Statics::new();
         let (_container, catalog, _errors) = sut.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let info = catalog.info(&EnhModuleId::Path(

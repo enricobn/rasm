@@ -19,6 +19,9 @@
 use log::info;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ModuleId, ModuleNamespace};
+use rasm_parser::lexer::Lexer;
+use rasm_parser::parser::ast::{ASTModule, ASTPosition, ASTStatement};
+use rasm_parser::parser::Parser;
 use rasm_utils::OptionDisplay;
 use std::fs::File;
 use std::io::Write;
@@ -48,6 +51,7 @@ use crate::errors::CompilationError;
 use crate::macros::macro_call_extractor::extract_macro_calls;
 use crate::macros::macro_module::create_macro_module;
 use crate::project::{RasmProject, RasmProjectRunType};
+use crate::transformations::enrich_module;
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
 
@@ -273,8 +277,6 @@ impl CompileTarget {
 
         let start = Instant::now();
 
-        let mut statics = Statics::new();
-
         let run_type = if command_line_options.action == CommandLineAction::Test {
             RasmProjectRunType::Test
         } else {
@@ -283,12 +285,7 @@ impl CompileTarget {
 
         //let mut statics_for_cc = Statics::new();
 
-        let (container, mut catalog, errors) = project.container_and_catalog(
-            &mut statics,
-            &run_type,
-            self,
-            command_line_options.debug,
-        );
+        let (container, mut catalog, errors) = project.container_and_catalog(&run_type, self);
 
         if !errors.is_empty() {
             for error in errors {
@@ -304,10 +301,9 @@ impl CompileTarget {
             self.compile(
                 &project,
                 extractor.container,
-                catalog,
+                &catalog,
                 start,
-                statics,
-                command_line_options,
+                &command_line_options,
                 out_folder,
                 out_file,
             );
@@ -325,7 +321,8 @@ impl CompileTarget {
                 true,
             );
 
-            let mut orig_catalog = catalog.clone_catalog();
+            let orig_catalog = catalog.clone_catalog();
+            let mut original_container = extractor.container.clone();
 
             catalog.add(
                 EnhModuleId::Other("__macro".to_owned()),
@@ -341,11 +338,10 @@ impl CompileTarget {
             self.compile(
                 &project,
                 container,
-                catalog,
+                &catalog,
                 start,
-                statics,
-                command_line_options,
-                out_folder,
+                &command_line_options,
+                out_folder.clone(),
                 out_file.clone(),
             );
 
@@ -354,37 +350,134 @@ impl CompileTarget {
                 command.arg(call.id.to_string());
 
                 let output = command.output().unwrap();
+                let output_string = String::from_utf8_lossy(&output.stdout).to_string();
 
-                println!("{}", String::from_utf8_lossy(&output.stdout))
+                let lexer = Lexer::new(output_string);
+
+                let parser = Parser::new(lexer);
+                let (new_module, errors) = parser.parse();
+
+                if !errors.is_empty() {
+                    for error in errors {
+                        eprintln!("{error}");
+                    }
+                    panic!()
+                }
+
+                if let Some((mut module, module_namespace)) =
+                    original_container.remove_module(&call.module_id)
+                {
+                    self.replace_in_module(&mut module, &call.position, new_module.body);
+                    original_container.add(
+                        module,
+                        module_namespace,
+                        call.module_id.clone(),
+                        false,
+                        false,
+                    );
+                }
+
+                //println!("{output_string}");
+            }
+
+            let out_file = out_folder.join(
+                project
+                    .main_out_file_name(&command_line_options)
+                    .to_string(),
+            );
+
+            info!("compiling final module");
+
+            self.compile(
+                &project,
+                original_container,
+                orig_catalog.as_ref(),
+                start,
+                &command_line_options,
+                out_folder,
+                out_file.clone(),
+            );
+        }
+    }
+
+    fn replace_in_module(
+        &self,
+        module: &mut ASTModule,
+        position: &ASTPosition,
+        new_body: Vec<ASTStatement>,
+    ) {
+        if let Some(mut i) = module
+            .body
+            .iter()
+            .enumerate()
+            .find(|(_, it)| it.position() == position)
+            .map(|(i, _)| i)
+        {
+            module.body.remove(i);
+
+            for statement in new_body {
+                module.body.insert(i, statement);
+                i += 1;
             }
         }
+
+        //println!("{module}");
     }
 
     fn compile(
         &self,
         project: &RasmProject,
         container: ASTModulesContainer,
-        catalog: impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
         start: Instant,
-        mut statics: Statics,
-        command_line_options: CommandLineOptions,
+        command_line_options: &CommandLineOptions,
         out_folder: PathBuf,
         out_file: PathBuf,
     ) {
+        let mut statics = Statics::new();
+
+        let read_only_modules = container.read_only_modules().clone();
+
+        // TODO optimize
         let modules = container
-            .modules()
-            .iter()
-            .map(|(id, ns, m)| {
-                let (e_id, e_ns) = catalog.catalog_info(id).unwrap();
-                ((*m).clone(), EnhModuleInfo::new(e_id.clone(), e_ns.clone()))
+            .into_modules()
+            .into_iter()
+            .map(|(id, _, m)| {
+                let (e_id, e_ns) = catalog.catalog_info(&id).unwrap();
+                let info = EnhModuleInfo::new(e_id.clone(), e_ns.clone());
+
+                let mut module = m;
+
+                enrich_module(
+                    &self,
+                    &mut statics,
+                    &mut module,
+                    command_line_options.debug,
+                    &info,
+                );
+
+                (module, info)
             })
             .collect::<Vec<_>>();
+
+        let mut enriched_container = ASTModulesContainer::new();
+
+        for (module, info) in modules.iter() {
+            let i = catalog.info(&info.id).unwrap();
+            enriched_container.add(
+                module.clone(),
+                i.namespace().clone(),
+                i.id().clone(),
+                false, // what means add_builtin???
+                read_only_modules.contains(i.id()),
+            );
+        }
 
         info!("parse ended in {:?}", start.elapsed());
 
         let start = Instant::now();
 
-        let (ast_type_check, _) = ASTTypeChecker::from_modules_container(&container);
+        let (ast_type_check, _) = ASTTypeChecker::from_modules_container(&enriched_container);
 
         info!("AST type check ended in {:?}", start.elapsed());
 
@@ -414,8 +507,8 @@ impl CompileTarget {
             self,
             command_line_options.debug,
             ast_type_check,
-            &catalog,
-            &container,
+            catalog,
+            &enriched_container,
         )
         .unwrap_or_else(|e| Self::raise_error(e));
 

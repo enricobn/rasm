@@ -4,7 +4,6 @@ use crate::{
     codegen::{
         compile_target::CompileTarget, enhanced_module::EnhancedASTModule, statics::Statics,
     },
-    commandline::CommandLineOptions,
     enh_type_check::typed_ast::{convert_to_typed_module, ASTTypedModule},
     errors::CompilationError,
     project::{RasmProject, RasmProjectRunType},
@@ -29,9 +28,7 @@ pub fn project_and_container(
     let rasm_project = RasmProject::new(PathBuf::from(project_path));
     let project = rasm_project;
 
-    let mut statics = Statics::new();
-    let (modules, _errors) =
-        project.get_all_modules(&mut statics, &RasmProjectRunType::Main, &target, false);
+    let (modules, _errors) = project.get_all_modules(&RasmProjectRunType::Main, &target);
 
     let mut container = ASTModulesContainer::new();
 
@@ -55,20 +52,12 @@ pub fn project_to_ast_typed_module(
     let mut statics = Statics::new();
 
     let run_type = RasmProjectRunType::Main;
-    let command_line_options = CommandLineOptions::default();
 
-    let (modules, _errors) = project.get_all_modules(&mut statics, &run_type, &target, false);
+    let (modules, _errors) = project.get_all_modules(&run_type, &target);
 
-    //resolved_module.print();
+    let (container, catalog, _) = project.container_and_catalog(&run_type, &target);
 
-    let mut statics_for_cc = Statics::new();
-
-    let (container, catalog, _) = project.container_and_catalog(
-        &mut statics_for_cc,
-        &run_type,
-        &target,
-        command_line_options.debug,
-    );
+    // TODO modules are not enriched (match, getters, setters ...)
 
     let (module, errors) =
         EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, true);

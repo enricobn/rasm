@@ -1298,12 +1298,9 @@ mod tests {
     fn simple() {
         let (project, eh_module, module) = get_reference_finder("resources/test/simple.rasm", None);
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let finder = ReferenceFinder::new(
@@ -1379,12 +1376,9 @@ mod tests {
     fn types() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let finder = ReferenceFinder::new(
@@ -1469,12 +1463,9 @@ mod tests {
     fn struct_constructor() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let finder = ReferenceFinder::new(
@@ -1511,12 +1502,9 @@ mod tests {
     fn types_1() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let finder = ReferenceFinder::new(
@@ -1544,12 +1532,9 @@ mod tests {
     fn types_2() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let finder = ReferenceFinder::new(
@@ -1577,12 +1562,9 @@ mod tests {
     fn types_3() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let finder = ReferenceFinder::new(
@@ -1709,12 +1691,9 @@ mod tests {
     fn types_lambda_param_type() {
         let (project, eh_module, module) = get_reference_finder("resources/test/types.rasm", None);
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let finder = ReferenceFinder::new(
@@ -1770,12 +1749,9 @@ mod tests {
             Some(&result_rasm.to_string_lossy()),
         );
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let finder = ReferenceFinder::new(
@@ -1814,12 +1790,9 @@ mod tests {
     fn enums() {
         let (project, eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let finder = ReferenceFinder::new(
@@ -1862,12 +1835,9 @@ mod tests {
     fn enums_1() {
         let (project, eh_module, module) = get_reference_finder("resources/test/enums.rasm", None);
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let finder = ReferenceFinder::new(
@@ -1916,12 +1886,9 @@ mod tests {
             Some("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
         );
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         ReferenceFinder::new(
@@ -1992,12 +1959,9 @@ mod tests {
     fn test_references(file: &str, row: usize, column: usize, expected: Vec<(usize, usize)>) {
         let (project, eh_module, module) = get_reference_finder(file, None);
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let finder = ReferenceFinder::new(
@@ -2054,12 +2018,9 @@ mod tests {
     ) {
         let (project, eh_module, module) = get_reference_finder(file, None);
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let finder = ReferenceFinder::new(
@@ -2163,8 +2124,7 @@ mod tests {
 
         let mut statics = Statics::new();
         let target = CompileTarget::Nasmi386(AsmOptions::default());
-        let (modules, _errors) =
-            project.get_all_modules(&mut statics, &RasmProjectRunType::Main, &target, false);
+        let (modules, _errors) = project.get_all_modules(&RasmProjectRunType::Main, &target);
 
         let (enhanced_ast_module, errors) =
             EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, true);
@@ -2214,12 +2174,9 @@ mod tests {
             RasmProject::new(PathBuf::from(file_name))
         };
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let (eh_module, module) = get_reference_finder_for_project(&project, file_name);
@@ -2264,12 +2221,9 @@ mod tests {
             RasmProject::new(PathBuf::from(file_name))
         };
 
-        let mut statics = Statics::new();
         let (container, catalog, _) = project.container_and_catalog(
-            &mut statics,
             &RasmProjectRunType::Main,
             &CompileTarget::C(COptions::default()),
-            false,
         );
 
         let (eh_module, module) = get_reference_finder_for_project(&project, file_name);

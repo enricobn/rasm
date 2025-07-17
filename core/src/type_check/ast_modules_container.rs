@@ -479,11 +479,27 @@ impl ASTModulesContainer {
         self.readonly_modules.contains(module_id)
     }
 
+    pub fn read_only_modules(&self) -> &HashSet<ModuleId> {
+        &self.readonly_modules
+    }
+
     pub fn modules(&self) -> Vec<(&ModuleId, &ModuleNamespace, &ASTModule)> {
         self.modules
             .iter()
             .map(|(id, (module, namespace))| (id, namespace, module))
             .collect()
+    }
+
+    pub fn into_modules(self) -> Vec<(ModuleId, ModuleNamespace, ASTModule)> {
+        self.modules
+            .into_iter()
+            .map(|(id, (module, namespace))| (id, namespace, module))
+            .collect()
+    }
+
+    // TODO it does not remove strcuts, enums, functions, etc.
+    pub fn remove_module(&mut self, module_id: &ModuleId) -> Option<(ASTModule, ModuleNamespace)> {
+        self.modules.remove(module_id)
     }
 
     fn is_compatible(
@@ -807,7 +823,7 @@ mod tests {
     use rasm_parser::parser::ast::{ASTPosition, ASTType, BuiltinTypeKind};
 
     use crate::{
-        codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
+        codegen::{c::options::COptions, compile_target::CompileTarget},
         project::{RasmProject, RasmProjectRunType},
         type_check::ast_modules_container::ModuleNamespace,
     };
@@ -866,10 +882,9 @@ mod tests {
     fn sut_from_project(project_path: &str) -> ASTModulesContainer {
         let project = RasmProject::new(PathBuf::from(project_path));
         let target = CompileTarget::C(COptions::default());
-        let mut statics = Statics::new();
 
         let (container, _catalog, _errors) =
-            project.container_and_catalog(&mut statics, &RasmProjectRunType::Main, &target, false);
+            project.container_and_catalog(&RasmProjectRunType::Main, &target);
 
         container
     }

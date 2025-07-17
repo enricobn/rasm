@@ -418,6 +418,7 @@ impl<'a> EnhTypeCheck<'a> {
                     } else {
                         format!("More than one reference to {name} transforming {expression}")
                     };
+
                     return Err(EnhTypeCheckError::new_with_kind(
                         index.clone(),
                         message,
@@ -428,6 +429,10 @@ impl<'a> EnhTypeCheck<'a> {
             }
             _ => Ok(expression.clone()),
         }
+    }
+
+    fn function_name_already_converted(&self, name: &str) -> bool {
+        return name.contains('_');
     }
 
     fn transform_call(
@@ -448,7 +453,7 @@ impl<'a> EnhTypeCheck<'a> {
         );
         indent!();
 
-        if call.function_name.contains('_') {
+        if self.function_name_already_converted(&call.function_name) {
             debug_i!("already converted");
             dedent!();
             return Ok(call.clone());
@@ -2110,62 +2115,82 @@ impl<'a> EnhTypeCheck<'a> {
         new_functions: &'a Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
         namespace: &EnhASTNameSpace,
         index: &EnhASTIndex,
-    ) -> Vec<&'a EnhASTFunctionDef> {
-        let mut function_references = module
-            .functions()
-            .iter()
-            .cloned()
-            .filter(|it| &it.name == name && (&it.namespace == namespace || it.modifiers.public))
-            .collect::<Vec<_>>();
+    ) -> Vec<&EnhASTFunctionDef> {
+        let mut function_references = Vec::new();
 
-        function_references.extend(
-            new_functions
-                .iter()
-                .map(|it| &it.0)
-                .filter(|it| &it.name == name)
-                .collect::<Vec<_>>(),
-        );
+        if self.function_name_already_converted(name) {
+            if let Some(f) = self.new_functions.get(name) {
+                function_references.push(f);
+                return function_references;
+            }
 
-        if let Some(t) = self.get_type_check_entry(index, namespace) {
-            if let ASTTypeCheckInfo::Ref(_, ref_index) = t.info() {
-                let (eh_id, _) = self
-                    .modules_catalog
-                    .catalog_info(ref_index.module_id())
-                    .unwrap();
-
-                function_references = function_references
-                    .into_iter()
+            function_references.extend(
+                new_functions
+                    .iter()
+                    .map(|it| &it.0)
                     .filter(|it| {
-                        &it.index.id() == eh_id
-                            && it.index.row == ref_index.position().row
-                            && it.index.column == ref_index.position().column
+                        &it.name == name && (&it.namespace == namespace || it.modifiers.public)
+                    })
+                    .collect::<Vec<_>>(),
+            );
+        } else {
+            function_references.extend(
+                module
+                    .find_functions_by_original_name(name)
+                    .iter()
+                    .filter(|it| {
+                        &it.name == name && (&it.namespace == namespace || it.modifiers.public)
+                    })
+                    .collect::<Vec<_>>(),
+            );
+
+            if let Some(t) = self.get_type_check_entry(index, namespace) {
+                if let ASTTypeCheckInfo::Ref(_, ref_index) = t.info() {
+                    let (eh_id, _) = self
+                        .modules_catalog
+                        .catalog_info(ref_index.module_id())
+                        .unwrap();
+
+                    function_references = function_references
+                        .into_iter()
+                        .filter(|it| {
+                            &it.index.id() == eh_id
+                                && it.index.row == ref_index.position().row
+                                && it.index.column == ref_index.position().column
+                        })
+                        .collect::<Vec<_>>();
+
+                    if function_references.len() == 1 {
+                        return function_references;
+                    }
+                }
+            }
+
+            if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+                parameters,
+                return_type,
+            })) = expected_type
+            {
+                function_references = function_references
+                    .iter()
+                    .cloned()
+                    .filter(|it| it.parameters.len() == parameters.len())
+                    .filter(|it| {
+                        zip(it.parameters.iter(), parameters).all(|(a, b)| {
+                            return EnhTypeFilter::Exact(b.clone())
+                                .almost_equal(&a.ast_type, module)
+                                .unwrap_or(false);
+                        })
+                    })
+                    .filter(|it| {
+                        EnhTypeFilter::Exact(return_type.as_ref().clone())
+                            .almost_equal(&it.return_type, module)
+                            .unwrap_or(false)
                     })
                     .collect::<Vec<_>>();
-
-                if function_references.len() == 1 {
-                    return function_references;
-                }
             }
         }
 
-        if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
-            parameters,
-            return_type: _,
-        })) = expected_type
-        {
-            function_references = function_references
-                .iter()
-                .cloned()
-                .filter(|it| it.parameters.len() == parameters.len())
-                .filter(|it| {
-                    zip(it.parameters.iter(), parameters).all(|(a, b)| {
-                        return EnhTypeFilter::Exact(b.clone())
-                            .almost_equal(&a.ast_type, module)
-                            .unwrap_or(false);
-                    })
-                })
-                .collect::<Vec<_>>();
-        }
         function_references
     }
 }

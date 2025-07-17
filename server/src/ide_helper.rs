@@ -5,7 +5,6 @@ use std::io;
 use linked_hash_map::LinkedHashMap;
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::CompileTarget;
-use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::{ValContext, ValKind};
 use rasm_core::errors::CompilationError;
 use rasm_core::project::{RasmProject, RasmProjectRunType};
@@ -259,13 +258,9 @@ pub struct IDESignatureHelp {
 }
 
 pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<CompilationError>) {
-    let mut statics = Statics::new();
-
     let (container, _catalog, errors) = project.container_and_catalog(
-        &mut statics,
         &RasmProjectRunType::Main,
         &CompileTarget::C(COptions::default()),
-        false,
     );
 
     (IDEHelper::from_container(container), errors)

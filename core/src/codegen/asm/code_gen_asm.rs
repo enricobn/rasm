@@ -754,6 +754,99 @@ impl CodeGenAsm {
             .find_local_val_relative_to_bp(&key)
             .unwrap()
     }
+
+    fn generate_statics_code_internal(
+        &self,
+        statics: &Statics,
+        data: &mut String,
+        bss: &mut String,
+        code: &mut String,
+    ) {
+        if !statics.statics().is_empty() {
+            let mut keys: Vec<&String> = statics.statics().keys().collect();
+            // sorted for test purposes
+            keys.sort();
+
+            for id in keys.iter() {
+                let mut def = String::new();
+                def.push_str(&id.pad_to_width(100));
+
+                match statics.statics().get(*id).unwrap() {
+                    MemoryValue::StringValue(s) => {
+                        def.push_str("db    ");
+
+                        let mut result = "'".to_owned();
+
+                        // TODO it is a naive way to do it: it is slow and it does not support something like \\n that should result in '\' as a char and 'n' as a char
+                        for c in s
+                            .replace("\\n", "\n")
+                            .replace("\\t", "\t")
+                            .replace('\'', "',39,'")
+                            //.replace("\\\"", "\"")
+                            .chars()
+                        {
+                            if c.is_ascii_control() {
+                                result.push_str(&format!("',{},'", c as u32));
+                            } else {
+                                result.push(c)
+                            }
+                        }
+
+                        result.push_str("', 0h");
+
+                        def.push_str(&result);
+
+                        self.add(data, &def, None, true);
+                    }
+                    MemoryValue::I32Value(i) => {
+                        def.push_str("dd    ");
+                        def.push_str(&format!("{}", i));
+                        self.add(data, &def, None, true);
+                    }
+                    MemoryValue::Mem(len, unit) => {
+                        match unit {
+                            MemoryUnit::Bytes => def.push_str("resb "),
+                            MemoryUnit::Words => def.push_str("resd "),
+                        }
+                        def.push_str(&format!("{}", len));
+                        self.add(bss, &def, None, true);
+                    }
+                }
+            }
+        }
+
+        for (_, (key, value_key)) in statics.strings_map().iter() {
+            self.add(
+                code,
+                &format!("$call(addStaticStringToHeap, {value_key})"),
+                None,
+                true,
+            );
+
+            self.add(code, &format!("mov dword [{key}], eax"), None, true);
+        }
+
+        for (label_allocation, label_memory) in statics.static_allocation().iter() {
+            self.add(
+                code,
+                &format!(
+                    "$call(addStaticAllocation, {label_allocation}, {label_memory}, {})",
+                    self.backend.word_len()
+                ),
+                None,
+                true,
+            );
+        }
+
+        for (label, (descr_label, value)) in statics.heap().iter() {
+            self.add(
+                code,
+                &format!("$call(addHeap, {label}, {descr_label}: str, {value})"),
+                None,
+                true,
+            );
+        }
+    }
 }
 
 pub struct CodeGenAsmContext {
@@ -1488,90 +1581,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
         let mut code = String::new();
 
-        if !statics.statics().is_empty() {
-            let mut keys: Vec<&String> = statics.statics().keys().collect();
-            // sorted for test purposes
-            keys.sort();
-
-            for id in keys.iter() {
-                let mut def = String::new();
-                def.push_str(&id.pad_to_width(100));
-
-                match statics.statics().get(*id).unwrap() {
-                    MemoryValue::StringValue(s) => {
-                        def.push_str("db    ");
-
-                        let mut result = "'".to_owned();
-
-                        // TODO it is a naive way to do it: it is slow and it does not support something like \\n that should result in '\' as a char and 'n' as a char
-                        for c in s
-                            .replace("\\n", "\n")
-                            .replace("\\t", "\t")
-                            .replace('\'', "',39,'")
-                            //.replace("\\\"", "\"")
-                            .chars()
-                        {
-                            if c.is_ascii_control() {
-                                result.push_str(&format!("',{},'", c as u32));
-                            } else {
-                                result.push(c)
-                            }
-                        }
-
-                        result.push_str("', 0h");
-
-                        def.push_str(&result);
-
-                        self.add(&mut data, &def, None, true);
-                    }
-                    MemoryValue::I32Value(i) => {
-                        def.push_str("dd    ");
-                        def.push_str(&format!("{}", i));
-                        self.add(&mut data, &def, None, true);
-                    }
-                    MemoryValue::Mem(len, unit) => {
-                        match unit {
-                            MemoryUnit::Bytes => def.push_str("resb "),
-                            MemoryUnit::Words => def.push_str("resd "),
-                        }
-                        def.push_str(&format!("{}", len));
-                        self.add(&mut bss, &def, None, true);
-                    }
-                }
-            }
-        }
-
-        for (_, (key, value_key)) in statics.strings_map().iter() {
-            self.add(
-                &mut code,
-                &format!("$call(addStaticStringToHeap, {value_key})"),
-                None,
-                true,
-            );
-
-            self.add(&mut code, &format!("mov dword [{key}], eax"), None, true);
-        }
-
-        for (label_allocation, label_memory) in statics.static_allocation().iter() {
-            self.add(
-                &mut code,
-                &format!(
-                    "$call(addStaticAllocation, {label_allocation}, {label_memory}, {})",
-                    self.backend.word_len()
-                ),
-                None,
-                true,
-            );
-        }
-
-        for (label, (descr_label, value)) in statics.heap().iter() {
-            self.add(
-                &mut code,
-                &format!("$call(addHeap, {label}, {descr_label}: str, {value})"),
-                None,
-                true,
-            );
-        }
+        self.generate_statics_code_internal(statics, &mut data, &mut bss, &mut code);
 
         let mut declarations = String::new();
         declarations.push_str("SECTION .data\n");

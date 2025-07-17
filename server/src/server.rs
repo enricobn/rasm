@@ -36,7 +36,6 @@ use walkdir::WalkDir;
 use crate::ide_helper::IDEHelper;
 
 use rasm_core::codegen::compile_target::CompileTarget;
-use rasm_core::codegen::statics::Statics;
 use rasm_core::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use rasm_core::project::{RasmProject, RasmProjectRunType};
 use rasm_parser::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
@@ -176,10 +175,7 @@ async fn file<'a>(
         .get_module(file_path.as_path(), &target)
         .unwrap();
 
-    let mut statics = Statics::new();
-
-    let (container, catalog, _) =
-        project.container_and_catalog(&mut statics, &RasmProjectRunType::Main, &target, false);
+    let (container, catalog, _) = project.container_and_catalog(&RasmProjectRunType::Main, &target);
 
     let ide_helper = IDEHelper::from_container(container);
 
