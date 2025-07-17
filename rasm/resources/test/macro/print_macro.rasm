@@ -1,6 +1,6 @@
-printlnMacro!("a print", "Hello".append(", World!"));
+mprintln!("a print: ", "Hello".append(", World!"));
 
-pub fn printlnMacro(s: str, e: ASTExpression) -> MacroResult {
+pub fn mprintln(s: str, e: ASTExpression) -> MacroResult {
     MacroModule(ASTModule(
         vecOf(
             simpleCall("println", vecOf(ASTExpression::Value(ASTValueType::ASTString(s)), e))

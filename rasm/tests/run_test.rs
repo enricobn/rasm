@@ -681,8 +681,13 @@ fn test_type_classes() {
 
 #[test]
 fn test_print_macro() {
-    // TODO: output
-    run_test("macro/print_macro", vec![], "");
+    // TODO: asm
+    run_test_with_target(
+        "macro/print_macro",
+        vec![],
+        "a print: Hello, World!\n",
+        CompileTarget::C(COptions::default()),
+    );
 }
 
 // Compile tests

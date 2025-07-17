@@ -497,8 +497,18 @@ impl ASTModulesContainer {
             .collect()
     }
 
-    // TODO it does not remove strcuts, enums, functions, etc.
     pub fn remove_module(&mut self, module_id: &ModuleId) -> Option<(ASTModule, ModuleNamespace)> {
+        self.functions_by_index
+            .retain(|it, _| it.module_id() != module_id);
+        for (_, v) in self.struct_defs.iter_mut() {
+            v.retain(|(info, _)| info.id() != module_id);
+        }
+        for (_, v) in self.enum_defs.iter_mut() {
+            v.retain(|(info, _)| info.id() != module_id);
+        }
+        for (_, v) in self.type_defs.iter_mut() {
+            v.retain(|(info, _)| info.id() != module_id);
+        }
         self.modules.remove(module_id)
     }
 
