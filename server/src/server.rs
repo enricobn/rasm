@@ -28,6 +28,8 @@ use axum::{routing::get, Router};
 use log::info;
 use rasm_core::codegen::asm::code_gen_asm::AsmOptions;
 use rasm_core::codegen::enh_ast::EnhASTIndex;
+use rasm_core::codegen::statics::Statics;
+use rasm_core::transformations::enrich_container;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::ASTIndex;
 use serde::Deserialize;
@@ -176,6 +178,8 @@ async fn file<'a>(
         .unwrap();
 
     let (container, catalog, _) = project.container_and_catalog(&RasmProjectRunType::Main, &target);
+
+    let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
 
     let ide_helper = IDEHelper::from_container(container);
 

@@ -5,9 +5,11 @@ use std::io;
 use linked_hash_map::LinkedHashMap;
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::CompileTarget;
+use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::{ValContext, ValKind};
 use rasm_core::errors::CompilationError;
 use rasm_core::project::{RasmProject, RasmProjectRunType};
+use rasm_core::transformations::enrich_container;
 use rasm_core::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
 use rasm_core::type_check::ast_type_checker::{
     ASTTypeCheckError, ASTTypeCheckInfo, ASTTypeChecker,
@@ -258,10 +260,11 @@ pub struct IDESignatureHelp {
 }
 
 pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<CompilationError>) {
-    let (container, _catalog, errors) = project.container_and_catalog(
-        &RasmProjectRunType::Main,
-        &CompileTarget::C(COptions::default()),
-    );
+    let target = CompileTarget::C(COptions::default());
+    let (container, catalog, errors) =
+        project.container_and_catalog(&RasmProjectRunType::Main, &target);
+
+    let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
 
     (IDEHelper::from_container(container), errors)
 }

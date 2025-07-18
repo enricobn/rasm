@@ -12,8 +12,9 @@ use iced::{
 
 use module_view::TEXT_SCROLLABLE_ID;
 use rasm_core::{
-    codegen::{compile_target::CompileTarget, val_context::ValContext},
+    codegen::{compile_target::CompileTarget, statics::Statics, val_context::ValContext},
     project::{RasmProject, RasmProjectRunType},
+    transformations::enrich_container,
     type_check::{
         ast_modules_container::ASTModulesContainer,
         ast_type_checker::{ASTTypeChecker, ASTTypeCheckerResult},
@@ -63,14 +64,16 @@ enum UIPane {
 
 impl UI {
     pub fn show(project: RasmProject, target: CompileTarget) -> iced::Result {
-        let (modules_container, _catalog, _errors) =
+        let (container, catalog, _errors) =
             project.container_and_catalog(&RasmProjectRunType::Main, &target);
+
+        let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
 
         let mut static_val_context = ValContext::new(None);
 
         let mut bodies = Vec::new();
 
-        for (id, namespace, module) in modules_container.modules() {
+        for (id, namespace, module) in container.modules() {
             bodies.push((module.body.clone(), id.clone(), namespace.clone()));
         }
 
@@ -85,7 +88,7 @@ impl UI {
                 None,
                 &namespace,
                 &id,
-                &modules_container,
+                &container,
                 None,
             );
         }
@@ -116,13 +119,7 @@ impl UI {
         }
 
         let current_module = main.map(|it| {
-            Self::selected_module(
-                &target,
-                &project,
-                &modules_container,
-                &it,
-                &static_val_context,
-            )
+            Self::selected_module(&target, &project, &container, &it, &static_val_context)
         });
 
         iced::application("Rasm project UI", UI::update, UI::view)
@@ -139,7 +136,7 @@ impl UI {
                         current_module,
                         current_function: None,
                         pane_state,
-                        modules_container,
+                        modules_container: container,
                         info: None,
                         selected_token: None,
                         text_scroll_positions: HashMap::new(),
