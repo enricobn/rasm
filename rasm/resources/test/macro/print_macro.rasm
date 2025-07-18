@@ -1,11 +1,63 @@
-mprintln!("a print: ", "Hello".append(", World!"));
+let h = "guy";
+let w = "how do you do";
 
-pub fn mprintln(s: str, e: ASTExpression) -> MacroResult {
-    MacroModule(ASTModule(
-        vecOf(
-            simpleCall("println", vecOf(ASTExpression::Value(ASTValueType::ASTString(s)), e))
-        ), Vec(), Vec(), Vec(), Vec()
-    ));
+mprintln!("Hello {}, {}?", h, w);
+
+/*
+mprintln("{}, {}!", ASTExpression::Value(ASTValueType::ASTString(h)), ASTExpression::Value(ASTValueType::ASTString(w))).match(
+    fn(module) { println(module); }, 
+    fn(error)  { println(error);  });
+*/
+
+pub fn mprintln(s: str, e1: ASTExpression, e2: ASTExpression) -> MacroResult {
+    let indexes = s.find("{}");
+
+    let result = indexes.enumerate.foldLeft(Pair(0, Vec<ASTExpression>()), fn(prev,e) {
+        let exprIndex = e.index;
+        let charIndex = e.value;
+        let sub = s.substr(prev.first, charIndex.sub(prev.first)).orEmpty;
+        let expressions = 
+            prev.second
+            .push(ASTExpression::Value(ASTValueType::ASTString(sub)))
+            .push(if(exprIndex.eq(0), e1, e2));
+        Pair(charIndex.add(2), expressions);
+    });
+
+    let expressions = result.second.map(fn(e) {simpleCall("print", vecOf(e));});
+
+    let expressions2 = 
+        if(result.first.less(s.len.sub(1)), 
+            {expressions;}, 
+            {
+                let end = s.substr(result.first, s.len.sub(result.first)).orEmpty;
+                expressions.push(simpleCall("print", vecOf(ASTExpression::Value(ASTValueType::ASTString(end)))));
+            })
+        .push(simpleCall("println", Vec()));
+
+    if(indexes.len.eq(2), {
+        MacroModule(ASTModule(
+            expressions2
+            , Vec(), Vec(), Vec(), Vec()
+        ));
+    }, {MacroError("Expected two parameters, got ".append(indexes.len.toString()));});
+}
+
+fn orEmpty(o: Option<str>) -> str {
+   o.match(fn(s) {s;}, {"";});
+}
+
+pub fn toString<F,S>(p: Pair<F,S>) -> str {
+    "(".append(p.first).add(", ").append(p.second).add(")");
+}
+
+fn find(s: str, v: str) -> Vec<i32> {
+    vecRange(0, s.len.sub(v.len()).add(1))
+    .map(fn(i) {
+        Pair(i, s.substr(i, v.len));
+    }).filter(fn(it) { 
+        it.second.match(fn(found) { found.eq(v); }, { false; });
+    })
+    .map(fn(it) { it.first; });
 }
 
 fn simpleCall(f: str, parameters: Vec<ASTExpression>) -> ASTStatement {
