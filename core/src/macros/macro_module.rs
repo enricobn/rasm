@@ -32,7 +32,7 @@ pub fn create_macro_module(mce: &MacroCallExtractor) -> ASTModule {
             call.transformed_macro()
         ));
         body.push_str(
-            "macroResult.match(fn (module) { module.toString(); }, fn (message) { message; };\n",
+            "macroResult.match(fn (module) { \"MacroModule\\n\".append(module); }, fn (message) { \"MacroError\\n\".add(message); });\n",
         );
         //body.push_str(&format!("{}.toString();", call.transformed_macro()));
         body.push_str("}\n");

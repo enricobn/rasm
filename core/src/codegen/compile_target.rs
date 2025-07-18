@@ -350,31 +350,47 @@ impl CompileTarget {
                 command.arg(call.id.to_string());
 
                 let output = command.output().unwrap();
-                let output_string = String::from_utf8_lossy(&output.stdout).to_string();
-
-                let lexer = Lexer::new(output_string);
-
-                let parser = Parser::new(lexer);
-                let (new_module, errors) = parser.parse();
-
-                if !errors.is_empty() {
-                    for error in errors {
-                        eprintln!("{error}");
+                let output_s = String::from_utf8_lossy(&output.stdout).to_string();
+                let mut output_lines = output_s.lines();
+                if let Some(first) = output_lines.next() {
+                    let output_string = output_lines.collect::<Vec<_>>().join("\n");
+                    if first == "MacroError" {
+                        if let Some(info) = catalog.catalog_info(call.module_id()) {
+                            let index = EnhASTIndex::new(
+                                info.0.path(),
+                                call.position().row,
+                                call.position().column,
+                            );
+                            panic!("{} in {}", output_string, index);
+                        } else {
+                            panic!("{} in {}", output_string, call.position());
+                        }
                     }
-                    panic!()
-                }
 
-                if let Some((mut module, module_namespace)) =
-                    original_container.remove_module(&call.module_id)
-                {
-                    self.replace_in_module(&mut module, &call.position, new_module.body);
-                    original_container.add(
-                        module,
-                        module_namespace,
-                        call.module_id.clone(),
-                        false,
-                        false,
-                    );
+                    let lexer = Lexer::new(output_string);
+
+                    let parser = Parser::new(lexer);
+                    let (new_module, errors) = parser.parse();
+
+                    if !errors.is_empty() {
+                        for error in errors {
+                            eprintln!("{error}");
+                        }
+                        panic!()
+                    }
+
+                    if let Some((mut module, module_namespace)) =
+                        original_container.remove_module(&call.module_id)
+                    {
+                        self.replace_in_module(&mut module, &call.position, new_module.body);
+                        original_container.add(
+                            module,
+                            module_namespace,
+                            call.module_id.clone(),
+                            false,
+                            false,
+                        );
+                    }
                 }
 
                 //println!("{output_string}");
