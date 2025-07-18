@@ -7,6 +7,7 @@ use crate::{
     enh_type_check::typed_ast::{convert_to_typed_module, ASTTypedModule},
     errors::CompilationError,
     project::{RasmProject, RasmProjectRunType},
+    transformations::enrich_container,
     type_check::{ast_modules_container::ASTModulesContainer, ast_type_checker::ASTTypeChecker},
 };
 
@@ -57,7 +58,7 @@ pub fn project_to_ast_typed_module(
 
     let (container, catalog, _) = project.container_and_catalog(&run_type, &target);
 
-    // TODO modules are not enriched (match, getters, setters ...)
+    let container = enrich_container(target, &mut statics, container, &catalog, false);
 
     let (module, errors) =
         EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, true);
