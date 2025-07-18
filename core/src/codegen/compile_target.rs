@@ -51,7 +51,7 @@ use crate::errors::CompilationError;
 use crate::macros::macro_call_extractor::extract_macro_calls;
 use crate::macros::macro_module::create_macro_module;
 use crate::project::{RasmProject, RasmProjectRunType};
-use crate::transformations::enrich_module;
+use crate::transformations::enrich_container;
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
 
@@ -283,15 +283,13 @@ impl CompileTarget {
             RasmProjectRunType::Main
         };
 
-        //let mut statics_for_cc = Statics::new();
-
         let (container, mut catalog, errors) = project.container_and_catalog(&run_type, self);
 
         if !errors.is_empty() {
             for error in errors {
                 eprintln!("{error}");
             }
-            panic!()
+            exit(1);
         }
 
         let extractor = extract_macro_calls(container);
@@ -452,42 +450,22 @@ impl CompileTarget {
     ) {
         let mut statics = Statics::new();
 
-        let read_only_modules = container.read_only_modules().clone();
+        let enriched_container = enrich_container(
+            &self,
+            &mut statics,
+            container,
+            catalog,
+            command_line_options.debug,
+        );
 
-        // TODO optimize
-        let modules = container
-            .into_modules()
+        let modules = enriched_container
+            .modules()
             .into_iter()
             .map(|(id, _, m)| {
-                let (e_id, e_ns) = catalog.catalog_info(&id).unwrap();
-                let info = EnhModuleInfo::new(e_id.clone(), e_ns.clone());
-
-                let mut module = m;
-
-                enrich_module(
-                    &self,
-                    &mut statics,
-                    &mut module,
-                    command_line_options.debug,
-                    &info,
-                );
-
-                (module, info)
+                let (eh_id, eh_ns) = catalog.catalog_info(id).unwrap();
+                (m.clone(), EnhModuleInfo::new(eh_id.clone(), eh_ns.clone()))
             })
             .collect::<Vec<_>>();
-
-        let mut enriched_container = ASTModulesContainer::new();
-
-        for (module, info) in modules.iter() {
-            let i = catalog.info(&info.id).unwrap();
-            enriched_container.add(
-                module.clone(),
-                i.namespace().clone(),
-                i.id().clone(),
-                false, // what means add_builtin???
-                read_only_modules.contains(i.id()),
-            );
-        }
 
         info!("parse ended in {:?}", start.elapsed());
 
