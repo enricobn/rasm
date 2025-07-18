@@ -15,28 +15,28 @@ pub fn mprintln(s: str, e1: ASTExpression, e2: ASTExpression) -> MacroResult {
     let result = indexes.enumerate.foldLeft(Pair(0, Vec<ASTExpression>()), fn(prev,e) {
         let exprIndex = e.index;
         let charIndex = e.value;
-        let sub = s.substr(prev.first, charIndex.sub(prev.first)).orEmpty;
-        let expressions = 
+        let prefix = s.substr(prev.first, charIndex.sub(prev.first)).orEmpty;
+        let newExpressions = 
             prev.second
-            .push(ASTExpression::Value(ASTValueType::ASTString(sub)))
+            .push(ASTExpression::Value(ASTValueType::ASTString(prefix)))
             .push(if(exprIndex.eq(0), e1, e2));
-        Pair(charIndex.add(2), expressions);
+        Pair(charIndex.add(2), newExpressions);
     });
 
-    let expressions = result.second.map(fn(e) {simpleCall("print", vecOf(e));});
+    let calls = result.second.map(fn(e) {simpleCall("print", vecOf(e));});
 
-    let expressions2 = 
+    let finalCalls = 
         if(result.first.less(s.len.sub(1)), 
-            {expressions;}, 
+            {calls;}, 
             {
                 let end = s.substr(result.first, s.len.sub(result.first)).orEmpty;
-                expressions.push(simpleCall("print", vecOf(ASTExpression::Value(ASTValueType::ASTString(end)))));
+                calls.push(simpleCall("print", vecOf(ASTExpression::Value(ASTValueType::ASTString(end)))));
             })
         .push(simpleCall("println", Vec()));
 
     if(indexes.len.eq(2), {
         MacroModule(ASTModule(
-            expressions2
+            finalCalls
             , Vec(), Vec(), Vec(), Vec()
         ));
     }, {MacroError("Expected two parameters, got ".append(indexes.len.toString()));});
