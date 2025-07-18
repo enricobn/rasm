@@ -490,10 +490,14 @@ impl ASTModulesContainer {
             .collect()
     }
 
-    pub fn into_modules(self) -> Vec<(ModuleId, ModuleNamespace, ASTModule)> {
+    pub fn into_modules(self) -> Vec<(ModuleId, ModuleNamespace, ASTModule, bool)> {
+        let read_only_modules = self.read_only_modules().clone();
         self.modules
             .into_iter()
-            .map(|(id, (module, namespace))| (id, namespace, module))
+            .map(|(id, (module, namespace))| {
+                let ro = read_only_modules.contains(&id);
+                (id, namespace, module, ro)
+            })
             .collect()
     }
 

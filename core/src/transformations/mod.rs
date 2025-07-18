@@ -29,12 +29,12 @@ pub fn enrich_container(
     catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     debug: bool,
 ) -> ASTModulesContainer {
-    let read_only_modules = container.read_only_modules().clone();
+    let mut enriched_container = ASTModulesContainer::new();
 
-    let modules = container
+    container
         .into_modules()
         .into_iter()
-        .map(|(id, _, m)| {
+        .for_each(|(id, ns, m, ro)| {
             let (e_id, e_ns) = catalog.catalog_info(&id).unwrap();
             let info = EnhModuleInfo::new(e_id.clone(), e_ns.clone());
 
@@ -42,21 +42,11 @@ pub fn enrich_container(
 
             enrich_module(target, statics, &mut module, debug, &info);
 
-            (module, info)
-        })
-        .collect::<Vec<_>>();
+            enriched_container.add(
+                module, ns, id, false, // what means add_builtin???
+                ro,
+            );
+        });
 
-    let mut enriched_container = ASTModulesContainer::new();
-
-    for (module, info) in modules.into_iter() {
-        let i = catalog.info(&info.id).unwrap();
-        enriched_container.add(
-            module,
-            i.namespace().clone(),
-            i.id().clone(),
-            false, // what means add_builtin???
-            read_only_modules.contains(i.id()),
-        );
-    }
     enriched_container
 }
