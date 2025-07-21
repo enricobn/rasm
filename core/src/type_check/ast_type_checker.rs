@@ -120,13 +120,18 @@ impl Display for ASTTypeCheckInfo {
 
 #[derive(Debug, Clone)]
 pub struct ASTTypeCheckEntry {
+    index: ASTIndex,
     filter: Option<ASTTypeFilter>,
     info: ASTTypeCheckInfo,
 }
 
 impl ASTTypeCheckEntry {
-    fn new(filter: Option<ASTTypeFilter>, info: ASTTypeCheckInfo) -> Self {
-        Self { filter, info }
+    fn new(index: ASTIndex, filter: Option<ASTTypeFilter>, info: ASTTypeCheckInfo) -> Self {
+        Self {
+            index,
+            filter,
+            info,
+        }
     }
 
     pub fn filter(&self) -> &Option<ASTTypeFilter> {
@@ -137,20 +142,29 @@ impl ASTTypeCheckEntry {
         &self.info
     }
 
-    fn primitive(filter: ASTTypeFilter, len: usize) -> Self {
-        Self::new(Some(filter), ASTTypeCheckInfo::Value(len))
+    pub fn index(&self) -> &ASTIndex {
+        &self.index
     }
 
-    fn reference(filter: ASTTypeFilter, name: String, index: ASTIndex) -> Self {
-        Self::new(Some(filter), ASTTypeCheckInfo::Ref(name, index))
+    fn primitive(index: ASTIndex, filter: ASTTypeFilter, len: usize) -> Self {
+        Self::new(index, Some(filter), ASTTypeCheckInfo::Value(len))
     }
 
-    fn param(filter: ASTTypeFilter, name: String) -> Self {
-        Self::new(Some(filter), ASTTypeCheckInfo::Param(name))
+    fn reference(
+        index: ASTIndex,
+        filter: ASTTypeFilter,
+        name: String,
+        ref_index: ASTIndex,
+    ) -> Self {
+        Self::new(index, Some(filter), ASTTypeCheckInfo::Ref(name, ref_index))
     }
 
-    fn lambda(filter: ASTTypeFilter) -> Self {
-        Self::new(Some(filter), ASTTypeCheckInfo::Lambda)
+    fn param(index: ASTIndex, filter: ASTTypeFilter, name: String) -> Self {
+        Self::new(index, Some(filter), ASTTypeCheckInfo::Param(name))
+    }
+
+    fn lambda(index: ASTIndex, filter: ASTTypeFilter) -> Self {
+        Self::new(index, Some(filter), ASTTypeCheckInfo::Lambda)
     }
 
     pub fn exact(&self) -> Option<(&ASTType, &ModuleInfo)> {
@@ -194,7 +208,7 @@ impl Display for ASTTypeCheckEntry {
 }
 
 pub struct ASTTypeCheckerResult {
-    pub map: HashMap<ASTIndex, ASTTypeCheckEntry>,
+    pub map: HashMap<usize, ASTTypeCheckEntry>,
 }
 
 impl ASTTypeCheckerResult {
@@ -205,11 +219,15 @@ impl ASTTypeCheckerResult {
     }
 
     pub fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) {
-        self.map.insert(index, entry);
+        self.map.insert(index.position().id, entry);
     }
 
-    pub fn get(&self, index: &ASTIndex) -> Option<&ASTTypeCheckEntry> {
-        self.map.get(index)
+    pub fn get_by_index(&self, index: &ASTIndex) -> Option<&ASTTypeCheckEntry> {
+        self.map.get(&index.position().id)
+    }
+
+    pub fn get(&self, id: usize) -> Option<&ASTTypeCheckEntry> {
+        self.map.get(&id)
     }
 
     pub fn extend(&mut self, other: ASTTypeCheckerResult) {
@@ -217,7 +235,7 @@ impl ASTTypeCheckerResult {
     }
 
     pub fn remove(&mut self, index: &ASTIndex) -> Option<ASTTypeCheckEntry> {
-        self.map.remove(index)
+        self.map.remove(&index.position().id)
     }
 }
 
@@ -414,7 +432,7 @@ impl ASTTypeChecker {
                                 function,
                             );
                         }
-                        if let Some(rt) = self.result.get(&index).cloned() {
+                        if let Some(rt) = self.result.get_by_index(&index).cloned() {
                             // can I do something when is generic? Take in account that it can be generic on something different
                             if !rt.is_generic() {
                                 return_type = Some(rt);
@@ -456,7 +474,7 @@ impl ASTTypeChecker {
                         module_id.clone(),
                         position.clone(),
                     );
-                    if let Some(entry) = self.result.get(&e_index) {
+                    if let Some(entry) = self.result.get_by_index(&e_index) {
                         if let Some(filter) = &entry.filter {
                             if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
                                 let insert_result = inner_val_context.insert_let(
@@ -474,8 +492,9 @@ impl ASTTypeChecker {
                                 }
                             }
                             self.insert(
-                                index,
+                                index.clone(),
                                 ASTTypeCheckEntry::new(
+                                    index,
                                     entry.filter.clone(),
                                     ASTTypeCheckInfo::Let(name.clone()),
                                 ),
@@ -506,7 +525,7 @@ impl ASTTypeChecker {
                         module_id.clone(),
                         position.clone(),
                     );
-                    if let Some(entry) = self.result.get(&e_index) {
+                    if let Some(entry) = self.result.get_by_index(&e_index) {
                         if let Some(filter) = &entry.filter {
                             if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
                                 let insert_result =
@@ -521,8 +540,9 @@ impl ASTTypeChecker {
                                 }
                             }
                             self.insert(
-                                index,
+                                index.clone(),
                                 ASTTypeCheckEntry::new(
+                                    index,
                                     entry.filter.clone(),
                                     ASTTypeCheckInfo::Const(name.clone()),
                                 ),
@@ -558,7 +578,7 @@ impl ASTTypeChecker {
             expr.position().clone(),
         );
 
-        if let Some(r) = self.result.get(&index) {
+        if let Some(r) = self.result.get_by_index(&index) {
             if !r.is_generic() && r.exact().is_some() {
                 debug_i!("Cached {r}");
                 dedent!();
@@ -585,6 +605,7 @@ impl ASTTypeChecker {
                     self.insert(
                         index.clone(),
                         ASTTypeCheckEntry::reference(
+                            index.clone(),
                             ASTTypeFilter::exact(kind.ast_type(), module_namespace, module_id),
                             name.to_owned(),
                             kind.index(module_namespace, module_id),
@@ -594,6 +615,7 @@ impl ASTTypeChecker {
                     self.insert(
                         index.clone(),
                         ASTTypeCheckEntry::reference(
+                            index.clone(),
                             ASTTypeFilter::exact(kind.ast_type(), module_namespace, module_id),
                             name.to_owned(),
                             kind.index(module_namespace, module_id),
@@ -691,6 +713,7 @@ impl ASTTypeChecker {
                         self.insert(
                             index.clone(),
                             ASTTypeCheckEntry::reference(
+                                index.clone(),
                                 ASTTypeFilter::exact(
                                     ASTType::Builtin(lambda),
                                     module_namespace,
@@ -717,6 +740,7 @@ impl ASTTypeChecker {
                 self.insert(
                     index.clone(),
                     ASTTypeCheckEntry::primitive(
+                        index.clone(),
                         ASTTypeFilter::Exact(
                             value_type.to_type(),
                             ModuleInfo::new(module_namespace.clone(), module_id.clone()),
@@ -761,6 +785,7 @@ impl ASTTypeChecker {
                                 self.insert(
                                     par_index.clone(),
                                     ASTTypeCheckEntry::param(
+                                        par_index,
                                         ASTTypeFilter::exact(
                                             ast_type.clone(),
                                             module_namespace,
@@ -819,8 +844,10 @@ impl ASTTypeChecker {
                     } else {
                         ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
                     };
-                    self.result
-                        .insert(index.clone(), ASTTypeCheckEntry::lambda(type_filter));
+                    self.result.insert(
+                        index.clone(),
+                        ASTTypeCheckEntry::lambda(index.clone(), type_filter),
+                    );
                 } else {
                     let type_filter = if let Some((return_type, parameters)) =
                         expected_last_statement_type_and_parameters
@@ -835,8 +862,10 @@ impl ASTTypeChecker {
                     } else {
                         ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
                     };
-                    self.result
-                        .insert(index.clone(), ASTTypeCheckEntry::lambda(type_filter));
+                    self.result.insert(
+                        index.clone(),
+                        ASTTypeCheckEntry::lambda(index.clone(), type_filter),
+                    );
                 }
             }
         }
@@ -846,7 +875,7 @@ impl ASTTypeChecker {
 
         if let Some(eet) = expected_expression_type {
             if eet.is_generic() {
-                if let Some(entry) = self.result.get(&index) {
+                if let Some(entry) = self.result.get_by_index(&index) {
                     if let Some(ASTTypeFilter::Exact(et, e_module_id)) = &entry.filter {
                         if et.is_generic() {
                             if let Ok(rgt) =
@@ -856,8 +885,9 @@ impl ASTTypeChecker {
                             {
                                 if let Some(rt) = rgt.substitute(et) {
                                     self.insert(
-                                        index,
+                                        index.clone(),
                                         ASTTypeCheckEntry::new(
+                                            index,
                                             Some(ASTTypeFilter::Exact(rt, e_module_id.clone())),
                                             entry.info.clone(),
                                         ),
@@ -887,6 +917,7 @@ impl ASTTypeChecker {
                     self.insert(
                         par_index.clone(),
                         ASTTypeCheckEntry::param(
+                            par_index.clone(),
                             ASTTypeFilter::Exact(
                                 ast_type.clone(),
                                 ModuleInfo::new(module_namespace.clone(), module_id.clone()),
@@ -928,7 +959,7 @@ impl ASTTypeChecker {
 
         indent!();
 
-        if let Some(t) = self.result.get(&index) {
+        if let Some(t) = self.result.get_by_index(&index) {
             if !t.is_generic() && t.exact().is_some() {
                 debug_i!("Cached {t}");
                 dedent!();
@@ -946,7 +977,7 @@ impl ASTTypeChecker {
                 module_id.clone(),
                 e.position().clone(),
             );
-            if self.result.get(&e_index).is_none() {
+            if self.result.get_by_index(&e_index).is_none() {
                 // it's almost impossible to determine the right type of lambda without knowing the expected type,
                 // here we are calculating only the types for filtering the functions,
                 // we hope that knowing only that it's a lambda, eventually the return type and the number of parameters is sufficient
@@ -986,7 +1017,7 @@ impl ASTTypeChecker {
                         ),
                     );
 
-                    if let Some(found) = tmp.result.get(&index) {
+                    if let Some(found) = tmp.result.get_by_index(&index) {
                         self.insert(index.clone(), found.clone());
                     }
                 } else {
@@ -1012,7 +1043,11 @@ impl ASTTypeChecker {
                 module_id.clone(),
                 e.position().clone(),
             );
-            if let Some(ast_type) = self.result.get(&e_index).and_then(|it| it.filter.clone()) {
+            if let Some(ast_type) = self
+                .result
+                .get_by_index(&e_index)
+                .and_then(|it| it.filter.clone())
+            {
                 parameter_types_filters.push(ast_type.clone());
             } else {
                 if let Some(entry) = first_try_of_map.get(&e_index) {
@@ -1134,8 +1169,9 @@ impl ASTTypeChecker {
                 };
 
                 self.insert(
-                    index,
+                    index.clone(),
                     ASTTypeCheckEntry::new(
+                        index,
                         filter,
                         ASTTypeCheckInfo::Call(
                             call.function_name().clone(),
@@ -1267,7 +1303,7 @@ impl ASTTypeChecker {
                     function,
                 );
 
-                if let Some(entry) = self.result.get(&e_index) {
+                if let Some(entry) = self.result.get_by_index(&e_index) {
                     if let Some(ref calculated_type_filter) = entry.filter {
                         let p_errors = Self::add_resolve_type_filter(
                             &index,
@@ -1325,6 +1361,7 @@ impl ASTTypeChecker {
             self.insert(
                 index.clone(),
                 ASTTypeCheckEntry::new(
+                    index.clone(),
                     Some(ASTTypeFilter::exact(
                         return_type,
                         call_module_namespace,
@@ -1337,6 +1374,7 @@ impl ASTTypeChecker {
             self.insert(
                 index.clone(),
                 ASTTypeCheckEntry::new(
+                    index.clone(),
                     Some(ASTTypeFilter::exact(
                         return_type,
                         call_module_namespace,
@@ -1500,7 +1538,7 @@ mod tests {
         }
         */
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(1, 5),
@@ -1521,7 +1559,7 @@ mod tests {
 
         let (types_map, info) = check_body(file);
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(1, 5),
@@ -1548,7 +1586,7 @@ mod tests {
 
         let (types_map, info) = check_body(file);
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(1, 5),
@@ -1577,7 +1615,7 @@ mod tests {
 
         let (types_map, info) = check_body(file);
 
-        let none_value = types_map.get(&ASTIndex::new(
+        let none_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(1, 28),
@@ -1600,7 +1638,7 @@ mod tests {
 
         let (types_map, info) = check_body(file);
 
-        let none_value = types_map.get(&ASTIndex::new(
+        let none_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(1, 18),
@@ -1623,7 +1661,7 @@ mod tests {
 
         let (types_map, info) = check_body(file);
 
-        let none_value = types_map.get(&ASTIndex::new(
+        let none_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(1, 20),
@@ -1644,7 +1682,7 @@ mod tests {
 
         let (types_map, info) = check_body(file);
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(1, 5),
@@ -1671,7 +1709,7 @@ mod tests {
 
         let (types_map, info) = check_body(file);
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(1, 5),
@@ -1694,7 +1732,7 @@ mod tests {
 
         let (types_map, info) = check_function(file, "endsWith");
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(3, 9),
@@ -1717,7 +1755,7 @@ mod tests {
 
         let (types_map, info) = check_function(file, "endsWith1");
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(13, 9),
@@ -1738,7 +1776,7 @@ mod tests {
 
         let (types_map, info) = check_function(file, "endsWith");
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(4, 14),
@@ -1752,7 +1790,7 @@ mod tests {
             )
         );
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(3, 19),
@@ -1773,7 +1811,7 @@ mod tests {
 
         let (types_map, info) = check_function(file, "generic");
 
-        let r_value = types_map.get(&ASTIndex::new(
+        let r_value = types_map.get_by_index(&ASTIndex::new(
             info.module_namespace(),
             info.module_id(),
             ASTPosition::new(9, 13),
@@ -1909,7 +1947,7 @@ mod tests {
         );
 
         if let Some(index) = index(&catalog, "../rasm/resources/test/lambda2.rasm", 2, 5) {
-            if let Some(entry) = type_checker.result.get(&index) {
+            if let Some(entry) = type_checker.result.get_by_index(&index) {
                 if let Some((t, _)) = entry.exact() {
                     assert_eq!("If<fn () -> Option<i32>>", &format!("{t}"));
                     return;
@@ -1983,7 +2021,7 @@ mod tests {
         let (tc, catalog, _) = check_project("../stdlib");
         if let Some(entry) = tc
             .result
-            .get(&index(&catalog, "../stdlib/src/main/rasm/print.rasm", 13, 5).unwrap())
+            .get_by_index(&index(&catalog, "../stdlib/src/main/rasm/print.rasm", 13, 5).unwrap())
         {
             if let ASTTypeCheckInfo::Call(_, vec) = &entry.info {
                 let mut v = vec.iter().map(|it| format!("{}", it.0)).collect::<Vec<_>>();
@@ -2005,7 +2043,7 @@ mod tests {
         let (type_checker, catalog, _) = check_project(path);
 
         if let Some(index) = index(&catalog, path, row, column) {
-            if let Some(entry) = type_checker.result.get(&index) {
+            if let Some(entry) = type_checker.result.get_by_index(&index) {
                 if let Some((t, _)) = entry.exact() {
                     assert_eq!(expected, &format!("{t}"));
                     return;

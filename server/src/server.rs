@@ -201,11 +201,7 @@ async fn file<'a>(
 
         tokens.into_iter().for_each(|it| {
             // mv_left because the index of the token is at the end of the token itself, hence outside the text of the token...
-            let index = EnhASTIndex::new(
-                Some(file_path.to_path_buf()),
-                it.position.row,
-                it.position.column,
-            );
+            let index = EnhASTIndex::new(Some(file_path.to_path_buf()), it.position.clone());
 
             let ast_index = ASTIndex::new(
                 info.module_namespace().clone(),
@@ -213,8 +209,8 @@ async fn file<'a>(
                 it.position.clone(),
             );
 
-            if row != index.row {
-                row = index.row;
+            if row != index.position.row {
+                row = index.position.row;
                 if !(is_multiline(&it)
                     || last_is_multiline && matches!(it.kind, TokenKind::EndOfLine))
                 {

@@ -99,7 +99,7 @@ impl ASTIndex {
         Self {
             module_namespace: self.module_namespace.clone(),
             module_id: self.module_id.clone(),
-            position: self.position.clone().mv_right(offset),
+            position: self.position.mv_right(offset),
         }
     }
 
@@ -107,7 +107,7 @@ impl ASTIndex {
         Self {
             module_namespace: self.module_namespace.clone(),
             module_id: self.module_id.clone(),
-            position: self.position.clone().mv_left(offset),
+            position: self.position.mv_left(offset),
         }
     }
 

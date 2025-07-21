@@ -367,11 +367,15 @@ impl IDEHelper {
                         None
                     };
 
-                    Some(IDESelectableItem::new(index.clone(), name.len(), target))
+                    Some(IDESelectableItem::new(
+                        entry.index().clone(),
+                        name.len(),
+                        target,
+                    ))
                 }
                 ASTTypeCheckInfo::LambdaCall(function_signature, lambda_index) => {
                     Some(IDESelectableItem::new(
-                        index.clone(),
+                        entry.index().clone(),
                         function_signature.name.len(),
                         Some(IDESelectableItemTarget::Function(
                             lambda_index.clone(),
@@ -381,7 +385,7 @@ impl IDEHelper {
                     ))
                 }
                 ASTTypeCheckInfo::Ref(name, ref_index) => Some(IDESelectableItem::new(
-                    index.clone(),
+                    entry.index().clone(),
                     name.len(),
                     Some(IDESelectableItemTarget::Ref(
                         ref_index.clone(),
@@ -390,14 +394,14 @@ impl IDEHelper {
                     )),
                 )),
                 ASTTypeCheckInfo::Let(name) => Some(IDESelectableItem::new(
-                    index.clone(),
+                    entry.index().clone(),
                     name.len(),
                     ast_type.map(|it| {
                         IDESelectableItemTarget::Itself(ItselfKind::Param(name.clone()), it)
                     }),
                 )),
                 ASTTypeCheckInfo::Const(name) => Some(IDESelectableItem::new(
-                    index.clone(),
+                    entry.index().clone(),
                     name.len(),
                     ast_type.map(|it| {
                         IDESelectableItemTarget::Itself(ItselfKind::Param(name.clone()), it)
@@ -413,7 +417,7 @@ impl IDEHelper {
                             })
                         ) {
                             Some(IDESelectableItem::new(
-                                index.clone(),
+                                entry.index().clone(),
                                 *len,
                                 Some(IDESelectableItemTarget::Type(None, t.clone())),
                             ))
@@ -425,7 +429,7 @@ impl IDEHelper {
                     }
                 }
                 ASTTypeCheckInfo::Param(name) => Some(IDESelectableItem::new(
-                    index.clone(),
+                    entry.index().clone(),
                     name.len(),
                     ast_type.map(|it| {
                         IDESelectableItemTarget::Itself(ItselfKind::Param(name.clone()), it)
@@ -2790,15 +2794,12 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
             )
             .unwrap();
 
-        ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition {
-                row,
-                column,
-                builtin,
-            },
-        )
+        let position = match builtin {
+            Some(builtin) => ASTPosition::builtin(&ASTPosition::new(row, column), builtin),
+            None => ASTPosition::new(row, column),
+        };
+
+        ASTIndex::new(info.module_namespace(), info.module_id(), position)
     }
 
     fn vec_selectable_item_to_vec_target_index(vec: Vec<IDESelectableItem>) -> Vec<ASTIndex> {

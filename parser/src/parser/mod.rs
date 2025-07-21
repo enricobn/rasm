@@ -68,6 +68,10 @@ impl ParserError {
     pub fn column(&self) -> usize {
         self.position.column
     }
+
+    pub fn position(&self) -> &ASTPosition {
+        &self.position
+    }
 }
 
 impl Display for ParserError {

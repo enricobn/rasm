@@ -685,7 +685,7 @@ fn test_print_macro() {
     run_test_with_target(
         "macro/print_macro",
         vec![],
-        "a print: Hello, World!\n",
+        "Hello guy, how do you do?\n",
         CompileTarget::C(COptions::default()),
     );
 }

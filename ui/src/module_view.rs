@@ -93,7 +93,7 @@ impl UI {
                                     continue;
                                 }
                                 let content: Element<'a, Message> = if let Some(type_filter) =
-                                    selected_module.type_checker_result.get(&token_index)
+                                    selected_module.type_checker_result.get_by_index(&token_index)
                                 {
                                     let exact_and_not_generic =
                                         if let Some(ASTTypeFilter::Exact(ast_type, _info)) =

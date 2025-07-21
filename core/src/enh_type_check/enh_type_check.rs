@@ -5,8 +5,8 @@ use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
 use log::info;
 use rasm_parser::{
-    catalog::{modules_catalog::ModulesCatalog, ASTIndex, ModuleInfo},
-    parser::ast::{ASTPosition, ASTType, BuiltinTypeKind},
+    catalog::{modules_catalog::ModulesCatalog, ModuleInfo},
+    parser::ast::{ASTType, BuiltinTypeKind},
 };
 use rasm_utils::{debug_i, dedent, indent, OptionDisplay, SliceDisplay};
 
@@ -17,7 +17,7 @@ use crate::{
         enh_ast::{
             EnhASTExpression, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef,
             EnhASTIndex, EnhASTLambdaDef, EnhASTNameSpace, EnhASTParameterDef, EnhASTStatement,
-            EnhASTType, EnhBuiltinTypeKind, EnhModuleId, EnhModuleInfo,
+            EnhASTType, EnhBuiltinTypeKind, EnhModuleId,
         },
         enh_val_context::EnhValContext,
         enhanced_module::EnhancedASTModule,
@@ -736,7 +736,7 @@ impl<'a> EnhTypeCheck<'a> {
 
         let mut original_functions = Vec::new();
 
-        if let Some(e) = self.get_type_check_entry(&call.index, namespace) {
+        if let Some(e) = self.get_type_check_entry(&call.index) {
             if let ASTTypeCheckInfo::Call(_, vec) = e.info() {
                 if vec.len() == 1 {
                     let (f, index) = vec.first().unwrap();
@@ -749,8 +749,8 @@ impl<'a> EnhTypeCheck<'a> {
                             .iter()
                             .find(|it| {
                                 &it.index.id() == eh_id
-                                    && it.index.row == index.position().row
-                                    && it.index.builtin == index.position().builtin
+                                    && it.index.position.row == index.position().row
+                                    && it.index.position.builtin == index.position().builtin
                             })
                         {
                             if f.generic_types.is_empty() {
@@ -1668,9 +1668,7 @@ impl<'a> EnhTypeCheck<'a> {
                     param_types,
                     index: EnhASTIndex {
                         file_name: filter_module_id.path(),
-                        row: position.row,
-                        column: position.column,
-                        builtin: position.clone().builtin,
+                        position: position.clone(),
                     },
                 };
             } else if let ASTType::Builtin(BuiltinTypeKind::Lambda {
@@ -1722,21 +1720,8 @@ impl<'a> EnhTypeCheck<'a> {
         )
     }
 
-    fn get_type_check_entry(
-        &self,
-        enh_index: &EnhASTIndex,
-        namespace: &EnhASTNameSpace,
-    ) -> Option<&ASTTypeCheckEntry> {
-        if let Some(ref path) = enh_index.file_name {
-            let info = EnhModuleInfo::new(EnhModuleId::Path(path.clone()), namespace.clone());
-            let index = ASTIndex::new(
-                info.module_namespace(),
-                info.module_id(),
-                ASTPosition::new(enh_index.row, enh_index.column),
-            );
-            return self.type_checker.result.get(&index);
-        }
-        None
+    fn get_type_check_entry(&self, enh_index: &EnhASTIndex) -> Option<&ASTTypeCheckEntry> {
+        self.type_checker.result.get(enh_index.position.id)
     }
 
     pub fn type_of_expression(
@@ -1757,7 +1742,7 @@ impl<'a> EnhTypeCheck<'a> {
         indent!();
 
         if let Some(enh_index) = typed_expression.get_index() {
-            if let Some(t) = self.get_type_check_entry(enh_index, namespace) {
+            if let Some(t) = self.get_type_check_entry(enh_index) {
                 if let Some(f) = t.filter() {
                     if !f.is_generic() {
                         /*
@@ -2144,7 +2129,7 @@ impl<'a> EnhTypeCheck<'a> {
                     .collect::<Vec<_>>(),
             );
 
-            if let Some(t) = self.get_type_check_entry(index, namespace) {
+            if let Some(t) = self.get_type_check_entry(index) {
                 if let ASTTypeCheckInfo::Ref(_, ref_index) = t.info() {
                     let (eh_id, _) = self
                         .modules_catalog
@@ -2154,9 +2139,10 @@ impl<'a> EnhTypeCheck<'a> {
                     function_references = function_references
                         .into_iter()
                         .filter(|it| {
-                            &it.index.id() == eh_id
-                                && it.index.row == ref_index.position().row
-                                && it.index.column == ref_index.position().column
+                            it.index.position.id == ref_index.position().id
+                                || (&it.index.id() == eh_id
+                                    && it.index.position.row == ref_index.position().row
+                                    && it.index.position.column == ref_index.position().column)
                         })
                         .collect::<Vec<_>>();
 

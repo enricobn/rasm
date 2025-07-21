@@ -18,10 +18,9 @@ use crate::project::RasmProject;
 use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
 
 use rasm_parser::parser::ast::{
-    ASTBuiltinFunctionType, ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody,
-    ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModifiers, ASTModule, ASTParameterDef,
-    ASTPosition, ASTStatement, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef,
-    ASTValueType, BuiltinTypeKind,
+    ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
+    ASTLambdaDef, ASTModifiers, ASTModule, ASTParameterDef, ASTPosition, ASTStatement,
+    ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef, ASTValueType, BuiltinTypeKind,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -742,7 +741,7 @@ impl EnhASTType {
                 ASTType::Builtin(enh_builtin_type_kind.to_ast())
             }
             EnhASTType::Generic(index, name, var_types) => ASTType::Generic(
-                ASTPosition::new(index.row, index.column),
+                index.position.clone(),
                 name.clone(),
                 var_types.iter().map(|it| it.to_ast()).collect(),
             ),
@@ -754,7 +753,7 @@ impl EnhASTType {
             } => ASTType::Custom {
                 name: name.clone(),
                 param_types: param_types.iter().map(|it| it.to_ast()).collect(),
-                position: ASTPosition::new(index.row, index.column),
+                position: index.position.clone(),
             },
             EnhASTType::Unit => ASTType::Unit,
         }
@@ -1133,79 +1132,45 @@ impl Display for EnhASTFunctionCall {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EnhASTIndex {
+    // TODO better an EnhModuleId
     pub file_name: Option<PathBuf>,
-    pub row: usize,
-    pub column: usize,
-    pub builtin: Option<ASTBuiltinFunctionType>,
+    pub position: ASTPosition,
 }
 
 impl EnhASTIndex {
     pub fn none() -> Self {
         Self {
             file_name: None,
-            row: 0,
-            column: 0,
-            builtin: None,
+            position: ASTPosition::none(),
         }
     }
 
-    pub fn new(file_name: Option<PathBuf>, row: usize, column: usize) -> Self {
+    pub fn new(file_name: Option<PathBuf>, position: ASTPosition) -> Self {
         Self {
             file_name,
-            row,
-            column,
-            builtin: None,
+            position,
         }
     }
 
-    pub fn builtin(
-        file_name: Option<PathBuf>,
-        row: usize,
-        column: usize,
-        builtin: ASTBuiltinFunctionType,
-    ) -> Self {
-        Self {
-            file_name,
-            row,
-            column,
-            builtin: Some(builtin),
-        }
+    pub fn new_rc(file_name: Option<PathBuf>, row: usize, column: usize) -> Self {
+        Self::new(file_name, ASTPosition::new(row, column))
     }
 
     pub fn mv_right(&self, offset: usize) -> Self {
-        Self {
-            file_name: self.file_name.clone(),
-            row: self.row,
-            column: self.column + offset,
-            builtin: self.clone().builtin,
-        }
+        Self::new(self.file_name.clone(), self.position.mv_right(offset))
     }
 
     pub fn mv_left(&self, offset: usize) -> Self {
-        Self {
-            file_name: self.file_name.clone(),
-            row: self.row,
-            column: (self.column as i32 - (offset as i32)) as usize,
-            builtin: self.clone().builtin,
-        }
+        Self::new(self.file_name.clone(), self.position.mv_left(offset))
     }
 
     pub fn mv_down(&self, offset: usize) -> Self {
-        Self {
-            file_name: self.file_name.clone(),
-            row: self.row + offset,
-            column: self.column,
-            builtin: self.clone().builtin,
-        }
+        Self::new(self.file_name.clone(), self.position.mv_down(offset))
     }
 
+    // TODO the same as new, but with different name
     pub fn from_position(path: Option<PathBuf>, position: &ASTPosition) -> Self {
-        Self {
-            file_name: path,
-            row: position.row,
-            column: position.column,
-            builtin: position.clone().builtin,
-        }
+        Self::new(path, position.clone())
     }
 
     pub fn id(&self) -> EnhModuleId {
@@ -1223,7 +1188,7 @@ impl EnhASTIndex {
             ASTIndex::new(
                 it.namespace().clone(),
                 it.id().clone(),
-                ASTPosition::new(self.row, self.column),
+                self.position.clone(),
             )
         })
     }
@@ -1238,7 +1203,7 @@ impl EnhASTIndex {
                         .to_str()
                         .unwrap()
                 );
-                return format!("{file}#L{}%2C{}", self.row, self.column);
+                return format!("{file}#L{}%2C{}", self.position.row, self.position.column);
             } else {
                 String::new()
             }
@@ -1263,8 +1228,8 @@ impl Display for EnhASTIndex {
                     }
                 })
                 .unwrap_or_else(|| "".to_owned()),
-            &self.row,
-            &self.column
+            &self.position.row,
+            &self.position.column
         ))
     }
 }

@@ -706,7 +706,7 @@ impl RasmProject {
 
     fn generic_error(path: &Path, message: &str) -> CompilationError {
         CompilationError {
-            index: EnhASTIndex::new(Some(path.to_path_buf()), 0, 0),
+            index: EnhASTIndex::new(Some(path.to_path_buf()), ASTPosition::none()),
             error_kind: CompilationErrorKind::Generic(message.to_owned()),
         }
     }

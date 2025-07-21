@@ -224,7 +224,7 @@ fn function_dependencies_inner(
             call.position().clone(),
         );
         let mut call_result = ASTFunctionsDependencies::new();
-        if let Some(call_type_check_entry) = ast_type_check.result.get(&call_index) {
+        if let Some(call_type_check_entry) = ast_type_check.result.get_by_index(&call_index) {
             match call_type_check_entry.info() {
                 ASTTypeCheckInfo::Call(_, vec) => {
                     for (inner_signature, inner_signature_index) in vec.iter() {
@@ -243,7 +243,7 @@ fn function_dependencies_inner(
                                     call_expr.position().clone(),
                                 );
                                 if let Some(call_expr_entry) =
-                                    ast_type_check.result.get(&call_expr_index)
+                                    ast_type_check.result.get_by_index(&call_expr_index)
                                 {
                                     if let Some(ASTTypeFilter::Exact(
                                         call_expr_type,
@@ -422,7 +422,7 @@ fn function_dependencies_inner_2(
         indent!();
 
         for call in calls.iter() {
-            if let Some(call_type_check_entry) = ast_type_check.result.get(&ASTIndex::new(
+            if let Some(call_type_check_entry) = ast_type_check.result.get_by_index(&ASTIndex::new(
                 module_namespace.clone(),
                 module_id.clone(),
                 call.position().clone(),
@@ -445,7 +445,7 @@ fn function_dependencies_inner_2(
                                     module_id.clone(),
                                     e.position().clone(),
                                 );
-                                if let Some(e_entry) = ast_type_check.result.get(&e_index) {
+                                if let Some(e_entry) = ast_type_check.result.get_by_index(&e_index) {
                                     if let Some(filter) = e_entry.filter() {
                                         match filter {
                                             ASTTypeFilter::Exact(asttype, _module_info) => {
@@ -684,7 +684,7 @@ fn expr_calls<'a>(
         }
         ASTExpression::Lambda(lambda_def) => {
             // TODO
-            let t = ast_type_check.result.get(&ASTIndex::new(
+            let t = ast_type_check.result.get_by_index(&ASTIndex::new(
                 module_namespace.clone(),
                 module_id.clone(),
                 lambda_def.position.clone(),

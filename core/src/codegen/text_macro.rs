@@ -21,7 +21,6 @@ use crate::enh_type_check::typed_ast::{
 use crate::type_check::substitute;
 use rasm_parser::lexer::tokens::Token;
 use rasm_parser::lexer::Lexer;
-use rasm_parser::parser::ast;
 use rasm_parser::parser::type_parser::TypeParser;
 use rasm_parser::parser::ParserTrait;
 use rasm_utils::{OptionDisplay, SliceDisplay};
@@ -293,6 +292,7 @@ impl TextMacroEvaluator {
             .clone()
             .remove_generics_prefix()
             .iter()
+
         {
             if !result.contains(&name) {
                 result.push(name.clone());
@@ -546,23 +546,44 @@ impl TextMacroEvaluator {
                         panic!("Unsupported type {par_type_name}")
                     }
                     Some((ref ast_type, _)) => {
-                        //println!("parse_typed_argument {ast_type}");
+                        /*
+                        if FOUND_THE_FUNCTION.load(std::sync::atomic::Ordering::Relaxed) {
+                            println!("parse_typed_argument {ast_type}");
+                            println!(
+                                "function_name_for_fix_generics {}",
+                                OptionDisplay(&function_name_for_fix_generics)
+                            );
+                        }
+                        */
+
                         let eh_ast_type = EnhASTType::from_ast(
                             namespace,
                             id,
                             ast_type.clone(),
                             function_name_for_fix_generics,
                         );
-                        let t =
-                            if let ast::ASTType::Generic(_position, _name, _var_types) = ast_type {
-                                if let Some(t) = substitute(&eh_ast_type, resolved_generic_types) {
-                                    t
-                                } else {
-                                    eh_ast_type
-                                }
+                        let t = if ast_type.is_generic() {
+                            if let Some(t) = substitute(&eh_ast_type, resolved_generic_types) {
+                                t
                             } else {
                                 eh_ast_type
-                            };
+                            }
+                        } else {
+                            eh_ast_type
+                        };
+
+                        /*
+                        if FOUND_THE_FUNCTION.load(std::sync::atomic::Ordering::Relaxed) {
+                            println!("parse_typed_argument {t}");
+                            println!(
+                                "type_def_provider.get_ast_typed_type_from_ast_type {}",
+                                OptionDisplay(
+                                    &type_def_provider.get_ast_typed_type_from_ast_type(&t)
+                                )
+                            );
+                        }
+                        */
+
                         (
                             par_name,
                             Some(t.clone()),

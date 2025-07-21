@@ -32,7 +32,7 @@ pub struct CompilationError {
 impl CompilationError {
     pub fn from_parser_error(error: ParserError, file_name: Option<PathBuf>) -> Self {
         Self {
-            index: EnhASTIndex::new(file_name, error.row(), error.column()),
+            index: EnhASTIndex::new(file_name, error.position().clone()),
             error_kind: CompilationErrorKind::Parser(error.message),
         }
     }

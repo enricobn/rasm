@@ -315,7 +315,7 @@ impl CompileTarget {
                 macro_module,
                 ModuleNamespace("".to_owned()),
                 ModuleId("__macro".to_owned()),
-                true,
+                false,
                 true,
             );
 
@@ -354,11 +354,7 @@ impl CompileTarget {
                     let output_string = output_lines.collect::<Vec<_>>().join("\n");
                     if first == "MacroError" {
                         if let Some(info) = catalog.catalog_info(call.module_id()) {
-                            let index = EnhASTIndex::new(
-                                info.0.path(),
-                                call.position().row,
-                                call.position().column,
-                            );
+                            let index = EnhASTIndex::new(info.0.path(), call.position().clone());
                             panic!("{} in {}", output_string, index);
                         } else {
                             panic!("{} in {}", output_string, call.position());

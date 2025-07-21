@@ -3,9 +3,12 @@ use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::iter::zip;
 use std::ops::Deref;
+use std::sync::atomic::AtomicUsize;
 
 use derivative::Derivative;
 use itertools::Itertools;
+
+static ID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, strum_macros::Display, PartialOrd, Ord)]
 pub enum ASTBuiltinFunctionType {
@@ -20,8 +23,13 @@ pub enum ASTBuiltinFunctionType {
     Other(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Derivative, Debug, Clone, Eq, Ord)]
+#[derivative(PartialEq, Hash, PartialOrd)]
 pub struct ASTPosition {
+    #[derivative(PartialEq = "ignore")]
+    #[derivative(Hash = "ignore")]
+    #[derivative(PartialOrd = "ignore")]
+    pub id: usize,
     pub row: usize,
     pub column: usize,
     /// used to identify builtin functions and disambiguate the ones related to the same type/property
@@ -31,6 +39,7 @@ pub struct ASTPosition {
 impl ASTPosition {
     pub fn new(row: usize, column: usize) -> Self {
         Self {
+            id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             row,
             column,
             builtin: None,
@@ -39,6 +48,7 @@ impl ASTPosition {
 
     pub fn builtin(position: &ASTPosition, builtin_type: ASTBuiltinFunctionType) -> Self {
         Self {
+            id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             row: position.row,
             column: position.column,
             builtin: Some(builtin_type),
@@ -47,6 +57,7 @@ impl ASTPosition {
 
     pub fn none() -> Self {
         Self {
+            id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             row: 0,
             column: 0,
             builtin: None,
@@ -55,6 +66,7 @@ impl ASTPosition {
 
     pub fn mv_left(&self, len: usize) -> Self {
         Self {
+            id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             row: self.row,
             column: self.column - len,
             builtin: self.builtin.clone(),
@@ -63,6 +75,7 @@ impl ASTPosition {
 
     pub fn mv_right(&self, len: usize) -> Self {
         Self {
+            id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             row: self.row,
             column: self.column + len,
             builtin: self.builtin.clone(),
@@ -71,6 +84,7 @@ impl ASTPosition {
 
     pub fn mv_down(&self, len: usize) -> Self {
         Self {
+            id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             row: self.row + len,
             column: self.column,
             builtin: self.builtin.clone(),

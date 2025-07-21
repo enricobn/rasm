@@ -262,6 +262,15 @@ pub trait TypeDefProvider {
                 param_types,
                 index: _,
             } => {
+                /*
+                if FOUND_THE_FUNCTION.load(std::sync::atomic::Ordering::Relaxed) {
+                    println!("{ast_type} is custom {}", self.types().len());
+                    for t in self.types().iter() {
+                        println!("{} -> {}", t, t.ast_type);
+                    }
+                }
+                */
+
                 if let Some(e) = find_one(self.enums().iter(), |it| {
                     self.get_ast_typed_type_from_ast_type_filter(*it, ast_type, param_types)
                 }) {
@@ -346,7 +355,6 @@ pub trait TypeDefProvider {
         ast_type: &EnhASTType,
         param_types: &Vec<EnhASTType>,
     ) -> bool {
-        let found = &format!("{ast_type}") == "Vec<Option<IOError>>";
         if let EnhASTType::Custom {
             namespace: _,
             name: _,
@@ -354,31 +362,12 @@ pub trait TypeDefProvider {
             index: _,
         } = custom_typed_type_def.ast_type()
         {
-            let found2 = &format!("{}", custom_typed_type_def.ast_type()) == "Vec<Option<IOError>>";
-
             if custom_typed_type_def.ast_type() == ast_type {
-                let result = zip(it_pt.iter(), param_types.iter()).all(|(a, b)| a == b);
-                if found && found2 && !result {
-                    println!(
-                        "Not found {:?} {:?}",
-                        ast_type,
-                        custom_typed_type_def.ast_type()
-                    );
-                }
-                result
+                zip(it_pt.iter(), param_types.iter()).all(|(a, b)| a == b)
             } else {
-                if found && found2 {
-                    println!("Not found 1");
-                    println!("{:?}", ast_type);
-                    println!("{:?}", custom_typed_type_def.ast_type());
-                    //panic!();
-                }
                 false
             }
         } else {
-            if found {
-                println!("Not found 2");
-            }
             false
         }
     }

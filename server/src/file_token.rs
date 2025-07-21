@@ -34,9 +34,9 @@ impl FileToken {
     }
 
     pub fn contains(&self, index: &EnhASTIndex) -> io::Result<bool> {
-        Ok(index.row == self.start.row
-            && index.column >= self.start.column
-            && index.column <= (self.start.column + self.len - 1)
+        Ok(index.position.row == self.start.position.row
+            && index.position.column >= self.start.position.column
+            && index.position.column <= (self.start.position.column + self.len - 1)
             && Self::path_matches(&index.file_name, &self.start.file_name)?)
     }
 
@@ -69,7 +69,7 @@ impl Display for FileToken {
 
         f.write_str(&format!(
             "{file_name} {}:{} len {}",
-            self.start.row, self.start.column, self.len
+            self.start.position.row, self.start.position.column, self.len
         ))
     }
 }

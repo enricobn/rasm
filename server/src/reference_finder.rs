@@ -24,7 +24,7 @@ use rasm_core::type_check::ast_modules_container::ASTModulesContainer;
 use rasm_core::type_check::ast_type_checker::ASTTypeChecker;
 use rasm_core::type_check::substitute;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
-use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
+use rasm_parser::parser::ast::{ASTModifiers, ASTPosition, ASTValueType};
 use rasm_utils::OptionDisplay;
 
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
@@ -305,15 +305,15 @@ impl ReferenceFinder {
     }
 
     fn char_at_index(lines: &Vec<&str>, index: &EnhASTIndex) -> Option<char> {
-        lines.get(index.row - 1).and_then(|line| {
-            line.get((index.column - 1)..index.column)
+        lines.get(index.position.row - 1).and_then(|line| {
+            line.get((index.position.column - 1)..index.position.column)
                 .and_then(|chars| chars.chars().next())
         })
     }
 
     fn move_left(lines: &Vec<&str>, index: &EnhASTIndex) -> Option<EnhASTIndex> {
-        let mut row = index.row as i32;
-        let mut column = index.column as i32 - 1;
+        let mut row = index.position.row as i32;
+        let mut column = index.position.column as i32 - 1;
 
         if column <= 0 {
             row -= 1;
@@ -324,8 +324,7 @@ impl ReferenceFinder {
         }
         Some(EnhASTIndex::new(
             index.file_name.clone(),
-            row as usize,
-            column as usize,
+            ASTPosition::new(row as usize, column as usize),
         ))
     }
 
@@ -1287,7 +1286,7 @@ mod tests {
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::project::{RasmProject, RasmProjectRunType};
-    use rasm_parser::parser::ast::ASTBuiltinFunctionType;
+    use rasm_parser::parser::ast::{ASTBuiltinFunctionType, ASTPosition};
     use rasm_utils::{OptionDisplay, SliceDisplay};
 
     use crate::completion_service::CompletionTrigger;
@@ -1321,7 +1320,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_target_index(
                 finder
-                    .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 3, 15,))
+                    .find(&EnhASTIndex::new_rc(Some(file_name.to_path_buf()), 3, 15,))
                     .unwrap()
             ),
             vec![get_index(&project, "simple.rasm", 1, 5)]
@@ -1330,7 +1329,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_target_index(
                 finder
-                    .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 6, 13,))
+                    .find(&EnhASTIndex::new_rc(Some(file_name.to_path_buf()), 6, 13,))
                     .unwrap()
             ),
             vec![get_index(&project, "simple.rasm", 5, 16)]
@@ -1339,7 +1338,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_target_index(
                 finder
-                    .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 3, 2,))
+                    .find(&EnhASTIndex::new_rc(Some(file_name.to_path_buf()), 3, 2,))
                     .unwrap()
             ),
             vec![get_index(&project, "simple.rasm", 5, 4)]
@@ -1348,10 +1347,10 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_target_index(
                 finder
-                    .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 6, 9,))
+                    .find(&EnhASTIndex::new_rc(Some(file_name.to_path_buf()), 6, 9,))
                     .unwrap()
             ),
-            vec![EnhASTIndex::new(
+            vec![EnhASTIndex::new_rc(
                 Some(stdlib_path.join("src/main/rasm/print.rasm")),
                 12,
                 8
@@ -1361,10 +1360,10 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_target_index(
                 finder
-                    .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 10, 7,))
+                    .find(&EnhASTIndex::new_rc(Some(file_name.to_path_buf()), 10, 7,))
                     .unwrap()
             ),
-            vec![EnhASTIndex::new(
+            vec![EnhASTIndex::new_rc(
                 Some(stdlib_path.join("src/main/rasm/option.rasm")),
                 2,
                 3
@@ -1399,10 +1398,14 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_target_index(
                 finder
-                    .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 15, 23))
+                    .find(&EnhASTIndex::new_rc(
+                        Some(source_file.to_path_buf()),
+                        15,
+                        23
+                    ))
                     .unwrap()
             ),
-            vec![EnhASTIndex::new(
+            vec![EnhASTIndex::new_rc(
                 Some(stdlib_path.join("src/main/rasm/option.rasm")),
                 1,
                 10
@@ -1412,7 +1415,11 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_target_index(
                 finder
-                    .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 19, 23,))
+                    .find(&EnhASTIndex::new_rc(
+                        Some(source_file.to_path_buf()),
+                        19,
+                        23,
+                    ))
                     .unwrap()
             ),
             vec![get_index(&project, "types.rasm", 1, 8)],
@@ -1421,10 +1428,14 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_target_index(
                 finder
-                    .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 23, 23,))
+                    .find(&EnhASTIndex::new_rc(
+                        Some(source_file.to_path_buf()),
+                        23,
+                        23,
+                    ))
                     .unwrap()
             ),
-            vec![EnhASTIndex::new(
+            vec![EnhASTIndex::new_rc(
                 Some(stdlib_path.join("src/main/nasmi386/vec.rasm")),
                 1,
                 10
@@ -1485,7 +1496,7 @@ mod tests {
         assert_eq!(
             vec_selectable_item_to_vec_target_index(
                 finder
-                    .find(&EnhASTIndex::new(Some(source_file.to_path_buf()), 6, 19,))
+                    .find(&EnhASTIndex::new_rc(Some(source_file.to_path_buf()), 6, 19,))
                     .unwrap()
             ),
             vec![get_index_with_builtin(
@@ -1519,7 +1530,7 @@ mod tests {
 
         let file_name = PathBuf::from("resources/test/types.rasm");
         let found = finder
-            .find(&EnhASTIndex::new(Some(file_name.clone()), 27, 31))
+            .find(&EnhASTIndex::new_rc(Some(file_name.clone()), 27, 31))
             .unwrap();
 
         assert_eq!(
@@ -1549,7 +1560,7 @@ mod tests {
 
         let file_name = PathBuf::from("resources/test/types.rasm");
         let found = finder
-            .find(&EnhASTIndex::new(Some(file_name.clone()), 9, 1))
+            .find(&EnhASTIndex::new_rc(Some(file_name.clone()), 9, 1))
             .unwrap();
 
         assert_eq!(
@@ -1579,7 +1590,7 @@ mod tests {
 
         let file_name = PathBuf::from("resources/test/types.rasm");
         let found = finder
-            .find(&EnhASTIndex::new(Some(file_name.clone()), 9, 13))
+            .find(&EnhASTIndex::new_rc(Some(file_name.clone()), 9, 13))
             .unwrap();
 
         assert_eq!(
@@ -1708,7 +1719,7 @@ mod tests {
 
         let file_name = Some(PathBuf::from("resources/test/types.rasm"));
 
-        match finder.find(&EnhASTIndex::new(file_name.clone(), 32, 34)) {
+        match finder.find(&EnhASTIndex::new_rc(file_name.clone(), 32, 34)) {
             Ok(mut selectable_items) => {
                 if selectable_items.len() == 1 {
                     let selectable_item = selectable_items.remove(0);
@@ -1764,11 +1775,11 @@ mod tests {
         )
         .unwrap();
 
-        match finder.find(&EnhASTIndex::new(Some(result_rasm.clone()), 11, 9)) {
+        match finder.find(&EnhASTIndex::new_rc(Some(result_rasm.clone()), 11, 9)) {
             Ok(mut selectable_items) => {
                 if selectable_items.len() == 1 {
                     let selectable_item = selectable_items.remove(0);
-                    let expected_index = EnhASTIndex::new(Some(result_rasm), 14, 8);
+                    let expected_index = EnhASTIndex::new_rc(Some(result_rasm), 14, 8);
                     if let Some(SelectableItemTarget::Function(index, _, _)) =
                         selectable_item.target
                     {
@@ -1808,7 +1819,7 @@ mod tests {
         let file_name = Path::new("resources/test/enums.rasm");
 
         let mut items = finder
-            .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 17, 13))
+            .find(&EnhASTIndex::new_rc(Some(file_name.to_path_buf()), 17, 13))
             .unwrap();
 
         assert_eq!(1, items.len());
@@ -1817,11 +1828,9 @@ mod tests {
 
         if let Some(SelectableItemTarget::Function(index, _, descr)) = item.target {
             assert_eq!(
-                EnhASTIndex::builtin(
+                EnhASTIndex::new(
                     Some(file_name.canonicalize().unwrap()),
-                    10,
-                    6,
-                    ASTBuiltinFunctionType::Match
+                    ASTPosition::builtin(&ASTPosition::new(10, 6), ASTBuiltinFunctionType::Match)
                 ),
                 index
             );
@@ -1853,7 +1862,7 @@ mod tests {
         let file_name = Path::new("resources/test/enums.rasm");
 
         let mut items = finder
-            .find(&EnhASTIndex::new(Some(file_name.to_path_buf()), 17, 40))
+            .find(&EnhASTIndex::new_rc(Some(file_name.to_path_buf()), 17, 40))
             .unwrap();
 
         assert_eq!(1, items.len());
@@ -1862,7 +1871,7 @@ mod tests {
 
         if let Some(SelectableItemTarget::Ref(index, _)) = item.target {
             assert_eq!(
-                EnhASTIndex::new(
+                EnhASTIndex::new_rc(
                     Some(file_name.canonicalize().unwrap().to_path_buf()),
                     17,
                     21
@@ -1992,7 +2001,7 @@ mod tests {
         let file_name = Path::new(file).canonicalize().unwrap();
 
         let items = finder
-            .references(&EnhASTIndex::new(
+            .references(&EnhASTIndex::new_rc(
                 Some(file_name.to_path_buf()),
                 row,
                 column,
@@ -2001,7 +2010,12 @@ mod tests {
 
         let mut found = items
             .into_iter()
-            .map(|it| (it.file_token.start.row, it.file_token.start.column))
+            .map(|it| {
+                (
+                    it.file_token.start.position.row,
+                    it.file_token.start.position.column,
+                )
+            })
             .collect::<Vec<_>>();
 
         found.sort_by(|a, b| a.0.cmp(&b.0));
@@ -2051,14 +2065,14 @@ mod tests {
         let file_name = Path::new(file).canonicalize().unwrap();
 
         let edits = finder.rename(
-            &EnhASTIndex::new(Some(file_name.to_path_buf()), row, column),
+            &EnhASTIndex::new_rc(Some(file_name.to_path_buf()), row, column),
             new_name.to_owned(),
         );
 
         let found = edits.map(|it| {
             let mut f = it
                 .into_iter()
-                .map(|it| (it.from.row, it.from.column, it.len))
+                .map(|it| (it.from.position.row, it.from.position.column, it.len))
                 .collect::<Vec<_>>();
             f.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
             f
@@ -2072,7 +2086,7 @@ mod tests {
     }
 
     fn get_index(project: &RasmProject, file_n: &str, row: usize, column: usize) -> EnhASTIndex {
-        EnhASTIndex::new(
+        EnhASTIndex::new_rc(
             Some(
                 project
                     .from_relative_to_root(Path::new(file_n))
@@ -2093,7 +2107,7 @@ mod tests {
         builtin: ASTBuiltinFunctionType,
     ) -> EnhASTIndex {
         let mut index = get_index(project, file_n, row, column);
-        index.builtin = Some(builtin);
+        index.position.builtin = Some(builtin);
         index
     }
 
@@ -2191,7 +2205,7 @@ mod tests {
         .unwrap();
 
         let file_name = Some(PathBuf::from(file_name));
-        let index = EnhASTIndex::new(file_name.clone(), row, col);
+        let index = EnhASTIndex::new_rc(file_name.clone(), row, col);
         let target = CompileTarget::C(COptions::default());
 
         match finder.get_completions(&project, &index, &eh_module, &trigger, &target) {
@@ -2238,7 +2252,7 @@ mod tests {
         .unwrap();
 
         let file_name = Some(PathBuf::from(file_name));
-        let index = EnhASTIndex::new(file_name.clone(), row, col);
+        let index = EnhASTIndex::new_rc(file_name.clone(), row, col);
 
         vec_selectable_item_to_vec_target_index(finder.find(&index).unwrap())
     }
