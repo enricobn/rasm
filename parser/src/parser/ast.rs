@@ -23,12 +23,13 @@ pub enum ASTBuiltinFunctionType {
     Other(String),
 }
 
-#[derive(Derivative, Debug, Clone, Eq, Ord)]
-#[derivative(PartialEq, Hash, PartialOrd)]
+#[derive(Derivative, Debug, Clone, Eq)]
+#[derivative(PartialEq, Hash, PartialOrd, Ord)]
 pub struct ASTPosition {
     #[derivative(PartialEq = "ignore")]
     #[derivative(Hash = "ignore")]
     #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     pub id: usize,
     pub row: usize,
     pub column: usize,
@@ -1126,5 +1127,14 @@ mod tests {
         );
 
         assert_eq!("M<str>", format!("{t}"));
+    }
+
+    #[test]
+    fn position_order() {
+        let b = ASTPosition::new(1, 2);
+        let a = ASTPosition::new(1, 1);
+
+        assert!(a.id > b.id);
+        assert!(a.cmp(&b).is_lt());
     }
 }
