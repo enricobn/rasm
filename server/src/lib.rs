@@ -1,8 +1,5 @@
 use rasm_core::codegen::enh_ast::EnhASTIndex;
 
-pub mod reference_context;
-pub mod reference_finder;
-
 pub mod ast_tree;
 pub mod completion_service;
 pub mod file_token;
