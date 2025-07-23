@@ -13,7 +13,8 @@ use iced::{
     Background, Color, Element, Length, Padding,
 };
 use rasm_core::{
-    codegen::enh_ast::EnhModuleInfo, type_check::ast_modules_container::ASTTypeFilter,
+    ast::ast_module_tree::ASTModuleTree, codegen::enh_ast::EnhModuleInfo,
+    type_check::ast_modules_container::ASTTypeFilter,
 };
 
 use rasm_parser::parser::ast::{ASTModule, ASTType, BuiltinTypeKind};
@@ -50,11 +51,12 @@ impl UI {
                     .to_string_lossy()
                     .to_string(),
             ));
-        if let Some((module, _errors, info)) = self
-            .project
-            .get_module(Path::new(&selected_module.path), &self.target)
+        if let Some(module) = self
+            .modules_container
+            .module(&selected_module.info.module_id())
         {
-            let module_syntax = Self::module_syntax(&module, &info);
+            let tree = ASTModuleTree::new(module);
+            let module_syntax = Self::module_syntax(&module, &selected_module.info);
             let path = PathBuf::from(&selected_module.path);
             if let Ok(source) = fs::read_to_string(&path) {
                 let mut code = Column::new().padding(Padding::new(5.0));
@@ -79,9 +81,16 @@ impl UI {
                         row = row.push(text(format!("{:>5} ", token.position.row + 1)));
                         just_added_new_line = true;
                     } else {
-                        let token_position = token.position;
+                        let elements =
+                            tree.get_elements_at(token.position.row, token.position.column);
+                        let token_position = if elements.len() == 1 {
+                            elements[0].element.position()
+                        } else {
+                            &token.position
+                        };
+
                         let token_row = token_position.row;
-                        let token_index = info.index(token_position.clone());
+                        let token_index = selected_module.info.index(token_position.clone());
                         match token.kind {
                             TokenKind::AlphaNumeric(s) => {
                                 if module_syntax
@@ -93,7 +102,9 @@ impl UI {
                                     continue;
                                 }
                                 let content: Element<'a, Message> = if let Some(type_filter) =
-                                    selected_module.type_checker_result.get_by_index(&token_index)
+                                    selected_module
+                                        .type_checker_result
+                                        .get_by_index(&token_index)
                                 {
                                     let exact_and_not_generic =
                                         if let Some(ASTTypeFilter::Exact(ast_type, _info)) =

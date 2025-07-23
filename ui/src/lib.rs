@@ -1,4 +1,8 @@
-use std::{collections::HashMap, path::Path, time::Instant};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    time::Instant,
+};
 
 use iced::{
     widget::{
@@ -12,7 +16,12 @@ use iced::{
 
 use module_view::TEXT_SCROLLABLE_ID;
 use rasm_core::{
-    codegen::{compile_target::CompileTarget, statics::Statics, val_context::ValContext},
+    codegen::{
+        compile_target::CompileTarget,
+        enh_ast::{EnhASTNameSpace, EnhModuleId, EnhModuleInfo},
+        statics::Statics,
+        val_context::ValContext,
+    },
     project::{RasmProject, RasmProjectRunType},
     transformations::enrich_container,
     type_check::{
@@ -20,7 +29,10 @@ use rasm_core::{
         ast_type_checker::{ASTTypeChecker, ASTTypeCheckerResult},
     },
 };
-use rasm_parser::parser::ast::{ASTFunctionDef, ASTPosition};
+use rasm_parser::{
+    catalog::modules_catalog::ModulesCatalog,
+    parser::ast::{ASTFunctionDef, ASTPosition},
+};
 
 mod module_view;
 mod project_tree;
@@ -29,7 +41,6 @@ mod ui_tree;
 pub struct UI {
     project: RasmProject,
     current_module: Option<SelectedModule>,
-    target: CompileTarget,
     current_function: Option<ASTFunctionDef>,
     pane_state: pane_grid::State<UIPane>,
     modules_container: ASTModulesContainer,
@@ -37,9 +48,11 @@ pub struct UI {
     selected_token: Option<ASTPosition>,
     text_scroll_positions: HashMap<String, AbsoluteOffset>,
     static_val_context: ValContext,
+    catalog: Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>>,
 }
 
 pub struct SelectedModule {
+    info: EnhModuleInfo,
     path: String,
     type_checker_result: ASTTypeCheckerResult,
 }
@@ -118,9 +131,8 @@ impl UI {
             }
         }
 
-        let current_module = main.map(|it| {
-            Self::selected_module(&target, &project, &container, &it, &static_val_context)
-        });
+        let current_module =
+            main.map(|it| Self::selected_module(&container, &it, &static_val_context, &catalog));
 
         iced::application("Rasm project UI", UI::update, UI::view)
             .theme(|_ui| Theme::Dark)
@@ -132,7 +144,6 @@ impl UI {
                 (
                     UI {
                         project,
-                        target,
                         current_module,
                         current_function: None,
                         pane_state,
@@ -141,6 +152,7 @@ impl UI {
                         selected_token: None,
                         text_scroll_positions: HashMap::new(),
                         static_val_context,
+                        catalog: Box::new(catalog),
                     },
                     Task::none(),
                 )
@@ -184,11 +196,10 @@ impl UI {
             }
             Message::Module(s) => {
                 self.current_module = Some(Self::selected_module(
-                    &self.target,
-                    &self.project,
                     &self.modules_container,
                     &s,
                     &self.static_val_context,
+                    self.catalog.as_ref(),
                 ));
 
                 let scroll_position = if let Some(position) = self.text_scroll_positions.get(&s) {
@@ -218,25 +229,31 @@ impl UI {
     }
 
     fn selected_module(
-        target: &CompileTarget,
-        project: &RasmProject,
         modules_container: &ASTModulesContainer,
         path: &str,
         static_val_context: &ValContext,
+        catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> SelectedModule {
-        let type_checker_result =
-            if let Some((module, errors, info)) = project.get_module(&Path::new(path), target) {
+        let module_info = catalog
+            .info(&EnhModuleId::Path(PathBuf::from(path)))
+            .unwrap();
+        let (enh_id, enh_ns) = catalog.catalog_info(module_info.id()).unwrap();
+        let info = EnhModuleInfo::new(enh_id.clone(), enh_ns.clone());
+
+        let (type_checker_result, info) =
+            if let Some(module) = modules_container.module(module_info.id()) {
                 let mut ast_type_checker = ASTTypeChecker::new();
                 let mut val_context = ValContext::new(None);
 
                 let start = Instant::now();
-
+                /*
                 if !errors.is_empty() {
                     println!("compilation errors");
                     for error in errors {
                         println!("{error}");
                     }
                 }
+                */
 
                 let mut tmp_static_val_context = ValContext::new(None);
 
@@ -251,10 +268,10 @@ impl UI {
                     None,
                 );
 
-                for function in module.functions {
+                for function in module.functions.iter() {
                     let start_function = Instant::now();
                     ast_type_checker.add_function(
-                        &function, //.fix_namespaces(&em).fix_generics(),
+                        function, //.fix_namespaces(&em).fix_generics(),
                         static_val_context,
                         &info.module_namespace(),
                         &info.module_id(),
@@ -279,14 +296,18 @@ impl UI {
 
                 println!("selected_module takes {:?}", start.elapsed());
 
-                ast_type_checker.result
+                (ast_type_checker.result, info)
             } else {
-                ASTTypeCheckerResult::new()
+                (
+                    ASTTypeCheckerResult::new(),
+                    EnhModuleInfo::new(EnhModuleId::none(), EnhASTNameSpace::global()),
+                )
             };
 
         // enhanced_ast_module.print();
 
         SelectedModule {
+            info,
             path: path.to_string(),
             type_checker_result,
         }

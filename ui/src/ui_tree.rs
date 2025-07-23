@@ -1,10 +1,9 @@
 use iced::{
-    widget::{button, horizontal_space, row, text, Column, Row}, Element,
+    widget::{button, horizontal_space, row, text, Column, Row},
+    Element,
 };
 
-pub struct UITree<'a, Message> {
-    column: Column<'a, Message>,
-}
+pub struct UITree {}
 
 pub enum UINode<'a, Message>
 where
@@ -31,15 +30,6 @@ where
     UINode::Leaf(element.into())
 }
 
-impl<'a, Message> UINode<'a, Message>
-where
-    Message: Clone,
-{
-    pub fn new(root: UINode<'a, Message>) -> Self {
-        root
-    }
-}
-
 pub fn ui_tree<'a, Message>(root: UINode<'a, Message>) -> Column<'a, Message>
 where
     Message: 'a + Clone,
@@ -47,16 +37,16 @@ where
     UITree::new(root)
 }
 
-impl<'a, Message> UITree<'a, Message>
-where
-    Message: 'a + Clone,
-{
-    pub fn new(root: UINode<'a, Message>) -> Column<Message> {
+impl UITree {
+    pub fn new<'a, Message>(root: UINode<'a, Message>) -> Column<Message>
+    where
+        Message: 'a + Clone,
+    {
         let column = Column::new();
         Self::add_to_tree(column, 0, root)
     }
 
-    fn add_to_tree(
+    fn add_to_tree<'a, Message>(
         tree: Column<'a, Message>,
         indent: usize,
         node: UINode<'a, Message>,
@@ -89,7 +79,7 @@ where
         new_tree
     }
 
-    fn indent_row(indent: usize, element: Element<'a, Message>) -> Element<Message>
+    fn indent_row<'a, Message>(indent: usize, element: Element<'a, Message>) -> Element<Message>
     where
         Message: 'a + Clone,
     {
@@ -100,37 +90,3 @@ where
         row.into()
     }
 }
-
-/*
-impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer> for UITree<'a, Message>
-where
-    Renderer: renderer::Renderer,
-{
-    fn size(&self) -> iced::Size<iced::Length> {
-        Size::new(iced::Length::Fill, iced::Length::Fill)
-    }
-
-    fn layout(
-        &self,
-        tree: &mut widget::Tree,
-        renderer: &Renderer,
-        limits: &iced::advanced::layout::Limits,
-    ) -> iced::advanced::layout::Node {
-        Node::new(Size::new(100.0, 100.0))
-    }
-
-    fn draw(
-        &self,
-        tree: &widget::Tree,
-        renderer: &mut Renderer,
-        theme: &Theme,
-        style: &renderer::Style,
-        layout: iced::advanced::Layout<'_>,
-        cursor: iced::advanced::mouse::Cursor,
-        viewport: &iced::Rectangle,
-    ) {
-        self.column
-            .draw(tree, renderer, theme, style, layout, cursor, viewport);
-    }
-}
-*/

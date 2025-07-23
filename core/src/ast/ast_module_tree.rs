@@ -8,6 +8,7 @@ use rasm_parser::parser::ast::{
 pub enum ASTElement<'a> {
     Statement(&'a ASTStatement),
     Expression(&'a ASTExpression),
+    LambdaParam(String, ASTPosition),
 }
 
 impl ASTElement<'_> {
@@ -15,6 +16,7 @@ impl ASTElement<'_> {
         match self {
             ASTElement::Statement(statement) => statement.position(),
             ASTElement::Expression(expression) => expression.position(),
+            ASTElement::LambdaParam(_, astposition) => astposition,
         }
     }
 }
@@ -115,8 +117,18 @@ impl<'a> ASTModuleTree<'a> {
                 }
             }
             ASTExpression::Lambda(astlambda_def) => {
-                for argument in astlambda_def.body.iter() {
-                    Self::add_statement(argument, elements, Some(position.id));
+                for (argument_name, argument_position) in astlambda_def.parameter_names.iter() {
+                    let argument_element = ASTModuleTreeItem {
+                        element: ASTElement::LambdaParam(
+                            argument_name.to_owned(),
+                            argument_position.clone(),
+                        ),
+                        parent: Some(position.id),
+                    };
+                    elements.insert(argument_position.id, argument_element);
+                }
+                for statement in astlambda_def.body.iter() {
+                    Self::add_statement(statement, elements, Some(position.id));
                 }
             }
             _ => {}
