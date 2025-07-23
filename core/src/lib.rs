@@ -1,3 +1,4 @@
+pub mod ast;
 pub mod codegen;
 pub mod commandline;
 pub mod enh_type_check;

@@ -1475,21 +1475,24 @@ mod tests {
     use rasm_utils::{test_utils::init_minimal_log, OptionDisplay, SliceDisplay};
 
     use crate::{
+        ast::ast_module_tree::ASTModuleTree,
         codegen::{
             c::options::COptions,
             compile_target::CompileTarget,
             enh_ast::{EnhASTNameSpace, EnhModuleId, EnhModuleInfo},
+            statics::Statics,
             val_context::ValContext,
         },
         project::{RasmProject, RasmProjectRunType},
         test_utils::project_and_container,
+        transformations::enrich_container,
         type_check::{
             ast_modules_container::ASTModulesContainer,
-            ast_type_checker::{ASTTypeCheckErroKind, ASTTypeCheckInfo},
+            ast_type_checker::{ASTTypeCheckEntry, ASTTypeCheckErroKind, ASTTypeCheckInfo},
         },
     };
     use rasm_parser::{
-        catalog::{modules_catalog::ModulesCatalog, ASTIndex},
+        catalog::modules_catalog::ModulesCatalog,
         parser::ast::{
             ASTExpression, ASTFunctionCall, ASTLambdaDef, ASTModule, ASTPosition, ASTStatement,
             ASTValueType,
@@ -1530,19 +1533,9 @@ mod tests {
     fn test_functions_checker1() {
         let file = "resources/test/ast_type_checker/ast_type_checker1.rasm";
 
-        let (types_map, info) = check_body(file);
+        let (types_map, _info, module) = check_body(file);
 
-        /*
-        for (key, value) in types_map.map.iter() {
-            println!("types_map {key} = {value:?}");
-        }
-        */
-
-        let r_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(1, 5),
-        ));
+        let r_value = get_type_check_entry(&module, &types_map, 1, 5);
 
         assert_eq!(
             "Some(Exact(Option<i32>))",
@@ -1557,13 +1550,9 @@ mod tests {
     fn test_functions_checker2() {
         let file = "resources/test/ast_type_checker/ast_type_checker2.rasm";
 
-        let (types_map, info) = check_body(file);
+        let (types_map, _info, module) = check_body(file);
 
-        let r_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(1, 5),
-        ));
+        let r_value = get_type_check_entry(&module, &types_map, 1, 5);
 
         assert_eq!(
             "Some(Exact(Option<i32>))",
@@ -1572,25 +1561,15 @@ mod tests {
                 OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
             )
         );
-
-        /*
-        for (index, type_filter) in result {
-            println!("{index} {type_filter}");
-        }
-        */
     }
 
     #[test]
     fn test_functions_checker3() {
         let file = "resources/test/ast_type_checker/ast_type_checker3.rasm";
 
-        let (types_map, info) = check_body(file);
+        let (types_map, info, module) = check_body(file);
 
-        let r_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(1, 5),
-        ));
+        let r_value = get_type_check_entry(&module, &types_map, 1, 5);
 
         assert_eq!(
             "Some(Exact(Option<i32>))",
@@ -1599,12 +1578,6 @@ mod tests {
                 OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
             )
         );
-
-        /*
-        for (index, type_filter) in result {
-            println!("{index} {type_filter}");
-        }
-        */
     }
 
     #[test]
@@ -1613,13 +1586,9 @@ mod tests {
 
         let file = "resources/test/ast_type_checker/ast_type_checker9.rasm";
 
-        let (types_map, info) = check_body(file);
+        let (types_map, _info, module) = check_body(file);
 
-        let none_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(1, 28),
-        ));
+        let none_value = get_type_check_entry(&module, &types_map, 1, 28);
 
         assert_eq!(
             "Some(Exact(Option<i32>))",
@@ -1636,13 +1605,9 @@ mod tests {
 
         let file = "resources/test/ast_type_checker/ast_type_checker10.rasm";
 
-        let (types_map, info) = check_body(file);
+        let (types_map, _info, module) = check_body(file);
 
-        let none_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(1, 18),
-        ));
+        let none_value = get_type_check_entry(&module, &types_map, 1, 18);
 
         assert_eq!(
             "Some(Exact(Option<i32>))",
@@ -1659,13 +1624,9 @@ mod tests {
 
         let file = "resources/test/ast_type_checker/ast_type_checker11.rasm";
 
-        let (types_map, info) = check_body(file);
+        let (types_map, _info, module) = check_body(file);
 
-        let none_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(1, 20),
-        ));
+        let none_value = get_type_check_entry(&module, &types_map, 1, 20);
 
         assert_eq!(
             "Some(Exact(Option<i32>))",
@@ -1680,13 +1641,9 @@ mod tests {
     fn test_functions_checker4() {
         let file = "resources/test/ast_type_checker/ast_type_checker4.rasm";
 
-        let (types_map, info) = check_body(file);
+        let (types_map, _info, module) = check_body(file);
 
-        let r_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(1, 5),
-        ));
+        let r_value = get_type_check_entry(&module, &types_map, 1, 5);
 
         assert_eq!(
             "Some(Exact(Option<i32>))",
@@ -1695,25 +1652,15 @@ mod tests {
                 OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
             )
         );
-
-        /*
-        for (index, type_filter) in result {
-            println!("{index} {type_filter}");
-        }
-        */
     }
 
     #[test]
     fn test_functions_checker5() {
         let file = "resources/test/ast_type_checker/ast_type_checker5.rasm";
 
-        let (types_map, info) = check_body(file);
+        let (types_map, _info, module) = check_body(file);
 
-        let r_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(1, 5),
-        ));
+        let r_value = get_type_check_entry(&module, &types_map, 1, 5);
 
         assert_eq!(
             "Some(Exact(List<Option<i32>>))",
@@ -1730,13 +1677,9 @@ mod tests {
 
         let file = "resources/test/ast_type_checker/ast_type_checker6.rasm";
 
-        let (types_map, info) = check_function(file, "endsWith");
+        let (types_map, _info, module) = check_function(file, "endsWith");
 
-        let r_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(3, 9),
-        ));
+        let r_value = get_type_check_entry(&module, &types_map, 3, 9);
 
         assert_eq!(
             "Some(Exact(Option<ast_type_checker6_ast_type_checker6_endsWith:T>))",
@@ -1753,13 +1696,9 @@ mod tests {
 
         let file = "resources/test/ast_type_checker/ast_type_checker6.rasm";
 
-        let (types_map, info) = check_function(file, "endsWith1");
+        let (types_map, _info, module) = check_function(file, "endsWith1");
 
-        let r_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(13, 9),
-        ));
+        let r_value = get_type_check_entry(&module, &types_map, 13, 9);
 
         assert_eq!(
             "Some(Exact(Option<ast_type_checker6_ast_type_checker6_endsWith1:T>))",
@@ -1774,13 +1713,9 @@ mod tests {
     fn test_functions_checker7() {
         let file = "resources/test/ast_type_checker/ast_type_checker7.rasm";
 
-        let (types_map, info) = check_function(file, "endsWith");
+        let (types_map, _info, module) = check_function(file, "endsWith");
 
-        let r_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(4, 14),
-        ));
+        let r_value = get_type_check_entry(&module, &types_map, 4, 14);
 
         assert_eq!(
             "Some(Exact(ast_type_checker7_ast_type_checker7_endsWith:T))",
@@ -1790,11 +1725,7 @@ mod tests {
             )
         );
 
-        let r_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(3, 19),
-        ));
+        let r_value = get_type_check_entry(&module, &types_map, 3, 19);
 
         assert_eq!(
             "Some(Exact(ast_type_checker7_ast_type_checker7_endsWith:T))",
@@ -1809,13 +1740,9 @@ mod tests {
     fn test_functions_checker8() {
         let file: &str = "resources/test/ast_type_checker/ast_type_checker8.rasm";
 
-        let (types_map, info) = check_function(file, "generic");
+        let (types_map, _info, module) = check_function(file, "generic");
 
-        let r_value = types_map.get_by_index(&ASTIndex::new(
-            info.module_namespace(),
-            info.module_id(),
-            ASTPosition::new(9, 13),
-        ));
+        let r_value = get_type_check_entry(&module, &types_map, 9, 13);
 
         assert_eq!(
             "Some(Exact(ast_type_checker8_ast_type_checker8_generic:T))",
@@ -1898,6 +1825,8 @@ mod tests {
         let (container, catalog, _errors) =
             project.container_and_catalog(&RasmProjectRunType::Main, &target);
 
+        let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
+
         let mut type_checker = ASTTypeChecker::new();
         let mut val_context = ValContext::new(None);
         let mut statics = ValContext::new(None);
@@ -1926,10 +1855,13 @@ mod tests {
 
         let t = ASTExpression::Value(ASTValueType::Boolean(true), ASTPosition::new(2, 8));
 
+        let call_position = ASTPosition::new(2, 5);
+        let id = call_position.id;
+
         let call = ASTFunctionCall::new(
             "if".to_owned(),
             vec![t, l],
-            ASTPosition::new(2, 5),
+            call_position,
             Vec::new(),
             None,
             false,
@@ -1946,12 +1878,10 @@ mod tests {
             None,
         );
 
-        if let Some(index) = index(&catalog, "../rasm/resources/test/lambda2.rasm", 2, 5) {
-            if let Some(entry) = type_checker.result.get_by_index(&index) {
-                if let Some((t, _)) = entry.exact() {
-                    assert_eq!("If<fn () -> Option<i32>>", &format!("{t}"));
-                    return;
-                }
+        if let Some(entry) = type_checker.result.get(id) {
+            if let Some((t, _)) = entry.exact() {
+                assert_eq!("If<fn () -> Option<i32>>", &format!("{t}"));
+                return;
             }
         }
 
@@ -1970,6 +1900,8 @@ mod tests {
 
         let (container, catalog, _errors) =
             project.container_and_catalog(&RasmProjectRunType::Main, &target);
+
+        let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
 
         let mut type_checker = ASTTypeChecker::new();
         let mut val_context = ValContext::new(None);
@@ -2018,11 +1950,18 @@ mod tests {
     fn test_print() {
         init_minimal_log();
 
-        let (tc, catalog, _) = check_project("../stdlib");
-        if let Some(entry) = tc
-            .result
-            .get_by_index(&index(&catalog, "../stdlib/src/main/rasm/print.rasm", 13, 5).unwrap())
-        {
+        let (tc, catalog, _, container) = check_project("../stdlib");
+
+        let id = get_id(
+            "../stdlib/src/main/rasm/print.rasm",
+            catalog,
+            &container,
+            13,
+            5,
+        )
+        .unwrap();
+
+        if let Some(entry) = tc.result.get(id) {
             if let ASTTypeCheckInfo::Call(_, vec) = &entry.info {
                 let mut v = vec.iter().map(|it| format!("{}", it.0)).collect::<Vec<_>>();
                 v.sort();
@@ -2039,38 +1978,61 @@ mod tests {
         panic!()
     }
 
-    fn test_single_file(path: &str, row: usize, column: usize, expected: &str) {
-        let (type_checker, catalog, _) = check_project(path);
+    fn get_type_check_entry<'a>(
+        module: &ASTModule,
+        types_map: &'a ASTTypeCheckerResult,
+        row: usize,
+        column: usize,
+    ) -> Option<&'a ASTTypeCheckEntry> {
+        let tree = ASTModuleTree::new(module);
+        let id = tree
+            .get_elements_at(row, column)
+            .get(0)
+            .unwrap()
+            .element
+            .position()
+            .id;
 
-        if let Some(index) = index(&catalog, path, row, column) {
-            if let Some(entry) = type_checker.result.get_by_index(&index) {
+        types_map.get(id)
+    }
+
+    fn test_single_file(path: &str, row: usize, column: usize, expected: &str) {
+        let (type_checker, catalog, _, container) = check_project(path);
+
+        if let Some(id) = get_id(path, catalog, &container, row, column) {
+            if let Some(entry) = type_checker.result.get(id) {
                 if let Some((t, _)) = entry.exact() {
                     assert_eq!(expected, &format!("{t}"));
                     return;
                 }
             }
         }
+
         panic!();
     }
 
-    fn index(
-        catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    fn get_id(
         path: &str,
+        catalog: impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        container: &ASTModulesContainer,
         row: usize,
-        col: usize,
-    ) -> Option<ASTIndex> {
+        column: usize,
+    ) -> Option<usize> {
         if let Some(info) = catalog.info(&EnhModuleId::Path(
             PathBuf::from_str(path).unwrap().canonicalize().unwrap(),
         )) {
-            let index = ASTIndex::new(
-                info.namespace().clone(),
-                info.id().clone(),
-                ASTPosition::new(row, col),
+            let module = container.module(info.id()).unwrap();
+            let tree = ASTModuleTree::new(module);
+            return Some(
+                tree.get_elements_at(row, column)
+                    .get(0)
+                    .unwrap()
+                    .element
+                    .position()
+                    .id,
             );
-            Some(index)
-        } else {
-            None
         }
+        None
     }
 
     fn check_project(
@@ -2079,6 +2041,7 @@ mod tests {
         ASTTypeChecker,
         impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
         ValContext,
+        ASTModulesContainer,
     ) {
         env::set_var("RASM_STDLIB", "../stdlib");
         let project = RasmProject::new(PathBuf::from(path));
@@ -2087,6 +2050,10 @@ mod tests {
 
         let (container, catalog, _errors) =
             project.container_and_catalog(&RasmProjectRunType::Main, &target);
+
+        let mut statics = &mut Statics::new();
+
+        let container = enrich_container(&target, &mut statics, container, &catalog, false);
 
         let result = ASTTypeChecker::from_modules_container(&container);
 
@@ -2107,10 +2074,10 @@ mod tests {
             panic!();
         }
 
-        (result.0, catalog, result.1)
+        (result.0, catalog, result.1, container)
     }
 
-    fn check_body(file: &str) -> (ASTTypeCheckerResult, EnhModuleInfo) {
+    fn check_body(file: &str) -> (ASTTypeCheckerResult, EnhModuleInfo, ASTModule) {
         apply_to_functions_checker(file, file, |module, mut ftc, info, cont| {
             for e in ftc.errors.iter() {
                 println!("type checker error {e}");
@@ -2131,7 +2098,10 @@ mod tests {
         })
     }
 
-    fn check_function(file: &str, function_name: &str) -> (ASTTypeCheckerResult, EnhModuleInfo) {
+    fn check_function(
+        file: &str,
+        function_name: &str,
+    ) -> (ASTTypeCheckerResult, EnhModuleInfo, ASTModule) {
         apply_to_functions_checker(file, file, |module, mut ftc, info, cont| {
             let function = module
                 .functions
@@ -2156,7 +2126,7 @@ mod tests {
         project_path: &str,
         file: &str,
         f: F,
-    ) -> (ASTTypeCheckerResult, EnhModuleInfo)
+    ) -> (ASTTypeCheckerResult, EnhModuleInfo, ASTModule)
     where
         F: Fn(
             &ASTModule,
@@ -2179,6 +2149,7 @@ mod tests {
                 modules_container,
             ),
             info,
+            module,
         )
     }
 }

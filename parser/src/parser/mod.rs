@@ -1663,7 +1663,7 @@ mod tests {
         println!("errors {}", SliceDisplay(&errors));
 
         let error = errors.remove(0);
-        assert_eq!(error.message, "Unexpected token `->`".to_string());
+        assert_eq!(error.message, "Unexpected token processing statement `->`".to_string());
     }
 
     #[test]

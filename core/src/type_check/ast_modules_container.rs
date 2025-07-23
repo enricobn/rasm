@@ -837,8 +837,9 @@ mod tests {
     use rasm_parser::parser::ast::{ASTPosition, ASTType, BuiltinTypeKind};
 
     use crate::{
-        codegen::{c::options::COptions, compile_target::CompileTarget},
+        codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
         project::{RasmProject, RasmProjectRunType},
+        transformations::enrich_container,
         type_check::ast_modules_container::ModuleNamespace,
     };
 
@@ -897,10 +898,10 @@ mod tests {
         let project = RasmProject::new(PathBuf::from(project_path));
         let target = CompileTarget::C(COptions::default());
 
-        let (container, _catalog, _errors) =
+        let (container, catalog, _errors) =
             project.container_and_catalog(&RasmProjectRunType::Main, &target);
 
-        container
+        enrich_container(&target, &mut Statics::new(), container, &catalog, false)
     }
 
     fn exact_builtin(kind: BuiltinTypeKind) -> ASTTypeFilter {

@@ -983,6 +983,7 @@ mod tests {
     use crate::codegen::c::options::COptions;
     use crate::codegen::{AsmOptions, CodeGen};
     use rasm_parser::parser::ast::ASTModifiers;
+    use rasm_utils::SliceDisplay;
 
     use crate::codegen::enh_ast::{
         EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef,
@@ -1256,8 +1257,11 @@ mod tests {
         );
 
         assert_eq!(
-            "Ok([(TextMacro { name: \"call\", parameters: [Plain(\"List_0_addRef\", None, None), Ref(\"$s\", Some(Builtin(I32)), None)], index: EnhASTIndex { file_name: None, row: 0, column: 0, builtin: None } }, 0)])",
-            &format!("{:?}", result),
+            "$call(Plain(List_0_addRef, None, None), Ref($s, Some(i32), None))",
+            &format!(
+                "{}",
+                SliceDisplay(&result.unwrap().iter().map(|(a, b)| a).collect::<Vec<_>>())
+            ),
         );
     }
 

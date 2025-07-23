@@ -226,8 +226,8 @@ fn is_macro_result(ast_type: &ASTType) -> bool {
     match ast_type {
         ASTType::Custom {
             name,
-            param_types,
-            position,
+            param_types: _,
+            position: _,
         } => name == "MacroResult",
         _ => false,
     }

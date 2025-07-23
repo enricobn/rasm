@@ -1,8 +1,11 @@
 use std::{env, path::PathBuf};
 
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
+
 use crate::{
     codegen::{
-        compile_target::CompileTarget, enhanced_module::EnhancedASTModule, statics::Statics,
+        compile_target::CompileTarget, enh_ast::EnhModuleInfo, enhanced_module::EnhancedASTModule,
+        statics::Statics,
     },
     enh_type_check::typed_ast::{convert_to_typed_module, ASTTypedModule},
     errors::CompilationError,
@@ -29,19 +32,10 @@ pub fn project_and_container(
     let rasm_project = RasmProject::new(PathBuf::from(project_path));
     let project = rasm_project;
 
-    let (modules, _errors) = project.get_all_modules(&RasmProjectRunType::Main, &target);
+    let (container, catalog, _errors) =
+        project.container_and_catalog(&RasmProjectRunType::Main, &target);
 
-    let mut container = ASTModulesContainer::new();
-
-    for (module, info) in modules.into_iter() {
-        container.add(
-            module,
-            info.module_namespace(),
-            info.module_id(),
-            false,
-            !info.namespace.is_same_lib(&project.config.package.name),
-        );
-    }
+    let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
 
     (project, container)
 }
@@ -54,11 +48,18 @@ pub fn project_to_ast_typed_module(
 
     let run_type = RasmProjectRunType::Main;
 
-    let (modules, _errors) = project.get_all_modules(&run_type, &target);
-
     let (container, catalog, _) = project.container_and_catalog(&run_type, &target);
 
     let container = enrich_container(target, &mut statics, container, &catalog, false);
+
+    let modules = container
+        .modules()
+        .into_iter()
+        .map(|(id, _, m)| {
+            let (eh_id, eh_ns) = catalog.catalog_info(id).unwrap();
+            (m.clone(), EnhModuleInfo::new(eh_id.clone(), eh_ns.clone()))
+        })
+        .collect::<Vec<_>>();
 
     let (module, errors) =
         EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, true);

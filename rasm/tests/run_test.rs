@@ -464,7 +464,7 @@ fn test_allocation() {
     run_test_with_target(
         "allocation",
         vec![],
-        "56 bytes allocated and referenced\n1,2\n56 bytes allocated and referenced\n",
+        "80 bytes allocated and referenced\n1,2\n80 bytes allocated and referenced\n",
         CompileTarget::Nasmi386(AsmOptions::default()),
     );
     // TODO C

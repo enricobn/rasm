@@ -1286,6 +1286,7 @@ mod tests {
     use rasm_core::codegen::enhanced_module::EnhancedASTModule;
     use rasm_core::codegen::statics::Statics;
     use rasm_core::project::{RasmProject, RasmProjectRunType};
+    use rasm_core::transformations::{enrich_container, enrich_module};
     use rasm_parser::parser::ast::{ASTBuiltinFunctionType, ASTPosition};
     use rasm_utils::{OptionDisplay, SliceDisplay};
 
@@ -2147,7 +2148,10 @@ mod tests {
             panic!("{}", SliceDisplay(&errors));
         }
 
-        let (module, errors, info) = project.get_module(Path::new(module_path), &target).unwrap();
+        let (mut module, errors, info) =
+            project.get_module(Path::new(module_path), &target).unwrap();
+
+        enrich_module(&target, &mut statics, &mut module, false, &info);
 
         if !errors.is_empty() {
             panic!("{}", SliceDisplay(&errors));
@@ -2188,10 +2192,12 @@ mod tests {
             RasmProject::new(PathBuf::from(file_name))
         };
 
-        let (container, catalog, _) = project.container_and_catalog(
-            &RasmProjectRunType::Main,
-            &CompileTarget::C(COptions::default()),
-        );
+        let target = CompileTarget::C(COptions::default());
+
+        let (container, catalog, _) =
+            project.container_and_catalog(&RasmProjectRunType::Main, &target);
+
+        let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
 
         let (eh_module, module) = get_reference_finder_for_project(&project, file_name);
         let finder = ReferenceFinder::new(
