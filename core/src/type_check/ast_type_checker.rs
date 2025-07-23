@@ -1567,7 +1567,7 @@ mod tests {
     fn test_functions_checker3() {
         let file = "resources/test/ast_type_checker/ast_type_checker3.rasm";
 
-        let (types_map, info, module) = check_body(file);
+        let (types_map, _, module) = check_body(file);
 
         let r_value = get_type_check_entry(&module, &types_map, 1, 5);
 

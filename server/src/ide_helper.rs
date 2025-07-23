@@ -343,7 +343,7 @@ impl IDEHelper {
             */
         }
 
-        for (index, entry) in type_checker.result.map.iter() {
+        for entry in type_checker.result.map.values() {
             let ast_type = entry.filter().clone().and_then(|it| {
                 if let ASTTypeFilter::Exact(exact, _id) = it {
                     Some(exact)

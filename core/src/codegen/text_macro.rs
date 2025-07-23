@@ -1260,7 +1260,7 @@ mod tests {
             "$call(Plain(List_0_addRef, None, None), Ref($s, Some(i32), None))",
             &format!(
                 "{}",
-                SliceDisplay(&result.unwrap().iter().map(|(a, b)| a).collect::<Vec<_>>())
+                SliceDisplay(&result.unwrap().iter().map(|(a, _)| a).collect::<Vec<_>>())
             ),
         );
     }

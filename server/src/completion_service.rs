@@ -18,15 +18,11 @@
 
 use std::collections::HashSet;
 use std::fmt::Display;
-use std::io;
 
-use rasm_core::codegen::enh_ast::{EnhASTFunctionDef, EnhASTIndex, EnhASTType, EnhBuiltinTypeKind};
+use rasm_core::codegen::enh_ast::{EnhASTFunctionDef, EnhASTType, EnhBuiltinTypeKind};
 use rasm_core::enh_type_check::enh_type_check::EnhTypeCheck;
-use rasm_core::enh_type_check::typed_ast::ASTTypedType;
 use rasm_parser::parser::ast::{ASTFunctionSignature, ASTType, BuiltinTypeKind};
 use rasm_utils::OptionDisplay;
-
-use crate::file_token::FileToken;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct CompletionItem {
@@ -261,30 +257,6 @@ pub enum CompletionTrigger {
     Invoked,
     Character(char),
     IncompleteCompletion,
-}
-
-pub enum CompletableItemResult {
-    Found(CompletableItem),
-    NotFound(String),
-}
-
-#[derive(Clone)]
-pub struct CompletableItem {
-    file_token: FileToken,
-    ast_typed_type: ASTTypedType,
-}
-
-impl CompletableItem {
-    fn new(start: EnhASTIndex, len: usize, ast_typed_type: ASTTypedType) -> Self {
-        Self {
-            file_token: FileToken::new(start, len),
-            ast_typed_type,
-        }
-    }
-
-    fn contains(&self, index: &EnhASTIndex) -> io::Result<bool> {
-        self.file_token.contains(index)
-    }
 }
 
 #[cfg(test)]
