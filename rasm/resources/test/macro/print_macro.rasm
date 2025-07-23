@@ -1,7 +1,7 @@
 let h = "guy";
 let w = "how do you do";
 
-mprintln!("Hello {}, {}?", h, w);
+println!("Hello {}, {}?", h, w);
 
 /*
 mprintln("{}, {}!", ASTExpression::Value(ASTValueType::ASTString(h)), ASTExpression::Value(ASTValueType::ASTString(w))).match(
@@ -9,7 +9,7 @@ mprintln("{}, {}!", ASTExpression::Value(ASTValueType::ASTString(h)), ASTExpress
     fn(error)  { println(error);  });
 */
 
-pub fn mprintln(s: str, e1: ASTExpression, e2: ASTExpression) -> MacroResult {
+pub fn println(s: str, e1: ASTExpression, e2: ASTExpression) -> MacroResult {
     let indexes = s.find("{}");
 
     let result = indexes.enumerate.foldLeft(Pair(0, Vec<ASTExpression>()), fn(prev,e) {

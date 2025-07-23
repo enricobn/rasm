@@ -118,8 +118,9 @@ fn transform_macro_calls_in_body(
                         .into_iter()
                         .filter(|it| &it.signature.name == call.function_name())
                         .filter(|it| {
-                            it.signature.modifiers.public
-                                || it.module_info().namespace() == module_namespace
+                            (it.signature.modifiers.public
+                                || it.module_info().namespace() == module_namespace)
+                                && is_macro_result(&it.signature.return_type)
                         })
                         .collect::<Vec<_>>();
                     if functions_vec.is_empty() {
@@ -219,6 +220,17 @@ fn transform_macro_calls_in_body(
         new_statements.push(statement.clone());
     }
     new_statements
+}
+
+fn is_macro_result(ast_type: &ASTType) -> bool {
+    match ast_type {
+        ASTType::Custom {
+            name,
+            param_types,
+            position,
+        } => name == "MacroResult",
+        _ => false,
+    }
 }
 
 fn convert_to_rasm_expression(
