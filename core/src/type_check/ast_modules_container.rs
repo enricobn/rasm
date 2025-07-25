@@ -17,8 +17,11 @@ use rasm_parser::{
     },
 };
 
-use crate::type_check::{
-    ast_generic_types_resolver::ASTResolvedGenericTypes, ast_type_checker::ASTTypeChecker,
+use crate::{
+    ast::ast_module_tree::ASTModuleTree,
+    type_check::{
+        ast_generic_types_resolver::ASTResolvedGenericTypes, ast_type_checker::ASTTypeChecker,
+    },
 };
 
 #[derive(Clone)]
@@ -134,6 +137,7 @@ pub struct ASTModulesContainer {
     functions_by_index: HashMap<ASTIndex, ASTFunctionDef>,
     readonly_modules: HashSet<ModuleId>,
     modules: HashMap<ModuleId, (ASTModule, ModuleNamespace)>,
+    //trees: HashMap<ModuleId, ASTModuleTree<'a>>,
 }
 
 impl ASTModulesContainer {
@@ -146,6 +150,7 @@ impl ASTModulesContainer {
             functions_by_index: HashMap::new(),
             readonly_modules: HashSet::new(),
             modules: HashMap::new(),
+            //trees: HashMap::new(),
         }
     }
 
@@ -261,6 +266,10 @@ impl ASTModulesContainer {
         if readonly {
             self.readonly_modules.insert(module_id.clone());
         }
+
+        // let tree = ASTModuleTree::new(&module);
+        // self.trees.insert(module_id.clone(), tree);
+
         self.modules
             .insert(module_id.clone(), (module, namespace.clone()));
     }
@@ -514,6 +523,10 @@ impl ASTModulesContainer {
             v.retain(|(info, _)| info.id() != module_id);
         }
         self.modules.remove(module_id)
+    }
+
+    pub fn tree(&self, id: &ModuleId) -> Option<ASTModuleTree> {
+        self.module(id).map(|it| ASTModuleTree::new(it))
     }
 
     fn is_compatible(

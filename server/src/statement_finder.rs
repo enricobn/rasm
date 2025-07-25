@@ -1,4 +1,7 @@
-use rasm_core::type_check::ast_modules_container::ASTModulesContainer;
+use rasm_core::{
+    ast::ast_module_tree::ASTModuleTreeLocation,
+    type_check::ast_modules_container::ASTModulesContainer,
+};
 use rasm_parser::{
     catalog::ASTIndex,
     parser::ast::{
@@ -38,7 +41,21 @@ impl StatementFinder {
         modules_container: &ASTModulesContainer,
     ) -> Option<ASTPosition> {
         if let Some(module_position) = Self::module_position(index, modules_container) {
-            Self::find_body(index.position(), &module_position.body())
+            let tree = modules_container.tree(index.module_id()).unwrap();
+            let module = modules_container.module(index.module_id()).unwrap();
+
+            let body = match module_position {
+                ASTModuleTreeLocation::Body => Some(&module.body),
+                ASTModuleTreeLocation::Function(id) => tree.get_function(id).and_then(|it| {
+                    if let ASTFunctionBody::RASMBody(body) = &it.body {
+                        Some(body)
+                    } else {
+                        None
+                    }
+                }),
+            };
+
+            body.and_then(|it| Self::find_body(index.position(), it))
         } else {
             None
         }
@@ -47,8 +64,21 @@ impl StatementFinder {
     pub fn module_position<'a>(
         index: &ASTIndex,
         modules_container: &'a ASTModulesContainer,
-    ) -> Option<ModulePosition<'a>> {
-        if let Some(module) = modules_container.module(index.module_id()) {
+    ) -> Option<ASTModuleTreeLocation> {
+        if let Some(tree) = modules_container.tree(index.module_id()) {
+            let items = tree.get_elements_at(index.position().row, index.position().column);
+            let position = if items.len() == 1 {
+                items[0].element.position()
+            } else {
+                index.position()
+            };
+
+            return match tree.get_statement_position(position.row, position.column) {
+                Some(location) => Some(location),
+                None => Some(ASTModuleTreeLocation::Body),
+            };
+
+            /*
             let mut functions_positions = module
                 .functions
                 .iter()
@@ -84,6 +114,7 @@ impl StatementFinder {
                     return Some(ModulePosition::Function(module, &function));
                 }
             }
+            */
         }
         None
     }

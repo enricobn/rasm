@@ -3,6 +3,8 @@ use std::fmt::{Display, Formatter};
 use std::io;
 
 use linked_hash_map::LinkedHashMap;
+
+use rasm_core::ast::ast_module_tree::{ASTModuleTree, ASTModuleTreeLocation};
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::statics::Statics;
@@ -18,14 +20,14 @@ use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast::{
     ASTBuiltinFunctionType, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTModifiers,
-    ASTParameterDef, ASTPosition, ASTStatement, ASTType, BuiltinTypeKind, CustomTypeDef,
+    ASTModule, ASTParameterDef, ASTPosition, ASTStatement, ASTType, BuiltinTypeKind, CustomTypeDef,
 };
 use rasm_parser::parser::Parser;
 use rasm_utils::OptionDisplay;
 
 use crate::ast_tree::{ASTElement, ASTTree};
 use crate::completion_service::{CompletionItem, CompletionResult, CompletionTrigger};
-use crate::statement_finder::{ModulePosition, StatementFinder};
+use crate::statement_finder::StatementFinder;
 use crate::text_lines::{CharAtResult, TextLines};
 
 pub enum IDESymbolKind {
@@ -823,18 +825,23 @@ impl IDEHelper {
         if let Some(pos) = StatementFinder::module_position(index, modules_container) {
             let id_index = index.mv_left(prefix.len());
             let mut references = Vec::new();
+            let module = modules_container.module(module_info.id()).unwrap();
+            let tree = modules_container.tree(module_info.id()).unwrap();
+
             match pos {
-                ModulePosition::Body(astmodule) => {
-                    references.append(&mut Self::get_references_until(&astmodule.body, &id_index));
+                ASTModuleTreeLocation::Body => {
+                    references.append(&mut Self::get_references_until(&module.body, &id_index));
                 }
-                ModulePosition::Function(_astmodule, astfunction_def) => {
-                    if let ASTFunctionBody::RASMBody(ref body) = astfunction_def.body {
-                        references = astfunction_def
-                            .parameters
-                            .iter()
-                            .map(|it| it.name.clone())
-                            .collect::<Vec<_>>();
-                        references.append(&mut Self::get_references_until(&body, &id_index));
+                ASTModuleTreeLocation::Function(function_id) => {
+                    if let Some(astfunction_def) = tree.get_function(function_id) {
+                        if let ASTFunctionBody::RASMBody(ref body) = astfunction_def.body {
+                            references = astfunction_def
+                                .parameters
+                                .iter()
+                                .map(|it| it.name.clone())
+                                .collect::<Vec<_>>();
+                            references.append(&mut Self::get_references_until(&body, &id_index));
+                        }
                     }
                 }
             }
@@ -861,6 +868,26 @@ impl IDEHelper {
             }
         }
         return Ok(CompletionResult::Found(items));
+    }
+
+    fn get_body<'a>(
+        &self,
+        location: &ASTModuleTreeLocation,
+        module: &'a ASTModule,
+        tree: &'a ASTModuleTree,
+    ) -> Option<&'a Vec<ASTStatement>> {
+        match location {
+            ASTModuleTreeLocation::Body => Some(&module.body),
+            ASTModuleTreeLocation::Function(function_id) => {
+                tree.get_function(*function_id).and_then(|it| {
+                    if let ASTFunctionBody::RASMBody(ref body) = it.body {
+                        Some(body)
+                    } else {
+                        None
+                    }
+                })
+            }
+        }
     }
 
     fn get_references_until(body: &Vec<ASTStatement>, index: &ASTIndex) -> Vec<String> {
@@ -1212,9 +1239,8 @@ impl IDEHelper {
         );
 
         let module = container.module(start_index.module_id())?;
-        let mod_position = StatementFinder::module_position(start_index, &container)?;
-
-        let tree = ASTTree::new(&mod_position.body());
+        let module_tree = self.container().tree(start_index.module_id())?;
+        let tree = ASTTree::new(&module.body);
 
         // println!("{tree}");
 
@@ -1227,15 +1253,19 @@ impl IDEHelper {
         let orig_mod_position =
             StatementFinder::module_position(start_index, &self.modules_container)?;
 
-        if let ModulePosition::Function(_, function) = orig_mod_position {
+        if let ASTModuleTreeLocation::Function(function_id) = orig_mod_position {
+            let function = module_tree.get_function(function_id)?;
             for par in function.parameters.iter() {
                 let p = par.clone();
-                val_context.insert_par(
+                if let Err(_) = val_context.insert_par(
                     par.name.clone(),
                     p,
                     start_index.module_namespace(),
                     start_index.module_id(),
-                );
+                ) {
+                    // TODO info!("Error trying to extract function.")
+                    return None;
+                }
             }
         }
 
@@ -1432,16 +1462,10 @@ impl IDEHelper {
 
     pub fn signature_help(&self, index: &ASTIndex) -> Option<IDESignatureHelp> {
         let mod_position = StatementFinder::module_position(index, &self.modules_container)?;
-        let tree = match mod_position {
-            crate::statement_finder::ModulePosition::Body(module) => ASTTree::new(&module.body),
-            crate::statement_finder::ModulePosition::Function(_, function_def) => {
-                if let ASTFunctionBody::RASMBody(ref body) = function_def.body {
-                    ASTTree::new(body)
-                } else {
-                    return None;
-                }
-            }
-        };
+        let module = self.container().module(index.module_id())?;
+        let module_tree = self.container().tree(index.module_id())?;
+        let body = self.get_body(&mod_position, module, &module_tree)?;
+        let tree = ASTTree::new(body);
 
         let element = tree.previous_element(index.position())?;
 

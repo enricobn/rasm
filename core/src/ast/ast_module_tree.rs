@@ -1,14 +1,20 @@
 use std::collections::HashMap;
 
 use rasm_parser::parser::ast::{
-    ASTExpression, ASTFunctionBody, ASTModule, ASTPosition, ASTStatement,
+    ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTModule, ASTPosition, ASTStatement,
 };
 
-#[derive(Clone)]
+pub enum ASTModuleTreeLocation {
+    Body,
+    Function(usize),
+}
+
+#[derive(Clone, Debug)]
 pub enum ASTElement<'a> {
     Statement(&'a ASTStatement),
     Expression(&'a ASTExpression),
     LambdaParam(String, ASTPosition),
+    FunctionDef(&'a ASTFunctionDef),
 }
 
 impl ASTElement<'_> {
@@ -17,6 +23,7 @@ impl ASTElement<'_> {
             ASTElement::Statement(statement) => statement.position(),
             ASTElement::Expression(expression) => expression.position(),
             ASTElement::LambdaParam(_, astposition) => astposition,
+            ASTElement::FunctionDef(function_def) => &function_def.position,
         }
     }
 }
@@ -27,20 +34,35 @@ pub struct ASTModuleTreeItem<'a> {
     pub parent: Option<usize>,
 }
 
+#[derive(Clone)]
 pub struct ASTModuleTree<'a> {
-    pub module: &'a ASTModule,
-    pub items: HashMap<usize, ASTModuleTreeItem<'a>>,
+    items: HashMap<usize, ASTModuleTreeItem<'a>>,
+    sorted_functions_positions: Vec<&'a ASTPosition>,
 }
 
 impl<'a> ASTModuleTree<'a> {
     pub fn new(module: &'a ASTModule) -> Self {
         let mut items = HashMap::new();
         Self::build_tree(module, &mut items);
-        Self { module, items }
+        let mut functions_positions = module
+            .functions
+            .iter()
+            .filter(|it| it.position.builtin.is_none())
+            .map(|it| &it.position)
+            .collect::<Vec<_>>();
+        functions_positions.sort();
+        Self {
+            items,
+            sorted_functions_positions: functions_positions,
+        }
     }
 
     pub fn get_element_at(&self, position: &ASTPosition) -> Option<&ASTModuleTreeItem<'a>> {
         self.items.get(&position.id)
+    }
+
+    pub fn get(&self, id: usize) -> Option<&ASTModuleTreeItem> {
+        self.items.get(&id)
     }
 
     pub fn get_elements_at(&self, row: usize, column: usize) -> Vec<&ASTModuleTreeItem<'a>> {
@@ -53,10 +75,87 @@ impl<'a> ASTModuleTree<'a> {
         result
     }
 
+    pub fn get_statement_position(
+        &self,
+        row: usize,
+        column: usize,
+    ) -> Option<ASTModuleTreeLocation> {
+        let position = ASTPosition::new(row, column);
+
+        if let Some(first_function_pos) = self.sorted_functions_positions.first() {
+            if position.cmp(&first_function_pos).is_le() {
+                return Some(ASTModuleTreeLocation::Body);
+            }
+        } else {
+            return Some(ASTModuleTreeLocation::Body);
+        }
+
+        let mut functions_positions = self.sorted_functions_positions.clone();
+        functions_positions.reverse();
+
+        let mut function = None;
+        for fp in functions_positions.iter() {
+            if position.cmp(&fp).is_gt() {
+                if let Some(ASTElement::FunctionDef(found_function)) =
+                    self.items.get(&fp.id).map(|it| &it.element)
+                {
+                    function = Some(found_function);
+                }
+                break;
+            }
+        }
+
+        if let Some(function) = function {
+            if let ASTFunctionBody::RASMBody(_) = function.body {
+                return Some(ASTModuleTreeLocation::Function(function.position.id));
+            }
+        }
+
+        None
+    }
+
+    pub fn get_position_root(&self, position: &ASTPosition) -> Option<&ASTModuleTreeItem<'a>> {
+        if let Some(e) = self.get_element_at(position) {
+            self.get_root(e)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_root<'b>(
+        &'b self,
+        item: &'b ASTModuleTreeItem<'a>,
+    ) -> Option<&'b ASTModuleTreeItem<'a>> {
+        if let Some(p_id) = item.parent {
+            if let Some(p) = self.items.get(&p_id) {
+                self.get_root(p)
+            } else {
+                None
+            }
+        } else {
+            Some(item)
+        }
+    }
+
+    pub fn get_function(&self, id: usize) -> Option<&ASTFunctionDef> {
+        self.get(id).and_then(|it| {
+            if let ASTElement::FunctionDef(f) = it.element {
+                Some(f)
+            } else {
+                None
+            }
+        })
+    }
+
     fn build_tree(module: &'a ASTModule, elements: &mut HashMap<usize, ASTModuleTreeItem<'a>>) {
         Self::add_body(&module.body, elements, None);
 
         for function in module.functions.iter() {
+            let element = ASTModuleTreeItem {
+                element: ASTElement::FunctionDef(function),
+                parent: None,
+            };
+            elements.insert(function.position.id, element);
             if let ASTFunctionBody::RASMBody(ref body) = function.body {
                 Self::add_body(body, elements, None);
             }
