@@ -13,8 +13,7 @@ use iced::{
     Background, Color, Element, Length, Padding,
 };
 use rasm_core::{
-    ast::ast_module_tree::ASTModuleTree, codegen::enh_ast::EnhModuleInfo,
-    type_check::ast_modules_container::ASTTypeFilter,
+    codegen::enh_ast::EnhModuleInfo, type_check::ast_modules_container::ASTTypeFilter,
 };
 
 use rasm_parser::parser::ast::{ASTModule, ASTType, BuiltinTypeKind};
@@ -55,7 +54,10 @@ impl UI {
             .modules_container
             .module(&selected_module.info.module_id())
         {
-            let tree = ASTModuleTree::new(module);
+            let tree = self
+                .modules_container
+                .tree(&selected_module.info.module_id())
+                .unwrap();
             let module_syntax = Self::module_syntax(&module, &selected_module.info);
             let path = PathBuf::from(&selected_module.path);
             if let Ok(source) = fs::read_to_string(&path) {
