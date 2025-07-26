@@ -23,7 +23,7 @@ use crate::codegen::enh_ast::{
 use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 
-use crate::codegen::lambda_in_stack::can_lambda_be_in_stack;
+use crate::codegen::lambda_in_stack::{can_lambda_be_in_stack, GLOBAL_LAMBDA_IN_STACK};
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{InlineRegistry, MacroParam, TextMacro, TextMacroEvaluator};
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
@@ -409,6 +409,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         command_line_options: &CommandLineOptions,
         out_folder: &Path,
     ) -> Vec<(String, String)> {
+        GLOBAL_LAMBDA_IN_STACK.write().unwrap().clear();
         let mut statics = statics;
         let mut id: usize = 0;
         let mut body = String::new();

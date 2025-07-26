@@ -799,11 +799,6 @@ fn compile_example(source: &str, only_compile: bool) {
     );
 }
 
-fn compile_example_with_target(source: &str, only_compile: bool, target: CompileTarget) {
-    let dir = TempDir::new("rasm_int_test").unwrap();
-    compile_with_target(&dir, source, only_compile, target);
-}
-
 fn compile(dir: &TempDir, source: &str, only_compile: bool) -> String {
     compile_with_target(
         dir,

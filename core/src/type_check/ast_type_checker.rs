@@ -2021,8 +2021,7 @@ mod tests {
         if let Some(info) = catalog.info(&EnhModuleId::Path(
             PathBuf::from_str(path).unwrap().canonicalize().unwrap(),
         )) {
-            let module = container.module(info.id()).unwrap();
-            let tree = ASTModuleTree::new(module);
+            let tree = container.tree(info.id()).unwrap();
             return Some(
                 tree.get_elements_at(row, column)
                     .get(0)

@@ -420,6 +420,8 @@ impl RasmProject {
         let mut container = ASTModulesContainer::new();
         let (mut modules, errors) = self.get_all_modules(run_type, target);
 
+        // let start = Instant::now();
+
         let mut resources_body = Vec::new();
 
         Self::add_folder(
@@ -459,6 +461,8 @@ impl RasmProject {
             );
             catalog.add(info.id, info.namespace);
         }
+
+        // println!("container_and_catalog takes {:?}", start.elapsed());
 
         (container, catalog, errors)
     }

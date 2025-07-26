@@ -8,7 +8,7 @@ use crate::{
 };
 
 // Global thread-safe cache for type def bodies
-static GLOBAL_LAMBDA_IN_STACK: Lazy<RwLock<HashMap<ASTTypedType, bool>>> =
+pub static GLOBAL_LAMBDA_IN_STACK: Lazy<RwLock<HashMap<ASTTypedType, bool>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
 
 /// returns true if the return type of the enclosing function definition,
@@ -100,7 +100,7 @@ mod tests {
     use crate::{
         codegen::{
             enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType},
-            lambda_in_stack::can_lambda_be_in_stack,
+            lambda_in_stack::{can_lambda_be_in_stack, GLOBAL_LAMBDA_IN_STACK},
             typedef_provider::DummyTypeDefProvider,
         },
         enh_type_check::typed_ast::{
@@ -174,6 +174,7 @@ mod tests {
 
     #[test]
     fn test_can_lambda_be_in_stack_native_type() {
+        GLOBAL_LAMBDA_IN_STACK.write().unwrap().clear();
         let mut structs = Vec::new();
         let mut types = Vec::new();
 

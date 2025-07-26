@@ -134,10 +134,9 @@ pub struct ASTModulesContainer {
     enum_defs: HashMap<String, Vec<(ModuleInfo, ASTEnumDef)>>,
     type_defs: HashMap<String, Vec<(ModuleInfo, ASTTypeDef)>>,
     signatures: HashMap<String, Vec<ASTFunctionSignatureEntry>>,
-    functions_by_index: HashMap<ASTIndex, ASTFunctionDef>,
     readonly_modules: HashSet<ModuleId>,
     modules: HashMap<ModuleId, (ASTModule, ModuleNamespace)>,
-    //trees: HashMap<ModuleId, ASTModuleTree<'a>>,
+    trees: HashMap<ModuleId, ASTModuleTree>,
 }
 
 impl ASTModulesContainer {
@@ -147,10 +146,9 @@ impl ASTModulesContainer {
             enum_defs: HashMap::new(),
             type_defs: HashMap::new(),
             signatures: HashMap::new(),
-            functions_by_index: HashMap::new(),
             readonly_modules: HashSet::new(),
             modules: HashMap::new(),
-            //trees: HashMap::new(),
+            trees: HashMap::new(),
         }
     }
 
@@ -244,38 +242,22 @@ impl ASTModulesContainer {
                 function.position.clone(),
                 function.target.clone(),
             ));
-            let index = ASTIndex::new(
-                namespace.clone(),
-                module_id.clone(),
-                function.position.clone(),
-            );
-
-            self.functions_by_index
-                .insert(index, function.clone())
-                .iter()
-                .for_each(|f| {
-                    panic!(
-                        "already added function {f} : {} {}\n{function} : {} {}",
-                        f.position,
-                        OptionDisplay(&f.position.builtin),
-                        function.position,
-                        OptionDisplay(&function.position.builtin)
-                    )
-                });
         }
+
         if readonly {
             self.readonly_modules.insert(module_id.clone());
         }
 
-        // let tree = ASTModuleTree::new(&module);
-        // self.trees.insert(module_id.clone(), tree);
+        let tree = ASTModuleTree::new(&module);
+        self.trees.insert(module_id.clone(), tree);
 
         self.modules
             .insert(module_id.clone(), (module, namespace.clone()));
     }
 
     pub fn function(&self, index: &ASTIndex) -> Option<&ASTFunctionDef> {
-        self.functions_by_index.get(index)
+        self.tree(index.module_id())
+            .and_then(|it| it.get_function(index.position().id))
     }
 
     pub fn module(&self, id: &ModuleId) -> Option<&ASTModule> {
@@ -511,8 +493,11 @@ impl ASTModulesContainer {
     }
 
     pub fn remove_module(&mut self, module_id: &ModuleId) -> Option<(ASTModule, ModuleNamespace)> {
-        self.functions_by_index
-            .retain(|it, _| it.module_id() != module_id);
+        self.readonly_modules.remove(module_id);
+        for (_, v) in self.signatures.iter_mut() {
+            v.retain(|it| &it.module_id != module_id);
+        }
+        self.trees.remove(module_id);
         for (_, v) in self.struct_defs.iter_mut() {
             v.retain(|(info, _)| info.id() != module_id);
         }
@@ -525,8 +510,8 @@ impl ASTModulesContainer {
         self.modules.remove(module_id)
     }
 
-    pub fn tree(&self, id: &ModuleId) -> Option<ASTModuleTree> {
-        self.module(id).map(|it| ASTModuleTree::new(it))
+    pub fn tree(&self, id: &ModuleId) -> Option<&ASTModuleTree> {
+        self.trees.get(id)
     }
 
     fn is_compatible(

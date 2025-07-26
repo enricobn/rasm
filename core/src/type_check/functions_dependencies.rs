@@ -445,7 +445,8 @@ fn function_dependencies_inner_2(
                                     module_id.clone(),
                                     e.position().clone(),
                                 );
-                                if let Some(e_entry) = ast_type_check.result.get_by_index(&e_index) {
+                                if let Some(e_entry) = ast_type_check.result.get_by_index(&e_index)
+                                {
                                     if let Some(filter) = e_entry.filter() {
                                         match filter {
                                             ASTTypeFilter::Exact(asttype, _module_info) => {

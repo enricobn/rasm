@@ -29,6 +29,8 @@ pub fn enrich_container(
     catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     debug: bool,
 ) -> ASTModulesContainer {
+    // let start = Instant::now();
+
     let mut enriched_container = ASTModulesContainer::new();
 
     container
@@ -47,6 +49,8 @@ pub fn enrich_container(
                 ro,
             );
         });
+
+    // println!("enrich_container takes {:?}", start.elapsed());
 
     enriched_container
 }

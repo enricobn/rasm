@@ -10,14 +10,14 @@ pub enum ASTModuleTreeLocation {
 }
 
 #[derive(Clone, Debug)]
-pub enum ASTElement<'a> {
-    Statement(&'a ASTStatement),
-    Expression(&'a ASTExpression),
+pub enum ASTElement {
+    Statement(ASTStatement),
+    Expression(ASTExpression),
     LambdaParam(String, ASTPosition),
-    FunctionDef(&'a ASTFunctionDef),
+    FunctionDef(ASTFunctionDef),
 }
 
-impl ASTElement<'_> {
+impl ASTElement {
     pub fn position(&self) -> &ASTPosition {
         match self {
             ASTElement::Statement(statement) => statement.position(),
@@ -29,26 +29,26 @@ impl ASTElement<'_> {
 }
 
 #[derive(Clone)]
-pub struct ASTModuleTreeItem<'a> {
-    pub element: ASTElement<'a>,
+pub struct ASTModuleTreeItem {
+    pub element: ASTElement,
     pub parent: Option<usize>,
 }
 
 #[derive(Clone)]
-pub struct ASTModuleTree<'a> {
-    items: HashMap<usize, ASTModuleTreeItem<'a>>,
-    sorted_functions_positions: Vec<&'a ASTPosition>,
+pub struct ASTModuleTree {
+    items: HashMap<usize, ASTModuleTreeItem>,
+    sorted_functions_positions: Vec<ASTPosition>,
 }
 
-impl<'a> ASTModuleTree<'a> {
-    pub fn new(module: &'a ASTModule) -> Self {
+impl ASTModuleTree {
+    pub fn new(module: &ASTModule) -> Self {
         let mut items = HashMap::new();
         Self::build_tree(module, &mut items);
         let mut functions_positions = module
             .functions
             .iter()
             .filter(|it| it.position.builtin.is_none())
-            .map(|it| &it.position)
+            .map(|it| it.position.clone())
             .collect::<Vec<_>>();
         functions_positions.sort();
         Self {
@@ -57,7 +57,7 @@ impl<'a> ASTModuleTree<'a> {
         }
     }
 
-    pub fn get_element_at(&self, position: &ASTPosition) -> Option<&ASTModuleTreeItem<'a>> {
+    pub fn get_element_at(&self, position: &ASTPosition) -> Option<&ASTModuleTreeItem> {
         self.items.get(&position.id)
     }
 
@@ -65,7 +65,8 @@ impl<'a> ASTModuleTree<'a> {
         self.items.get(&id)
     }
 
-    pub fn get_elements_at(&self, row: usize, column: usize) -> Vec<&ASTModuleTreeItem<'a>> {
+    // TODO optimize
+    pub fn get_elements_at(&self, row: usize, column: usize) -> Vec<&ASTModuleTreeItem> {
         let mut result = Vec::new();
         for item in self.items.values() {
             if item.element.position().row == row && item.element.position().column == column {
@@ -114,7 +115,7 @@ impl<'a> ASTModuleTree<'a> {
         None
     }
 
-    pub fn get_position_root(&self, position: &ASTPosition) -> Option<&ASTModuleTreeItem<'a>> {
+    pub fn get_position_root(&self, position: &ASTPosition) -> Option<&ASTModuleTreeItem> {
         if let Some(e) = self.get_element_at(position) {
             self.get_root(e)
         } else {
@@ -122,10 +123,7 @@ impl<'a> ASTModuleTree<'a> {
         }
     }
 
-    pub fn get_root<'b>(
-        &'b self,
-        item: &'b ASTModuleTreeItem<'a>,
-    ) -> Option<&'b ASTModuleTreeItem<'a>> {
+    pub fn get_root<'b>(&'b self, item: &'b ASTModuleTreeItem) -> Option<&'b ASTModuleTreeItem> {
         if let Some(p_id) = item.parent {
             if let Some(p) = self.items.get(&p_id) {
                 self.get_root(p)
@@ -139,7 +137,7 @@ impl<'a> ASTModuleTree<'a> {
 
     pub fn get_function(&self, id: usize) -> Option<&ASTFunctionDef> {
         self.get(id).and_then(|it| {
-            if let ASTElement::FunctionDef(f) = it.element {
+            if let ASTElement::FunctionDef(f) = &it.element {
                 Some(f)
             } else {
                 None
@@ -147,12 +145,12 @@ impl<'a> ASTModuleTree<'a> {
         })
     }
 
-    fn build_tree(module: &'a ASTModule, elements: &mut HashMap<usize, ASTModuleTreeItem<'a>>) {
+    fn build_tree(module: &ASTModule, elements: &mut HashMap<usize, ASTModuleTreeItem>) {
         Self::add_body(&module.body, elements, None);
 
         for function in module.functions.iter() {
             let element = ASTModuleTreeItem {
-                element: ASTElement::FunctionDef(function),
+                element: ASTElement::FunctionDef(function.clone()),
                 parent: None,
             };
             elements.insert(function.position.id, element);
@@ -163,8 +161,8 @@ impl<'a> ASTModuleTree<'a> {
     }
 
     fn add_body(
-        body: &'a Vec<ASTStatement>,
-        elements: &mut HashMap<usize, ASTModuleTreeItem<'a>>,
+        body: &Vec<ASTStatement>,
+        elements: &mut HashMap<usize, ASTModuleTreeItem>,
         parent: Option<usize>,
     ) {
         for statement in body.iter() {
@@ -173,13 +171,13 @@ impl<'a> ASTModuleTree<'a> {
     }
 
     fn add_statement(
-        statement: &'a ASTStatement,
-        elements: &mut HashMap<usize, ASTModuleTreeItem<'a>>,
+        statement: &ASTStatement,
+        elements: &mut HashMap<usize, ASTModuleTreeItem>,
         parent: Option<usize>,
     ) {
         let position = statement.position();
         let element = ASTModuleTreeItem {
-            element: ASTElement::Statement(statement),
+            element: ASTElement::Statement(statement.clone()),
             parent: parent,
         };
 
@@ -199,13 +197,13 @@ impl<'a> ASTModuleTree<'a> {
     }
 
     fn add_expression(
-        expression: &'a ASTExpression,
-        elements: &mut HashMap<usize, ASTModuleTreeItem<'a>>,
+        expression: &ASTExpression,
+        elements: &mut HashMap<usize, ASTModuleTreeItem>,
         parent: Option<usize>,
     ) {
         let position = expression.position();
         let element = ASTModuleTreeItem {
-            element: ASTElement::Expression(expression),
+            element: ASTElement::Expression(expression.clone()),
             parent: parent,
         };
 
