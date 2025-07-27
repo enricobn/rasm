@@ -325,7 +325,7 @@ fn test_vec() {
     run_test_with_target(
         "vec",
         vec![],
-        "0,1,\n10,11,\ntrue\nfalse\ntrue\nfalse\n1\n6\n2\n0,1,2,3,4,5,\n5,\n10,15,21,2,2,1,4,5,\n10\n1,2,3,\n1,11,2,12,\n0,1,2,\n10\nNone\nSome(Some(Hello))\n1,2,\nSome(2)\n1,\nfalse\ntrue\n1.100000024,2.200000048,\nNone\nSome(20)\nSome(20)\n",
+        "0,1,\n10,11,\ntrue\nfalse\ntrue\nfalse\n1\n6\n2\n0,1,2,3,4,5,\n5,\n10,15,21,2,2,1,4,5,\n10\n1,2,3,\n1,11,2,12,\n0,1,2,\n10\nNone\nSome(Some(Hello))\n1,2,\nSome(2)\n1,\nfalse\ntrue\n1.100000000,2.200000000,\nNone\nSome(20)\nSome(20)\n",
         CompileTarget::C(COptions::default())
     );
 }
@@ -441,7 +441,7 @@ fn test_f32_nasm() {
 
 #[test]
 fn test_f32_c() {
-    run_test_with_target("f32", vec![], "-7.375000000\n-7.400000095\n-1.375000000\n-1.375432134\n-1.123456717\n-0.375000000\n-0.400000006\n-0.375432104\n0.000000000\n10.000000000\n20.100000381\n20.000999451\n0.000000000\n-10.000000000\n-20.100000381\n-20.000999451\n10.000000000\n123456.000000000\n-10.000000000\n-123456.000000000\nSome(10)\nSome(-10)\n2.000000000\n5.000000000\n10.199999809\n9.800000191\n17.500000000\n8.199999809\n-8.199999809\ntrue\nfalse\nfalse\ntrue\nfalse\ntrue\ntrue\nfalse\n7.500000000\n7.500000000\n",
+    run_test_with_target("f32", vec![], "-7.375000000\n-7.400000000\n-1.375000000\n-1.375432100\n-1.123456700\n-0.375000000\n-0.400000000\n-0.375432100\n0.000000000\n10.000000000\n20.100000000\n20.001000000\n0.000000000\n-10.000000000\n-20.100000000\n-20.001000000\n10.000000000\n123456.000000000\n-10.000000000\n-123456.000000000\nSome(10)\nSome(-10)\n2.000000000\n5.000000000\n10.200000000\n9.800000000\n17.500000000\n8.200000000\n-8.200000000\ntrue\nfalse\nfalse\ntrue\nfalse\ntrue\ntrue\nfalse\n7.500000000\n7.500000000\n",
     CompileTarget::C(COptions::default()));
 }
 
@@ -623,7 +623,7 @@ fn test_complex_expression2_c() {
     run_test_with_target(
         "complex_expression2",
         vec![],
-        "10\n10.100000381\n",
+        "10\n10.100000000\n",
         CompileTarget::C(COptions::default()),
     );
 }
@@ -657,7 +657,7 @@ fn test_function_reference() {
     run_test_with_target(
         "function_reference",
         vec![],
-        "101.199996948,102.199996948\n101,102\nint: 1\nint: 2\nfloat: 1.100000024\nfloat: 2.099999905\n",
+        "101.200000000,102.200000000\n101,102\nint: 1\nint: 2\nfloat: 1.100000000\nfloat: 2.100000000\n",
         CompileTarget::C(COptions::default()),
     );
 

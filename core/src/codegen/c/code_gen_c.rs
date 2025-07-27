@@ -112,7 +112,7 @@ impl CodeGenC {
                 BuiltinTypedTypeKind::Integer => "int".to_string(),
                 BuiltinTypedTypeKind::Boolean => "char".to_string(),
                 BuiltinTypedTypeKind::Char => "char*".to_string(),
-                BuiltinTypedTypeKind::Float => "float".to_string(),
+                BuiltinTypedTypeKind::Float => "double".to_string(),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -151,7 +151,7 @@ impl CodeGenC {
                 BuiltinTypedTypeKind::Integer => "int".to_string(),
                 BuiltinTypedTypeKind::Boolean => "char".to_string(),
                 BuiltinTypedTypeKind::Char => "char*".to_string(),
-                BuiltinTypedTypeKind::Float => "float".to_string(),
+                BuiltinTypedTypeKind::Float => "double".to_string(),
                 BuiltinTypedTypeKind::Lambda {
                     parameters: _,
                     return_type: _,

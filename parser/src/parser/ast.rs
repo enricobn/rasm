@@ -688,9 +688,9 @@ impl Display for ASTFunctionCall {
 pub enum ASTValueType {
     String(String),
     Boolean(bool),
-    Integer(i32),
+    Integer(i64),
     Char(String),
-    Float(f32),
+    Float(f64),
 }
 
 impl Display for ASTValueType {

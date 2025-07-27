@@ -1694,9 +1694,9 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
     fn value_to_string(&self, value_type: &ASTValueType) -> String {
         match value_type {
             ASTValueType::Boolean(b) => if *b { "1" } else { "0" }.into(),
-            ASTValueType::Integer(n) => n.to_string(),
+            ASTValueType::Integer(n) => (*n as i32).to_string(),
             ASTValueType::Float(n) => {
-                format!("0x{:x}", n.to_bits())
+                format!("0x{:x}", (*n as f32).to_bits())
             }
             ASTValueType::Char(c) => {
                 let mut b = [0; 4];
