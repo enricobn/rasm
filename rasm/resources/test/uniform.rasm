@@ -1,13 +1,13 @@
 
 struct Point {
-    x: i32,
-    y: i32
+    x: int,
+    y: int
 }
 
 struct Rect {
     point: Point,
-    width: i32,
-    height: i32
+    width: int,
+    height: int
 }
 
 let v1 = 10;

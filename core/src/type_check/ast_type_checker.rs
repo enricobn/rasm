@@ -1538,7 +1538,7 @@ mod tests {
         let r_value = get_type_check_entry(&module, &types_map, 1, 5);
 
         assert_eq!(
-            "Some(Exact(Option<i32>))",
+            "Some(Exact(Option<int>))",
             format!(
                 "{}",
                 OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
@@ -1555,7 +1555,7 @@ mod tests {
         let r_value = get_type_check_entry(&module, &types_map, 1, 5);
 
         assert_eq!(
-            "Some(Exact(Option<i32>))",
+            "Some(Exact(Option<int>))",
             format!(
                 "{}",
                 OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
@@ -1572,7 +1572,7 @@ mod tests {
         let r_value = get_type_check_entry(&module, &types_map, 1, 5);
 
         assert_eq!(
-            "Some(Exact(Option<i32>))",
+            "Some(Exact(Option<int>))",
             format!(
                 "{}",
                 OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
@@ -1591,7 +1591,7 @@ mod tests {
         let none_value = get_type_check_entry(&module, &types_map, 1, 28);
 
         assert_eq!(
-            "Some(Exact(Option<i32>))",
+            "Some(Exact(Option<int>))",
             format!(
                 "{}",
                 OptionDisplay(&none_value.and_then(|it| it.filter.clone())),
@@ -1610,7 +1610,7 @@ mod tests {
         let none_value = get_type_check_entry(&module, &types_map, 1, 18);
 
         assert_eq!(
-            "Some(Exact(Option<i32>))",
+            "Some(Exact(Option<int>))",
             format!(
                 "{}",
                 OptionDisplay(&none_value.and_then(|it| it.filter.clone())),
@@ -1629,7 +1629,7 @@ mod tests {
         let none_value = get_type_check_entry(&module, &types_map, 1, 20);
 
         assert_eq!(
-            "Some(Exact(Option<i32>))",
+            "Some(Exact(Option<int>))",
             format!(
                 "{}",
                 OptionDisplay(&none_value.and_then(|it| it.filter.clone())),
@@ -1646,7 +1646,7 @@ mod tests {
         let r_value = get_type_check_entry(&module, &types_map, 1, 5);
 
         assert_eq!(
-            "Some(Exact(Option<i32>))",
+            "Some(Exact(Option<int>))",
             format!(
                 "{}",
                 OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
@@ -1663,7 +1663,7 @@ mod tests {
         let r_value = get_type_check_entry(&module, &types_map, 1, 5);
 
         assert_eq!(
-            "Some(Exact(List<Option<i32>>))",
+            "Some(Exact(List<Option<int>>))",
             format!(
                 "{}",
                 OptionDisplay(&r_value.and_then(|it| it.filter.clone())),
@@ -1777,7 +1777,7 @@ mod tests {
             "resources/test/ast_type_checker/function_reference.rasm",
             3,
             15,
-            "fn (f32,f32) -> f32",
+            "fn (float,float) -> float",
         );
     }
 
@@ -1789,7 +1789,7 @@ mod tests {
             "resources/test/ast_type_checker/function_reference.rasm",
             7,
             16,
-            "fn (i32,i32) -> i32",
+            "fn (int,int) -> int",
         );
     }
 
@@ -1801,7 +1801,7 @@ mod tests {
             "resources/test/ast_type_checker/function_reference.rasm",
             9,
             11,
-            "fn (str,f32) -> ()",
+            "fn (str,float) -> ()",
         );
     }
 
@@ -1809,7 +1809,7 @@ mod tests {
     fn test_type_check_lambda2() {
         init_minimal_log();
 
-        test_single_file("../rasm/resources/test/lambda2.rasm", 4, 6, "Option<i32>");
+        test_single_file("../rasm/resources/test/lambda2.rasm", 4, 6, "Option<int>");
     }
 
     #[test]
@@ -1835,7 +1835,7 @@ mod tests {
             .info(&EnhModuleId::Path(path.canonicalize().unwrap()))
             .unwrap();
 
-        let i = ASTExpression::Value(ASTValueType::I32(10), ASTPosition::new(2, 29));
+        let i = ASTExpression::Value(ASTValueType::Integer(10), ASTPosition::new(2, 29));
 
         let some = ASTFunctionCall::new(
             "Some".to_owned(),
@@ -1880,7 +1880,7 @@ mod tests {
 
         if let Some(entry) = type_checker.result.get(id) {
             if let Some((t, _)) = entry.exact() {
-                assert_eq!("If<fn () -> Option<i32>>", &format!("{t}"));
+                assert_eq!("If<fn () -> Option<int>>", &format!("{t}"));
                 return;
             }
         }
@@ -1911,7 +1911,7 @@ mod tests {
             .info(&EnhModuleId::Path(path.canonicalize().unwrap()))
             .unwrap();
 
-        let i = ASTExpression::Value(ASTValueType::I32(10), ASTPosition::new(2, 29));
+        let i = ASTExpression::Value(ASTValueType::Integer(10), ASTPosition::new(2, 29));
 
         let some = ASTFunctionCall::new(
             "Some".to_owned(),
@@ -1938,7 +1938,7 @@ mod tests {
 
         if let Some(entry) = res {
             if let Some((t, _)) = entry.exact() {
-                assert_eq!("Option<i32>", &format!("{t}"));
+                assert_eq!("Option<int>", &format!("{t}"));
                 return;
             }
         }

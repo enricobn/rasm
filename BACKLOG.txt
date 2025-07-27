@@ -29,6 +29,22 @@ Road to language version 1.0.0 (not compiler)
 - macro:
   - support a Vec of ASTExpression as the last parameter, and consider it as a varargs
   - support MacroResult to be an expression
+  - attribute macro:
+  - it could be a standard function that takes as first argument:
+    - ASTStructDef
+    - ASTEnumDef
+    it could be called as a standard function with @:
+    
+    toString@()
+    pub struct MyStruct {
+      a: str
+    }
+
+    fn toString(def: ASTStructDef) -> MacroResult {
+      
+    }
+
+
   
 Major
 -----

@@ -43,7 +43,7 @@ pub fn anyMatch<T>(l: Iter<T>, predicate: fn(T) -> bool) -> bool {
     l.callNext.match(fn(it) { if(predicate(it.value), true, { it.next.anyMatch(predicate); }); }, {false;});
 }
 
-pub fn count<T>(l: Iter<T>, predicate: fn(T) -> bool) -> i32 {
+pub fn count<T>(l: Iter<T>, predicate: fn(T) -> bool) -> int {
     l.callNext.match(fn(it) { add(it.next.count(predicate), if(predicate(it.value), 1, 0)); }, {0;});
 }
 

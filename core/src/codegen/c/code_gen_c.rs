@@ -109,10 +109,10 @@ impl CodeGenC {
         match ast_type {
             ASTTypedType::Builtin(kind) => match kind {
                 BuiltinTypedTypeKind::String => "char*".to_string(),
-                BuiltinTypedTypeKind::I32 => "int".to_string(),
-                BuiltinTypedTypeKind::Bool => "int".to_string(),
+                BuiltinTypedTypeKind::Integer => "int".to_string(),
+                BuiltinTypedTypeKind::Boolean => "char".to_string(),
                 BuiltinTypedTypeKind::Char => "char*".to_string(),
-                BuiltinTypedTypeKind::F32 => "float".to_string(),
+                BuiltinTypedTypeKind::Float => "float".to_string(),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -148,10 +148,10 @@ impl CodeGenC {
         match ast_type {
             ASTTypedType::Builtin(kind) => match kind {
                 BuiltinTypedTypeKind::String => "char*".to_string(),
-                BuiltinTypedTypeKind::I32 => "int".to_string(),
-                BuiltinTypedTypeKind::Bool => "int".to_string(),
+                BuiltinTypedTypeKind::Integer => "int".to_string(),
+                BuiltinTypedTypeKind::Boolean => "char".to_string(),
                 BuiltinTypedTypeKind::Char => "char*".to_string(),
-                BuiltinTypedTypeKind::F32 => "float".to_string(),
+                BuiltinTypedTypeKind::Float => "float".to_string(),
                 BuiltinTypedTypeKind::Lambda {
                     parameters: _,
                     return_type: _,
@@ -1267,9 +1267,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         match value_type {
             ASTValueType::String(v) => format!("\"{}\"", CodeGenC::escape_string(&v)),
             ASTValueType::Boolean(b) => if *b { "1" } else { "0" }.to_string(),
-            ASTValueType::I32(v) => format!("{v}"),
+            ASTValueType::Integer(v) => format!("{v}"),
             ASTValueType::Char(v) => format!("\"{}\"", CodeGenC::escape_string(&v.to_string())),
-            ASTValueType::F32(v) => format!("{v}"),
+            ASTValueType::Float(v) => format!("{v}"),
         }
     }
 
@@ -1315,20 +1315,20 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 pub fn value_type_to_enh_type(value_type: &ASTValueType) -> EnhASTType {
     match value_type {
         ASTValueType::String(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::String),
-        ASTValueType::Boolean(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Bool),
-        ASTValueType::I32(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::I32),
+        ASTValueType::Boolean(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Boolean),
+        ASTValueType::Integer(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Integer),
         ASTValueType::Char(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Char),
-        ASTValueType::F32(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::F32),
+        ASTValueType::Float(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Float),
     }
 }
 
 pub fn value_type_to_typed_type(value_type: &ASTValueType) -> ASTTypedType {
     match value_type {
         ASTValueType::String(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
-        ASTValueType::Boolean(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
-        ASTValueType::I32(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+        ASTValueType::Boolean(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Boolean),
+        ASTValueType::Integer(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer),
         ASTValueType::Char(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
-        ASTValueType::F32(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::F32),
+        ASTValueType::Float(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Float),
     }
 }
 

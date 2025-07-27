@@ -36,14 +36,14 @@ argv(1).fmap(fn(s) {s.toi32;}).match(fn(n) {
 }, { println("Expected a numeric parameter");});
 
 
-fn fib(n: i32) -> i32 {
+fn fib(n: int) -> int {
     if(lessOrEqual(n, 1), n, {
         fib(n.sub(1)).add(fib(n.sub(2)));
     });
 }
 
 /*
-native ff(n: i32) -> i32 /{
+native ff(n: int) -> int /{
     push    ebx
 
     mov     eax, $n

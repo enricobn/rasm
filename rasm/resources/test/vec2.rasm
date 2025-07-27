@@ -9,5 +9,5 @@ struct S1 {
 }
 
 struct S2 {
-    vec: Vec<i32>
+    vec: Vec<int>
 }

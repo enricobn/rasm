@@ -1,87 +1,87 @@
-pub native tof32(n: i32) -> f32 /{
+pub native tof32(n: int) -> float /{
     $inline()
     return ((float) $n);
 }/
 
-pub native toi32(n: f32) -> Option<i32> /{
+pub native toi32(n: float) -> Option<int> /{
     int result = (int)$n;
     return
         $call(Some, result)
     ;
 }/
 
-pub native divf(n1: i32, n2: i32) -> f32 /{
+pub native divf(n1: int, n2: int) -> float /{
     $inline()
     return (((float)$n1) / ((float) $n2));
 }/
 
-pub native sub(a: f32, b: f32) -> f32 /{
+pub native sub(a: float, b: float) -> float /{
     $inline()
     return ($a - $b);
 }/
 
-pub native add(a: f32, b: f32) -> f32 /{
+pub native add(a: float, b: float) -> float /{
     $inline()
     return ($a + $b);
 }/
 
-pub native add(a: f32, b: i32) -> f32 /{
+pub native add(a: float, b: int) -> float /{
     $inline()
     return ($a + $b);
 }/
 
-pub native mul(a: f32, b: f32) -> f32 /{
+pub native mul(a: float, b: float) -> float /{
     $inline()
     return ($a * $b);
 }/
 
-pub native div(a: f32, b: f32) -> f32 /{
+pub native div(a: float, b: float) -> float /{
     $inline()
     return ($a / $b);
 }/
 
-pub native sub(a: f32, b: i32) -> f32 /{
+pub native sub(a: float, b: int) -> float /{
     $inline()
     return ($a - $b);
 }/
 
-pub native sub(a: i32, b: f32) -> f32 /{
+pub native sub(a: int, b: float) -> float /{
     $inline()
     return ($a - $b);
 }/
 
-pub native greater(a: f32, b: f32) -> bool /{
+pub native greater(a: float, b: float) -> bool /{
     $inline()
     return ($a > $b);
 }/
 
-pub native greater(a: f32, b: i32) -> bool /{
+pub native greater(a: float, b: int) -> bool /{
     $inline()
     return ($a > $b);
 }/
 
-pub native less(a: f32, b: f32) -> bool /{
+pub native less(a: float, b: float) -> bool /{
     $inline()
     return ($a < $b);
 }/
 
-pub native less(a: f32, b: i32) -> bool /{
+pub native less(a: float, b: int) -> bool /{
     $inline()
     return ($a < $b);
 }/
 
-pub native mul(f1: f32, n2: i32) -> f32 /{
+pub native mul(f1: float, n2: int) -> float /{
     $inline()
     return ($f1 * $n2);
 }/
 
-pub native div(a: f32, b: i32) -> f32 /{
+pub native div(a: float, b: int) -> float /{
     $inline()
     return ($a / $b);
 }/
 
 // from https://stackoverflow.com/questions/8257714/how-can-i-convert-an-int-to-a-string-in-c
-pub native toString(n: f32) -> str /{
+pub native toString(n: float) -> str /{
     $include(<math.h>)
 
     // TODO calculate max length

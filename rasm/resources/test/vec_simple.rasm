@@ -4,7 +4,7 @@ testOptions();
 testVecInStruct();
 
 fn testIntegers() {
-    let v = Vec<i32>();
+    let v = Vec<int>();
     let v1 = v.push(10);
     let v2 = v1.push(11);
 

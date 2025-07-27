@@ -69,10 +69,10 @@ impl EnhResolvedGenericTypes {
             EnhASTType::Builtin(kind) => {
                 match kind {
                     EnhBuiltinTypeKind::String => {}
-                    EnhBuiltinTypeKind::I32 => {}
-                    EnhBuiltinTypeKind::Bool => {}
+                    EnhBuiltinTypeKind::Integer => {}
+                    EnhBuiltinTypeKind::Boolean => {}
                     EnhBuiltinTypeKind::Char => {}
-                    EnhBuiltinTypeKind::F32 => {}
+                    EnhBuiltinTypeKind::Float => {}
                     EnhBuiltinTypeKind::Lambda {
                         parameters: p_parameters,
                         return_type: p_return_type,
@@ -508,6 +508,6 @@ mod tests {
     }
 
     fn i32() -> EnhASTType {
-        EnhASTType::Builtin(EnhBuiltinTypeKind::I32)
+        EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)
     }
 }

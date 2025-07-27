@@ -1,6 +1,6 @@
 pub native printAddress<T>(message: str, address: T) /{
     $call(print, 1:File, $message)
-    $call(println, 1:File, $address: i32)
+    $call(println, 1:File, $address: int)
 }/
 
 pub native printRef<T>(o: T) /{

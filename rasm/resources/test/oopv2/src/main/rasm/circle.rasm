@@ -1,14 +1,14 @@
 pub struct Circle {
-    x: i32,
-    y: i32,
-    radius: i32
+    x: int,
+    y: int,
+    radius: int
 }
 
 pub fn center(circle: Circle) -> Point {
     Point(circle.x, circle.y);
 }
 
-pub fn move(circle: Circle, dx: i32, dy: i32) -> Shape {
+pub fn move(circle: Circle, dx: int, dy: int) -> Shape {
     toShape(Circle(circle.x.add(dx), circle.y.add(dy), circle.radius));
 }
 

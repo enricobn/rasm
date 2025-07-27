@@ -1,4 +1,4 @@
-pub fn random(max: i32) -> i32 {
+pub fn random(max: int) -> int {
     let r = random();
     r.sub(r.div(max).mul(max));
 }

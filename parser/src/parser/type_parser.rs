@@ -44,17 +44,17 @@ impl<'a> TypeParser<'a> {
             let next_i = self.parser.get_i() + n + 1;
             if let TokenKind::Reserved(reserved_kind) = kind {
                 match reserved_kind {
-                    crate::lexer::tokens::ReservedKind::I32 => {
-                        Some((Builtin(BuiltinTypeKind::I32), next_i))
+                    crate::lexer::tokens::ReservedKind::INT => {
+                        Some((Builtin(BuiltinTypeKind::Integer), next_i))
                     }
-                    crate::lexer::tokens::ReservedKind::F32 => {
-                        Some((Builtin(BuiltinTypeKind::F32), next_i))
+                    crate::lexer::tokens::ReservedKind::FLOAT => {
+                        Some((Builtin(BuiltinTypeKind::Float), next_i))
                     }
                     crate::lexer::tokens::ReservedKind::STR => {
                         Some((Builtin(BuiltinTypeKind::String), next_i))
                     }
                     crate::lexer::tokens::ReservedKind::BOOL => {
-                        Some((Builtin(BuiltinTypeKind::Bool), next_i))
+                        Some((Builtin(BuiltinTypeKind::Boolean), next_i))
                     }
                     crate::lexer::tokens::ReservedKind::CHAR => {
                         Some((Builtin(BuiltinTypeKind::Char), next_i))
@@ -289,9 +289,9 @@ mod tests {
     }
 
     #[test]
-    fn test_i32() {
-        let parse_result = try_parse("i32");
-        assert_eq!(Some((Builtin(BuiltinTypeKind::I32), 1)), parse_result);
+    fn test_int() {
+        let parse_result = try_parse("int");
+        assert_eq!(Some((Builtin(BuiltinTypeKind::Integer), 1)), parse_result);
     }
 
     #[test]
@@ -308,14 +308,14 @@ mod tests {
 
     #[test]
     fn test_lambda1() {
-        let parse_result = try_parse("fn(i32,str) -> i32");
-        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(I32), Builtin(String)], return_type: Builtin(I32) }), 8))");
+        let parse_result = try_parse("fn(int,str) -> int");
+        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(Integer), Builtin(String)], return_type: Builtin(Integer) }), 8))");
     }
 
     #[test]
     fn test_lambda2() {
-        let parse_result = try_parse("fn(fn() -> (),str) -> i32");
-        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(Lambda { parameters: [], return_type: Unit }), Builtin(String)], return_type: Builtin(I32) }), 13))");
+        let parse_result = try_parse("fn(fn() -> (),str) -> int");
+        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(Lambda { parameters: [], return_type: Unit }), Builtin(String)], return_type: Builtin(Integer) }), 13))");
     }
 
     #[test]

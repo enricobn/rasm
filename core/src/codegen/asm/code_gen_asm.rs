@@ -693,7 +693,7 @@ impl CodeGenAsm {
         let parameters = vec![
             ASTTypedParameterDef {
                 name: "address".to_owned(),
-                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer),
                 ast_index: EnhASTIndex::none(),
             },
             ASTTypedParameterDef {
@@ -1694,8 +1694,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
     fn value_to_string(&self, value_type: &ASTValueType) -> String {
         match value_type {
             ASTValueType::Boolean(b) => if *b { "1" } else { "0" }.into(),
-            ASTValueType::I32(n) => n.to_string(),
-            ASTValueType::F32(n) => {
+            ASTValueType::Integer(n) => n.to_string(),
+            ASTValueType::Float(n) => {
                 format!("0x{:x}", n.to_bits())
             }
             ASTValueType::Char(c) => {

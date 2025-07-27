@@ -13,12 +13,12 @@ struct Model {
     quads: Vec<Quad>,
     fps: FPS,
     font: SDLFont,
-    count:i32
+    count:int
 }
 
 struct Quad {
-    x: i32,
-    y: i32,
+    x: int,
+    y: int,
     xDir: XDirection,
     yDir: YDirection,
     color: SDLColor
@@ -70,7 +70,7 @@ fn update(quad: Quad) -> Quad {
     Quad(px.first, py.first, px.second, py.second, quad.color);
 }
 
-fn update<T>(x: i32, dir: T, max: i32) -> Pair<i32, T> {
+fn update<T>(x: int, dir: T, max: int) -> Pair<int, T> {
     let newX = x.move(dir, 1);
 
     if (x.greater(max),

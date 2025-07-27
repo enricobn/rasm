@@ -1,6 +1,6 @@
 pub type Vec<T> /{ hasReferences = true, nativeType = struct Vector* }/
 
-native Vec(length: i32) -> RasmPointer /{
+native Vec(length: int) -> RasmPointer /{
     struct RasmPointer_ *result = rasmMalloc(sizeof(struct Vector));
     struct Vector *new_vec = (struct Vector*)result->address;
     new_vec->length = length;
@@ -107,7 +107,7 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
     return result;
 }/
 
-pub native len<T>(vec: Vec<T>) -> i32 /{
+pub native len<T>(vec: Vec<T>) -> int /{
     return $castAddress($vec)->length;
 }/
 
@@ -226,7 +226,7 @@ pub native print<T>(file: File, vec: Vec<T>) -> Option<IOError> /{
 */
 
 // end exclusive
-pub native vecRange(start: i32, end: i32) -> Vec<i32> /{
+pub native vecRange(start: int, end: int) -> Vec<int> /{
     $include(<stdlib.h>)
 
     size_t length = end-start;
@@ -297,7 +297,7 @@ pub native allMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     return 1;
 }/
 
-pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
+pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> int /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
     $typeName(T) *array = ($typeName(T) *)values->address;
@@ -511,7 +511,7 @@ pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
     }
 }/
 
-pub native get<T>(vec: Vec<T>, i: i32) -> Option<T> /{
+pub native get<T>(vec: Vec<T>, i: int) -> Option<T> /{
     int l = $castAddress($vec)->length;
     if (i >= l) {
         $enumSimple(result,None);

@@ -1,30 +1,30 @@
-pub native add(n1: i32, n2: i32) -> i32 /{
+pub native add(n1: int, n2: int) -> int /{
     $inline()
     return ($n1 + $n2);
 }/
 
-pub native sub(n1: i32, n2: i32) -> i32 /{
+pub native sub(n1: int, n2: int) -> int /{
     $inline()
     return ($n1 - $n2);
 }/
 
-pub native mul(n1: i32, n2: i32) -> i32 /{
+pub native mul(n1: int, n2: int) -> int /{
     $inline()
     return ($n1 * $n2);
 }/
 
-pub native div(n1: i32, n2: i32) -> i32 /{
+pub native div(n1: int, n2: int) -> int /{
     $inline()
     return ($n1 / $n2);
 }/
 
-pub native negate(n: i32) -> i32 /{
+pub native negate(n: int) -> int /{
     $inline()
     return (-$n);
 }/
 
 // from https://stackoverflow.com/questions/8257714/how-can-i-convert-an-int-to-a-string-in-c
-pub native toString(n: i32) -> str /{
+pub native toString(n: int) -> str /{
     $include(<math.h>)
 
     // TODO calculate max length
@@ -40,7 +40,7 @@ pub native toString(n: i32) -> str /{
  *  a  <= b
  *  false = 0 true = 1
  **/
-pub native lessOrEqual(a: i32, b: i32) -> bool /{
+pub native lessOrEqual(a: int, b: int) -> bool /{
     $inline()
     return ($a <= $b);
 }/
@@ -49,7 +49,7 @@ pub native lessOrEqual(a: i32, b: i32) -> bool /{
  *  a  < b
  *  false = 0 true = 1
  **/
-pub native less(a: i32, b: i32) -> bool /{
+pub native less(a: int, b: int) -> bool /{
     $inline()
     return ($a < $b);
 }/
@@ -58,7 +58,7 @@ pub native less(a: i32, b: i32) -> bool /{
  *  a  <= b
  *  false = 0 true = 1
  **/
-pub native greater(a: i32, b: i32) -> bool /{
+pub native greater(a: int, b: int) -> bool /{
     $inline()
     return ($a > $b);
 }/
@@ -67,7 +67,7 @@ pub native greater(a: i32, b: i32) -> bool /{
  *  a  == b
  *  false = 0 true = 1
  **/
-pub native eq(a: i32, b: i32) -> bool /{
+pub native eq(a: int, b: int) -> bool /{
     $inline()
     return ($a == $b);
 }/

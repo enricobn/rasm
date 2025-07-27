@@ -164,7 +164,7 @@ pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
 }/
 
 // end exclusive
-pub native vecRange(start: i32, end: i32) -> Vec<i32> /{
+pub native vecRange(start: int, end: int) -> Vec<int> /{
     push    ebx
     push    ecx
     push    edx
@@ -303,7 +303,7 @@ pub native allMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     pop     ebx
 }/
 
-pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> i32 /{
+pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> int /{
     push    ebx
     push    ecx
     push    edx
@@ -392,7 +392,7 @@ pub native filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
 }/
 
 pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
-    $call(vecFlattenCreate, $vec:i32)
+    $call(vecFlattenCreate, $vec:int)
     push    eax
 
     push    ebx
@@ -435,7 +435,7 @@ pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
  *      but for now there's no support for calling a generic function from assembly
  *      (the real function name is different for each real type)...
  */
-native vecFlattenCreate(vec: i32) -> i32 /{
+native vecFlattenCreate(vec: int) -> int /{
     push    ebx
     push    ecx
     push    edx
@@ -472,7 +472,7 @@ native vecFlattenCreate(vec: i32) -> i32 /{
     pop     ebx
 }/
 
-pub native len<T>(vec: Vec<T>) -> i32 /{
+pub native len<T>(vec: Vec<T>) -> int /{
       mov     dword eax, $vec
       mov     dword eax, [eax]
       mov     dword eax, [eax]
@@ -586,7 +586,7 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
     pop     ebx
 }/
 
-pub fn VecReferences(vec: i32, generic: i32) -> i32 {
+pub fn VecReferences(vec: int, generic: int) -> int {
     vec;
 }
 
@@ -774,7 +774,7 @@ pub native charsVec(s: str) -> Vec<char> /{
     pop     ebx
 }/
 
-pub native get<T>(vec: Vec<T>, i: i32) -> Option<T> /{
+pub native get<T>(vec: Vec<T>, i: int) -> Option<T> /{
     push    ebx
     mov     dword ebx, $vec  ; address to the allocation table
     mov     dword ebx, [ebx] ; address to the "Vec struct"

@@ -7,7 +7,7 @@ pub native STDOut() -> File /{
  * Prints the number to the File specified.
  * https://stackoverflow.com/questions/25064565/printing-an-integer-with-x86-32-bit-linux-sys-write-nasm
  **/
-pub native print(file: File, n: i32) -> Option<IOError>/{
+pub native print(file: File, n: int) -> Option<IOError>/{
     push    esi
     push    ebx
     push    ecx
@@ -15,7 +15,7 @@ pub native print(file: File, n: i32) -> Option<IOError>/{
 
     ; TODO I cannot allocate memory here, because when we use print inside malloc for debug we enter in an infinite loop
     ;      but I don't like it because it is not thread safe
-    ; $call(rasmalloc, 20, " temp for print(i32)")
+    ; $call(rasmalloc, 20, " temp for print(int)")
     ; we can immediately free the memory, because it is not "erased" and is not reused (malloc) in this function
     ; $call(freeMem, eax)
     ; mov     dword esi,[eax]
@@ -60,7 +60,7 @@ pub native print(file: File, n: i32) -> Option<IOError>/{
 /**
  * Prints the number to the File specified.
  **/
-pub native print(file: File, n: f32) -> Option<IOError> /{
+pub native print(file: File, n: float) -> Option<IOError> /{
     push    ebx
     push    ecx
     push    edx
@@ -106,7 +106,7 @@ pub native print(file: File, n: f32) -> Option<IOError> /{
     pop     ebx
 }/
 
-native printAligned(file: File, alignedMantissa: i32, intNumbersCount: i32) -> Option<IOError> /{
+native printAligned(file: File, alignedMantissa: int, intNumbersCount: int) -> Option<IOError> /{
     push    ecx
 
     mov     dword ecx, 24
@@ -126,7 +126,7 @@ native printAligned(file: File, alignedMantissa: i32, intNumbersCount: i32) -> O
     pop     ecx
 }/
 
-native printDecimals(file: File, n: i32, count: i32) -> Option<IOError> /{
+native printDecimals(file: File, n: int, count: int) -> Option<IOError> /{
     ; local val for result
     sub     dword esp,4
 
@@ -196,7 +196,7 @@ native printDecimals(file: File, n: i32, count: i32) -> Option<IOError> /{
     add    dword esp,4
 }/
 
-native printPadLeft(file: File, n: i32, ch: char, count: i32) -> Option<IOError> /{
+native printPadLeft(file: File, n: int, ch: char, count: int) -> Option<IOError> /{
     push    ebx
 
     mov     dword ebx,$count
@@ -218,7 +218,7 @@ native printPadLeft(file: File, n: i32, ch: char, count: i32) -> Option<IOError>
 
 // false = 0 true = any other value
 // false if not valid
-native getNthBit(value: i32, n: i32) -> bool /{
+native getNthBit(value: int, n: int) -> bool /{
     push ecx
 
     mov     dword eax,1
@@ -240,7 +240,7 @@ native getNthBit(value: i32, n: i32) -> bool /{
  * Prints a new line to file.
  */
 pub native println(file: File) -> Option<IOError> /{
-    $call(sysPrint, $file, _NEW_LINE: i32, 1)
+    $call(sysPrint, $file, _NEW_LINE: int, 1)
 }/
 
 /**
@@ -315,7 +315,7 @@ pub native print(file: File, c: char) -> Option<IOError> /{
     pop     ecx
 }/
 
-native sysPrint(file: File, s: i32, len: i32) -> Option<IOError> /{
+native sysPrint(file: File, s: int, len: int) -> Option<IOError> /{
     push    dword edx
     push    dword ecx
     push    dword ebx

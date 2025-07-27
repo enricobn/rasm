@@ -1,6 +1,6 @@
 struct Point {
-    x: i32,
-    y: i32
+    x: int,
+    y: int
 }
 
 let p = Point(10, 20);
@@ -24,7 +24,7 @@ pub fn toString(p: Point) -> str {
     .append(")");
 }
 
-fn move(point: Point, diff: i32) -> Point {
+fn move(point: Point, diff: int) -> Point {
     point
         .x(point.x.add(diff))
         .y(point.y.add(diff));

@@ -1,7 +1,7 @@
 
 recurse(5, fn(n) { add(n, -1);});
 
-fn recurse(n: i32, f: fn(i32) -> i32) {
+fn recurse(n: int, f: fn(int) -> int) {
     println(n);
     if(less(n,1), { }, { recurse(f(n), f);});
 }

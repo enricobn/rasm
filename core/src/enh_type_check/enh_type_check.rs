@@ -2266,7 +2266,7 @@ mod tests {
     pub fn test_generic_type_coeff_1() {
         assert_eq!(
             0,
-            EnhTypeCheck::generic_type_coeff(&EnhASTType::Builtin(EnhBuiltinTypeKind::I32))
+            EnhTypeCheck::generic_type_coeff(&EnhASTType::Builtin(EnhBuiltinTypeKind::Integer))
         );
     }
 
@@ -2276,7 +2276,7 @@ mod tests {
             0,
             EnhTypeCheck::generic_type_coeff(&EnhASTType::Custom {
                 namespace: EnhASTNameSpace::global(),
-                param_types: vec![EnhASTType::Builtin(EnhBuiltinTypeKind::I32)],
+                param_types: vec![EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)],
                 name: "".to_owned(),
                 index: EnhASTIndex::none()
             },)

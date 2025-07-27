@@ -1,7 +1,7 @@
 
 println(mc91(87));
 
-fn mc91(n: i32) -> i32 {
+fn mc91(n: int) -> int {
     if (greater(n, 100), {
         add(n, -10);
     },{

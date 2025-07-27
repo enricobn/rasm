@@ -2,7 +2,7 @@ argv(1).fmap(fn(s) { s.toi32;}).match(fn(n) {
     choose(n, { println("0"); }, { println("1"); }, { println("2"); }, { println("3"); });
 }, { });
 
-fn choose(n: i32, l0: fn() -> (), l1: fn() -> (), l2: fn() -> (), l3: fn() -> ()) {
+fn choose(n: int, l0: fn() -> (), l1: fn() -> (), l2: fn() -> (), l3: fn() -> ()) {
     if(eq(0, n),
         { l0(); },
         { if(eq(1, n),

@@ -89,20 +89,20 @@ mod tests {
     fn test() {
         let parse_result = try_parse_struct(
             "struct Point {
-            x: i32,
-            y: i32
+            x: int,
+            y: int
         }",
         );
 
         let x = ASTStructPropertyDef {
             name: "x".into(),
-            ast_type: Builtin(BuiltinTypeKind::I32),
+            ast_type: Builtin(BuiltinTypeKind::Integer),
             position: ASTPosition::new(2, 13),
         };
 
         let y = ASTStructPropertyDef {
             name: "y".into(),
-            ast_type: Builtin(BuiltinTypeKind::I32),
+            ast_type: Builtin(BuiltinTypeKind::Integer),
             position: ASTPosition::new(3, 13),
         };
 
@@ -128,14 +128,14 @@ mod tests {
     fn test_parametric() {
         let parse_result = try_parse_struct(
             "struct EnumerateEntry<T> {
-            index: i32,
+            index: int,
             value: T
         }",
         );
 
         let x = ASTStructPropertyDef {
             name: "index".into(),
-            ast_type: Builtin(BuiltinTypeKind::I32),
+            ast_type: Builtin(BuiltinTypeKind::Integer),
             position: ASTPosition::new(2, 13),
         };
 

@@ -1,19 +1,19 @@
 /** Adds two numbers **/
-pub native add(n1: i32, n2: i32) -> i32 /{
+pub native add(n1: int, n2: int) -> int /{
     $inline()
     mov     eax, $n1
     add     eax, $n2
 }/
 
 /** Subtracts two numbers **/
-pub native sub(n1: i32, n2: i32) -> i32 /{
+pub native sub(n1: int, n2: int) -> int /{
     $inline()
     mov     eax, $n1
     sub     eax, $n2
 }/
 
 /** Multiply two numbers, but we return only the low 32 bit (edx is saved) **/
-pub native mul(n1: i32, n2: i32) -> i32 /{
+pub native mul(n1: int, n2: int) -> int /{
     $inline()
     push    edx
     mov     dword eax,$n1
@@ -22,7 +22,7 @@ pub native mul(n1: i32, n2: i32) -> i32 /{
 }/
 
 /** Divide two numbers, but we return only the low 32 bit (edx is saved) **/
-pub native div(n1: i32, n2: i32) -> i32 /{
+pub native div(n1: int, n2: int) -> int /{
     push    ebx
     push    edx
 
@@ -36,13 +36,13 @@ pub native div(n1: i32, n2: i32) -> i32 /{
     pop     ebx
 }/
 
-pub native toString(n: i32) -> str /{
+pub native toString(n: int) -> str /{
     push    esi
     push    ebx
     push    ecx
     push    edx
 
-    $call(rasmalloc, 20, " temp for toString(i32)")
+    $call(rasmalloc, 20, " temp for toString(int)")
     push eax
 
     $call(addRef, eax, "")
@@ -68,7 +68,7 @@ pub native toString(n: i32) -> str /{
     jnz .next_digit     ; Repeat until eax==0
 
     inc    ecx          ; The length + 1, I think the 0 at the end...
-    $call(rasmalloc, ecx, " for toString(i32)")
+    $call(rasmalloc, ecx, " for toString(int)")
 
     $call(memcopy, esi, [eax], ecx)
 
@@ -85,7 +85,7 @@ pub native toString(n: i32) -> str /{
  *  a  <= b
  *  false = 0 true = 1
  **/
-pub native lessOrEqual(a: i32, b: i32) -> bool /{
+pub native lessOrEqual(a: int, b: int) -> bool /{
     $inline()
     mov     eax,$a
     cmp     eax,$b
@@ -98,7 +98,7 @@ pub native lessOrEqual(a: i32, b: i32) -> bool /{
  *  a  < b
  *  false = 0 true = 1
  **/
-pub native less(a: i32, b: i32) -> bool /{
+pub native less(a: int, b: int) -> bool /{
     $inline()
     mov     eax,$a
     cmp     eax,$b
@@ -111,7 +111,7 @@ pub native less(a: i32, b: i32) -> bool /{
  *  a  <= b
  *  false = 0 true = 1
  **/
-pub native greater(a: i32, b: i32) -> bool /{
+pub native greater(a: int, b: int) -> bool /{
     $inline()
     mov     eax,$a
     cmp     eax,$b
@@ -124,7 +124,7 @@ pub native greater(a: i32, b: i32) -> bool /{
  *  a  == b
  *  false = 0 true = 1
  **/
-pub native eq(a: i32, b: i32) -> bool /{
+pub native eq(a: int, b: int) -> bool /{
     $inline()
     mov     eax,$a
     cmp     eax,$b

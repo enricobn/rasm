@@ -4,7 +4,7 @@
  *  esp:        the pointer to the initial esp, where in the first slot (dword) there is the count of arguments and in
  *              the subsequent slots there are the pointers to the strings
  */
-native createCmdLineArguments(address: i32,esp: i32) /{
+native createCmdLineArguments(address: int,esp: int) /{
     push    eax
     push    ebx
     push    ecx
@@ -40,7 +40,7 @@ native createCmdLineArguments(address: i32,esp: i32) /{
     pop     eax
 }/
 
-pub native exitMain(status: i32) /{
+pub native exitMain(status: int) /{
     %ifdef LIBC
     push    dword $status
     call    exit
@@ -53,11 +53,11 @@ pub native exitMain(status: i32) /{
     %endif
 }/
 
-pub native argc() -> i32 /{
+pub native argc() -> int /{
     mov     eax,[_rasm_args]
 }/
 
-pub native argv(i: i32) -> Option<str> /{
+pub native argv(i: int) -> Option<str> /{
     push edx ; since the mul function stores the result even in edx
     push ebx
     push ecx
@@ -81,7 +81,7 @@ pub native argv(i: i32) -> Option<str> /{
     pop edx
 }/
 
-pub native memcopy(source: i32, dest: i32, len: i32) /{
+pub native memcopy(source: int, dest: int, len: int) /{
     push    ecx
     push    esi
     push    edi
@@ -96,7 +96,7 @@ pub native memcopy(source: i32, dest: i32, len: i32) /{
     pop     ecx
 }/
 
-pub native rasmalloc(size: i32, descr: str) -> i32 /{
+pub native rasmalloc(size: int, descr: str) -> int /{
     push    ebx
     push    ecx
     push    edx
@@ -235,7 +235,7 @@ pub native rasmalloc(size: i32, descr: str) -> i32 /{
     pop     ebx
 }/
 
-pub native addStaticStringToHeap(s: i32) -> i32 /{
+pub native addStaticStringToHeap(s: int) -> int /{
     push    ebx
     push    ecx
     push    edx
@@ -270,7 +270,7 @@ pub native addStaticStringToHeap(s: i32) -> i32 /{
     pop     ebx
 }/
 
-pub native deref(address: i32, descr: str) -> i32 /{
+pub native deref(address: int, descr: str) -> int /{
     push    eax
     push    ebx
 
@@ -291,7 +291,7 @@ pub native deref(address: i32, descr: str) -> i32 /{
     mov     dword ebx, [_reusable_heap_table_next]
     sub     ebx,eax
     $call(print, 1:File, "  reusable size ")
-    $call(print, 1:File, ebx: i32)
+    $call(print, 1:File, ebx: int)
     $call(print, 1:File, "\n")
     pop     eax
     %endif
@@ -319,7 +319,7 @@ pub native deref(address: i32, descr: str) -> i32 /{
     %ifdef LOG_DEBUG
     push    eax
     $call(print, 1:File, "  ref count: ")
-    $call(print, 1:File, ebx: i32)
+    $call(print, 1:File, ebx: int)
     $call(print, 1:File, "\n")
     pop     eax
     %endif
@@ -375,7 +375,7 @@ pub native deref(address: i32, descr: str) -> i32 /{
 /**
  * given an address in the allocation table, dereferences that entry and adds it to the reusable table
  */
-pub native freeMem(address: i32) /{
+pub native freeMem(address: int) /{
     push    ebx
     push    eax
 
@@ -391,7 +391,7 @@ pub native freeMem(address: i32) /{
     pop     ebx
 }/
 
-pub native addRef(address: i32, descr: str) /{
+pub native addRef(address: int, descr: str) /{
     push    eax
     push    ebx
 
@@ -467,7 +467,7 @@ pub native addRef(address: i32, descr: str) /{
     pop     eax
 }/
 
-pub native removeFromReused(address: i32) /{
+pub native removeFromReused(address: int) /{
     push    eax
 
     %ifdef LOG_DEBUG
@@ -603,7 +603,7 @@ fn derefAddressNotFound() {
 }
 
 /* checks if the address is used somewhere in memory, in that case it exits */
-native checkAddress(address: i32) /{
+native checkAddress(address: int) /{
     push    eax
     push    ebx
     push    ecx
@@ -633,7 +633,7 @@ native checkAddress(address: i32) /{
     pop     eax
 }/
 
-native memContains(startAddress: i32, len: i32, what: i32) /{
+native memContains(startAddress: int, len: int, what: int) /{
     push    eax
     push    ebx
     push    ecx
@@ -675,13 +675,13 @@ pub native copy<T>(o: T) -> T /{
     $call(rasmalloc, ecx, "for copy")
     $call(memcopy, [ebx], [eax], ecx)
     ; $addRef(eax:T)
-    ; $call(deref,eax:i32, "deref for copy")
+    ; $call(deref,eax:int, "deref for copy")
 
     pop     ecx
     pop     ebx
 }/
 
-pub native addStaticAllocation(labelAllocation: i32, labelMemory: i32, size: i32) /{
+pub native addStaticAllocation(labelAllocation: int, labelMemory: int, size: int) /{
     push    eax
     push    ebx
 
@@ -698,7 +698,7 @@ pub native addStaticAllocation(labelAllocation: i32, labelMemory: i32, size: i32
     pop     eax
 }/
 
-pub native addHeap(label: i32, descrLabel: i32, value: i32) /{
+pub native addHeap(label: int, descrLabel: int, value: int) /{
     push    eax
     push    ebx
 

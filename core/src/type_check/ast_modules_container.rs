@@ -851,8 +851,8 @@ mod tests {
             "add",
             &None,
             &vec![
-                exact_builtin(BuiltinTypeKind::I32),
-                exact_builtin(BuiltinTypeKind::I32),
+                exact_builtin(BuiltinTypeKind::Integer),
+                exact_builtin(BuiltinTypeKind::Integer),
             ],
             None,
             &ModuleNamespace::global(),
@@ -868,9 +868,9 @@ mod tests {
             "match",
             &None,
             &vec![
-                exact_custom("Option", vec![ASTType::Builtin(BuiltinTypeKind::I32)]),
+                exact_custom("Option", vec![ASTType::Builtin(BuiltinTypeKind::Integer)]),
                 exact_builtin(BuiltinTypeKind::Lambda {
-                    parameters: vec![ASTType::Builtin(BuiltinTypeKind::I32)],
+                    parameters: vec![ASTType::Builtin(BuiltinTypeKind::Integer)],
                     return_type: Box::new(ASTType::Generic(
                         ASTPosition::none(),
                         "T".to_owned(),

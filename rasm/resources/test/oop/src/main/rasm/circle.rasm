@@ -1,7 +1,7 @@
 pub struct Circle {
-    x: i32,
-    y: i32,
-    radius: i32
+    x: int,
+    y: int,
+    radius: int
 }
 
 pub fn Shape(circle: Circle) -> Shape {

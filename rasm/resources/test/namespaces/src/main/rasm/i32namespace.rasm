@@ -1,5 +1,5 @@
 struct TestModel {
-    value: i32
+    value: int
 }
 
 fn geti32() -> Result<TestModel,str> {
@@ -7,7 +7,7 @@ fn geti32() -> Result<TestModel,str> {
 }
 
 pub fn printi32() {
-    geti32().match(fn(v) {println("i32 ok");}, fn(error) { println("i32 error");});
+    geti32().match(fn(v) {println("int ok");}, fn(error) { println("int error");});
 }
 
 fn geti322() -> Result<TestModel,str> {
@@ -15,5 +15,5 @@ fn geti322() -> Result<TestModel,str> {
 }
 
 pub fn printi322() {
-    geti322().match( fn(v) { println("i32 ok");}, fn(error) { println("i32 ".add(error));});
+    geti322().match( fn(v) { println("int ok");}, fn(error) { println("int ".add(error));});
 }

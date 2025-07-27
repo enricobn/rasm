@@ -8,10 +8,10 @@ pub fn print<OK,ERROR>(result: Result<OK, ERROR>) {
     result.match(fn(ok) { print("ok(", ok); print(")"); }, fn(err) { print("err: ", err); });
 }
 
-fn doJob() -> Result<i32, str> {
+fn doJob() -> Result<int, str> {
     Ok(0);
 }
 
-fn doJobErr() -> Result<i32, str> {
+fn doJobErr() -> Result<int, str> {
     Error("An error");
 }

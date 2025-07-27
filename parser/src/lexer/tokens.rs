@@ -78,8 +78,8 @@ impl TokenKind {
 
 #[derive(Debug, PartialEq, Clone, Eq, EnumIter)]
 pub enum ReservedKind {
-    I32,
-    F32,
+    INT,
+    FLOAT,
     STR,
     BOOL,
     CHAR,
@@ -94,8 +94,8 @@ impl ReservedKind {
 
     fn name(&self) -> &str {
         match self {
-            ReservedKind::I32 => "i32",
-            ReservedKind::F32 => "f32",
+            ReservedKind::INT => "int",
+            ReservedKind::FLOAT => "float",
             ReservedKind::STR => "str",
             ReservedKind::BOOL => "bool",
             ReservedKind::CHAR => "char",

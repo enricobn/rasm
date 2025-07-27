@@ -16,7 +16,7 @@ argv(1).match(fn(file) {
     }, { println("A number for count must be specified."); });
 }, { println("A file must be specified."); });
 
-fn run(start: Vec<Cell>, width: i32, height: i32, count: i32) {
+fn run(start: Vec<Cell>, width: int, height: int, count: int) {
     let allCells = allCells(width, height);
 
     printCells(
@@ -29,7 +29,7 @@ fn run(start: Vec<Cell>, width: i32, height: i32, count: i32) {
 
 }
 
-fn printCells(cells: Vec<Cell>, width: i32, height: i32) {
+fn printCells(cells: Vec<Cell>, width: int, height: int) {
     forEach(vecRange(0, height), fn(y) {
         forEach(vecRange(0, width), fn(x) {
             let alive = isAlive(cells, Cell(x, y));

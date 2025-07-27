@@ -344,7 +344,7 @@ mod tests {
         let new_name = CLambdas::add_to_statics(
             &mut statics,
             CLambda::new(
-                vec![ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)],
+                vec![ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer)],
                 ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
             ),
         );

@@ -10,15 +10,15 @@ let options1 = map(range(1,COUNT), getOption());
 println(options);
 println(options1);
 
-fn getAdd() -> fn(i32) -> i32 {
+fn getAdd() -> fn(int) -> int {
     fn(n) { add(n, 1);};
 }
 
-fn getSub() -> fn(i32) -> i32 {
+fn getSub() -> fn(int) -> int {
     fn(n) { sub(n, 1);};
 }
 
-fn getOption() -> fn(i32) -> Option<i32> {
+fn getOption() -> fn(int) -> Option<int> {
     let o = Some(1);
     fn(n) {
         // don't remove it, it's used to allocate memory inside a lambda to be sure that "o" memory is not reused

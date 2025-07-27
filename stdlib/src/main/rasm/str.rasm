@@ -1,4 +1,4 @@
-pub fn padLeft(s: str, len: i32) -> str {
+pub fn padLeft(s: str, len: int) -> str {
     let l = len(s);
     if(not(less(l, len)), s, {padLeft(add(" ", s), len);});
 }

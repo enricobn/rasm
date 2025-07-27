@@ -1,11 +1,11 @@
 
 test(nItPrint(0), nItPrint(1));
 
-fn test(p1: i32, p2: i32) {
+fn test(p1: int, p2: int) {
 
 }
 
-fn nItPrint(n: i32) -> i32 {
+fn nItPrint(n: int) -> int {
     println(n);
     n;
 }

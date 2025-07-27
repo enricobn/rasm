@@ -52,10 +52,10 @@ impl ASTResolvedGenericTypes {
             ASTType::Builtin(kind) => {
                 match kind {
                     BuiltinTypeKind::String => {}
-                    BuiltinTypeKind::I32 => {}
-                    BuiltinTypeKind::Bool => {}
+                    BuiltinTypeKind::Integer => {}
+                    BuiltinTypeKind::Boolean => {}
                     BuiltinTypeKind::Char => {}
-                    BuiltinTypeKind::F32 => {}
+                    BuiltinTypeKind::Float => {}
                     BuiltinTypeKind::Lambda {
                         parameters: p_parameters,
                         return_type: p_return_type,

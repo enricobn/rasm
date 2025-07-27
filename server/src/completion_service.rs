@@ -220,10 +220,10 @@ impl CompletionItem {
     fn type_base_name(ast_type: &ASTType) -> String {
         match ast_type {
             ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::Bool => "b".to_owned(),
+                BuiltinTypeKind::Boolean => "b".to_owned(),
                 BuiltinTypeKind::Char => "c".to_owned(),
-                BuiltinTypeKind::I32 => "i".to_owned(),
-                BuiltinTypeKind::F32 => "f".to_owned(),
+                BuiltinTypeKind::Integer => "i".to_owned(),
+                BuiltinTypeKind::Float => "f".to_owned(),
                 BuiltinTypeKind::String => "s".to_owned(),
                 BuiltinTypeKind::Lambda {
                     parameters: _,

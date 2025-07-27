@@ -1,14 +1,14 @@
 println(inner2(1, 2));
 
-fn inner(f: fn(i32) -> i32) -> i32 {
+fn inner(f: fn(int) -> int) -> int {
     f(5);
 }
 
-fn do(f: fn() -> i32) -> i32 {
+fn do(f: fn() -> int) -> int {
     f();
 }
 
-fn inner2(n1: i32, n2: i32) -> i32 {
+fn inner2(n1: int, n2: int) -> int {
     inner(fn(n3) {
         inner(fn(n4) {
             do({ add(n1, add(n2, add(n3, n4)));});

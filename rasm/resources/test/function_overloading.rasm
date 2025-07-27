@@ -7,6 +7,6 @@ fn myToString(s: str) -> str {
     s;
 }
 
-fn myToString(n: i32) -> str {
+fn myToString(n: int) -> str {
     "a number";
 }

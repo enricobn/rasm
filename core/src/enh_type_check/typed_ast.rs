@@ -191,10 +191,10 @@ pub enum ASTTypedFunctionBody {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BuiltinTypedTypeKind {
     String,
-    I32,
-    Bool,
+    Integer,
+    Boolean,
     Char,
-    F32,
+    Float,
     Lambda {
         parameters: Vec<ASTTypedType>,
         return_type: Box<ASTTypedType>,
@@ -332,10 +332,10 @@ impl Display for ASTTypedType {
         match self {
             ASTTypedType::Builtin(kind) => match kind {
                 BuiltinTypedTypeKind::String => f.write_str("str"),
-                BuiltinTypedTypeKind::I32 => f.write_str("i32"),
-                BuiltinTypedTypeKind::Bool => f.write_str("bool"),
+                BuiltinTypedTypeKind::Integer => f.write_str("int"),
+                BuiltinTypedTypeKind::Boolean => f.write_str("bool"),
                 BuiltinTypedTypeKind::Char => f.write_str("char"),
-                BuiltinTypedTypeKind::F32 => f.write_str("f32"),
+                BuiltinTypedTypeKind::Float => f.write_str("float"),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -1315,10 +1315,10 @@ pub fn type_to_untyped_type(t: &ASTTypedType) -> EnhASTType {
     match t {
         ASTTypedType::Builtin(kind) => match kind {
             BuiltinTypedTypeKind::String => EnhASTType::Builtin(EnhBuiltinTypeKind::String),
-            BuiltinTypedTypeKind::I32 => EnhASTType::Builtin(EnhBuiltinTypeKind::I32),
-            BuiltinTypedTypeKind::Bool => EnhASTType::Builtin(EnhBuiltinTypeKind::Bool),
+            BuiltinTypedTypeKind::Integer => EnhASTType::Builtin(EnhBuiltinTypeKind::Integer),
+            BuiltinTypedTypeKind::Boolean => EnhASTType::Builtin(EnhBuiltinTypeKind::Boolean),
             BuiltinTypedTypeKind::Char => EnhASTType::Builtin(EnhBuiltinTypeKind::Char),
-            BuiltinTypedTypeKind::F32 => EnhASTType::Builtin(EnhBuiltinTypeKind::F32),
+            BuiltinTypedTypeKind::Float => EnhASTType::Builtin(EnhBuiltinTypeKind::Float),
             BuiltinTypedTypeKind::Lambda {
                 parameters,
                 return_type,
@@ -1574,10 +1574,10 @@ impl DefaultFunction {
                             ASTValueType::String(String::new()),
                             EnhASTIndex::none(),
                         ),
-                        EnhBuiltinTypeKind::I32 => {
-                            EnhASTExpression::Value(ASTValueType::I32(0), EnhASTIndex::none())
+                        EnhBuiltinTypeKind::Integer => {
+                            EnhASTExpression::Value(ASTValueType::Integer(0), EnhASTIndex::none())
                         }
-                        EnhBuiltinTypeKind::Bool => EnhASTExpression::Value(
+                        EnhBuiltinTypeKind::Boolean => EnhASTExpression::Value(
                             ASTValueType::Boolean(true),
                             EnhASTIndex::none(),
                         ),
@@ -1585,8 +1585,8 @@ impl DefaultFunction {
                             ASTValueType::Char("a".to_string()),
                             EnhASTIndex::none(),
                         ),
-                        EnhBuiltinTypeKind::F32 => {
-                            EnhASTExpression::Value(ASTValueType::F32(1.0), EnhASTIndex::none())
+                        EnhBuiltinTypeKind::Float => {
+                            EnhASTExpression::Value(ASTValueType::Float(1.0), EnhASTIndex::none())
                         }
                         EnhBuiltinTypeKind::Lambda {
                             parameters: _,

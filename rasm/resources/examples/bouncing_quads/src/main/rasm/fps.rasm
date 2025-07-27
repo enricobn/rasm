@@ -1,7 +1,7 @@
 pub struct FPS {
-    frameCount: i32,
+    frameCount: int,
     lastFPSUpdate: TimeVal,
-    fps: i32
+    fps: int
 }
 
 pub fn update(fps: FPS) -> FPS {

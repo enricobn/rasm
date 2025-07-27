@@ -9,6 +9,6 @@ fn generic<T>(value: T) -> str {
     " ".add(value);
 }
 
-fn nonGeneric(value: i32) -> i32 {
+fn nonGeneric(value: int) -> int {
     value;
 }

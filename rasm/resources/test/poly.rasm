@@ -7,10 +7,10 @@ fn poly<T>(v: T) {
     println(v1);
 }
 
-fn f(v: i32) -> str {
+fn f(v: int) -> str {
     "f";
 }
 
-fn f(v: str) -> i32 {
+fn f(v: str) -> int {
     20;
 }

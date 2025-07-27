@@ -604,8 +604,8 @@ impl CompileTarget {
                         let name = format!("{}References", def.name);
                         result.push(DefaultFunction::new_2(
                             &name,
-                            EnhBuiltinTypeKind::I32,
-                            EnhBuiltinTypeKind::I32,
+                            EnhBuiltinTypeKind::Integer,
+                            EnhBuiltinTypeKind::Integer,
                         ));
                     }
                 }
@@ -636,45 +636,45 @@ impl CompileTarget {
                 vec![
                     DefaultFunction::new_2(
                         "rasmalloc",
-                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::Integer,
                         EnhBuiltinTypeKind::String,
                     ),
-                    DefaultFunction::new_1("exitMain", EnhBuiltinTypeKind::I32),
+                    DefaultFunction::new_1("exitMain", EnhBuiltinTypeKind::Integer),
                     DefaultFunction::new_2(
                         "addRef",
-                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::Integer,
                         EnhBuiltinTypeKind::String,
                     ),
                     DefaultFunction::new_3(
                         "memcopy",
-                        EnhBuiltinTypeKind::I32,
-                        EnhBuiltinTypeKind::I32,
-                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::Integer,
+                        EnhBuiltinTypeKind::Integer,
+                        EnhBuiltinTypeKind::Integer,
                     ),
                     DefaultFunction::new_2(
                         "deref",
-                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::Integer,
                         EnhBuiltinTypeKind::String,
                     ),
-                    DefaultFunction::new_1("addStaticStringToHeap", EnhBuiltinTypeKind::I32),
+                    DefaultFunction::new_1("addStaticStringToHeap", EnhBuiltinTypeKind::Integer),
                     DefaultFunction::new_2(
                         "createCmdLineArguments",
-                        EnhBuiltinTypeKind::I32,
-                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::Integer,
+                        EnhBuiltinTypeKind::Integer,
                     ),
                     DefaultFunction::new_1("str_addRef", EnhBuiltinTypeKind::String),
                     DefaultFunction::new_1("str_deref", EnhBuiltinTypeKind::String),
                     DefaultFunction::new_3(
                         "addStaticAllocation",
-                        EnhBuiltinTypeKind::I32,
-                        EnhBuiltinTypeKind::I32,
-                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::Integer,
+                        EnhBuiltinTypeKind::Integer,
+                        EnhBuiltinTypeKind::Integer,
                     ),
                     DefaultFunction::new_3(
                         "addHeap",
-                        EnhBuiltinTypeKind::I32,
-                        EnhBuiltinTypeKind::I32,
-                        EnhBuiltinTypeKind::I32,
+                        EnhBuiltinTypeKind::Integer,
+                        EnhBuiltinTypeKind::Integer,
+                        EnhBuiltinTypeKind::Integer,
                     ),
                 ]
             }

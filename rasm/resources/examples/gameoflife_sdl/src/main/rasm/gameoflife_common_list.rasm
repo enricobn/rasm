@@ -9,7 +9,7 @@ pub fn readCellFile(file: str) -> List<Cell> {
     fmap(linesEnumerate, fn(line) { lineCells(line); });
 }
 
-pub fn allCells(width: i32, height: i32) -> List<FullCell> {
+pub fn allCells(width: int, height: int) -> List<FullCell> {
     cartesianProduct(range(0, height), range(0, width), fn(y, x) {
         let cell = Cell(x, y);
 
@@ -17,7 +17,7 @@ pub fn allCells(width: i32, height: i32) -> List<FullCell> {
     });
 }
 
-pub fn moveCells(cells: List<Cell>, d: i32) -> List<Cell> {
+pub fn moveCells(cells: List<Cell>, d: int) -> List<Cell> {
     map(cells, fn(it) { Cell(add(it.x, d), add(it.y, d)); });
 }
 

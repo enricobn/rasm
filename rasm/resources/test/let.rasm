@@ -13,7 +13,7 @@ println(aBool);
 let aString = "a string";
 println(aString);
 
-fn test(n: i32) -> i32 {
+fn test(n: int) -> int {
     let ten = 10;
 
     test1(ten, fn(v) {
@@ -23,12 +23,12 @@ fn test(n: i32) -> i32 {
     });
 }
 
-fn test1(v: i32, f: fn(i32) -> i32) -> i32 {
+fn test1(v: int, f: fn(int) -> int) -> int {
     f(v);
 }
 
 
-fn test2(n: i32) -> List<i32> {
+fn test2(n: int) -> List<int> {
     let ten = listOf(10);
     listAppend(listOf(20), ten);
 }

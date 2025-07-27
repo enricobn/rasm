@@ -1,15 +1,15 @@
 pub struct SDLRect {
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32
+    x: int,
+    y: int,
+    width: int,
+    height: int
 }
 
 pub struct SDLColor {
-    r: i32,
-    g: i32,
-    b: i32,
-    a: i32
+    r: int,
+    g: int,
+    b: int,
+    a: int
 }
 
 /* if the value is 0, which is considered an error in SDL, the program exits printing the SDL error,
@@ -30,7 +30,7 @@ pub fn print(state: KeyState) {
 }
 
 pub struct KeyEvent {
-    key: i32,
+    key: int,
     state: KeyState
 }
 

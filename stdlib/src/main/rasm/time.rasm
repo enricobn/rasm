@@ -1,12 +1,12 @@
 pub struct TimeVal {
-    sec: i32,
-    nano: i32
+    sec: int,
+    nano: int
 }
 
 /**
     returns the elapsed time in nanoseconds
 */
-pub fn elapsedTime(actual: TimeVal, previous: TimeVal) -> i32 {
+pub fn elapsedTime(actual: TimeVal, previous: TimeVal) -> int {
     let secA = sec(actual);
     let nanoA = nano(actual);
     let secP = sec(previous);

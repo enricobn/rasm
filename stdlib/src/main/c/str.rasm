@@ -35,7 +35,7 @@ pub native add(s: str, c: char) -> str /{
 }/
 
 // from https://stackoverflow.com/questions/26080829/detecting-strtol-failure
-pub native toi32(s: str) -> Option<i32> /{
+pub native toi32(s: str) -> Option<int> /{
     $include(<errno.h>)
 
     char *end = NULL;
@@ -77,7 +77,7 @@ pub native greater(a: str, b: str) -> bool /{
     return (strcmp($a, $b) > 0);
 }/
 
-pub native len(s: str) -> i32 /{
+pub native len(s: str) -> int /{
     $include(<string.h>)
 
     int len_ = strlen($s);
@@ -107,7 +107,7 @@ pub native len(s: str) -> i32 /{
 
 // from https://stackoverflow.com/questions/2114377/copying-a-part-of-a-string-substring-in-c
 // TODO it does not work for UTF-8
-pub native substr(s: str, pos: i32, len: i32) -> Option<str> /{
+pub native substr(s: str, pos: int, len: int) -> Option<str> /{
     $include(<stdlib.h>)
     $include(<string.h>)
 

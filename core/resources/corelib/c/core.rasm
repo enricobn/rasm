@@ -3,15 +3,15 @@ pub type RasmPointer /{
     nativeType = struct RasmPointer_*
 }/
 
-pub native exitMain(status: i32) /{
+pub native exitMain(status: int) /{
     exit($status);
 }/
 
-pub native argc() -> i32 /{
+pub native argc() -> int /{
     return argc_;
 }/
 
-pub native argv(i: i32) -> Option<str> /{
+pub native argv(i: int) -> Option<str> /{
     if (i >= argc_) {
         $enumSimple(result, None)
         return result;

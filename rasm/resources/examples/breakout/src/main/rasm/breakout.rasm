@@ -1,6 +1,6 @@
 pub enum GameResult {
     Play(state: GameState),
-    End(score: i32)
+    End(score: int)
 }
 
 pub struct Resources {
@@ -8,13 +8,13 @@ pub struct Resources {
 }
 
 pub struct HighScore {
-    score: i32,
+    score: int,
     time: TimeVal
 }
 
 struct State {
     resources: Resources,
-    keys: Vec<i32>,
+    keys: Vec<int>,
     stage: Stage,
     highScores: Vec<HighScore>
 }
@@ -93,7 +93,7 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
     });
 }
 
-fn add(highScores: Vec<HighScore>, score: i32) -> Vec<HighScore> {
+fn add(highScores: Vec<HighScore>, score: int) -> Vec<HighScore> {
     highScores.push(HighScore(score, now()));
 }
 
@@ -177,7 +177,7 @@ fn splitToList(s: str, separator: str) -> List<str> {
     );
 }
 
-fn indexOf<T>(list: List<EnumerateEntry<T>>, what: T) -> Option<i32> {
+fn indexOf<T>(list: List<EnumerateEntry<T>>, what: T) -> Option<int> {
     list
         .filter(fn(entry) { entry.value.eq(what); })
         .first

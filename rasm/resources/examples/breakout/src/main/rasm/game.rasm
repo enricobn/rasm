@@ -8,8 +8,8 @@ pub struct World {
     bricks: Vec<Brick>,
     ball: Ball,
     bar: Bar,
-    score: i32,
-    lives: i32
+    score: int,
+    lives: int
 }
 
 enum GameStage {
@@ -29,7 +29,7 @@ fn initialWorld() -> World {
     World(bricks, initialBall(now), Bar(500.0, 0, now), 0, 3);
 }
 
-pub fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> GameResult {
+pub fn update(resources: Resources, keys: Vec<int>, gameState: GameState) -> GameResult {
     let stage = gameState.stage;
     let fps = gameState.fps.update();
 
@@ -50,7 +50,7 @@ pub fn update(resources: Resources, keys: Vec<i32>, gameState: GameState) -> Gam
     if(lives.eq(0), { End(score);}, { Play(newGameState);});
 }
 
-fn update(resources: Resources, keys: Vec<i32>, world: World) -> World {
+fn update(resources: Resources, keys: Vec<int>, world: World) -> World {
     // println(time());
     // sleep(0, 1500);
     let actualTime = now();
@@ -94,7 +94,7 @@ pub fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
     );
 }
 
-fn render(ren: SDLRenderer, resources: Resources, world: World, fps: i32) {
+fn render(ren: SDLRenderer, resources: Resources, world: World, fps: int) {
     let font = resources.font;
 
     world.bricks.forEach(fn(brick) {

@@ -1,7 +1,7 @@
 
 struct Point {
-    x: i32,
-    y: i32
+    x: int,
+    y: int
 }
 
 printPoint(Point(10, 20));

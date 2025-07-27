@@ -1,13 +1,13 @@
 pub struct Point {
-    x: i32,
-    y: i32
+    x: int,
+    y: int
 }
 
 pub fn center(point: Point) -> Point {
     point;
 }
 
-pub fn move(point: Point, dx: i32, dy: i32) -> Shape {
+pub fn move(point: Point, dx: int, dy: int) -> Shape {
     toShape(Point(point.x.add(dx), point.y.add(dy)));
 }
 

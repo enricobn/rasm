@@ -16,7 +16,7 @@ fn main() {
     println(b);
 }
 
-fn main1(a: i32) {
+fn main1(a: int) {
     let b = a;
     println(b);
 }

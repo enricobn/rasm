@@ -9,13 +9,13 @@ Assertions()
 
 //println(vecRange(0, 100000).map({ it -> compareInt1(0, it); }).count({ it -> it.eq("equal");}));
 
-fn compareInt(v1: i32, v2: i32) -> str {
+fn compareInt(v1: int, v2: int) -> str {
     if(v1.greater(v2), "greater")
     .elseIf(v1.less(v2), "less")
     .else("equal");
 }
 
-fn compareInt1(v1: i32, v2: i32) -> str {
+fn compareInt1(v1: int, v2: int) -> str {
     if(v1.greater(v2), { "greater"; })
     .elseIf(v1.less(v2), { "less"; })
     .else({ "equal";})
@@ -23,7 +23,7 @@ fn compareInt1(v1: i32, v2: i32) -> str {
 }
 
 /*
-fn compareInt2(v1: i32, v2: i32) -> str {
+fn compareInt2(v1: int, v2: int) -> str {
     if(v1.greater(v2), { -> "greater"; },
     v1.less(v2), { -> "less"; }, { -> "equal";});
 }

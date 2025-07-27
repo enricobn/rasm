@@ -1,15 +1,15 @@
 pub struct Rect {
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32
+    x: int,
+    y: int,
+    width: int,
+    height: int
 }
 
 pub fn center(rect: Rect) -> Point {
     Point(add(rect.x, div(rect.width, 2)), add(rect.y, div(rect.height, 2)));
 }
 
-pub fn move(rect: Rect, dx: i32, dy: i32) -> Shape {
+pub fn move(rect: Rect, dx: int, dy: int) -> Shape {
     toShape(Rect(add(rect.x, dx), add(rect.y, dy), rect.width, rect.height));
 }
 

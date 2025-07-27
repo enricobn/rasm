@@ -1,6 +1,6 @@
 pub struct Brick {
-    x: i32,
-    y: i32,
+    x: int,
+    y: int,
     color: SDLColor
 }
 

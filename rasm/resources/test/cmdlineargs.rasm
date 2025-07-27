@@ -1,7 +1,7 @@
 println(argc());
 printargv(1);
 
-fn printargv(n: i32) {
+fn printargv(n: int) {
     if(n.less(argc()), {
         argv(n).match(fn(v) {
             println(v);

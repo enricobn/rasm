@@ -1,11 +1,11 @@
 enum Operation {
-    One(f: fn(i32) -> i32),
-    Two(f: fn(i32) -> i32)
+    One(f: fn(int) -> int),
+    Two(f: fn(int) -> int)
 }
 
 do(10, One(fn(n) { add(n, 1);}));
 do(10, Two(fn(n) { sub(n, 1);}));
 
-fn do(v: i32, op: Operation) {
+fn do(v: int, op: Operation) {
     match(op, fn(f) { println("One ", f(v));}, fn(f) { println("Two ", f(v));});
 }

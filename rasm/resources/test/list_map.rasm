@@ -1,5 +1,5 @@
 printWith(15);
 
-fn printWith(v1: i32) {
+fn printWith(v1: int) {
     println(map(Full(10, Full(20, Empty())), fn(v) { add(v, v1);}));
 }

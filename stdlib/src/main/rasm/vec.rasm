@@ -61,7 +61,7 @@ pub fn eq<T>(vec1: Vec<T>, vec2: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> bo
     });
 }
 
-pub fn take<T>(vec: Vec<T>, count: i32) -> Vec<T> {
+pub fn take<T>(vec: Vec<T>, count: int) -> Vec<T> {
     let es = enumerate(vec);
 
     let filtered = filter(es, fn(e) {less(index(e), count);});

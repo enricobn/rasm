@@ -71,12 +71,12 @@ impl TextMacroEval for AsmPrintRefMacro {
         vec![
             DefaultFunctionCall::new(
                 "print",
-                vec![EnhASTType::Builtin(EnhBuiltinTypeKind::I32)],
+                vec![EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)],
                 0,
             ),
             DefaultFunctionCall::new(
                 "println",
-                vec![EnhASTType::Builtin(EnhBuiltinTypeKind::I32)],
+                vec![EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)],
                 0,
             ),
             DefaultFunctionCall::new(
@@ -188,7 +188,7 @@ impl AsmPrintRefMacro {
         let ident_string = " ".repeat(indent * 2);
         self.print_str(&mut result, &format!("{ident_string}{name} "), code_gen);
 
-        self.print_i32(&mut result, src, code_gen);
+        self.print_int(&mut result, src, code_gen);
         code_gen.add(&mut result, "push    ebx", None, true);
         code_gen.add(
             &mut result,
@@ -199,9 +199,9 @@ impl AsmPrintRefMacro {
         code_gen.add(&mut result, "pop    ebx", None, true);
         self.print_str(&mut result, " refcount ", code_gen);
         if new_line {
-            self.println_i32(&mut result, "[ebx + 12]", code_gen);
+            self.println_int(&mut result, "[ebx + 12]", code_gen);
         } else {
-            self.print_i32(&mut result, "[ebx + 12]", code_gen);
+            self.print_int(&mut result, "[ebx + 12]", code_gen);
         }
         code_gen.add(&mut result, "pop    ebx", None, true);
 
@@ -210,21 +210,21 @@ impl AsmPrintRefMacro {
         result
     }
 
-    fn println_i32(&self, out: &mut String, value: &str, code_gen: &CodeGenAsm) {
+    fn println_int(&self, out: &mut String, value: &str, code_gen: &CodeGenAsm) {
         code_gen.add(
             out,
             //&format!("$call(println_i32_Unit,{value}:i32)"),
-            &format!("$call(println,{value}:i32)"),
+            &format!("$call(println,{value}:int)"),
             None,
             true,
         );
     }
 
-    fn print_i32(&self, out: &mut String, value: &str, code_gen: &CodeGenAsm) {
+    fn print_int(&self, out: &mut String, value: &str, code_gen: &CodeGenAsm) {
         code_gen.add(
             out,
             //&format!("$call(print_i32_Unit,{value}:i32)"),
-            &format!("$call(print,{value}:i32)"),
+            &format!("$call(print,{value}:int)"),
             None,
             true,
         );
@@ -355,7 +355,7 @@ impl AsmPrintRefMacro {
             panic!("Cannot find enum {name}");
         }
         self.print_str(&mut result, "unknown ", code_gen);
-        self.println_i32(&mut result, "[ebx]", code_gen);
+        self.println_int(&mut result, "[ebx]", code_gen);
         code_gen.add(&mut result, "$call(exitMain, 1)", None, false);
         code_gen.add(&mut result, &format!("{end_label_name}:"), None, false);
         code_gen.add(&mut result, "pop    ebx", None, true);

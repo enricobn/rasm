@@ -33,7 +33,7 @@ pub native print(file: File, s: str) -> Option<IOError> /{
     return $call(optIOError);
 }/
 
-pub native print(file: File, n: i32) -> Option<IOError> /{
+pub native print(file: File, n: int) -> Option<IOError> /{
     $include(<stdio.h>)
     $include(<errno.h>)
 
@@ -43,7 +43,7 @@ pub native print(file: File, n: i32) -> Option<IOError> /{
     return $call(optIOError);
 }/
 
-pub native print(file: File, n: f32) -> Option<IOError> /{
+pub native print(file: File, n: float) -> Option<IOError> /{
     $include(<stdio.h>)
     $include(<errno.h>)
 

@@ -1,7 +1,7 @@
 let o = Some(10);
 println(o.iter);
 
-let o1 = None<i32>();
+let o1 = None<int>();
 println(o1.iter);
 
 let l = range(0, 2).iter;

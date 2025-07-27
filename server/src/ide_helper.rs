@@ -2507,7 +2507,7 @@ mod tests {
             {
                 let mut result = result.changes().clone().remove(&info.module_id()).unwrap();
                 let edit = result.remove(0);
-                assert_eq!("\n\nfn newFunction(highScores: Vec<HighScore>, score: i32, resources: Resources, newKeys: Vec<i32>) -> State {
+                assert_eq!("\n\nfn newFunction(highScores: Vec<HighScore>, score: int, resources: Resources, newKeys: Vec<int>) -> State {
 let newHighScores = highScores.add(score);
             writeHighScores(newHighScores);
             State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
@@ -2588,7 +2588,7 @@ Menu(MenuState(newHighScores));
                 let mut result = result.changes().clone().remove(&info.module_id()).unwrap();
                 let edit = result.remove(0);
                 assert_eq!(
-                    "\n\nfn newFunction(resources: Resources, newKeys: Vec<i32>, newHighScores: Vec<HighScore>) -> State {
+                    "\n\nfn newFunction(resources: Resources, newKeys: Vec<int>, newHighScores: Vec<HighScore>) -> State {
 State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
 }", edit.text
                 );

@@ -422,10 +422,10 @@ pub fn conv_to_typed_type(
     let result = match ast_type {
         EnhASTType::Builtin(kind) => match kind {
             EnhBuiltinTypeKind::String => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
-            EnhBuiltinTypeKind::I32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
-            EnhBuiltinTypeKind::Bool => ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool),
+            EnhBuiltinTypeKind::Integer => ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer),
+            EnhBuiltinTypeKind::Boolean => ASTTypedType::Builtin(BuiltinTypedTypeKind::Boolean),
             EnhBuiltinTypeKind::Char => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
-            EnhBuiltinTypeKind::F32 => ASTTypedType::Builtin(BuiltinTypedTypeKind::F32),
+            EnhBuiltinTypeKind::Float => ASTTypedType::Builtin(BuiltinTypedTypeKind::Float),
             EnhBuiltinTypeKind::Lambda {
                 return_type,
                 parameters,

@@ -198,7 +198,7 @@ fn transform_macro_calls_in_body(
                     let new_statement = ASTStatement::LetStatement(
                         format!("macroCall{macro_id}"),
                         ASTExpression::Value(
-                            ASTValueType::I32(macro_id.try_into().unwrap()),
+                            ASTValueType::Integer(macro_id.try_into().unwrap()),
                             call.position().mv_right(1),
                         ),
                         call.position().clone(),
@@ -280,9 +280,9 @@ fn convert_to_rasm_expression(
             let value_function = match value_type {
                 ASTValueType::String(_) => "ASTString",
                 ASTValueType::Boolean(_) => "Boolean",
-                ASTValueType::I32(_) => "I32",
+                ASTValueType::Integer(_) => "Integer",
                 ASTValueType::Char(_) => "Char",
-                ASTValueType::F32(_) => "F32",
+                ASTValueType::Float(_) => "Float",
             };
             simple_call(
                 "Value",

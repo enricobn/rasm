@@ -1980,7 +1980,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 .map(|it| {
                     let ast_type = match it {
                         MacroParam::Plain(_, opt_type, _) => match opt_type {
-                            None => EnhASTType::Builtin(EnhBuiltinTypeKind::I32),
+                            None => EnhASTType::Builtin(EnhBuiltinTypeKind::Integer),
                             Some(ast_type) => ast_type.clone(),
                         },
                         MacroParam::StringLiteral(_) => {

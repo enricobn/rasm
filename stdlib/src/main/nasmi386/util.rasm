@@ -2,7 +2,7 @@ pub native initRandom() /{
     ; TODO
 }/
 
-pub native random() -> i32 /{
+pub native random() -> int /{
     $call(rasmalloc, 4, "random")
     push    dword ebx
     push    dword ecx

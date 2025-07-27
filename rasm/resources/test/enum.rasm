@@ -1,6 +1,6 @@
 enum Test {
-    T1(v1: i32, v2: i32, o: Option<str>),
-    T2(v1: i32, o: Option<str>)
+    T1(v1: int, v2: int, o: Option<str>),
+    T2(v1: int, o: Option<str>)
 }
 
 printOption(Some("a value"));

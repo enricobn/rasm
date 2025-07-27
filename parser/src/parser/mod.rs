@@ -1244,9 +1244,9 @@ impl Parser {
             {
                 if let Some(TokenKind::Number(n1)) = self.get_token_kind_n(2) {
                     (
-                        ASTValueType::F32(format!("{n}.{n1}").parse().map_err(|err| {
+                        ASTValueType::Float(format!("{n}.{n1}").parse().map_err(|err| {
                             format!(
-                                "Cannot parse '{n}.{n1}' as an f32, {err}: {}",
+                                "Cannot parse '{n}.{n1}' as a float, {err}: {}",
                                 self.get_position(0)
                             )
                         })?),
@@ -1254,9 +1254,9 @@ impl Parser {
                     )
                 } else {
                     (
-                        ASTValueType::I32(n.parse().map_err(|err| {
+                        ASTValueType::Integer(n.parse().map_err(|err| {
                             format!(
-                                "Cannot parse '{n}' as an i32, {err}: {}",
+                                "Cannot parse '{n}' as an int, {err}: {}",
                                 self.get_position(0)
                             )
                         })?),
@@ -1265,9 +1265,9 @@ impl Parser {
                 }
             } else {
                 (
-                    ASTValueType::I32(n.parse().map_err(|err| {
+                    ASTValueType::Integer(n.parse().map_err(|err| {
                         format!(
-                            "Cannot parse '{n}' as an i32, {err}: {}",
+                            "Cannot parse '{n}' as an int, {err}: {}",
                             self.get_position(0)
                         )
                     })?),
@@ -1489,12 +1489,16 @@ mod tests {
         if let Some(ASTExpression::ASTFunctionCallExpression(call)) = nprint_parameter {
             assert_eq!("add", call.function_name());
             assert_eq!(2, call.parameters().len());
-            if let Some(ASTExpression::Value(ASTValueType::I32(n), _)) = call.parameters().get(0) {
+            if let Some(ASTExpression::Value(ASTValueType::Integer(n), _)) =
+                call.parameters().get(0)
+            {
                 assert_eq!(10, *n);
             } else {
                 panic!();
             }
-            if let Some(ASTExpression::Value(ASTValueType::I32(n), _)) = call.parameters().get(1) {
+            if let Some(ASTExpression::Value(ASTValueType::Integer(n), _)) =
+                call.parameters().get(1)
+            {
                 assert_eq!(20, *n);
             } else {
                 panic!();
@@ -1541,7 +1545,10 @@ mod tests {
         let module = parse("resources/test/test12.rasm");
 
         let f_def = module.functions.first().unwrap();
-        assert_eq!(f_def.return_type, ASTType::Builtin(BuiltinTypeKind::I32));
+        assert_eq!(
+            f_def.return_type,
+            ASTType::Builtin(BuiltinTypeKind::Integer)
+        );
     }
 
     #[test]
@@ -1570,7 +1577,7 @@ mod tests {
 
     #[test]
     fn function_call_with_generics() {
-        let lexer = Lexer::new("println<i32>(20);".into());
+        let lexer = Lexer::new("println<int>(20);".into());
 
         let parser = Parser::new(lexer);
 
@@ -1579,11 +1586,11 @@ mod tests {
         let function_call = ASTFunctionCall::new(
             "println".to_string(),
             vec![ASTExpression::Value(
-                ASTValueType::I32(20),
+                ASTValueType::Integer(20),
                 ASTPosition::new(1, 14),
             )],
             ASTPosition::new(1, 1),
-            vec![ASTType::Builtin(BuiltinTypeKind::I32)],
+            vec![ASTType::Builtin(BuiltinTypeKind::Integer)],
             None,
             false,
         );
@@ -1639,7 +1646,7 @@ mod tests {
         let function_call = ASTFunctionCall::new(
             "Some".to_string(),
             vec![ASTExpression::Value(
-                ASTValueType::I32(20),
+                ASTValueType::Integer(20),
                 ASTPosition::new(1, 6),
             )],
             ASTPosition::new(1, 1),
@@ -1663,7 +1670,10 @@ mod tests {
         println!("errors {}", SliceDisplay(&errors));
 
         let error = errors.remove(0);
-        assert_eq!(error.message, "Unexpected token processing statement `->`".to_string());
+        assert_eq!(
+            error.message,
+            "Unexpected token processing statement `->`".to_string()
+        );
     }
 
     #[test]

@@ -69,9 +69,9 @@ pub fn toString(call: ASTFunctionCall) -> str {
 pub enum ASTValueType {
     ASTString(value: str),
     Boolean(value: bool),
-    I32(value: i32),
+    Integer(value: int),
     Char(value: str),
-    F32(value: f32)
+    Float(value: float)
 }
 
 pub fn toString(v: ASTValueType) -> str {
@@ -95,10 +95,10 @@ pub enum ASTType {
 }
 
 pub enum BuiltinTypeKind {
-    Bool,
+    Boolean,
     Char,
-    I32,
-    F32,
+    Integer,
+    Float,
     String,
     Lambda(
         parameters: Vec<ASTType>,

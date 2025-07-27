@@ -1,6 +1,6 @@
 pub struct Ball {
-    x: f32,
-    y: f32,
+    x: float,
+    y: float,
     xDir: XDirection,
     yDir: YDirection,
     lastUpdate: TimeVal
@@ -26,7 +26,7 @@ pub fn update(ball: Ball, actualTime: TimeVal) -> Ball {
     Ball(newX, newY, newXDir, newYDir, actualTime);
 }
 
-fn update(x: f32, xDir: XDirection, diff: f32) -> Pair<f32,XDirection> {
+fn update(x: float, xDir: XDirection, diff: float) -> Pair<float,XDirection> {
     let newX = x.move(xDir, diff);
     let rightMargin = WIDTH.sub(BALLSIZE);
 
@@ -38,7 +38,7 @@ fn update(x: f32, xDir: XDirection, diff: f32) -> Pair<f32,XDirection> {
     );
 }
 
-fn update(y: f32, yDir: YDirection, diff: f32) -> Pair<f32,YDirection> {
+fn update(y: float, yDir: YDirection, diff: float) -> Pair<float,YDirection> {
     let newY = y.move(yDir, diff);
     if(newY.less(HEADERHEIGHT),
         { Pair(HEADERHEIGHT.tof32.add(HEADERHEIGHT.tof32.sub(newY)), yDir.flip);},
@@ -56,7 +56,7 @@ pub fn collides(ball: Ball, brick: Brick) -> bool {
     xColl.and(yColl);
 }
 
-pub fn collides(ball: Ball, barPos: f32) -> bool {
+pub fn collides(ball: Ball, barPos: float) -> bool {
     let bx = barPos;
     let by = HEIGHT.sub(BARHEIGHT);
 

@@ -1,6 +1,6 @@
 struct Point {
-    x: Option<i32>,
-    y: Option<i32>
+    x: Option<int>,
+    y: Option<int>
 }
 
 let p = Point(Some(10), Some(20));
@@ -17,7 +17,7 @@ pub fn toString(p: Point) -> str {
     .append(")");
 }
 
-fn move(point: Point, diff: i32) -> Point {
+fn move(point: Point, diff: int) -> Point {
     point
         .x(point.x.add(diff))
         .y(point.y.add(diff));

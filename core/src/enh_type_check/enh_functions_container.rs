@@ -874,11 +874,11 @@ mod tests {
     fn test_2() {
         let mut sut = EnhFunctionsContainer::new();
 
-        let function_def = create_function("AModule::toString_0", "n", EnhBuiltinTypeKind::I32);
+        let function_def = create_function("AModule::toString_0", "n", EnhBuiltinTypeKind::Integer);
 
         sut.add_function("toString".to_string(), function_def);
 
-        let function_def = create_function("AModule::toString_1", "b", EnhBuiltinTypeKind::Bool);
+        let function_def = create_function("AModule::toString_1", "b", EnhBuiltinTypeKind::Boolean);
 
         sut.add_function("toString".to_string(), function_def);
 
@@ -890,13 +890,13 @@ mod tests {
     fn test_3() {
         let mut sut = EnhFunctionsContainer::new();
 
-        let function_def = create_function("toString_0", "n", EnhBuiltinTypeKind::I32);
+        let function_def = create_function("toString_0", "n", EnhBuiltinTypeKind::Integer);
 
         sut.add_function("toString".to_string(), function_def);
 
         assert!(sut.find_function("toString_0").is_some());
 
-        let mut function_def = create_function("toString_1", "n", EnhBuiltinTypeKind::I32);
+        let mut function_def = create_function("toString_1", "n", EnhBuiltinTypeKind::Integer);
         function_def.parameters = vec![];
 
         sut.add_function("toString".to_string(), function_def);
@@ -909,7 +909,7 @@ mod tests {
     fn test_4() {
         let mut sut = EnhFunctionsContainer::new();
 
-        let function_def = create_add_function("n", EnhBuiltinTypeKind::I32);
+        let function_def = create_add_function("n", EnhBuiltinTypeKind::Integer);
 
         sut.add_function("add".to_string(), function_def);
 
@@ -922,8 +922,8 @@ mod tests {
             original_function_name: "add".into(),
             function_name: "add".into(),
             parameters: vec![
-                EnhASTExpression::Value(ASTValueType::I32(10), EnhASTIndex::none()),
-                EnhASTExpression::Value(ASTValueType::I32(20), EnhASTIndex::none()),
+                EnhASTExpression::Value(ASTValueType::Integer(10), EnhASTIndex::none()),
+                EnhASTExpression::Value(ASTValueType::Integer(20), EnhASTIndex::none()),
             ],
             index: EnhASTIndex::none(),
             generics: Vec::new(),
@@ -954,7 +954,7 @@ mod tests {
             &call.function_name,
             &call.original_function_name,
             &vec![
-                Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::I32)),
+                Exact(EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)),
                 Exact(EnhASTType::Generic(
                     EnhASTIndex::none(),
                     "T".into(),

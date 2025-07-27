@@ -1,8 +1,8 @@
-fn fun1(value: i32) -> i32 {
+fn fun1(value: int) -> int {
     value.
 }
 
-fn fun2(value: i32) -> i32 {
+fn fun2(value: int) -> int {
     let result = value.
 
     10;

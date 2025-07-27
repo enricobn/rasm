@@ -21,11 +21,11 @@ pub native sdlInit() /{
     SDL_Init(62001);
 }/
 
-pub native sdlCreateWindow(title: str, x: i32, y: i32, width: i32, height: i32) -> SDLWindow /{
+pub native sdlCreateWindow(title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
     return SDL_CreateWindow(title, x, y, width, height, 4);
 }/
 
-pub native sdlDelay(millis: i32) /{
+pub native sdlDelay(millis: int) /{
     SDL_Delay(millis);
 }/
 
@@ -91,7 +91,7 @@ pub fn sdlSetRenderDrawColor(ren: SDLRenderer, color: SDLColor) {
     sdlSetRenderDrawColor(ren, r(color), g(color), b(color), a(color));
 }
 
-pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: i32, g: i32, b: i32, a: i32) /{
+pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: int) /{
     SDL_SetRenderDrawColor(ren, r, g, b, a);
 }/
 
@@ -202,16 +202,16 @@ pub native sdlLoop<CTX,MODEL>(ctx: CTX, model: MODEL, update: fn(Option<KeyEvent
 
 // Text
 
-pub native sdlTTFInit() -> i32 /{
+pub native sdlTTFInit() -> int /{
     $include(<SDL_ttf.h>)
     return TTF_Init();
 }/
 
-pub native sdlOpenFont(file: str, size: i32) -> SDLFont /{
+pub native sdlOpenFont(file: str, size: int) -> SDLFont /{
     return TTF_OpenFont(file, size);
 }/
 
-native sdlRenderTextSolid(font: SDLFont, message: str, r: i32, g: i32, b: i32, a: i32) -> SDLSurface /{
+native sdlRenderTextSolid(font: SDLFont, message: str, r: int, g: int, b: int, a: int) -> SDLSurface /{
     SDL_Color color = {r, g, b};
     return TTF_RenderText_Solid(font, message, color);
 }/

@@ -228,10 +228,16 @@ pub trait TypeDefProvider {
     fn get_ast_typed_type_from_ast_type(&self, ast_type: &EnhASTType) -> Option<ASTTypedType> {
         let result = match ast_type {
             EnhASTType::Builtin(kind) => match kind {
-                EnhBuiltinTypeKind::Bool => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Bool)),
+                EnhBuiltinTypeKind::Boolean => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Boolean))
+                }
                 EnhBuiltinTypeKind::Char => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Char)),
-                EnhBuiltinTypeKind::I32 => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)),
-                EnhBuiltinTypeKind::F32 => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::F32)),
+                EnhBuiltinTypeKind::Integer => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer))
+                }
+                EnhBuiltinTypeKind::Float => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Float))
+                }
                 EnhBuiltinTypeKind::String => {
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))
                 }
@@ -321,10 +327,14 @@ pub trait TypeDefProvider {
                 BuiltinTypedTypeKind::String => {
                     Some(EnhASTType::Builtin(EnhBuiltinTypeKind::String))
                 }
-                BuiltinTypedTypeKind::I32 => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::I32)),
-                BuiltinTypedTypeKind::Bool => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Bool)),
+                BuiltinTypedTypeKind::Integer => {
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Integer))
+                }
+                BuiltinTypedTypeKind::Boolean => {
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Boolean))
+                }
                 BuiltinTypedTypeKind::Char => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Char)),
-                BuiltinTypedTypeKind::F32 => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::F32)),
+                BuiltinTypedTypeKind::Float => Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Float)),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
                     return_type,

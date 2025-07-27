@@ -2,10 +2,10 @@ let n = argv(1).fmap(fn(s) { s.toi32;}).getOrElse(999);
 
 inner(n);
 
-fn inner(p1: i32) {
+fn inner(p1: int) {
     println(do(15, fn(v) { add(v, p1); }));
 }
 
-fn do(v1: i32, f: fn(i32) -> i32) -> i32 {
+fn do(v1: int, f: fn(int) -> int) -> int {
     f(v1);
 }

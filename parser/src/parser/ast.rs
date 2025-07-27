@@ -319,10 +319,10 @@ pub enum ASTFunctionBody {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BuiltinTypeKind {
-    Bool,
+    Boolean,
     Char,
-    I32,
-    F32,
+    Integer,
+    Float,
     String,
     Lambda {
         parameters: Vec<ASTType>,
@@ -361,10 +361,10 @@ impl ASTType {
         return match self {
             ASTType::Builtin(kind) => match kind {
                 BuiltinTypeKind::String => false,
-                BuiltinTypeKind::I32 => false,
-                BuiltinTypeKind::Bool => false,
+                BuiltinTypeKind::Integer => false,
+                BuiltinTypeKind::Boolean => false,
                 BuiltinTypeKind::Char => false,
-                BuiltinTypeKind::F32 => false,
+                BuiltinTypeKind::Float => false,
                 BuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -523,10 +523,10 @@ impl Display for ASTType {
         match self {
             ASTType::Builtin(kind) => match kind {
                 BuiltinTypeKind::String => f.write_str("str"),
-                BuiltinTypeKind::I32 => f.write_str("i32"),
-                BuiltinTypeKind::Bool => f.write_str("bool"),
+                BuiltinTypeKind::Integer => f.write_str("int"),
+                BuiltinTypeKind::Boolean => f.write_str("bool"),
                 BuiltinTypeKind::Char => f.write_str("char"),
-                BuiltinTypeKind::F32 => f.write_str("f32"),
+                BuiltinTypeKind::Float => f.write_str("float"),
                 BuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -688,9 +688,9 @@ impl Display for ASTFunctionCall {
 pub enum ASTValueType {
     String(String),
     Boolean(bool),
-    I32(i32),
+    Integer(i32),
     Char(String),
-    F32(f32),
+    Float(f32),
 }
 
 impl Display for ASTValueType {
@@ -698,8 +698,8 @@ impl Display for ASTValueType {
         match self {
             ASTValueType::String(s) => f.write_str(&format!("\"{s}\"")),
             ASTValueType::Boolean(b) => f.write_str(&format!("{b}")),
-            ASTValueType::I32(n) => f.write_str(&format!("{n}")),
-            ASTValueType::F32(n) => f.write_str(&format!("{n}")),
+            ASTValueType::Integer(n) => f.write_str(&format!("{n}")),
+            ASTValueType::Float(n) => f.write_str(&format!("{n}")),
             ASTValueType::Char(c) => f.write_str(&format!("'{c}'")),
         }
     }
@@ -708,10 +708,10 @@ impl Display for ASTValueType {
 impl ASTValueType {
     pub fn to_type(&self) -> ASTType {
         match self {
-            ASTValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Bool),
-            ASTValueType::I32(_) => ASTType::Builtin(BuiltinTypeKind::I32),
+            ASTValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Boolean),
+            ASTValueType::Integer(_) => ASTType::Builtin(BuiltinTypeKind::Integer),
             ASTValueType::Char(_) => ASTType::Builtin(BuiltinTypeKind::Char),
-            ASTValueType::F32(_) => ASTType::Builtin(BuiltinTypeKind::F32),
+            ASTValueType::Float(_) => ASTType::Builtin(BuiltinTypeKind::Float),
             ASTValueType::String(_) => ASTType::Builtin(BuiltinTypeKind::String),
         }
     }
@@ -726,7 +726,7 @@ impl ASTValueType {
                     5
                 }
             }
-            ASTValueType::I32(n) => {
+            ASTValueType::Integer(n) => {
                 // TODO it's not precise: 000100
                 let mut result = n.abs().checked_ilog10().unwrap_or(0) as usize + 1;
                 if *n < 0 {
@@ -735,7 +735,7 @@ impl ASTValueType {
                 result
             }
             ASTValueType::Char(s) => s.len() + 2,
-            ASTValueType::F32(n) => format!("{n}").len(), // TODO it's slow and not precise: 000.100
+            ASTValueType::Float(n) => format!("{n}").len(), // TODO it's slow and not precise: 000.100
         }
     }
 }
@@ -777,8 +777,8 @@ impl Display for ASTExpression {
             ASTExpression::Value(val_type, _) => match val_type {
                 ASTValueType::String(s) => f.write_str(&format!("\"{s}\"")),
                 ASTValueType::Boolean(b) => f.write_str(&format!("{b}")),
-                ASTValueType::I32(n) => f.write_str(&format!("{n}")),
-                ASTValueType::F32(n) => f.write_str(&format!("{n}")),
+                ASTValueType::Integer(n) => f.write_str(&format!("{n}")),
+                ASTValueType::Float(n) => f.write_str(&format!("{n}")),
                 ASTValueType::Char(c) => f.write_str(&format!("'{c}'")),
             },
             ASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),

@@ -2,10 +2,10 @@ let anI32 = 10;
 
 doSomething(anI32);
 
-fn doSomething(aValue: i32) {
+fn doSomething(aValue: int) {
     println(aValue);
 }
 
-fn doSomething1() -> Option<i32> {
+fn doSomething1() -> Option<int> {
     Some(10);
 }

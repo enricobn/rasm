@@ -50,7 +50,7 @@ pub fn toString<F,S>(p: Pair<F,S>) -> str {
     "(".append(p.first).add(", ").append(p.second).add(")");
 }
 
-fn find(s: str, v: str) -> Vec<i32> {
+fn find(s: str, v: str) -> Vec<int> {
     vecRange(0, s.len.sub(v.len()).add(1))
     .map(fn(i) {
         Pair(i, s.substr(i, v.len));

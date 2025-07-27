@@ -1,11 +1,11 @@
 struct Loop<T> {
-    update: fn(i32, T) -> Option<T>,
+    update: fn(int, T) -> Option<T>,
     render: fn(T) -> ()
 }
 
 struct Model {
-    x: i32,
-    y: i32
+    x: int,
+    y: int
 }
 
 let l = Loop(
@@ -29,7 +29,7 @@ let l = Loop(
 
 loop(0, Model(0, 0), l);
 
-fn loop<T>(time: i32, model: T, l: Loop<T>) {
+fn loop<T>(time: int, model: T, l: Loop<T>) {
     let result = l.callUpdate(time, model);
     match(result, fn(newModel) { l.callRender(newModel); loop(add(time, 1), newModel, l);}, { });
 }

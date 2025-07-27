@@ -458,17 +458,17 @@ impl TextMacroEvaluator {
                                     BuiltinTypedTypeKind::String => {
                                         EnhASTType::Builtin(EnhBuiltinTypeKind::String)
                                     }
-                                    BuiltinTypedTypeKind::I32 => {
-                                        EnhASTType::Builtin(EnhBuiltinTypeKind::I32)
+                                    BuiltinTypedTypeKind::Integer => {
+                                        EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)
                                     }
-                                    BuiltinTypedTypeKind::Bool => {
-                                        EnhASTType::Builtin(EnhBuiltinTypeKind::Bool)
+                                    BuiltinTypedTypeKind::Boolean => {
+                                        EnhASTType::Builtin(EnhBuiltinTypeKind::Boolean)
                                     }
                                     BuiltinTypedTypeKind::Char => {
                                         EnhASTType::Builtin(EnhBuiltinTypeKind::Char)
                                     }
-                                    BuiltinTypedTypeKind::F32 => {
-                                        EnhASTType::Builtin(EnhBuiltinTypeKind::F32)
+                                    BuiltinTypedTypeKind::Float => {
+                                        EnhASTType::Builtin(EnhBuiltinTypeKind::Float)
                                     }
                                     BuiltinTypedTypeKind::Lambda { .. } => {
                                         panic!()
@@ -517,11 +517,11 @@ impl TextMacroEvaluator {
             let par_type_name = vec.get(1).unwrap().trim();
             let par_name = vec.first().unwrap().trim();
 
-            if par_type_name == "i32" {
+            if par_type_name == "int" {
                 (
                     par_name,
-                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::I32)),
-                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::I32)),
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)),
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer)),
                 )
             } else if par_type_name == "str" {
                 (
@@ -529,11 +529,11 @@ impl TextMacroEvaluator {
                     Some(EnhASTType::Builtin(EnhBuiltinTypeKind::String)),
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String)),
                 )
-            } else if par_type_name == "f32" {
+            } else if par_type_name == "float" {
                 (
                     par_name,
-                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::F32)),
-                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::F32)),
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Float)),
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Float)),
                 )
             } else {
                 let parser = TypeParserHelper::new(par_type_name);
@@ -608,10 +608,10 @@ impl TextMacroEvaluator {
         match typed_type {
             ASTTypedType::Builtin(kind) => match kind {
                 BuiltinTypedTypeKind::String => EnhASTType::Builtin(EnhBuiltinTypeKind::String),
-                BuiltinTypedTypeKind::I32 => EnhASTType::Builtin(EnhBuiltinTypeKind::I32),
-                BuiltinTypedTypeKind::Bool => EnhASTType::Builtin(EnhBuiltinTypeKind::Bool),
+                BuiltinTypedTypeKind::Integer => EnhASTType::Builtin(EnhBuiltinTypeKind::Integer),
+                BuiltinTypedTypeKind::Boolean => EnhASTType::Builtin(EnhBuiltinTypeKind::Boolean),
                 BuiltinTypedTypeKind::Char => EnhASTType::Builtin(EnhBuiltinTypeKind::Char),
-                BuiltinTypedTypeKind::F32 => EnhASTType::Builtin(EnhBuiltinTypeKind::F32),
+                BuiltinTypedTypeKind::Float => EnhASTType::Builtin(EnhBuiltinTypeKind::Float),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -1277,7 +1277,7 @@ mod tests {
             original_name: String::new(),
             parameters: vec![ASTTypedParameterDef {
                 name: "par".to_string(),
-                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::I32),
+                ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer),
                 ast_index: EnhASTIndex::none(),
             }],
             return_type: ASTTypedType::Unit,
@@ -1298,7 +1298,7 @@ mod tests {
 
         assert_eq!(
             format!("{}", result.get(0).unwrap().0),
-            "$call(Plain(aFun, None, None), Ref($par, Some(i32), Some(i32)))"
+            "$call(Plain(aFun, None, None), Ref($par, Some(int), Some(int)))"
         );
     }
 }

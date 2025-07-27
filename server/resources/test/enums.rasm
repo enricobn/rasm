@@ -4,7 +4,7 @@ enum AnEnum {
 }
 
 struct MyStruct {
-    op: MyOption<i32>
+    op: MyOption<int>
 }
 
 enum MyOption<T> {

@@ -6,14 +6,14 @@ runWith(n, fn(arg) {
     println(context(arg));
 });
 
-fn parameter(n: i32) -> i32 {
+fn parameter(n: int) -> int {
     n;
 }
 
-fn lambdaParameter(n: i32, f: fn(i32) -> i32) -> i32 {
+fn lambdaParameter(n: int, f: fn(int) -> int) -> int {
     f(n);
 }
 
-fn context(n: i32) -> i32 {
+fn context(n: int) -> int {
     lambdaParameter(n, fn(n1) { n;});
 }

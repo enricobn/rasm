@@ -8,11 +8,11 @@ fn main() {
     println(callFn(getList()));
 }
 
-fn getList() -> fn() -> List<i32> {
+fn getList() -> fn() -> List<int> {
     let one = listOf(1);
     { push(one, 2);};
 }
 
-fn callFn(f: fn() -> List<i32>) -> List<i32> {
+fn callFn(f: fn() -> List<int>) -> List<int> {
     f();
 }

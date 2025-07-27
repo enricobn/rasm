@@ -430,10 +430,10 @@ pub enum EnhASTFunctionBody {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EnhBuiltinTypeKind {
-    Bool,
+    Boolean,
     Char,
-    I32,
-    F32,
+    Integer,
+    Float,
     String,
     Lambda {
         parameters: Vec<EnhASTType>,
@@ -444,10 +444,10 @@ pub enum EnhBuiltinTypeKind {
 impl EnhBuiltinTypeKind {
     pub fn to_ast(&self) -> BuiltinTypeKind {
         match self {
-            EnhBuiltinTypeKind::Bool => BuiltinTypeKind::Bool,
+            EnhBuiltinTypeKind::Boolean => BuiltinTypeKind::Boolean,
             EnhBuiltinTypeKind::Char => BuiltinTypeKind::Char,
-            EnhBuiltinTypeKind::I32 => BuiltinTypeKind::I32,
-            EnhBuiltinTypeKind::F32 => BuiltinTypeKind::F32,
+            EnhBuiltinTypeKind::Integer => BuiltinTypeKind::Integer,
+            EnhBuiltinTypeKind::Float => BuiltinTypeKind::Float,
             EnhBuiltinTypeKind::String => BuiltinTypeKind::String,
             EnhBuiltinTypeKind::Lambda {
                 parameters,
@@ -527,14 +527,18 @@ impl EnhASTType {
             EnhASTType::Builtin(builtin_type_kind) => {
                 if let EnhASTType::Builtin(other_builtin) = other {
                     match builtin_type_kind {
-                        EnhBuiltinTypeKind::Bool => {
-                            matches!(other_builtin, EnhBuiltinTypeKind::Bool)
+                        EnhBuiltinTypeKind::Boolean => {
+                            matches!(other_builtin, EnhBuiltinTypeKind::Boolean)
                         }
                         EnhBuiltinTypeKind::Char => {
                             matches!(other_builtin, EnhBuiltinTypeKind::Char)
                         }
-                        EnhBuiltinTypeKind::I32 => matches!(other_builtin, EnhBuiltinTypeKind::I32),
-                        EnhBuiltinTypeKind::F32 => matches!(other_builtin, EnhBuiltinTypeKind::F32),
+                        EnhBuiltinTypeKind::Integer => {
+                            matches!(other_builtin, EnhBuiltinTypeKind::Integer)
+                        }
+                        EnhBuiltinTypeKind::Float => {
+                            matches!(other_builtin, EnhBuiltinTypeKind::Float)
+                        }
                         EnhBuiltinTypeKind::String => {
                             matches!(other_builtin, EnhBuiltinTypeKind::String)
                         }
@@ -578,10 +582,10 @@ impl EnhASTType {
         return match self {
             EnhASTType::Builtin(kind) => match kind {
                 EnhBuiltinTypeKind::String => false,
-                EnhBuiltinTypeKind::I32 => false,
-                EnhBuiltinTypeKind::Bool => false,
+                EnhBuiltinTypeKind::Integer => false,
+                EnhBuiltinTypeKind::Boolean => false,
                 EnhBuiltinTypeKind::Char => false,
-                EnhBuiltinTypeKind::F32 => false,
+                EnhBuiltinTypeKind::Float => false,
                 EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -645,10 +649,10 @@ impl EnhASTType {
     ) -> Self {
         match self {
             EnhASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
-                EnhBuiltinTypeKind::Bool => self.clone(),
+                EnhBuiltinTypeKind::Boolean => self.clone(),
                 EnhBuiltinTypeKind::Char => self.clone(),
-                EnhBuiltinTypeKind::I32 => self.clone(),
-                EnhBuiltinTypeKind::F32 => self.clone(),
+                EnhBuiltinTypeKind::Integer => self.clone(),
+                EnhBuiltinTypeKind::Float => self.clone(),
                 EnhBuiltinTypeKind::String => self.clone(),
                 EnhBuiltinTypeKind::Lambda {
                     parameters,
@@ -692,10 +696,10 @@ impl EnhASTType {
         }
         match self {
             EnhASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
-                EnhBuiltinTypeKind::Bool => self.clone(),
+                EnhBuiltinTypeKind::Boolean => self.clone(),
                 EnhBuiltinTypeKind::Char => self.clone(),
-                EnhBuiltinTypeKind::I32 => self.clone(),
-                EnhBuiltinTypeKind::F32 => self.clone(),
+                EnhBuiltinTypeKind::Integer => self.clone(),
+                EnhBuiltinTypeKind::Float => self.clone(),
                 EnhBuiltinTypeKind::String => self.clone(),
                 EnhBuiltinTypeKind::Lambda {
                     parameters,
@@ -768,10 +772,10 @@ impl EnhASTType {
         match ast_type {
             ASTType::Builtin(kind) => {
                 let builtin = match kind {
-                    BuiltinTypeKind::Bool => EnhBuiltinTypeKind::Bool,
+                    BuiltinTypeKind::Boolean => EnhBuiltinTypeKind::Boolean,
                     BuiltinTypeKind::Char => EnhBuiltinTypeKind::Char,
-                    BuiltinTypeKind::I32 => EnhBuiltinTypeKind::I32,
-                    BuiltinTypeKind::F32 => EnhBuiltinTypeKind::F32,
+                    BuiltinTypeKind::Integer => EnhBuiltinTypeKind::Integer,
+                    BuiltinTypeKind::Float => EnhBuiltinTypeKind::Float,
                     BuiltinTypeKind::String => EnhBuiltinTypeKind::String,
                     BuiltinTypeKind::Lambda {
                         parameters,
@@ -848,10 +852,10 @@ impl EnhASTType {
     pub fn remove_generics_prefix(self) -> Self {
         match self {
             EnhASTType::Builtin(ref builtin_type_kind) => match builtin_type_kind {
-                EnhBuiltinTypeKind::Bool => self.clone(),
+                EnhBuiltinTypeKind::Boolean => self.clone(),
                 EnhBuiltinTypeKind::Char => self.clone(),
-                EnhBuiltinTypeKind::I32 => self.clone(),
-                EnhBuiltinTypeKind::F32 => self.clone(),
+                EnhBuiltinTypeKind::Integer => self.clone(),
+                EnhBuiltinTypeKind::Float => self.clone(),
                 EnhBuiltinTypeKind::String => self.clone(),
                 EnhBuiltinTypeKind::Lambda {
                     parameters,
@@ -907,10 +911,10 @@ impl Display for EnhASTType {
         match self {
             EnhASTType::Builtin(kind) => match kind {
                 EnhBuiltinTypeKind::String => f.write_str("str"),
-                EnhBuiltinTypeKind::I32 => f.write_str("i32"),
-                EnhBuiltinTypeKind::Bool => f.write_str("bool"),
+                EnhBuiltinTypeKind::Integer => f.write_str("int"),
+                EnhBuiltinTypeKind::Boolean => f.write_str("bool"),
                 EnhBuiltinTypeKind::Char => f.write_str("char"),
-                EnhBuiltinTypeKind::F32 => f.write_str("f32"),
+                EnhBuiltinTypeKind::Float => f.write_str("float"),
                 EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type,

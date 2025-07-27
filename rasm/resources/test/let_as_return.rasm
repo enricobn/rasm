@@ -1,6 +1,6 @@
 println(main());
 
-fn main() -> i32 {
+fn main() -> int {
     let a = 5;
     a;
 }

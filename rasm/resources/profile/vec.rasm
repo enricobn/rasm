@@ -3,8 +3,8 @@
 // 56 bytes allocated
 // real    0m0,061s
 struct Point {
-    x: i32,
-    y: i32
+    x: int,
+    y: int
 }
 
 main();
@@ -17,6 +17,6 @@ fn main() {
     println(points.len);
 }
 
-fn points(count: i32) -> Vec<Point> {
+fn points(count: int) -> Vec<Point> {
     vecRange(0, count).map({ it -> Point(it, it); });
 }

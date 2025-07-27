@@ -2,14 +2,14 @@ let n = argv(1).fmap(fn(s) { s.toi32;}).getOrElse(999);
 
 inner1(n);
 
-fn inner1(n: i32) {
+fn inner1(n: int) {
     inner({ add(n, 10); });
 }
 
-fn inner(f: fn() -> i32) {
+fn inner(f: fn() -> int) {
     println(do(f));
 }
 
-fn do(f: fn() -> i32) -> i32 {
+fn do(f: fn() -> int) -> int {
     f();
 }

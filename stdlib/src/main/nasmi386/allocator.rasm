@@ -1,5 +1,5 @@
 /*
-native malloc(size: i32) -> i32 /{
+native malloc(size: int) -> int /{
     push    ebx
     push    ecx
     push    edx
@@ -100,7 +100,7 @@ native malloc(size: i32) -> i32 /{
     pop     ebx
 }/
 
-native deref(address: i32, descr: str) -> i32 /{
+native deref(address: int, descr: str) -> int /{
     push    eax
     push    ebx
 
@@ -163,7 +163,7 @@ native deref(address: i32, descr: str) -> i32 /{
     pop     eax
 }/
 
-native addRef(address: i32, descr: str) /{
+native addRef(address: int, descr: str) /{
     push    eax
     push    ebx
 
@@ -213,7 +213,7 @@ native addRef(address: i32, descr: str) /{
     pop     eax
 }/
 
-fn printRefCount(count: i32) {
+fn printRefCount(count: int) {
     print("  ref count: ");
     println(count);
 }
