@@ -16,7 +16,9 @@ pub fn print<T>(v: Vec<T>, printFunction: fn(T) -> ()) {
 }
 
 pub fn enumerate<T>(vec: Vec<T>) -> Vec<EnumerateEntry<T>> {
-    zip(vecRange(0, len(vec)), vec, fn(index, value) { EnumerateEntry(index, value);});
+    zip(vecRange(0, len(vec)), vec, fn(index, value) { 
+        EnumerateEntry(index, value);
+    });
 }
 
 // TODO optimize
@@ -64,7 +66,9 @@ pub fn eq<T>(vec1: Vec<T>, vec2: Vec<T>, cmpFunction: fn(T, T) -> Compare) -> bo
 pub fn take<T>(vec: Vec<T>, count: int) -> Vec<T> {
     let es = enumerate(vec);
 
-    let filtered = filter(es, fn(e) {less(index(e), count);});
+    let filtered = filter(es, fn(e) {
+        less(index(e), count);}
+    );
 
     map(filtered, fn(e) {value(e);});
 }

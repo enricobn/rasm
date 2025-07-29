@@ -25,7 +25,7 @@ use crate::codegen::c::function_call_parameters_c::CFunctionCallParameters;
 use crate::codegen::c::options::COptions;
 use crate::codegen::c::text_macro_c::{
     CCallMacro, CEnumDeclarationMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
-    CIncludeMacro, CStructDeclarationMacro, CStructTypeMacro,
+    CIncludeMacro, CRealTypeNameMacro, CStructDeclarationMacro, CStructTypeMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
@@ -109,7 +109,7 @@ impl CodeGenC {
         match ast_type {
             ASTTypedType::Builtin(kind) => match kind {
                 BuiltinTypedTypeKind::String => "char*".to_string(),
-                BuiltinTypedTypeKind::Integer => "int".to_string(),
+                BuiltinTypedTypeKind::Integer => "long".to_string(),
                 BuiltinTypedTypeKind::Boolean => "char".to_string(),
                 BuiltinTypedTypeKind::Char => "char*".to_string(),
                 BuiltinTypedTypeKind::Float => "double".to_string(),
@@ -148,7 +148,7 @@ impl CodeGenC {
         match ast_type {
             ASTTypedType::Builtin(kind) => match kind {
                 BuiltinTypedTypeKind::String => "char*".to_string(),
-                BuiltinTypedTypeKind::Integer => "int".to_string(),
+                BuiltinTypedTypeKind::Integer => "long".to_string(),
                 BuiltinTypedTypeKind::Boolean => "char".to_string(),
                 BuiltinTypedTypeKind::Char => "char*".to_string(),
                 BuiltinTypedTypeKind::Float => "double".to_string(),
@@ -858,6 +858,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             ),
         );
         evaluator.add("typeName", CTypeNameMacro::new());
+        evaluator.add("realTypeName", CRealTypeNameMacro::new());
         evaluator.add("castAddress", CCastAddress::new());
         evaluator.add("enumSimple", CEnumSimpleMacro::new());
         evaluator.add("isRef", CIsRefMacro::new());
@@ -1210,9 +1211,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     ) {
         if add_return {
             if let Some(fd) = function_def {
-                if matches!(fd.body, ASTTypedFunctionBody::RASMBody(_))
-                    && !matches!(fd.return_type, ASTTypedType::Unit)
-                {
+                if matches!(fd.return_type, ASTTypedType::Unit) {
+                    self.add(out, "return NULL;", None, true);
+                } else if matches!(fd.body, ASTTypedFunctionBody::RASMBody(_)) {
                     self.add(out, "return return_value_;", None, true);
                 }
             }

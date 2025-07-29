@@ -54,12 +54,25 @@ impl FunctionsCreator for CFunctionsCreator {
         );
 
         for (i, variant) in enum_def.variants.iter().enumerate() {
-            self.code_manipulator.add(
-                &mut result,
-                &format!("if (enum_value->variant_num == {i}) {{"),
-                None,
-                true,
-            );
+            let stmt = if i == 0 {
+                "if"
+            } else if i < enum_def.variants.len() - 1 {
+                "else if"
+            } else {
+                "else"
+            };
+
+            if i < enum_def.variants.len() - 1 {
+                self.code_manipulator.add(
+                    &mut result,
+                    &format!("{stmt} (enum_value->variant_num == {i}) {{"),
+                    None,
+                    true,
+                );
+            } else {
+                self.code_manipulator
+                    .add(&mut result, &format!("{stmt} {{"), None, true);
+            }
 
             if variant.parameters.is_empty() {
                 self.code_manipulator.add_rows(
@@ -101,12 +114,18 @@ impl FunctionsCreator for CFunctionsCreator {
             self.code_manipulator.add(&mut result, "}", None, true);
         }
 
-        self.code_manipulator.add(
+        /*
+        TODO check for unknown, but at the start
+        self.code_manipulator.add_rows(
             &mut result,
-            &format!("printf(\"unknown variant for {}\\n\");", enum_def.name),
+            vec![&format!(
+                "printf(\"unknown variant for {}\\n\");",
+                enum_def.name
+            )],
             None,
             true,
         );
+        */
 
         result
     }
@@ -285,7 +304,7 @@ impl FunctionsCreator for CFunctionsCreator {
             &mut result,
             vec![
                 "$inline()",
-                &format!("return (($typeName($v)"),
+                &format!("return (($typeName($v)"), // TODO, is it correct or must be $realTypeName?
                 &format!(")$v->address)->{name};"),
             ],
             None,

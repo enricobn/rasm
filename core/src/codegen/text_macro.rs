@@ -166,7 +166,7 @@ impl TextMacroEvaluator {
                     typed_function_def,
                     pre_macro,
                     type_def_provider,
-                ) {
+                )? {
                     line_result = line_result.replace(whole, &s);
                 }
             }
@@ -650,16 +650,18 @@ impl TextMacroEvaluator {
         function_def: Option<&ASTTypedFunctionDef>,
         pre_macro: bool,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> Option<String> {
+    ) -> Result<Option<String>, String> {
         let evaluator = self
             .evaluators
             .get(&text_macro.name)
             .unwrap_or_else(|| panic!("{} macro not found", &text_macro.name));
 
         if evaluator.is_pre_macro() == pre_macro {
-            Some(evaluator.eval_macro(statics, &text_macro, function_def, type_def_provider))
+            evaluator
+                .eval_macro(statics, &text_macro, function_def, type_def_provider)
+                .map(|it| Some(it))
         } else {
-            None
+            Ok(None)
         }
     }
 
@@ -771,7 +773,7 @@ pub trait TextMacroEval {
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> String;
+    ) -> Result<String, String>;
 
     fn is_pre_macro(&self) -> bool;
 
@@ -842,13 +844,13 @@ impl TextMacroEval for AddRefMacro {
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> String {
+    ) -> Result<String, String> {
         if !self.dereference_enabled {
-            return String::new();
+            return Ok(String::new());
         }
         if let Some(fd) = function_def {
             if fd.name == "addRef" {
-                return String::new();
+                return Ok(String::new());
             }
 
             let (address, ast_typed_type) = match text_macro.parameters.get(0) {
@@ -876,7 +878,7 @@ impl TextMacroEval for AddRefMacro {
                     name,
                     body: _,
                 } => name.clone(),
-                _ => return String::new(),
+                _ => return Ok(String::new()),
             };
 
             let mut result = String::new();
@@ -902,9 +904,9 @@ impl TextMacroEval for AddRefMacro {
                 }
             }
 
-            result
+            Ok(result)
         } else {
-            String::new()
+            Ok(String::new())
         }
     }
 
@@ -958,12 +960,12 @@ impl TextMacroEval for InlineMacro {
         _text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
         _type_def_provider: &dyn TypeDefProvider,
-    ) -> String {
+    ) -> Result<String, String> {
         if let Some(f) = function_def {
             InlineRegistry::add_to_statics(statics, &f);
-            String::new()
+            Ok(String::new())
         } else {
-            panic!("Cannot use the inline macro outside of a function.")
+            Err("Cannot use the inline macro outside of a function.".to_owned())
         }
     }
 
@@ -1021,7 +1023,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Some("; call macro, calling println\n    push dword [_s_1]\n    call println\n    add esp, 4\n".to_owned())
+            Ok(Some("; call macro, calling println\n    push dword [_s_1]\n    call println\n    add esp, 4\n".to_owned()))
         );
     }
 

@@ -47,7 +47,7 @@ impl EnhResolvedGenericTypes {
         }
     }
 
-    pub fn get(&self, key: &String, var_types: &Vec<EnhASTType>) -> Option<&EnhASTType> {
+    pub fn get(&self, key: &str, var_types: &Vec<EnhASTType>) -> Option<&EnhASTType> {
         self.map.get(key).and_then(|it| it.get(var_types))
     }
 
@@ -301,7 +301,7 @@ impl EnhResolvedGenericTypes {
         self.map.len()
     }
 
-    pub fn contains_key(&self, key: &String, var_types: &Vec<EnhASTType>) -> bool {
+    pub fn contains_key(&self, key: &str, var_types: &Vec<EnhASTType>) -> bool {
         self.map
             .get(key)
             .map(|it| it.contains_key(var_types))
@@ -331,7 +331,9 @@ impl EnhResolvedGenericTypes {
                     .or_insert(t.fix_namespaces(enhanced_module));
             }
         }
-        EnhResolvedGenericTypes { map: new }
+        let result = EnhResolvedGenericTypes { map: new };
+
+        result
     }
 
     pub fn fix_generics(self, generics_prefix: &dyn Display) -> Self {
@@ -351,7 +353,9 @@ impl EnhResolvedGenericTypes {
                     .or_insert(t.fix_generics(generics_prefix));
             }
         }
-        EnhResolvedGenericTypes { map: new }
+        let result = EnhResolvedGenericTypes { map: new };
+
+        result
     }
 
     pub fn remove_generics_prefix(self) -> Self {

@@ -105,3 +105,21 @@ TODO
 M  = List  
 T  = String  
 T1 = i32  
+
+## STDLib
+
+### Vec
+
+we assume to have a reference to a Vec of int, named a
+
+- a is a pointer to RasmPointer_
+- a.address is a pointer to Vector
+- a.address.values is a pointer RasmPointer_
+- a.address.values.adress is a C array of long
+
+we assume to have a reference to an Vec of a struct S, named a
+
+- a is a pointer to RasmPointer_
+- a.address is a pointer to Vector
+- a.address.values is a pointer RasmPointer_
+- a.address.values.address is a pointer to a C array of pointers to RasmPointer

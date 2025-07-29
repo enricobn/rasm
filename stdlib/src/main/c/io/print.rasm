@@ -38,7 +38,7 @@ pub native print(file: File, n: int) -> Option<IOError> /{
     $include(<errno.h>)
 
     errno = 0;
-    fprintf(file, "%d", $n);
+    fprintf(file, "%ld", $n);
 
     return $call(optIOError);
 }/

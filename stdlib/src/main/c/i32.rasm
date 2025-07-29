@@ -32,7 +32,7 @@ pub native toString(n: int) -> str /{
     int s_len = 20;
 
     char *_str = malloc((s_len + 1) * sizeof(char));
-    sprintf(_str, "%d", $n);
+    sprintf(_str, "%ld", $n);
     return _str;
 }/
 

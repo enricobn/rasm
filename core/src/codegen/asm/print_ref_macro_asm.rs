@@ -32,9 +32,9 @@ impl TextMacroEval for AsmPrintRefMacro {
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> String {
+    ) -> Result<String, String> {
         let result = match text_macro.parameters.get(0) {
-            None => panic!("cannot find parameter for printRef macro"),
+            None => return Err("cannot find parameter for printRef macro".to_owned()),
             Some(par) => match par {
                 MacroParam::Plain(name, ast_type, ast_typed_type) => self.print_ref(
                     name,
@@ -46,7 +46,7 @@ impl TextMacroEval for AsmPrintRefMacro {
                     &self.code_gen,
                 ),
                 MacroParam::StringLiteral(_) => {
-                    panic!("String is nt a valid parameter for printRef macro ")
+                    return Err("String is nt a valid parameter for printRef macro ".to_owned())
                 }
                 MacroParam::Ref(name, ast_type, ast_typed_type) => self.print_ref(
                     name,
@@ -60,7 +60,7 @@ impl TextMacroEval for AsmPrintRefMacro {
             },
         };
 
-        result
+        Ok(result)
     }
 
     fn is_pre_macro(&self) -> bool {

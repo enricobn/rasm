@@ -30,7 +30,7 @@ impl TextMacroEval for AsmCallTextMacroEvaluator {
         text_macro: &TextMacro,
         _function_def: Option<&ASTTypedFunctionDef>,
         _type_def_provider: &dyn TypeDefProvider,
-    ) -> String {
+    ) -> Result<String, String> {
         let function_name =
             if let Some(MacroParam::Plain(function_name, _, _)) = text_macro.parameters.get(0) {
                 function_name
@@ -74,7 +74,7 @@ impl TextMacroEval for AsmCallTextMacroEvaluator {
             (text_macro.parameters.len() - 1) * self.code_gen.word_len()
         ));
 
-        result
+        Ok(result)
     }
 
     fn is_pre_macro(&self) -> bool {
@@ -103,7 +103,7 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
         text_macro: &TextMacro,
         _function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> String {
+    ) -> Result<String, String> {
         debug_i!("translate macro fun {:?}", _function_def);
         let function_name =
             if let Some(MacroParam::Plain(function_name, _, _)) = text_macro.parameters.get(0) {
@@ -174,7 +174,7 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
         result.push_str("    pop   ebx\n");
         result.push_str("    pop   edx\n");
 
-        result
+        Ok(result)
     }
 
     fn is_pre_macro(&self) -> bool {

@@ -1,10 +1,14 @@
 pub type Vec<T> /{ hasReferences = true, nativeType = struct Vector* }/
 
-native Vec(length: int) -> RasmPointer /{
+native Vec(length: int, size: int) -> RasmPointer /{
     struct RasmPointer_ *result = rasmMalloc(sizeof(struct Vector));
     struct Vector *new_vec = (struct Vector*)result->address;
     new_vec->length = length;
-    new_vec->values = rasmMalloc(sizeof(void *) * length);
+    //if (length == 0) {
+    //    new_vec->values = NULL;
+    //} else {
+        new_vec->values = rasmMalloc(size * length);
+    //}
     return result;
 }/
 
@@ -13,7 +17,7 @@ pub native VecAddRef<T>(address: Vec<T>) /{
 
     if (vector->values != NULL) {
         addRef(vector->values);
-        $typeName(T) *array = ($typeName(T) *)vector->values->address;
+        $realTypeName(T) *array = ($realTypeName(T) *)vector->values->address;
 
         if ($isRef(T)) {
             for (int i=0; i < vector->length; i++) {
@@ -22,6 +26,8 @@ pub native VecAddRef<T>(address: Vec<T>) /{
         }
     }
     addRef(address);
+    // the C method returns Void_
+    return NULL;
 }/
 
 pub native VecDeref<T>(address: Vec<T>) /{
@@ -29,7 +35,7 @@ pub native VecDeref<T>(address: Vec<T>) /{
 
     // TODO remove this optimization, an empty Vec is created with values containing an empty array
     if (vector->values != NULL) {
-        $typeName(T) *array = ($typeName(T) *)vector->values->address;
+        $realTypeName(T) *array = ($realTypeName(T) *)vector->values->address;
 
         if ($isRef(T)) {
             for (int i=0; i < vector->length; i++) {
@@ -41,17 +47,13 @@ pub native VecDeref<T>(address: Vec<T>) /{
     }
 
     deref(address);
+    // the C method returns Void_
+    return NULL;
 }/
 
 pub native Vec<T>() -> Vec<T> /{
-    return $call(Vec,0);
-    /*
-    struct RasmPointer_ *result = rasmMalloc(sizeof(struct Vector));
-    struct Vector *new_vec = (struct Vector*)result->address;
-    new_vec->length = 0;
-    new_vec->values = NULL;
-    return result;
-    */
+    size_t s = sizeof($realTypeName(T));
+    return $call(Vec,0,s);
 }/
 
 pub native first<T>(vec: Vec<T>) -> Option<T> /{
@@ -62,8 +64,8 @@ pub native first<T>(vec: Vec<T>) -> Option<T> /{
         return result;
     } else {
         struct RasmPointer_ *values = $castAddress($vec)->values;
-        $typeName(T) *array = ($typeName(T) *)values->address;
-        void *value = array[0];
+        $realTypeName(T) *array = ($realTypeName(T) *)values->address;
+        $realTypeName(T) value = array[0];
         $addRef(value:T)
         return
         $call(Some, value:T)
@@ -79,8 +81,8 @@ pub native last<T>(vec: Vec<T>) -> Option<T> /{
         return result;
     } else {
         struct RasmPointer_ *values = $castAddress($vec)->values;
-        $typeName(T) *array = ($typeName(T) *)values->address;
-        $typeName(T) value = array[length - 1];
+        $realTypeName(T) *array = ($realTypeName(T) *)values->address;
+        $realTypeName(T) value = array[length - 1];
         $addRef(value:T)
         return
         $call(Some, value:T)
@@ -94,14 +96,15 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
 
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
-    $typeName(T) *array = ($typeName(T) *)values->address;
+    $realTypeName(T) *array = ($realTypeName(T) *)values->address;
 
-    struct RasmPointer_ *result = $call(Vec,length + 1);
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec,length + 1,s);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
 
-    memcpy(result_array, array, sizeof(void *) * length);
+    memcpy(result_array, array, s * length);
 
     result_array[length] = $o;
     return result;
@@ -112,10 +115,11 @@ pub native len<T>(vec: Vec<T>) -> int /{
 }/
 
 pub native vecOf<T>(o: T) -> Vec<T> /{
-    struct RasmPointer_ *result = $call(Vec,1);
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec,1,s:int);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
 
     result_array[0] = o;
 
@@ -123,10 +127,11 @@ pub native vecOf<T>(o: T) -> Vec<T> /{
 }/
 
 pub native vecOf<T>(o1: T, o2: T) -> Vec<T> /{
-    struct RasmPointer_ *result = $call(Vec,2);
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec,2,s);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
 
     result_array[0] = o1;
     result_array[1] = o2;
@@ -135,10 +140,11 @@ pub native vecOf<T>(o1: T, o2: T) -> Vec<T> /{
 }/
 
 pub native vecOf<T>(o1: T, o2: T, o3: T) -> Vec<T> /{
-    struct RasmPointer_ *result = $call(Vec,3);
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec,3,s:int);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
 
     result_array[0] = o1;
     result_array[1] = o2;
@@ -148,10 +154,11 @@ pub native vecOf<T>(o1: T, o2: T, o3: T) -> Vec<T> /{
 }/
 
 pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T) -> Vec<T> /{
-    struct RasmPointer_ *result = $call(Vec, 4);
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec, 4,s:int);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
 
     result_array[0] = o1;
     result_array[1] = o2;
@@ -162,10 +169,11 @@ pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T) -> Vec<T> /{
 }/
 
 pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T) -> Vec<T> /{
-    struct RasmPointer_ *result = $call(Vec, 5);
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec, 5,s:int);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
 
     result_array[0] = o1;
     result_array[1] = o2;
@@ -177,10 +185,11 @@ pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T) -> Vec<T> /{
 }/
 
 pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T, o8: T) -> Vec<T> /{
-    struct RasmPointer_ *result = $call(Vec,8);
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec,8,s:int);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
 
     result_array[0] = o1;
     result_array[1] = o2;
@@ -231,13 +240,14 @@ pub native vecRange(start: int, end: int) -> Vec<int> /{
 
     size_t length = end-start;
 
-    struct RasmPointer_ *result = $call(Vec,length);
+    size_t s = sizeof(long);
+    struct RasmPointer_ *result = $call(Vec,length,s);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    int *result_array = (int *)result_values->address;
+    long *result_array = (long *)result_values->address;
 
     int counter = 0;
-    for (int i = start; i < end; i++) {
+    for (long i = start; i < end; i++) {
         result_array[counter++] = i;
     }
 
@@ -247,18 +257,19 @@ pub native vecRange(start: int, end: int) -> Vec<int> /{
 pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
-    $typeName(T) *array = ($typeName(T) *)values->address;
+    $realTypeName(T) *array = ($realTypeName(T) *)values->address;
 
-    struct RasmPointer_ *result = $call(Vec,length);
+    size_t s = sizeof($realTypeName(T1));
+    struct RasmPointer_ *result = $call(Vec,length,s:int);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    $typeName(T1) *result_array = ($typeName(T1) *)result_values->address;
+    $realTypeName(T1) *result_array = ($realTypeName(T1) *)result_values->address;
 
     addRef(result);
     addRef(result_values);
 
     for (int i = 0; i < length; i++) {
-        $typeName(T1) tmp = $castAddress($f)->functionPtr(array[i], f);
+        $realTypeName(T1) tmp = $castAddress($f)->functionPtr(array[i], f);
         $addRef(tmp:T1)
         result_array[i] = tmp;
     }
@@ -271,7 +282,7 @@ pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
 pub native anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
-    $typeName(T) *array = ($typeName(T) *)values->address;
+    $realTypeName(T) *array = ($realTypeName(T) *)values->address;
     
     for (int i = 0; i < length; i++) {
         if ($castAddress($f)->functionPtr(array[i], f)) {
@@ -286,7 +297,7 @@ pub native anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
 pub native allMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
-    $typeName(T) *array = ($typeName(T) *)values->address;
+    $realTypeName(T) *array = ($realTypeName(T) *)values->address;
     
     for (int i = 0; i < length; i++) {
         if (!$castAddress($f)->functionPtr(array[i], f)) {
@@ -300,7 +311,7 @@ pub native allMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
 pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> int /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
-    $typeName(T) *array = ($typeName(T) *)values->address;
+    $realTypeName(T) *array = ($realTypeName(T) *)values->address;
 
     int result = 0;
     for (int i = 0; i < length; i++) {
@@ -315,12 +326,13 @@ pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> int /{
 pub native filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
-    $typeName(T) *array = ($typeName(T) *)values->address;
+    $realTypeName(T) *array = ($realTypeName(T) *)values->address;
 
-    struct RasmPointer_ *result = $call(Vec,length);
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec,length,s:int);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
 
     int dest_1 = 0;
     for (int i = 0; i < length; i++) {
@@ -337,27 +349,28 @@ pub native filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
 pub native zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> /{
     size_t length1 = $castAddress($vec1)->length;
     struct RasmPointer_ *values1 = $castAddress($vec1)->values;
-    $typeName(T1) *array1 = ($typeName(T1) *)values1->address;
+    $realTypeName(T1) *array1 = ($realTypeName(T1) *)values1->address;
 
     size_t length2 = $castAddress($vec2)->length;
     struct RasmPointer_ *values2 = $castAddress($vec2)->values;
-    $typeName(T2) *array2 = ($typeName(T2) *)values2->address;
+    $realTypeName(T2) *array2 = ($realTypeName(T2) *)values2->address;
 
     int length = length2;
     if (length1 < length2) {
         length = length1;
     }
 
-    struct RasmPointer_ *result = $call(Vec,length);
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec,length,s);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
 
     addRef(result);
     addRef(result_values);
 
     for (int i = 0; i < length; i++) {
-        $typeName(T) tmp = $castAddress($zipFunction)->functionPtr(array1[i], array2[i], zipFunction);
+        $realTypeName(T) tmp = $castAddress($zipFunction)->functionPtr(array1[i], array2[i], zipFunction);
         $addRef(tmp:T)
         result_array[i] = tmp;
     }
@@ -372,28 +385,30 @@ pub native add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
 
     size_t length1 = $castAddress($vec1)->length;
     struct RasmPointer_ *values1 = $castAddress($vec1)->values;
-    $typeName(T) *array1 = ($typeName(T) *)values1->address;
+    $realTypeName(T) *array1 = ($realTypeName(T) *)values1->address;
 
     size_t length2 = $castAddress($vec2)->length;
     struct RasmPointer_ *values2 = $castAddress($vec2)->values;
-    $typeName(T) *array2 = ($typeName(T) *)values2->address;
+    $realTypeName(T) *array2 = ($realTypeName(T) *)values2->address;
 
-    struct RasmPointer_ *result = $call(Vec,length1 + length2);
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec,length1 + length2, s);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
 
-    memcpy(result_array, array1, sizeof(void *) * length1);
+    memcpy(result_array, array1, s * length1);
 
-    $typeName(T) *vec1_pos = result_array + length1;
+    $realTypeName(T) *vec1_pos = result_array + length1;
 
-    memcpy(vec1_pos, array2, sizeof(void *) * length2);
+    memcpy(vec1_pos, array2, s * length2);
 
     return result;
 }/
 
 pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
-    size_t length = $castAddress($vec)->length;
+    size_t s = sizeof($realTypeName(T));
+    size_t length = $castAddress($vec,s)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
     void **array = (void **)values->address;
 
@@ -405,19 +420,19 @@ pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
         new_length += inner_lenght;
     }
 
-    struct RasmPointer_ *result = $call(Vec,new_length);
+    struct RasmPointer_ *result = $call(Vec,new_length,s);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
-    $typeName(T) *result_array = ($typeName(T) *)result_values->address;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
 
     int dest_i = 0;
     for (int i = 0; i < length; i++) {
         struct Vector *innerVec = (struct Vector *)((struct RasmPointer_*)array[i])->address;
         int inner_lenght = innerVec->length;
         struct RasmPointer_ *inner_values = innerVec->values;
-        $typeName(T) *inner_array = ($typeName(T) *) inner_values->address;
+        $realTypeName(T) *inner_array = ($realTypeName(T) *) inner_values->address;
 
-        memcpy(result_array + dest_i, inner_array, inner_lenght * sizeof(void *));
+        memcpy(result_array + dest_i, inner_array, inner_lenght * s);
         dest_i += inner_lenght;
     }
 
@@ -427,13 +442,13 @@ pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
 pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
-    $typeName(T) *array = ($typeName(T) *)values->address;
+    $realTypeName(T) *array = ($realTypeName(T) *)values->address;
 
-    void *result = zero;
+    $realTypeName(T1) result = zero;
 
     for (int i = 0; i < length; i++) {
         $addRef(result: T1)
-        $typeName(T1) tmpResult = $castAddress($accum)->functionPtr(result, array[i], accum);
+        $realTypeName(T1) tmpResult = $castAddress($accum)->functionPtr(result, array[i], accum);
         $deref(result: T1)
         result = tmpResult;
     }
@@ -446,7 +461,8 @@ pub native charsVec(s: str) -> Vec<char> /{
 
     int length = 
     $call(len, $s)
-    struct RasmPointer_ *result = $call(Vec,length);
+    size_t sz = sizeof(void *);
+    struct RasmPointer_ *result = $call(Vec,length,sz);
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
     void **result_array = (void **)result_values->address;
@@ -504,7 +520,7 @@ pub native charsVec(s: str) -> Vec<char> /{
 pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
-    $typeName(T) *array = ($typeName(T) *)values->address;
+    $realTypeName(T) *array = ($realTypeName(T) *)values->address;
 
     for (int i = 0; i < length; i++) {
         $castAddress($f)->functionPtr(array[i], f);
@@ -518,8 +534,8 @@ pub native get<T>(vec: Vec<T>, i: int) -> Option<T> /{
         return result;
     } else {
         struct RasmPointer_ *array_values = $castAddress($vec)->values;           \
-        $typeName(T) *array = ($typeName(T) *)array_values->address;     \
-        $typeName(T) value = array[i];
+        $realTypeName(T) *array = ($realTypeName(T) *)array_values->address;     \
+        $realTypeName(T) value = array[i];
 
         $addRef(value:T)
         return $call(Some, value: T);

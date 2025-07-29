@@ -1,6 +1,6 @@
-p("%s:\t\t%d\n", "number", 10);
+p("%s:\t\t%ld\n", "number", 10);
 
 native p(s1: str, s2: str, n: int) /{
-    $ccall(printf, "number:\t\t%d\n", $n)
+    $ccall(printf, "number:\t\t%ld\n", $n)
     $ccall(printf, $s1, $s2, $n)
 }/

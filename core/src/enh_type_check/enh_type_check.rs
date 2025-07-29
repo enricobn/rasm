@@ -334,6 +334,8 @@ impl<'a> EnhTypeCheck<'a> {
                     let mut function_return_type = new_function_def.return_type.clone();
                     let mut function_generics = new_function_def.generic_types.clone();
 
+                    let mut resolved_generic_types =
+                        new_function_def.resolved_generic_types.clone();
                     if let Some(et) = expected_type {
                         if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                             parameters,
@@ -360,6 +362,26 @@ impl<'a> EnhTypeCheck<'a> {
                             if new_function_def.return_type.is_generic()
                                 && !return_type.is_generic()
                             {
+                                // TODO resolve parameters and try to share the same code that is used elsewhere in this
+                                //      file
+                                if let Ok(result) =
+                        EnhResolvedGenericTypes::resolve_generic_types_from_effective_type(
+                            &new_function_def.return_type,
+                            &return_type,
+                            module,
+                        )
+                                {
+                                    if let Err(e) = resolved_generic_types.extend(result) {
+                                        return Err(EnhTypeCheckError::new(
+                                            new_function_def.index.clone(),
+                                            format!(
+                                                "{e} resolving generic type {} with {return_type}",
+                                                new_function_def.return_type
+                                            ),
+                                            self.stack.clone(),
+                                        ));
+                                    }
+                                }
                                 function_return_type = return_type.as_ref().clone();
                             } else if new_function_def.return_type.is_generic() {
                                 unresolved_generic_types = true;
@@ -403,6 +425,7 @@ impl<'a> EnhTypeCheck<'a> {
                         new_function_def.parameters = function_parameters;
                         new_function_def.return_type = function_return_type;
                         new_function_def.generic_types = function_generics;
+                        new_function_def.resolved_generic_types = resolved_generic_types;
 
                         new_functions.push((new_function_def, self.stack.clone()));
                     }
@@ -1124,6 +1147,7 @@ impl<'a> EnhTypeCheck<'a> {
             dedent!();
             let (valid_function, _x, resolved_generic_types, expressions) =
                 valid_functions.remove(0);
+
             Ok((valid_function, resolved_generic_types, expressions))
         }
     }
