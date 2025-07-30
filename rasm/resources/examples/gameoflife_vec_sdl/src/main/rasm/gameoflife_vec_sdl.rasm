@@ -25,6 +25,10 @@
 //
 // some changes...
 // real    0m1,530s
+//
+// some changes...
+// real    0m3,388s
+//
 
 sdlInit();
 

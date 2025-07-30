@@ -30,7 +30,10 @@
 //
 // real    0m2,642s
 // -r real    0m0,898s
-
+//
+// some changes...
+// real    0m3,388s
+//
 argv(1).fmap(fn(s) {s.toi32;}).match(fn(n) {
     println(fib(n));
 }, { println("Expected a numeric parameter");});
