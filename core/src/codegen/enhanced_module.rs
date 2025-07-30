@@ -18,6 +18,7 @@ use rasm_parser::parser::ast;
 
 use super::enh_ast::EnhModuleInfo;
 
+// TODO why EnhancedASTModule and EnhASTModule?
 #[derive(Clone, Debug)]
 pub struct EnhancedASTModule {
     pub body: Vec<EnhASTStatement>,

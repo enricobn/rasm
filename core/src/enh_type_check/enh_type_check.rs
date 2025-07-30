@@ -346,42 +346,44 @@ impl<'a> EnhTypeCheck<'a> {
                             let new_parameters = zip(&new_function_def.parameters, parameters)
                                 .map(|(p, t)| {
                                     if p.ast_type.is_generic() && !t.is_generic() {
+                                        self.resolve_generic_types_from_effective_type_and_append(
+                                            &p.ast_type,
+                                            &t,
+                                            module,
+                                            &mut resolved_generic_types,
+                                            index,
+                                        )?;
                                         let mut new_p = p.clone();
                                         new_p.ast_type = t.clone();
-                                        new_p
+                                        Ok(new_p)
                                     } else {
                                         if p.ast_type.is_generic() {
                                             unresolved_generic_types = true;
                                         }
-                                        p.clone()
+                                        Ok(p.clone())
                                     }
                                 })
                                 .collect::<Vec<_>>();
-                            function_parameters = new_parameters;
+
+                            let result = new_parameters
+                                .into_iter()
+                                .collect::<Result<Vec<_>, EnhTypeCheckError>>();
+
+                            function_parameters = result?;
 
                             if new_function_def.return_type.is_generic()
                                 && !return_type.is_generic()
                             {
                                 // TODO resolve parameters and try to share the same code that is used elsewhere in this
                                 //      file
-                                if let Ok(result) =
-                        EnhResolvedGenericTypes::resolve_generic_types_from_effective_type(
-                            &new_function_def.return_type,
-                            &return_type,
-                            module,
-                        )
-                                {
-                                    if let Err(e) = resolved_generic_types.extend(result) {
-                                        return Err(EnhTypeCheckError::new(
-                                            new_function_def.index.clone(),
-                                            format!(
-                                                "{e} resolving generic type {} with {return_type}",
-                                                new_function_def.return_type
-                                            ),
-                                            self.stack.clone(),
-                                        ));
-                                    }
-                                }
+
+                                self.resolve_generic_types_from_effective_type_and_append(
+                                    &new_function_def.return_type,
+                                    &return_type,
+                                    module,
+                                    &mut resolved_generic_types,
+                                    index,
+                                )?;
                                 function_return_type = return_type.as_ref().clone();
                             } else if new_function_def.return_type.is_generic() {
                                 unresolved_generic_types = true;
@@ -452,6 +454,31 @@ impl<'a> EnhTypeCheck<'a> {
             }
             _ => Ok(expression.clone()),
         }
+    }
+
+    fn resolve_generic_types_from_effective_type_and_append(
+        &self,
+        generic_type: &EnhASTType,
+        real_type: &EnhASTType,
+        module: &EnhancedASTModule,
+        resolved_generic_types: &mut EnhResolvedGenericTypes,
+        index: &EnhASTIndex,
+    ) -> Result<(), EnhTypeCheckError> {
+        if let Ok(result) = EnhResolvedGenericTypes::resolve_generic_types_from_effective_type(
+            generic_type,
+            real_type,
+            module,
+        ) {
+            if let Err(e) = resolved_generic_types.extend(result) {
+                return Err(EnhTypeCheckError::new(
+                    index.clone(),
+                    format!("{e} resolving generic type {generic_type} with {real_type}"),
+                    self.stack.clone(),
+                ));
+            }
+        }
+        // TODO should I handle failure?
+        Ok(())
     }
 
     fn function_name_already_converted(&self, name: &str) -> bool {
@@ -916,26 +943,13 @@ impl<'a> EnhTypeCheck<'a> {
                 }
 
                 if !rt.is_generic() && function.return_type.is_generic() {
-                    if let Ok(result) =
-                        EnhResolvedGenericTypes::resolve_generic_types_from_effective_type(
-                            &function.return_type,
-                            rt,
-                            module,
-                        )
-                    {
-                        if let Err(e) = resolved_generic_types.extend(result) {
-                            errors.push(EnhTypeCheckError::new(
-                                function.index.clone(),
-                                format!(
-                                    "{e} resolving generic type {} with {rt}",
-                                    function.return_type
-                                ),
-                                self.stack.clone(),
-                            ));
-                            dedent!();
-                            continue;
-                        }
-                    }
+                    self.resolve_generic_types_from_effective_type_and_append(
+                        &function.return_type,
+                        rt,
+                        module,
+                        &mut resolved_generic_types,
+                        &function.index,
+                    )?;
                 }
             }
 
