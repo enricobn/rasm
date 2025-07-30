@@ -304,7 +304,7 @@ impl FunctionsCreator for CFunctionsCreator {
             &mut result,
             vec![
                 "$inline()",
-                &format!("return (($typeName($v)"), // TODO, is it correct or must be $realTypeName?
+                &format!("return (($typeName($v)"),
                 &format!(")$v->address)->{name};"),
             ],
             None,
