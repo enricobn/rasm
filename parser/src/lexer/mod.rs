@@ -79,6 +79,12 @@ impl Lexer {
     fn some_token(&mut self, kind: TokenKind) -> Option<(Option<Token>, Vec<LexerError>)> {
         let length = kind.len();
 
+        if self.column < length {
+            println!("Lexer internal error");
+            self.add_error("Lexer internal error".to_owned());
+            return None;
+        }
+
         let result = Some((
             Some(Token::new(kind, self.row, self.column - length)),
             self.errors.clone(),
@@ -188,10 +194,22 @@ impl Lexer {
                     if actual == "//" || actual == "/*" {
                         let row = self.row;
                         let column = self.column - 2;
-                        // TODO empty one line comment
                         if c == '\n' {
-                            self.row += 1;
-                            self.column = 0;
+                            if actual == "//" {
+                                let token = self.some_token(TokenKind::Comment(actual));
+                                self.row += 1;
+                                self.column = 1;
+                                self.index += 1;
+                                return token;
+                            } else {
+                                self.column = 1;
+                                self.row += 1;
+                                self.index += 1;
+                                actual.push(c);
+
+                                status = LexStatus::Comment(row, column);
+                                continue;
+                            }
                         }
                         actual.push(c);
 
@@ -389,6 +407,8 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
+    use rasm_utils::SliceDisplay;
+
     use crate::lexer::tokens::BracketKind::*;
     use crate::lexer::tokens::BracketStatus::*;
     use crate::lexer::tokens::PunctuationKind::*;
@@ -633,6 +653,79 @@ mod tests {
         let (_tokens, errors) = lexer.process();
 
         assert!(!errors.is_empty());
+    }
+
+    #[test]
+    fn test_empty_single_line_comment() {
+        let lexer = Lexer::new("//\n//\n".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert!(errors.is_empty());
+        assert_eq!(2, tokens.len());
+
+        assert_eq!(Some("//"), token_comment(&tokens[0]));
+        assert_eq!(Some("//"), token_comment(&tokens[1]));
+    }
+
+    #[test]
+    fn test_single_line_comments() {
+        let lexer = Lexer::new("//\nlet a = 1;\n".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert!(errors.is_empty());
+        assert_eq!(10, tokens.len());
+
+        assert_eq!(Some("//"), token_comment(&tokens[0]));
+        assert_eq!(
+            "comment, Let, WS, 'a', WS, =, WS, 1, ;, EOL",
+            format!("{}", SliceDisplay(&tokens))
+        );
+    }
+
+    #[test]
+    fn test_single_line_comments_2() {
+        let lexer = Lexer::new("//\n\nlet a = 1;\n".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert!(errors.is_empty());
+        assert_eq!(11, tokens.len());
+
+        assert_eq!(Some("//"), token_comment(&tokens[0]));
+        assert_eq!(
+            "comment, EOL, Let, WS, 'a', WS, =, WS, 1, ;, EOL",
+            format!("{}", SliceDisplay(&tokens))
+        );
+    }
+
+    #[test]
+    fn test_empty_multi_line_comment() {
+        let lexer = Lexer::new("/*\n*/\n".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert!(errors.is_empty());
+        assert_eq!(2, tokens.len(), "{}", SliceDisplay(&tokens));
+
+        assert_eq!(Some("/*\n*/"), token_multiline_comment(&tokens[0]));
+    }
+
+    fn token_comment(token: &Token) -> Option<&str> {
+        if let TokenKind::Comment(comment) = &token.kind {
+            Some(comment)
+        } else {
+            None
+        }
+    }
+
+    fn token_multiline_comment(token: &Token) -> Option<&str> {
+        if let TokenKind::MultiLineComment(comment) = &token.kind {
+            Some(comment)
+        } else {
+            None
+        }
     }
 
     /*

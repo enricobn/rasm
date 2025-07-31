@@ -12,6 +12,12 @@ pub struct Token {
     pub len: usize,
 }
 
+impl Display for Token {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
 impl Token {
     pub fn new(kind: TokenKind, row: usize, column: usize) -> Self {
         let len = kind.len();
