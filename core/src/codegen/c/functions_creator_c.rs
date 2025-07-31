@@ -211,14 +211,11 @@ impl FunctionsCreator for CFunctionsCreator {
         variant: &ASTEnumVariantDef,
         _descr: &String,
         info: &EnhModuleInfo,
-    ) -> (String, bool) {
+    ) -> String {
         if variant.parameters.is_empty() {
-            return (
-                format!(
-                    "return {};",
-                    CodeGenC::variant_const_name(&info.namespace, &enum_def.name, &variant.name)
-                ),
-                false,
+            return format!(
+                "return {};",
+                CodeGenC::variant_const_name(&info.namespace, &enum_def.name, &variant.name)
             );
         }
 
@@ -266,7 +263,7 @@ impl FunctionsCreator for CFunctionsCreator {
         self.code_manipulator
             .add(&mut result, "return e__;", None, true);
 
-        (result, false)
+        result
     }
 
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String {
@@ -297,7 +294,7 @@ impl FunctionsCreator for CFunctionsCreator {
         result
     }
 
-    fn struct_property_body(&self, _i: usize, name: &str) -> (String, bool) {
+    fn struct_property_body(&self, _i: usize, name: &str) -> String {
         let mut result = String::new();
 
         self.code_manipulator.add_rows(
@@ -310,7 +307,7 @@ impl FunctionsCreator for CFunctionsCreator {
             None,
             false,
         );
-        (result, true)
+        result
     }
 
     fn struct_setter_body(&self, _i: usize, name: &str) -> String {

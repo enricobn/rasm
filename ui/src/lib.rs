@@ -61,7 +61,6 @@ pub struct SelectedModule {
 pub enum Message {
     Module(String),
     Function(ASTFunctionDef),
-    BackToModule,
     Home,
     ResizeSplit(ResizeEvent),
     Info(Option<String>, ASTPosition),
@@ -210,7 +209,6 @@ impl UI {
                 return scroll_to(Id::new(TEXT_SCROLLABLE_ID), scroll_position);
             }
             Message::Function(function) => self.current_function = Some(function),
-            Message::BackToModule => self.current_function = None,
             Message::ResizeSplit(event) => {
                 self.pane_state.resize(event.split, event.ratio);
             }
@@ -346,14 +344,5 @@ impl UI {
             })
             .on_press(Message::Info(Some(message), position.clone()))
             .padding(Padding::ZERO)
-    }
-
-    fn show_function<'a>(&'a self, function: &'a ASTFunctionDef) -> Element<Message> {
-        let column = Column::new()
-            .spacing(10)
-            .push(iced::widget::button("Back").on_press(Message::BackToModule))
-            .push(text(format!("{}", function)));
-
-        column.into()
     }
 }

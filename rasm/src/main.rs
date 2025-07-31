@@ -177,7 +177,7 @@ fn main() {
     if command_line_options.action == CommandLineAction::Server {
         rasm_server(project);
     } else if command_line_options.action == CommandLineAction::UI {
-        UI::show(project, target);
+        UI::show(project, target).unwrap();
     } else {
         debug_i!("project {:?}", project);
 

@@ -180,8 +180,7 @@ pub trait FunctionsCreator {
         parameters_positions: Vec<ASTPosition>,
         signature: ASTFunctionSignature,
     ) -> ASTFunctionDef {
-        let (native_body, inline) = self.struct_property_body(i, &property_def.name);
-        // TODO unused inline
+        let native_body = self.struct_property_body(i, &property_def.name);
 
         ASTFunctionDef::from_signature(
             signature,
@@ -315,7 +314,7 @@ pub trait FunctionsCreator {
                 String::new()
             };
 
-            let (body_str, inline) = self.enum_variant_constructor_body(
+            let body_str = self.enum_variant_constructor_body(
                 module,
                 enum_def,
                 statics,
@@ -355,11 +354,11 @@ pub trait FunctionsCreator {
         variant: &ASTEnumVariantDef,
         descr: &String,
         info: &EnhModuleInfo,
-    ) -> (String, bool);
+    ) -> String;
 
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String;
 
-    fn struct_property_body(&self, i: usize, name: &str) -> (String, bool);
+    fn struct_property_body(&self, i: usize, name: &str) -> String;
 
     fn struct_setter_body(&self, i: usize, name: &str) -> String;
 
@@ -727,7 +726,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         body
     }
 
-    fn struct_property_body(&self, i: usize, _name: &str) -> (String, bool) {
+    fn struct_property_body(&self, i: usize, _name: &str) -> String {
         let mut body = String::new();
         self.code_gen.add_rows(
             &mut body,
@@ -747,7 +746,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             true,
         );
 
-        (body, true)
+        body
     }
 
     fn struct_setter_body(&self, i: usize, _name: &str) -> String {
@@ -851,7 +850,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         variant: &ASTEnumVariantDef,
         descr: &String,
         info: &EnhModuleInfo,
-    ) -> (String, bool) {
+    ) -> String {
         if variant.parameters.is_empty() {
             let label = format!(
                 "_enum_{}_{}_{}",
@@ -861,13 +860,11 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             );
             statics.insert_value_in_heap(&label, &descr, variant_num as i32);
 
-            (format!("    mov    eax, [{}]\n", label), true)
+            format!("    mov    eax, [{}]\n", label)
         } else {
             let descr_label = statics.add_str(&descr);
-            (
-                self.enum_parametric_variant_constructor_body(&variant_num, variant, &descr_label),
-                true,
-            )
+
+            self.enum_parametric_variant_constructor_body(&variant_num, variant, &descr_label)
         }
     }
 }

@@ -6,7 +6,7 @@ use std::{
 
 use iced::{
     widget::{
-        button, container,
+        container,
         scrollable::{self, Id, Scrollbar},
         text, Column, Row, Scrollable,
     },
@@ -40,16 +40,13 @@ enum SyntaxKind {
 
 impl UI {
     pub fn show_module<'a>(&'a self, selected_module: &'a SelectedModule) -> Element<Message> {
-        let mut column: Column<'_, Message> = Column::new()
-            .spacing(10)
-            .push(button("Back").on_press(Message::Home))
-            .push(text(
-                self.project
-                    .relative_to_source_folder(Path::new(&selected_module.path))
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_string(),
-            ));
+        let mut column: Column<'_, Message> = Column::new().spacing(10).push(text(
+            self.project
+                .relative_to_source_folder(Path::new(&selected_module.path))
+                .unwrap()
+                .to_string_lossy()
+                .to_string(),
+        ));
         if let Some(module) = self
             .modules_container
             .module(&selected_module.info.module_id())
