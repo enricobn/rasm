@@ -202,13 +202,8 @@ impl Lexer {
                                 self.index += 1;
                                 return token;
                             } else {
-                                self.column = 1;
                                 self.row += 1;
-                                self.index += 1;
-                                actual.push(c);
-
-                                status = LexStatus::Comment(row, column);
-                                continue;
+                                self.column = 0;
                             }
                         }
                         actual.push(c);
