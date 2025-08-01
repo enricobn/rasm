@@ -4,7 +4,7 @@ use rasm_utils::debug_i;
 
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::statics::Statics;
-use crate::errors::{self, CompilationError};
+use crate::errors::{self, CompilationError, CompilationErrorKind};
 
 use crate::codegen::enh_ast::{
     CustomTypeDef, EnhASTEnumDef, EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef,
@@ -94,9 +94,13 @@ impl EnhancedASTModule {
             .functions_creator(debug)
             .create_globals(&mut enhanced_module, statics);
 
-        enhanced_module = enhanced_module.fix_namespaces();
-
-        let errors = enhanced_module.check_for_duplicates();
+        let (enhanced_module, errors) = match enhanced_module.fix_namespaces() {
+            Ok(m) => {
+                let errors = m.check_for_duplicates();
+                (m, errors)
+            }
+            Err(e) => (EnhancedASTModule::empty(), vec![e]),
+        };
 
         (enhanced_module, errors)
     }
@@ -357,26 +361,51 @@ impl EnhancedASTModule {
         errors
     }
 
-    fn fix_namespaces(self) -> Self {
+    fn fix_namespaces(self) -> Result<Self, CompilationError> {
         let mut result = self;
         result.enums = result
             .enums
             .iter()
-            .map(|e| e.clone().fix_namespaces(&result))
-            .collect();
+            .map(|it| {
+                it.clone()
+                    .fix_namespaces(&result)
+                    .map_err(|e| Self::to_compilation_error(&it.index, e))
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<Result<_, CompilationError>>()?;
         result.structs = result
             .structs
             .iter()
-            .map(|e| e.clone().fix_namespaces(&result))
-            .collect();
+            .map(|it| {
+                it.clone()
+                    .fix_namespaces(&result)
+                    .map_err(|e| Self::to_compilation_error(&it.index, e))
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<Result<_, CompilationError>>()?;
         result.body = result
             .body
             .iter()
-            .map(|it| it.clone().fix_namespaces(&result))
-            .collect();
-        result.functions_by_name = result.functions_by_name.fix_namespaces(&result);
+            .map(|it| {
+                it.clone().fix_namespaces(&result).map_err(|e| {
+                    Self::to_compilation_error(it.get_index().unwrap_or(&EnhASTIndex::none()), e)
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<Result<_, CompilationError>>()?;
+        result.functions_by_name = result.functions_by_name.clone().fix_namespaces(&result)?;
 
-        result
+        Ok(result)
+    }
+
+    fn to_compilation_error(index: &EnhASTIndex, message: String) -> CompilationError {
+        CompilationError {
+            index: index.clone(),
+            error_kind: CompilationErrorKind::TypeCheck(message, Vec::new()),
+        }
     }
 
     pub fn fix_generics(self) -> Self {

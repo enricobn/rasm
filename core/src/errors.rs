@@ -63,7 +63,7 @@ impl Display for CompilationError {
                 f.write_str(&format!(" in {}", self.index))
             }
             CompilationErrorKind::TypeCheck(message, error) => {
-                f.write_str(&format!("{message}\n"))?;
+                f.write_str(&format!("{message} in {}\n", self.index))?;
                 for e in error {
                     f.write_str(&format!("{e}\n"))?
                 }

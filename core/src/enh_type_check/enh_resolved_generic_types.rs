@@ -314,26 +314,28 @@ impl EnhResolvedGenericTypes {
     }
     */
 
-    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Result<Self, String> {
         let mut new = LinkedHashMap::new();
 
         for (name, inner) in self.map.into_iter() {
             let inner_new = new.entry(name).or_insert(LinkedHashMap::new());
 
             for (var_types, t) in inner.into_iter() {
+                let vt = var_types
+                    .into_iter()
+                    .map(|it| it.fix_namespaces(enhanced_module))
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .collect::<Result<Vec<EnhASTType>, String>>()?;
                 inner_new
-                    .entry(
-                        var_types
-                            .into_iter()
-                            .map(|it| it.fix_namespaces(enhanced_module))
-                            .collect(),
-                    )
-                    .or_insert(t.fix_namespaces(enhanced_module));
+                    .entry(vt)
+                    .or_insert(t.fix_namespaces(enhanced_module)?);
             }
         }
+
         let result = EnhResolvedGenericTypes { map: new };
 
-        result
+        Ok(result)
     }
 
     pub fn fix_generics(self, generics_prefix: &dyn Display) -> Self {

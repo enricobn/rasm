@@ -216,27 +216,31 @@ impl EnhASTFunctionDef {
         self.rank = EnhTypeCheck::function_precedence_coeff(self);
     }
 
-    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Result<Self, String> {
         let mut result = self;
         if let EnhASTFunctionBody::RASMBody(statements) = result.body {
             result.body = EnhASTFunctionBody::RASMBody(
                 statements
                     .into_iter()
                     .map(|it| it.fix_namespaces(enhanced_module))
-                    .collect(),
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .collect::<Result<_, String>>()?,
             )
         }
         result.parameters = result
             .parameters
             .into_iter()
             .map(|it| it.fix_namespaces(enhanced_module))
-            .collect();
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<Result<_, String>>()?;
         result.resolved_generic_types = result
             .resolved_generic_types
-            .fix_namespaces(enhanced_module);
-        result.return_type = result.return_type.fix_namespaces(enhanced_module);
+            .fix_namespaces(enhanced_module)?;
+        result.return_type = result.return_type.fix_namespaces(enhanced_module)?;
 
-        result
+        Ok(result)
     }
 
     pub fn fix_generics(self) -> Self {
@@ -365,14 +369,16 @@ pub struct EnhASTLambdaDef {
 }
 
 impl EnhASTLambdaDef {
-    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Result<Self, String> {
         let mut result = self;
         result.body = result
             .body
             .into_iter()
             .map(|it| it.fix_namespaces(enhanced_module))
-            .collect();
-        result
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<Result<_, String>>()?;
+        Ok(result)
     }
 
     pub fn from_ast(
@@ -635,7 +641,7 @@ impl EnhASTType {
         }
     }
 
-    pub fn fix_namespaces(&self, enhanced_module: &EnhancedASTModule) -> Self {
+    pub fn fix_namespaces(&self, enhanced_module: &EnhancedASTModule) -> Result<Self, String> {
         self.fix_namespaces_with(&|ast_type| {
             enhanced_module
                 .get_type_def(ast_type)
@@ -646,26 +652,32 @@ impl EnhASTType {
     pub fn fix_namespaces_with(
         &self,
         namespace_provider: &dyn Fn(&EnhASTType) -> Option<EnhASTNameSpace>,
-    ) -> Self {
+    ) -> Result<Self, String> {
         match self {
             EnhASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
-                EnhBuiltinTypeKind::Boolean => self.clone(),
-                EnhBuiltinTypeKind::Char => self.clone(),
-                EnhBuiltinTypeKind::Integer => self.clone(),
-                EnhBuiltinTypeKind::Float => self.clone(),
-                EnhBuiltinTypeKind::String => self.clone(),
+                EnhBuiltinTypeKind::Boolean => Ok(self.clone()),
+                EnhBuiltinTypeKind::Char => Ok(self.clone()),
+                EnhBuiltinTypeKind::Integer => Ok(self.clone()),
+                EnhBuiltinTypeKind::Float => Ok(self.clone()),
+                EnhBuiltinTypeKind::String => Ok(self.clone()),
                 EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
-                } => EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
-                    parameters: parameters
+                } => {
+                    let parameters = parameters
                         .iter()
                         .map(|it| it.fix_namespaces_with(namespace_provider))
-                        .collect(),
-                    return_type: Box::new(return_type.fix_namespaces_with(namespace_provider)),
-                }),
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .collect::<Result<Vec<EnhASTType>, String>>()?;
+
+                    Ok(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+                        parameters,
+                        return_type: Box::new(return_type.fix_namespaces_with(namespace_provider)?),
+                    }))
+                }
             },
-            EnhASTType::Generic(_, _, _) => self.clone(),
+            EnhASTType::Generic(_, _, _) => Ok(self.clone()),
             EnhASTType::Custom {
                 namespace: _,
                 name,
@@ -673,20 +685,23 @@ impl EnhASTType {
                 index,
             } => {
                 if let Some(namespace) = namespace_provider(self) {
-                    EnhASTType::Custom {
+                    let param_types = param_types
+                        .into_iter()
+                        .map(|it| it.fix_namespaces_with(namespace_provider))
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .collect::<Result<Vec<EnhASTType>, String>>()?;
+                    Ok(EnhASTType::Custom {
                         namespace,
                         name: name.clone(),
-                        param_types: param_types
-                            .iter()
-                            .map(|it| it.fix_namespaces_with(namespace_provider))
-                            .collect(),
+                        param_types,
                         index: index.clone(),
-                    }
+                    })
                 } else {
-                    panic!("Cannot find custom type declaration for {self}");
+                    Err(format!("Cannot find custom type declaration for {self}"))
                 }
             }
-            EnhASTType::Unit => self.clone(),
+            EnhASTType::Unit => Ok(self.clone()),
         }
     }
 
@@ -976,10 +991,10 @@ impl EnhASTParameterDef {
         }
     }
 
-    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Result<Self, String> {
         let mut result = self;
-        result.ast_type = result.ast_type.fix_namespaces(enhanced_module);
-        result
+        result.ast_type = result.ast_type.fix_namespaces(enhanced_module)?;
+        Ok(result)
     }
 
     fn fix_generics(self, generics_prefix: &dyn Display) -> Self {
@@ -1029,10 +1044,10 @@ pub struct EnhASTStructPropertyDef {
 }
 
 impl EnhASTStructPropertyDef {
-    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Result<Self, String> {
         let mut result = self;
-        result.ast_type = result.ast_type.fix_namespaces(enhanced_module);
-        result
+        result.ast_type = result.ast_type.fix_namespaces(enhanced_module)?;
+        Ok(result)
     }
 
     fn fix_generics(self, generics_prefix: &dyn Display) -> Self {
@@ -1072,19 +1087,23 @@ pub struct EnhASTFunctionCall {
 }
 
 impl EnhASTFunctionCall {
-    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Result<Self, String> {
         let mut result = self;
         result.parameters = result
             .parameters
             .into_iter()
             .map(|it| it.fix_namespaces(enhanced_module))
-            .collect();
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<Result<_, String>>()?;
         result.generics = result
             .generics
             .into_iter()
             .map(|it| it.fix_namespaces(enhanced_module))
-            .collect();
-        result
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<Result<_, String>>()?;
+        Ok(result)
     }
 
     pub fn from_ast(
@@ -1281,20 +1300,20 @@ impl EnhASTExpression {
         }
     }
 
-    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Result<Self, String> {
         match self {
             EnhASTExpression::ASTFunctionCallExpression(astfunction_call) => {
-                EnhASTExpression::ASTFunctionCallExpression(
-                    astfunction_call.fix_namespaces(enhanced_module),
-                )
+                Ok(EnhASTExpression::ASTFunctionCallExpression(
+                    astfunction_call.fix_namespaces(enhanced_module)?,
+                ))
             }
-            EnhASTExpression::Lambda(astlambda_def) => {
-                EnhASTExpression::Lambda(astlambda_def.fix_namespaces(enhanced_module))
-            }
-            EnhASTExpression::Any(asttype) => {
-                EnhASTExpression::Any(asttype.fix_namespaces(enhanced_module))
-            }
-            _ => self.clone(),
+            EnhASTExpression::Lambda(astlambda_def) => Ok(EnhASTExpression::Lambda(
+                astlambda_def.fix_namespaces(enhanced_module)?,
+            )),
+            EnhASTExpression::Any(asttype) => Ok(EnhASTExpression::Any(
+                asttype.fix_namespaces(enhanced_module)?,
+            )),
+            _ => Ok(self),
         }
     }
 
@@ -1406,22 +1425,22 @@ impl EnhASTStatement {
         }
     }
 
-    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Result<Self, String> {
         match self {
-            EnhASTStatement::Expression(exp) => {
-                EnhASTStatement::Expression(exp.fix_namespaces(enhanced_module))
-            }
-            EnhASTStatement::LetStatement(name, exp, astindex) => {
-                EnhASTStatement::LetStatement(name, exp.fix_namespaces(enhanced_module), astindex)
-            }
+            EnhASTStatement::Expression(exp) => Ok(EnhASTStatement::Expression(
+                exp.fix_namespaces(enhanced_module)?,
+            )),
+            EnhASTStatement::LetStatement(name, exp, astindex) => Ok(
+                EnhASTStatement::LetStatement(name, exp.fix_namespaces(enhanced_module)?, astindex),
+            ),
             EnhASTStatement::ConstStatement(name, exp, astindex, namespace, modifiers) => {
-                EnhASTStatement::ConstStatement(
+                Ok(EnhASTStatement::ConstStatement(
                     name,
-                    exp.fix_namespaces(enhanced_module),
+                    exp.fix_namespaces(enhanced_module)?,
                     astindex,
                     namespace.clone(),
                     modifiers,
-                )
+                ))
             }
         }
     }
@@ -1617,14 +1636,16 @@ impl Display for EnhASTEnumDef {
 }
 
 impl EnhASTEnumDef {
-    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Result<Self, String> {
         let mut result = self.clone();
         result.variants = self
             .variants
             .into_iter()
             .map(|it| it.fix_namespaces(enhanced_module))
-            .collect();
-        result
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<Result<_, String>>()?;
+        Ok(result)
     }
 
     pub fn fix_generics(self) -> Self {
@@ -1669,16 +1690,18 @@ pub struct EnhASTEnumVariantDef {
 }
 
 impl EnhASTEnumVariantDef {
-    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
-        Self {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Result<Self, String> {
+        Ok(Self {
             name: self.name.clone(),
             parameters: self
                 .parameters
                 .into_iter()
                 .map(|it| it.fix_namespaces(enhanced_module))
-                .collect(),
+                .collect::<Vec<_>>()
+                .into_iter()
+                .collect::<Result<_, String>>()?,
             index: self.index.clone(),
-        }
+        })
     }
 
     pub fn fix_generics(self, generics_prefix: &dyn Display) -> Self {
@@ -1729,14 +1752,16 @@ pub struct EnhASTStructDef {
 }
 
 impl EnhASTStructDef {
-    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Self {
+    pub fn fix_namespaces(self, enhanced_module: &EnhancedASTModule) -> Result<Self, String> {
         let mut result = self;
         result.properties = result
             .properties
             .into_iter()
             .map(|it| it.fix_namespaces(enhanced_module))
-            .collect();
-        return result;
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<Result<_, String>>()?;
+        return Ok(result);
     }
 
     pub fn fix_generics(self) -> Self {

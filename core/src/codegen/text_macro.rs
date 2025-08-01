@@ -407,14 +407,15 @@ impl TextMacroEvaluator {
             };
 
             if let Some(ast_type) = &par_type {
-                Ok(MacroParam::Plain(
-                    par_name,
-                    par_type.clone(),
-                    par_typed_type.or_else(|| {
-                        typed_function_def
-                            .and_then(|it| Self::resolve_type(ast_type, it, type_def_provider))
-                    }),
-                ))
+                let typed_type = match par_typed_type {
+                    Some(ptt) => Some(ptt),
+                    None => typed_function_def
+                        .map(|it| Self::resolve_type(ast_type, it, type_def_provider))
+                        .transpose()?
+                        .flatten(),
+                };
+
+                Ok(MacroParam::Plain(par_name, par_type.clone(), typed_type))
             } else {
                 Ok(MacroParam::Plain(
                     par_name,
@@ -429,7 +430,7 @@ impl TextMacroEvaluator {
         ast_type: &EnhASTType,
         function_def: &ASTTypedFunctionDef,
         type_def_provider: &dyn TypeDefProvider,
-    ) -> Option<ASTTypedType> {
+    ) -> Result<Option<ASTTypedType>, String> {
         if let EnhASTType::Custom {
             namespace: _,
             name,
@@ -443,59 +444,61 @@ impl TextMacroEvaluator {
                 .remove_generics_prefix()
                 .get(name, param_types)
             {
-                Some(typed_type.clone())
+                Ok(Some(typed_type.clone()))
             } else if param_types.is_empty() {
-                type_def_provider.get_ast_typed_type_from_type_name(name)
+                Ok(type_def_provider.get_ast_typed_type_from_type_name(name))
             } else {
                 let resolved_types = param_types
                     .iter()
                     .map(|it| {
-                        if let Some(typed_type) =
-                            Self::resolve_type(it, function_def, type_def_provider)
-                        {
-                            match typed_type {
-                                ASTTypedType::Builtin(kind) => match kind {
-                                    BuiltinTypedTypeKind::String => {
-                                        EnhASTType::Builtin(EnhBuiltinTypeKind::String)
-                                    }
-                                    BuiltinTypedTypeKind::Integer => {
-                                        EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)
-                                    }
-                                    BuiltinTypedTypeKind::Boolean => {
-                                        EnhASTType::Builtin(EnhBuiltinTypeKind::Boolean)
-                                    }
-                                    BuiltinTypedTypeKind::Char => {
-                                        EnhASTType::Builtin(EnhBuiltinTypeKind::Char)
-                                    }
-                                    BuiltinTypedTypeKind::Float => {
-                                        EnhASTType::Builtin(EnhBuiltinTypeKind::Float)
-                                    }
-                                    BuiltinTypedTypeKind::Lambda { .. } => {
-                                        panic!()
-                                    }
-                                },
-                                _ => type_def_provider
-                                    .get_type_from_custom_typed_type(&typed_type)
-                                    .unwrap(),
+                        Self::resolve_type(it, function_def, type_def_provider).map(|to| {
+                            if let Some(typed_type) = to {
+                                match typed_type {
+                                    ASTTypedType::Builtin(kind) => match kind {
+                                        BuiltinTypedTypeKind::String => {
+                                            EnhASTType::Builtin(EnhBuiltinTypeKind::String)
+                                        }
+                                        BuiltinTypedTypeKind::Integer => {
+                                            EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)
+                                        }
+                                        BuiltinTypedTypeKind::Boolean => {
+                                            EnhASTType::Builtin(EnhBuiltinTypeKind::Boolean)
+                                        }
+                                        BuiltinTypedTypeKind::Char => {
+                                            EnhASTType::Builtin(EnhBuiltinTypeKind::Char)
+                                        }
+                                        BuiltinTypedTypeKind::Float => {
+                                            EnhASTType::Builtin(EnhBuiltinTypeKind::Float)
+                                        }
+                                        BuiltinTypedTypeKind::Lambda { .. } => {
+                                            panic!()
+                                        }
+                                    },
+                                    _ => type_def_provider
+                                        .get_type_from_custom_typed_type(&typed_type)
+                                        .unwrap(),
+                                }
+                            } else {
+                                it.clone()
                             }
-                        } else {
-                            it.clone()
-                        }
+                        })
                     })
                     .collect::<Vec<_>>();
 
                 let ast_type_to_resolve = EnhASTType::Custom {
                     namespace: ast_type.namespace().clone(),
                     name: name.clone(),
-                    param_types: resolved_types,
+                    param_types: resolved_types
+                        .into_iter()
+                        .collect::<Result<Vec<_>, String>>()?,
                     index: EnhASTIndex::none(),
                 }
                 .fix_namespaces_with(&|ast_type| type_def_provider.get_real_namespace(ast_type));
 
-                type_def_provider.get_ast_typed_type_from_ast_type(&ast_type_to_resolve)
+                Ok(type_def_provider.get_ast_typed_type_from_ast_type(&ast_type_to_resolve?))
             }
         } else {
-            None
+            Ok(None)
         }
     }
 

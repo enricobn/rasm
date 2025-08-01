@@ -11,6 +11,7 @@ use crate::codegen::enh_ast::{
 };
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
+use crate::errors::{CompilationError, CompilationErrorKind};
 
 use super::enh_resolved_generic_types::EnhResolvedGenericTypes;
 
@@ -818,21 +819,34 @@ impl EnhFunctionsContainer {
         dedent!();
     }
 
-    pub fn fix_namespaces(&self, enhanced_module: &EnhancedASTModule) -> Self {
-        Self {
+    pub fn fix_namespaces(
+        self,
+        enhanced_module: &EnhancedASTModule,
+    ) -> Result<Self, CompilationError> {
+        Ok(Self {
             functions_by_name: self
                 .functions_by_name
                 .iter()
                 .map(|(key, f)| {
-                    (
-                        key.clone(),
-                        f.into_iter()
-                            .map(|it| it.clone().fix_namespaces(enhanced_module))
-                            .collect(),
-                    )
+                    let function = f
+                        .into_iter()
+                        .map(|it| {
+                            it.clone().fix_namespaces(enhanced_module).map_err(|e| {
+                                CompilationError {
+                                    index: it.index.clone(),
+                                    error_kind: CompilationErrorKind::TypeCheck(e, Vec::new()),
+                                }
+                            })
+                        })
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .collect::<Result<_, CompilationError>>();
+                    function.map(|it| (key.clone(), it))
                 })
-                .collect(),
-        }
+                .collect::<Vec<_>>()
+                .into_iter()
+                .collect::<Result<_, CompilationError>>()?,
+        })
     }
 
     pub fn fix_generics(&self) -> Self {
