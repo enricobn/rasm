@@ -245,7 +245,7 @@ impl EnhASTFunctionDef {
 
     pub fn fix_generics(self) -> Self {
         let generics_prefix = format!("{}_{}", self.namespace.safe_name(), self.name);
-        let mut result = self.clone();
+        let mut result = self;
 
         if let EnhASTFunctionBody::RASMBody(ref statements) = result.body {
             result.body = EnhASTFunctionBody::RASMBody(
@@ -655,11 +655,6 @@ impl EnhASTType {
     ) -> Result<Self, String> {
         match self {
             EnhASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
-                EnhBuiltinTypeKind::Boolean => Ok(self.clone()),
-                EnhBuiltinTypeKind::Char => Ok(self.clone()),
-                EnhBuiltinTypeKind::Integer => Ok(self.clone()),
-                EnhBuiltinTypeKind::Float => Ok(self.clone()),
-                EnhBuiltinTypeKind::String => Ok(self.clone()),
                 EnhBuiltinTypeKind::Lambda {
                     parameters,
                     return_type,
@@ -676,6 +671,7 @@ impl EnhASTType {
                         return_type: Box::new(return_type.fix_namespaces_with(namespace_provider)?),
                     }))
                 }
+                _ => Ok(self.clone()),
             },
             EnhASTType::Generic(_, _, _) => Ok(self.clone()),
             EnhASTType::Custom {
