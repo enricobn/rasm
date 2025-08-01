@@ -1255,16 +1255,21 @@ impl ASTTypeChecker {
                     &mut resolved_generic_types,
                 );
 
-                //self.errors.extend(p_errors);
+                self.errors.extend(p_errors);
             }
         }
         if let Some(eet) = expected_expression_type {
             if function_signature.return_type.is_generic() {
-                if let Ok(rgt) = ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
+                if let Err(e) = ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                     &function_signature.return_type,
                     eet,
-                ) {
-                    resolved_generic_types.extend(rgt);
+                )
+                .and_then(|rgt| {
+                    resolved_generic_types.extend(rgt).map_err(|e| {
+                        ASTTypeCheckError::new(ASTTypeCheckErroKind::Error, index.clone(), e)
+                    })
+                }) {
+                    self.errors.push(e);
                 }
             }
         }
