@@ -21,8 +21,8 @@ use crate::{
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
     parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature,
-        ASTModifiers, ASTParameterDef, ASTStatement, ASTType, BuiltinTypeKind,
+        ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
+        ASTFunctionSignature, ASTModifiers, ASTParameterDef, ASTStatement, ASTType,
     },
 };
 
@@ -389,7 +389,7 @@ impl ASTTypeChecker {
 
         for (i, statement) in body.iter().enumerate() {
             match statement {
-                ASTStatement::Expression(e) => {
+                ASTStatement::ASTExpressionStatement(e) => {
                     if i == body.len() - 1 {
                         let index = ASTIndex::new(
                             module_namespace.clone(),
@@ -451,7 +451,7 @@ impl ASTTypeChecker {
                         );
                     }
                 }
-                ASTStatement::LetStatement(name, e, position) => {
+                ASTStatement::ASTLetStatement(name, e, position) => {
                     self.add_expr(
                         e,
                         inner_val_context,
@@ -502,7 +502,7 @@ impl ASTTypeChecker {
                         }
                     }
                 }
-                ASTStatement::ConstStatement(name, e, position, _astmodifiers) => {
+                ASTStatement::ASTConstStatement(name, e, position, _astmodifiers) => {
                     self.add_expr(
                         e,
                         inner_val_context,
@@ -600,7 +600,7 @@ impl ASTTypeChecker {
                     function,
                 );
             }
-            ASTExpression::ValueRef(name, _) => {
+            ASTExpression::ASTValueRefExpression(name, _) => {
                 if let Some(kind) = val_context.get(name) {
                     self.insert(
                         index.clone(),
@@ -634,7 +634,7 @@ impl ASTTypeChecker {
                         })
                         .collect_vec();
 
-                    if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    if let Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                         parameters,
                         return_type,
                     })) = expected_expression_type
@@ -675,10 +675,12 @@ impl ASTTypeChecker {
 
                         // if we have an expected expression type, we try to substitute eventual generic types with real
                         // types from the expected
-                        let lambda = if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
-                            parameters,
-                            return_type,
-                        })) = expected_expression_type
+                        let lambda = if let Some(ASTType::ASTBuiltinType(
+                            ASTBuiltinTypeKind::ASTLambdaType {
+                                parameters,
+                                return_type,
+                            },
+                        )) = expected_expression_type
                         {
                             let new_parameters =
                                 zip(fun_entry.signature.parameters_types.clone(), parameters)
@@ -699,12 +701,12 @@ impl ASTTypeChecker {
                                 &fun_entry.signature.return_type
                             };
 
-                            BuiltinTypeKind::Lambda {
+                            ASTBuiltinTypeKind::ASTLambdaType {
                                 parameters: new_parameters,
                                 return_type: Box::new(new_return_type.clone()),
                             }
                         } else {
-                            BuiltinTypeKind::Lambda {
+                            ASTBuiltinTypeKind::ASTLambdaType {
                                 parameters: fun_entry.signature.parameters_types.clone(),
                                 return_type: Box::new(fun_entry.signature.return_type.clone()),
                             }
@@ -715,7 +717,7 @@ impl ASTTypeChecker {
                             ASTTypeCheckEntry::reference(
                                 index.clone(),
                                 ASTTypeFilter::exact(
-                                    ASTType::Builtin(lambda),
+                                    ASTType::ASTBuiltinType(lambda),
                                     module_namespace,
                                     module_id,
                                 ),
@@ -736,7 +738,7 @@ impl ASTTypeChecker {
                     }
                 }
             }
-            ASTExpression::Value(value_type, _position) => {
+            ASTExpression::ASTValueExpression(value_type, _position) => {
                 self.insert(
                     index.clone(),
                     ASTTypeCheckEntry::primitive(
@@ -749,11 +751,11 @@ impl ASTTypeChecker {
                     ),
                 );
             }
-            ASTExpression::Lambda(lambda) => {
+            ASTExpression::ASTLambdaExpression(lambda) => {
                 let mut lambda_val_context = ValContext::new(Some(&val_context));
 
                 let expected_last_statement_type_and_parameters =
-                    if let Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    if let Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                         parameters,
                         return_type,
                     })) = expected_expression_type
@@ -835,7 +837,7 @@ impl ASTTypeChecker {
                         expected_last_statement_type_and_parameters
                     {
                         ASTTypeFilter::Exact(
-                            ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                                 parameters: parameters.clone(),
                                 return_type: Box::new(brt),
                             }),
@@ -853,7 +855,7 @@ impl ASTTypeChecker {
                         expected_last_statement_type_and_parameters
                     {
                         ASTTypeFilter::Exact(
-                            ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                                 parameters: parameters.clone(),
                                 return_type: Box::new(return_type.clone()),
                             }),
@@ -982,7 +984,7 @@ impl ASTTypeChecker {
                 // here we are calculating only the types for filtering the functions,
                 // we hope that knowing only that it's a lambda, eventually the return type and the number of parameters is sufficient
 
-                if let ASTExpression::Lambda(def) = e {
+                if let ASTExpression::ASTLambdaExpression(def) = e {
                     let mut lambda_val_context = ValContext::new(Some(&val_context));
                     for (name, pos) in def.parameter_names.iter() {
                         let par_index =
@@ -1066,7 +1068,7 @@ impl ASTTypeChecker {
             let generics = parameters_types
                 .iter()
                 .filter_map(|p| {
-                    if let ASTType::Generic(_, g_name, _var_types) = p {
+                    if let ASTType::ASTGenericType(_, g_name, _var_types) = p {
                         Some(g_name.clone())
                     } else {
                         None
@@ -1435,19 +1437,20 @@ impl ASTTypeChecker {
         } else if let ASTTypeFilter::Lambda(n, ret_type) = effective_filter {
             if let Some(rt_filter) = ret_type {
                 match generic_type {
-                    ASTType::Builtin(BuiltinTypeKind::Lambda {
+                    ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                         parameters: _,
                         return_type,
                     }) => {
                         return Self::resolve_type_filter(&return_type, &rt_filter);
                     }
-                    ASTType::Generic(_, _, _) => {
+                    ASTType::ASTGenericType(_, _, _) => {
                         if *n == 0 {
                             if let ASTTypeFilter::Exact(effective_type, _) = rt_filter.as_ref() {
-                                let ef = ASTType::Builtin(BuiltinTypeKind::Lambda {
-                                    parameters: Vec::new(),
-                                    return_type: Box::new(effective_type.clone()),
-                                });
+                                let ef =
+                                    ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
+                                        parameters: Vec::new(),
+                                        return_type: Box::new(effective_type.clone()),
+                                    });
                                 return ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                                     generic_type,
                                     &ef,
@@ -1500,7 +1503,7 @@ mod tests {
         catalog::modules_catalog::ModulesCatalog,
         parser::ast::{
             ASTExpression, ASTFunctionCall, ASTLambdaDef, ASTModule, ASTPosition, ASTStatement,
-            ASTValueType,
+            ASTValue,
         },
     };
 
@@ -1840,7 +1843,10 @@ mod tests {
             .info(&EnhModuleId::Path(path.canonicalize().unwrap()))
             .unwrap();
 
-        let i = ASTExpression::Value(ASTValueType::Integer(10), ASTPosition::new(2, 29));
+        let i = ASTExpression::ASTValueExpression(
+            ASTValue::ASTIntegerValue(10),
+            ASTPosition::new(2, 29),
+        );
 
         let some = ASTFunctionCall::new(
             "Some".to_owned(),
@@ -1852,13 +1858,16 @@ mod tests {
         );
         let o = ASTExpression::ASTFunctionCallExpression(some);
 
-        let l = ASTExpression::Lambda(ASTLambdaDef {
+        let l = ASTExpression::ASTLambdaExpression(ASTLambdaDef {
             parameter_names: Vec::new(),
-            body: vec![ASTStatement::Expression(o)],
+            body: vec![ASTStatement::ASTExpressionStatement(o)],
             position: ASTPosition::new(2, 14),
         });
 
-        let t = ASTExpression::Value(ASTValueType::Boolean(true), ASTPosition::new(2, 8));
+        let t = ASTExpression::ASTValueExpression(
+            ASTValue::ASTBooleanValue(true),
+            ASTPosition::new(2, 8),
+        );
 
         let call_position = ASTPosition::new(2, 5);
         let id = call_position.id;
@@ -1916,7 +1925,10 @@ mod tests {
             .info(&EnhModuleId::Path(path.canonicalize().unwrap()))
             .unwrap();
 
-        let i = ASTExpression::Value(ASTValueType::Integer(10), ASTPosition::new(2, 29));
+        let i = ASTExpression::ASTValueExpression(
+            ASTValue::ASTIntegerValue(10),
+            ASTPosition::new(2, 29),
+        );
 
         let some = ASTFunctionCall::new(
             "Some".to_owned(),
@@ -1928,7 +1940,7 @@ mod tests {
         );
         let o = ASTExpression::ASTFunctionCallExpression(some);
 
-        let body = vec![ASTStatement::Expression(o)];
+        let body = vec![ASTStatement::ASTExpressionStatement(o)];
 
         let res = type_checker.add_body(
             &mut val_context,

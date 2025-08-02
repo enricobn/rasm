@@ -203,7 +203,7 @@ impl Display for ASTFunctionDef {
             format!("<{}>", self.generic_types.join(","))
         };
 
-        let rt = if self.return_type != ASTType::Unit {
+        let rt = if self.return_type != ASTType::ASTUnitType {
             format!("{}", self.return_type)
         } else {
             "()".to_owned()
@@ -318,13 +318,13 @@ pub enum ASTFunctionBody {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum BuiltinTypeKind {
-    Boolean,
-    Char,
-    Integer,
-    Float,
-    String,
-    Lambda {
+pub enum ASTBuiltinTypeKind {
+    ASTBooleanType,
+    ASTCharType,
+    ASTIntegerType,
+    ASTFloatType,
+    ASTStringType,
+    ASTLambdaType {
         parameters: Vec<ASTType>,
         return_type: Box<ASTType>,
     },
@@ -334,78 +334,78 @@ pub enum BuiltinTypeKind {
 #[derivative(PartialEq, Hash)]
 #[derive(Debug, Clone, Eq)]
 pub enum ASTType {
-    Builtin(BuiltinTypeKind),
-    Generic(
+    ASTBuiltinType(ASTBuiltinTypeKind),
+    ASTGenericType(
         #[derivative(PartialEq = "ignore")]
         #[derivative(Hash = "ignore")]
         ASTPosition,
         String,
         Vec<ASTType>,
     ),
-    Custom {
+    ASTCustomType {
         name: String,
         param_types: Vec<ASTType>,
         #[derivative(PartialEq = "ignore")]
         #[derivative(Hash = "ignore")]
         position: ASTPosition,
     },
-    Unit,
+    ASTUnitType,
 }
 
 impl ASTType {
     pub fn is_unit(&self) -> bool {
-        self == &ASTType::Unit
+        self == &ASTType::ASTUnitType
     }
 
     pub fn is_generic(&self) -> bool {
         return match self {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::String => false,
-                BuiltinTypeKind::Integer => false,
-                BuiltinTypeKind::Boolean => false,
-                BuiltinTypeKind::Char => false,
-                BuiltinTypeKind::Float => false,
-                BuiltinTypeKind::Lambda {
+            ASTType::ASTBuiltinType(kind) => match kind {
+                ASTBuiltinTypeKind::ASTStringType => false,
+                ASTBuiltinTypeKind::ASTIntegerType => false,
+                ASTBuiltinTypeKind::ASTBooleanType => false,
+                ASTBuiltinTypeKind::ASTCharType => false,
+                ASTBuiltinTypeKind::ASTFloatType => false,
+                ASTBuiltinTypeKind::ASTLambdaType {
                     parameters,
                     return_type,
                 } => return_type.is_generic() || parameters.iter().any(Self::is_generic),
             },
-            ASTType::Generic(_, _, _) => true,
-            ASTType::Custom {
+            ASTType::ASTGenericType(_, _, _) => true,
+            ASTType::ASTCustomType {
                 name: _,
                 param_types: pt,
                 position: _,
             } => pt.iter().any(|it| it.is_generic()),
-            ASTType::Unit => false,
+            ASTType::ASTUnitType => false,
         };
     }
 
     /// Returns true if this type is exactly a "full" generic type. Returns false even if it's a Custom generic type or a lambda generic type
     pub fn is_strictly_generic(&self) -> bool {
-        return matches!(self, ASTType::Generic(..));
+        return matches!(self, ASTType::ASTGenericType(..));
     }
 
     pub fn add_generic_prefix(self, prefix: &dyn Display) -> Self {
         if format!("{prefix}").contains(":") {
             panic!("unsupported prefix {prefix}");
         }
-        if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+        if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
             parameters,
             return_type,
         }) = self
         {
-            return ASTType::Builtin(BuiltinTypeKind::Lambda {
+            return ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 parameters: parameters
                     .into_iter()
                     .map(|it| it.add_generic_prefix(prefix))
                     .collect(),
                 return_type: Box::new(return_type.add_generic_prefix(prefix)),
             });
-        } else if let ASTType::Generic(position, name, var_types) = self {
+        } else if let ASTType::ASTGenericType(position, name, var_types) = self {
             if name.contains(":") {
                 panic!("generic has already been prefixed");
             }
-            return ASTType::Generic(
+            return ASTType::ASTGenericType(
                 position,
                 format!("{prefix}:{name}"),
                 var_types
@@ -413,13 +413,13 @@ impl ASTType {
                     .map(|it| it.add_generic_prefix(prefix))
                     .collect(),
             );
-        } else if let ASTType::Custom {
+        } else if let ASTType::ASTCustomType {
             name,
             param_types,
             position,
         } = self
         {
-            return ASTType::Custom {
+            return ASTType::ASTCustomType {
                 name,
                 param_types: param_types
                     .into_iter()
@@ -433,21 +433,21 @@ impl ASTType {
     }
 
     pub fn remove_generic_prefix(self) -> Self {
-        if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+        if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
             parameters,
             return_type,
         }) = self
         {
-            ASTType::Builtin(BuiltinTypeKind::Lambda {
+            ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 parameters: parameters
                     .into_iter()
                     .map(|it| it.remove_generic_prefix())
                     .collect(),
                 return_type: Box::new(return_type.remove_generic_prefix()),
             })
-        } else if let ASTType::Generic(ref position, ref name, ref var_types) = self {
+        } else if let ASTType::ASTGenericType(ref position, ref name, ref var_types) = self {
             if let Some(original_generic) = Self::get_original_generic(name) {
-                ASTType::Generic(
+                ASTType::ASTGenericType(
                     position.clone(),
                     original_generic.to_owned(),
                     var_types
@@ -458,13 +458,13 @@ impl ASTType {
             } else {
                 self
             }
-        } else if let ASTType::Custom {
+        } else if let ASTType::ASTCustomType {
             name,
             param_types,
             position,
         } = self
         {
-            ASTType::Custom {
+            ASTType::ASTCustomType {
                 name,
                 param_types: param_types
                     .into_iter()
@@ -488,7 +488,7 @@ impl ASTType {
     pub fn generics(&self) -> HashSet<String> {
         let mut result = HashSet::new();
         match self {
-            ASTType::Builtin(BuiltinTypeKind::Lambda {
+            ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 parameters,
                 return_type,
             }) => {
@@ -497,13 +497,13 @@ impl ASTType {
                 }
                 result.extend(return_type.generics());
             }
-            ASTType::Generic(_, name, var_types) => {
+            ASTType::ASTGenericType(_, name, var_types) => {
                 result.insert(name.clone());
                 for t in var_types {
                     result.extend(t.generics());
                 }
             }
-            ASTType::Custom {
+            ASTType::ASTCustomType {
                 name: _,
                 param_types,
                 position: _,
@@ -521,13 +521,13 @@ impl ASTType {
 impl Display for ASTType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::String => f.write_str("str"),
-                BuiltinTypeKind::Integer => f.write_str("int"),
-                BuiltinTypeKind::Boolean => f.write_str("bool"),
-                BuiltinTypeKind::Char => f.write_str("char"),
-                BuiltinTypeKind::Float => f.write_str("float"),
-                BuiltinTypeKind::Lambda {
+            ASTType::ASTBuiltinType(kind) => match kind {
+                ASTBuiltinTypeKind::ASTStringType => f.write_str("str"),
+                ASTBuiltinTypeKind::ASTIntegerType => f.write_str("int"),
+                ASTBuiltinTypeKind::ASTBooleanType => f.write_str("bool"),
+                ASTBuiltinTypeKind::ASTCharType => f.write_str("char"),
+                ASTBuiltinTypeKind::ASTFloatType => f.write_str("float"),
+                ASTBuiltinTypeKind::ASTLambdaType {
                     parameters,
                     return_type,
                 } => {
@@ -540,7 +540,7 @@ impl Display for ASTType {
                     ))
                 }
             },
-            ASTType::Generic(_, name, var_types) => {
+            ASTType::ASTGenericType(_, name, var_types) => {
                 f.write_str(name)?;
                 if !var_types.is_empty() {
                     f.write_str("<")?;
@@ -557,7 +557,7 @@ impl Display for ASTType {
                     Ok(())
                 }
             }
-            ASTType::Custom {
+            ASTType::ASTCustomType {
                 name,
                 param_types,
                 position: _,
@@ -570,7 +570,7 @@ impl Display for ASTType {
                     f.write_str(&format!("{name}<{}>", pars.join(",")))
                 }
             }
-            ASTType::Unit => f.write_str("()"),
+            ASTType::ASTUnitType => f.write_str("()"),
         }
     }
 }
@@ -685,48 +685,54 @@ impl Display for ASTFunctionCall {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ASTValueType {
-    String(String),
-    Boolean(bool),
-    Integer(i64),
-    Char(String),
-    Float(f64),
+pub enum ASTValue {
+    ASTStringValue(String),
+    ASTBooleanValue(bool),
+    ASTIntegerValue(i64),
+    ASTCharValue(String),
+    ASTFloatValue(f64),
 }
 
-impl Display for ASTValueType {
+impl Display for ASTValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTValueType::String(s) => f.write_str(&format!("\"{s}\"")),
-            ASTValueType::Boolean(b) => f.write_str(&format!("{b}")),
-            ASTValueType::Integer(n) => f.write_str(&format!("{n}")),
-            ASTValueType::Float(n) => f.write_str(&format!("{n}")),
-            ASTValueType::Char(c) => f.write_str(&format!("'{c}'")),
+            ASTValue::ASTStringValue(s) => f.write_str(&format!("\"{s}\"")),
+            ASTValue::ASTBooleanValue(b) => f.write_str(&format!("{b}")),
+            ASTValue::ASTIntegerValue(n) => f.write_str(&format!("{n}")),
+            ASTValue::ASTFloatValue(n) => f.write_str(&format!("{n}")),
+            ASTValue::ASTCharValue(c) => f.write_str(&format!("'{c}'")),
         }
     }
 }
 
-impl ASTValueType {
+impl ASTValue {
     pub fn to_type(&self) -> ASTType {
         match self {
-            ASTValueType::Boolean(_) => ASTType::Builtin(BuiltinTypeKind::Boolean),
-            ASTValueType::Integer(_) => ASTType::Builtin(BuiltinTypeKind::Integer),
-            ASTValueType::Char(_) => ASTType::Builtin(BuiltinTypeKind::Char),
-            ASTValueType::Float(_) => ASTType::Builtin(BuiltinTypeKind::Float),
-            ASTValueType::String(_) => ASTType::Builtin(BuiltinTypeKind::String),
+            ASTValue::ASTBooleanValue(_) => {
+                ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTBooleanType)
+            }
+            ASTValue::ASTIntegerValue(_) => {
+                ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType)
+            }
+            ASTValue::ASTCharValue(_) => ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTCharType),
+            ASTValue::ASTFloatValue(_) => ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTFloatType),
+            ASTValue::ASTStringValue(_) => {
+                ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType)
+            }
         }
     }
 
     pub fn token_len(&self) -> usize {
         match self {
-            ASTValueType::String(s) => s.len() + 2,
-            ASTValueType::Boolean(v) => {
+            ASTValue::ASTStringValue(s) => s.len() + 2,
+            ASTValue::ASTBooleanValue(v) => {
                 if *v {
                     4
                 } else {
                     5
                 }
             }
-            ASTValueType::Integer(n) => {
+            ASTValue::ASTIntegerValue(n) => {
                 // TODO it's not precise: 000100
                 let mut result = n.abs().checked_ilog10().unwrap_or(0) as usize + 1;
                 if *n < 0 {
@@ -734,8 +740,8 @@ impl ASTValueType {
                 }
                 result
             }
-            ASTValueType::Char(s) => s.len() + 2,
-            ASTValueType::Float(n) => format!("{n}").len(), // TODO it's slow and not precise: 000.100
+            ASTValue::ASTCharValue(s) => s.len() + 2,
+            ASTValue::ASTFloatValue(n) => format!("{n}").len(), // TODO it's slow and not precise: 000.100
         }
     }
 }
@@ -744,18 +750,18 @@ impl ASTValueType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTExpression {
     ASTFunctionCallExpression(ASTFunctionCall),
-    ValueRef(String, ASTPosition),
-    Value(ASTValueType, ASTPosition),
-    Lambda(ASTLambdaDef),
+    ASTValueRefExpression(String, ASTPosition),
+    ASTValueExpression(ASTValue, ASTPosition),
+    ASTLambdaExpression(ASTLambdaDef),
 }
 
 impl ASTExpression {
     pub fn position(&self) -> &ASTPosition {
         match self {
             ASTExpression::ASTFunctionCallExpression(call) => &call.position,
-            ASTExpression::ValueRef(_, position) => position,
-            ASTExpression::Value(_, position) => position,
-            ASTExpression::Lambda(def) => &def.position,
+            ASTExpression::ASTValueRefExpression(_, position) => position,
+            ASTExpression::ASTValueExpression(_, position) => position,
+            ASTExpression::ASTLambdaExpression(def) => &def.position,
         }
     }
 }
@@ -773,32 +779,32 @@ impl Display for ASTExpression {
                  */
                 f.write_str(&format!("{call}"))
             }
-            ASTExpression::ValueRef(name, _) => f.write_str(name),
-            ASTExpression::Value(val_type, _) => match val_type {
-                ASTValueType::String(s) => f.write_str(&format!("\"{s}\"")),
-                ASTValueType::Boolean(b) => f.write_str(&format!("{b}")),
-                ASTValueType::Integer(n) => f.write_str(&format!("{n}")),
-                ASTValueType::Float(n) => f.write_str(&format!("{n}")),
-                ASTValueType::Char(c) => f.write_str(&format!("'{c}'")),
+            ASTExpression::ASTValueRefExpression(name, _) => f.write_str(name),
+            ASTExpression::ASTValueExpression(val_type, _) => match val_type {
+                ASTValue::ASTStringValue(s) => f.write_str(&format!("\"{s}\"")),
+                ASTValue::ASTBooleanValue(b) => f.write_str(&format!("{b}")),
+                ASTValue::ASTIntegerValue(n) => f.write_str(&format!("{n}")),
+                ASTValue::ASTFloatValue(n) => f.write_str(&format!("{n}")),
+                ASTValue::ASTCharValue(c) => f.write_str(&format!("'{c}'")),
             },
-            ASTExpression::Lambda(lambda) => f.write_str(&format!("{lambda}")),
+            ASTExpression::ASTLambdaExpression(lambda) => f.write_str(&format!("{lambda}")),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTStatement {
-    Expression(ASTExpression),
-    LetStatement(String, ASTExpression, ASTPosition),
-    ConstStatement(String, ASTExpression, ASTPosition, ASTModifiers),
+    ASTExpressionStatement(ASTExpression),
+    ASTLetStatement(String, ASTExpression, ASTPosition),
+    ASTConstStatement(String, ASTExpression, ASTPosition, ASTModifiers),
 }
 
 impl ASTStatement {
     pub fn position(&self) -> &ASTPosition {
         match self {
-            ASTStatement::Expression(expr) => expr.position(),
-            ASTStatement::LetStatement(_, _, position) => position,
-            ASTStatement::ConstStatement(_, _, position, _) => position,
+            ASTStatement::ASTExpressionStatement(expr) => expr.position(),
+            ASTStatement::ASTLetStatement(_, _, position) => position,
+            ASTStatement::ASTConstStatement(_, _, position, _) => position,
         }
     }
 }
@@ -806,12 +812,12 @@ impl ASTStatement {
 impl Display for ASTStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTStatement::Expression(e) => f.write_str(&format!("{e};\n")),
-            ASTStatement::LetStatement(name, e, _) => {
+            ASTStatement::ASTExpressionStatement(e) => f.write_str(&format!("{e};\n")),
+            ASTStatement::ASTLetStatement(name, e, _) => {
                 let keyword = "let";
                 f.write_str(&format!("{keyword} {name} = {e};\n"))
             }
-            ASTStatement::ConstStatement(name, e, _, modifiers) => {
+            ASTStatement::ASTConstStatement(name, e, _, modifiers) => {
                 let keyword = if modifiers.public {
                     "pub const"
                 } else {
@@ -1048,33 +1054,33 @@ impl Display for ASTTypeDef {
 }
 
 pub fn lambda(return_type: ASTType) -> ASTType {
-    ASTType::Builtin(BuiltinTypeKind::Lambda {
+    ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
         parameters: Vec::new(),
         return_type: Box::new(return_type),
     })
 }
 
 pub fn lambda_unit() -> ASTType {
-    lambda(ASTType::Unit)
+    lambda(ASTType::ASTUnitType)
 }
 
 #[cfg(test)]
 mod tests {
 
     use crate::parser::ast::{
-        ASTFunctionBody, ASTFunctionDef, ASTModifiers, ASTParameterDef, ASTPosition, ASTType,
-        BuiltinTypeKind,
+        ASTBuiltinTypeKind, ASTFunctionBody, ASTFunctionDef, ASTModifiers, ASTParameterDef,
+        ASTPosition, ASTType,
     };
 
     #[test]
     fn display_custom_type() {
-        let inner_type = ASTType::Custom {
+        let inner_type = ASTType::ASTCustomType {
             name: "Option".to_owned(),
-            param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
+            param_types: vec![ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType)],
             position: ASTPosition::none(),
         };
 
-        let ast_type = ASTType::Custom {
+        let ast_type = ASTType::ASTCustomType {
             name: "List".to_owned(),
             param_types: vec![inner_type],
             position: ASTPosition::none(),
@@ -1084,9 +1090,9 @@ mod tests {
 
     #[test]
     fn display_function_def() {
-        let inner_type = ASTType::Custom {
+        let inner_type = ASTType::ASTCustomType {
             name: "Option".to_owned(),
-            param_types: vec![ASTType::Generic(
+            param_types: vec![ASTType::ASTGenericType(
                 ASTPosition::none(),
                 "T".to_string(),
                 Vec::new(),
@@ -1094,7 +1100,7 @@ mod tests {
             position: ASTPosition::none(),
         };
 
-        let ast_type = ASTType::Custom {
+        let ast_type = ASTType::ASTCustomType {
             name: "List".to_owned(),
             param_types: vec![inner_type],
             position: ASTPosition::none(),
@@ -1107,7 +1113,7 @@ mod tests {
                 ast_type,
                 position: ASTPosition::none(),
             }],
-            return_type: ASTType::Generic(ASTPosition::none(), "T".to_string(), Vec::new()),
+            return_type: ASTType::ASTGenericType(ASTPosition::none(), "T".to_string(), Vec::new()),
             body: ASTFunctionBody::RASMBody(vec![]),
             generic_types: vec!["T".to_string()],
             position: ASTPosition::none(),
@@ -1120,10 +1126,10 @@ mod tests {
 
     #[test]
     fn display_type_class() {
-        let t = ASTType::Generic(
+        let t = ASTType::ASTGenericType(
             ASTPosition::none(),
             "M".to_owned(),
-            vec![ASTType::Builtin(BuiltinTypeKind::String)],
+            vec![ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType)],
         );
 
         assert_eq!("M<str>", format!("{t}"));

@@ -9,7 +9,7 @@ use rasm_parser::parser::ast::{
     ASTBuiltinFunctionType, ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody,
     ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature, ASTModifiers, ASTModule,
     ASTParameterDef, ASTPosition, ASTStatement, ASTStructDef, ASTStructPropertyDef, ASTType,
-    BuiltinTypeKind,
+    ASTBuiltinTypeKind,
 };
 
 use crate::codegen::enh_ast::{
@@ -139,7 +139,7 @@ pub trait FunctionsCreator {
 
         let mut result = Vec::new();
 
-        if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+        if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
             parameters,
             return_type: _,
         }) = &property_def.ast_type
@@ -242,11 +242,11 @@ pub trait FunctionsCreator {
         parameters: &[ASTType],
     ) -> Vec<ASTStatement> {
         vec![
-            ASTStatement::LetStatement(
+            ASTStatement::ASTLetStatement(
                 "_f".to_owned(),
                 ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
                     format!("{}", property_def.name),
-                    vec![ASTExpression::ValueRef(
+                    vec![ASTExpression::ASTValueRefExpression(
                         "v".to_owned(),
                         ASTPosition::builtin(
                             &property_def.position,
@@ -266,14 +266,14 @@ pub trait FunctionsCreator {
                     ASTBuiltinFunctionType::Other("_f let".to_owned()),
                 ),
             ),
-            ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(
+            ASTStatement::ASTExpressionStatement(ASTExpression::ASTFunctionCallExpression(
                 ASTFunctionCall::new(
                     "_f".to_owned(),
                     parameters
                         .iter()
                         .enumerate()
                         .map(|(index, _it)| {
-                            ASTExpression::ValueRef(
+                            ASTExpression::ASTValueRefExpression(
                                 format!("p{index}"),
                                 ASTPosition::builtin(
                                     &property_def.position,
@@ -470,14 +470,14 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             name: name.clone(),
             parameters: vec![ASTParameterDef {
                 name: "s".into(),
-                ast_type: ASTType::Builtin(BuiltinTypeKind::String),
+                ast_type: ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType),
                 position: ASTPosition::builtin(
                     &ASTPosition::none(),
                     ASTBuiltinFunctionType::Other(format!("{name} param")),
                 ),
             }],
             body,
-            return_type: ASTType::Unit,
+            return_type: ASTType::ASTUnitType,
             generic_types: Vec::new(),
             position: ASTPosition::builtin(
                 &ASTPosition::none(),
@@ -506,14 +506,14 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             name: name.clone(),
             parameters: vec![ASTParameterDef {
                 name: "s".into(),
-                ast_type: ASTType::Builtin(BuiltinTypeKind::String),
+                ast_type: ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType),
                 position: ASTPosition::builtin(
                     &ASTPosition::none(),
                     ASTBuiltinFunctionType::Other(format!("{name} param")),
                 ),
             }],
             body,
-            return_type: ASTType::Unit,
+            return_type: ASTType::ASTUnitType,
             generic_types: Vec::new(),
             position: ASTPosition::builtin(
                 &ASTPosition::none(),

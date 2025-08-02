@@ -4,7 +4,7 @@ let w = "how do you do";
 println!("Hello {}, {}?", h, w);
 
 /*
-mprintln("{}, {}!", ASTExpression::Value(ASTValueType::ASTString(h)), ASTExpression::Value(ASTValueType::ASTString(w))).match(
+mprintln("{}, {}!", ASTValueExpression(ASTStringValue(h)), ASTValueExpression(ASTStringValue(w))).match(
     fn(module) { println(module); }, 
     fn(error)  { println(error);  });
 */
@@ -18,7 +18,7 @@ pub fn println(s: str, e1: ASTExpression, e2: ASTExpression) -> MacroResult {
         let prefix = s.substr(prev.first, charIndex.sub(prev.first)).orEmpty;
         let newExpressions = 
             prev.second
-            .push(ASTExpression::Value(ASTValueType::ASTString(prefix)))
+            .push(ASTValueExpression(ASTStringValue(prefix)))
             .push(if(exprIndex.eq(0), e1, e2));
         Pair(charIndex.add(2), newExpressions);
     });
@@ -30,7 +30,7 @@ pub fn println(s: str, e1: ASTExpression, e2: ASTExpression) -> MacroResult {
             {calls;}, 
             {
                 let end = s.substr(result.first, s.len.sub(result.first)).orEmpty;
-                calls.push(simpleCall("print", vecOf(ASTExpression::Value(ASTValueType::ASTString(end)))));
+                calls.push(simpleCall("print", vecOf(ASTValueExpression(ASTStringValue(end)))));
             })
         .push(simpleCall("println", Vec()));
 
@@ -61,5 +61,5 @@ fn find(s: str, v: str) -> Vec<int> {
 }
 
 fn simpleCall(f: str, parameters: Vec<ASTExpression>) -> ASTStatement {
-    ASTStatement::Expression(ASTFunctionCallExpression(ASTFunctionCall(f, parameters, Vec(), None())));
+    ASTExpressionStatement(ASTFunctionCallExpression(ASTFunctionCall(f, parameters, Vec(), None())));
 }

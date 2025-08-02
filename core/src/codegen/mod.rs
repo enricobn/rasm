@@ -41,7 +41,7 @@ use crate::project::RasmProject;
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::get_new_native_call;
-use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
+use rasm_parser::parser::ast::{ASTModifiers, ASTValue};
 
 pub mod asm;
 pub mod c;
@@ -286,7 +286,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         is_const: bool,
         statics: &mut Statics,
         body: &mut String,
-        value_type: &ASTValueType,
+        value_type: &ASTValue,
         typed_type: &ASTTypedType,
         namespace: &EnhASTNameSpace,
         modifiers: Option<&ASTModifiers>,
@@ -316,7 +316,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
     fn value_as_return(
         &self,
         before: &mut String,
-        value_type: &ASTValueType,
+        value_type: &ASTValue,
         statics: &mut Statics,
     );
 
@@ -384,7 +384,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn add_statics(&self, project: &RasmProject, statics: &mut Statics, out_folder: &Path);
 
-    fn value_to_string(&self, value_type: &ASTValueType) -> String;
+    fn value_to_string(&self, value_type: &ASTValue) -> String;
 
     fn create_function_definition(
         &self,
@@ -628,7 +628,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         call_parameters.add_string_literal(&param_name, label, None);
                     }*/
                     ASTTypedExpression::Value(value_type, _) => {
-                        if let ASTValueType::String(s) = value_type {
+                        if let ASTValue::ASTStringValue(s) = value_type {
                             call_parameters.add_string_constant(&param_name, s, None, statics);
                         } else {
                             call_parameters.add_value_type(&param_name, value_type)
@@ -971,7 +971,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 }
             }
             ASTTypedExpression::Value(value_type, index) => {
-                if let ASTValueType::String(s) = value_type {
+                if let ASTValue::ASTStringValue(s) = value_type {
                     let typed_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::String);
 
                     self.set_let_for_string_literal(
@@ -1514,7 +1514,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             }
                         }
                         ASTTypedExpression::Value(value_type, _) => {
-                            if let ASTValueType::String(s) = value_type {
+                            if let ASTValue::ASTStringValue(s) = value_type {
                                 self.string_literal_return(statics, before, s);
                             } else {
                                 self.value_as_return(before, value_type, statics);

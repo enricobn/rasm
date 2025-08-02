@@ -881,7 +881,7 @@ mod tests {
     use crate::enh_type_check::enh_functions_container::EnhTypeFilter::Exact;
     use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
     use crate::project::{RasmConfig, RasmPackage, RasmProject};
-    use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
+    use rasm_parser::parser::ast::{ASTModifiers, ASTValue};
     use std::path::PathBuf;
 
     #[test]
@@ -936,8 +936,8 @@ mod tests {
             original_function_name: "add".into(),
             function_name: "add".into(),
             parameters: vec![
-                EnhASTExpression::Value(ASTValueType::Integer(10), EnhASTIndex::none()),
-                EnhASTExpression::Value(ASTValueType::Integer(20), EnhASTIndex::none()),
+                EnhASTExpression::Value(ASTValue::ASTIntegerValue(10), EnhASTIndex::none()),
+                EnhASTExpression::Value(ASTValue::ASTIntegerValue(20), EnhASTIndex::none()),
             ],
             index: EnhASTIndex::none(),
             generics: Vec::new(),

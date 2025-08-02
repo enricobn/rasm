@@ -3,8 +3,9 @@ use std::ops::Deref;
 use itertools::Itertools;
 
 use super::ast::{
-    ASTBuiltinFunctionType, ASTEnumDef, ASTEnumVariantDef, ASTFunctionSignature, ASTModifiers,
-    ASTParameterDef, ASTPosition, ASTStructDef, ASTStructPropertyDef, ASTType, BuiltinTypeKind,
+    ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTEnumDef, ASTEnumVariantDef,
+    ASTFunctionSignature, ASTModifiers, ASTParameterDef, ASTPosition, ASTStructDef,
+    ASTStructPropertyDef, ASTType,
 };
 
 pub struct BuiltinFunctions;
@@ -27,11 +28,11 @@ impl BuiltinFunctions {
                     &enum_def.position,
                     ASTBuiltinFunctionType::Other(format!("generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into(), Vec::new())
+                ASTType::ASTGenericType(astposition, it.into(), Vec::new())
             })
             .collect();
 
-        let return_type = ASTType::Custom {
+        let return_type = ASTType::ASTCustomType {
             name: enum_def.name.clone(),
             param_types,
             position: ASTPosition::builtin(
@@ -54,7 +55,7 @@ impl BuiltinFunctions {
         enum_def: &ASTEnumDef,
     ) -> (Vec<String>, Vec<ASTPosition>, ASTFunctionSignature) {
         let name = "match";
-        let return_type = ASTType::Generic(
+        let return_type = ASTType::ASTGenericType(
             ASTPosition::builtin(
                 &enum_def.position,
                 ASTBuiltinFunctionType::Other(format!("{name} generic return type")),
@@ -72,13 +73,13 @@ impl BuiltinFunctions {
                     &enum_def.position,
                     ASTBuiltinFunctionType::Other(format!("{name} generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into(), Vec::new())
+                ASTType::ASTGenericType(astposition, it.into(), Vec::new())
             })
             .collect();
 
         let mut parameters = vec![ASTParameterDef {
             name: "value".into(),
-            ast_type: ASTType::Custom {
+            ast_type: ASTType::ASTCustomType {
                 name: enum_def.name.clone(),
                 param_types: generic_types,
                 position: ASTPosition::builtin(
@@ -120,7 +121,7 @@ impl BuiltinFunctions {
         variant: &ASTEnumVariantDef,
     ) -> (Vec<String>, Vec<ASTPosition>, ASTFunctionSignature) {
         let name = &format!("match{}", variant.name);
-        let return_type = ASTType::Generic(
+        let return_type = ASTType::ASTGenericType(
             ASTPosition::builtin(
                 &enum_def.position,
                 ASTBuiltinFunctionType::Other(format!("{name} generic return type")),
@@ -138,13 +139,13 @@ impl BuiltinFunctions {
                     &enum_def.position,
                     ASTBuiltinFunctionType::Other(format!("{name} generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into(), Vec::new())
+                ASTType::ASTGenericType(astposition, it.into(), Vec::new())
             })
             .collect();
 
         let mut parameters = vec![ASTParameterDef {
             name: "value".into(),
-            ast_type: ASTType::Custom {
+            ast_type: ASTType::ASTCustomType {
                 name: enum_def.name.clone(),
                 param_types: generic_types,
                 position: ASTPosition::builtin(
@@ -160,7 +161,7 @@ impl BuiltinFunctions {
         let ast_parameter_def = Self::variant_lambda_parameter(&return_type, variant);
         parameters.push(ast_parameter_def);
 
-        let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+        let ast_type = ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
             return_type: Box::new(return_type.clone()),
             parameters: Vec::new(),
         });
@@ -271,11 +272,11 @@ impl BuiltinFunctions {
                     &struct_def.position,
                     ASTBuiltinFunctionType::Other(format!("constructor generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into(), Vec::new())
+                ASTType::ASTGenericType(astposition, it.into(), Vec::new())
             })
             .collect();
 
-        let return_type = ASTType::Custom {
+        let return_type = ASTType::ASTCustomType {
             name: struct_def.name.clone(),
             param_types: param_types.clone(),
             // TODO for now here's no source fo generated functions
@@ -309,7 +310,7 @@ impl BuiltinFunctions {
             ASTBuiltinFunctionType::StructGetter,
         ));
 
-        if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+        if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
             parameters,
             ref return_type,
         }) = &property_def.ast_type
@@ -350,12 +351,12 @@ impl BuiltinFunctions {
                     &struct_def.position,
                     ASTBuiltinFunctionType::Other(format!("lambda set generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into(), Vec::new())
+                ASTType::ASTGenericType(astposition, it.into(), Vec::new())
             })
             .collect();
         let mut f_parameters = vec![ASTParameterDef {
             name: "v".into(),
-            ast_type: ASTType::Custom {
+            ast_type: ASTType::ASTCustomType {
                 name: struct_def.name.clone(),
                 param_types: param_types.clone(),
                 position: ASTPosition::builtin(
@@ -411,12 +412,12 @@ impl BuiltinFunctions {
                     &property_def.position,
                     ASTBuiltinFunctionType::Other(format!("get generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into(), Vec::new())
+                ASTType::ASTGenericType(astposition, it.into(), Vec::new())
             })
             .collect();
         let parameters = vec![ASTParameterDef {
             name: "v".into(),
-            ast_type: ASTType::Custom {
+            ast_type: ASTType::ASTCustomType {
                 name: struct_def.name.clone(),
                 param_types,
                 // TODO for now here's no source for generated functions
@@ -456,11 +457,11 @@ impl BuiltinFunctions {
                     &property_def.position,
                     ASTBuiltinFunctionType::Other(format!("set generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into(), Vec::new())
+                ASTType::ASTGenericType(astposition, it.into(), Vec::new())
             })
             .collect();
 
-        let ast_type = ASTType::Custom {
+        let ast_type = ASTType::ASTCustomType {
             name: struct_def.name.clone(),
             param_types,
             position: ASTPosition::builtin(
@@ -513,11 +514,11 @@ impl BuiltinFunctions {
                     &property_def.position,
                     ASTBuiltinFunctionType::Other(format!("lambda set generic param type {it}")),
                 );
-                ASTType::Generic(astposition, it.into(), Vec::new())
+                ASTType::ASTGenericType(astposition, it.into(), Vec::new())
             })
             .collect();
 
-        let ast_type = ASTType::Custom {
+        let ast_type = ASTType::ASTCustomType {
             name: struct_def.name.clone(),
             param_types,
             position: ASTPosition::builtin(
@@ -526,7 +527,7 @@ impl BuiltinFunctions {
             ),
         };
 
-        let lambda = ASTType::Builtin(BuiltinTypeKind::Lambda {
+        let lambda = ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
             parameters: vec![property_def.ast_type.clone()],
             return_type: Box::new(property_def.ast_type.clone()),
         });
@@ -576,7 +577,7 @@ impl BuiltinFunctions {
         return_type: &ASTType,
         variant: &ASTEnumVariantDef,
     ) -> ASTParameterDef {
-        let ast_type = ASTType::Builtin(BuiltinTypeKind::Lambda {
+        let ast_type = ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
             return_type: Box::new(return_type.clone()),
             parameters: variant
                 .parameters

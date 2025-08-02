@@ -46,9 +46,9 @@ impl StructParser {
 #[cfg(test)]
 mod tests {
     use crate::lexer::tokens::{BracketKind, BracketStatus, TokenKind};
-    use crate::parser::ast::ASTType::{Builtin, Generic};
+    use crate::parser::ast::ASTType::{ASTBuiltinType, ASTGenericType};
     use crate::parser::ast::{
-        ASTModifiers, ASTPosition, ASTStructDef, ASTStructPropertyDef, BuiltinTypeKind,
+        ASTModifiers, ASTPosition, ASTStructDef, ASTStructPropertyDef, ASTBuiltinTypeKind,
     };
     use crate::parser::properties_parser::parse_properties;
     use crate::parser::struct_parser::StructParser;
@@ -96,13 +96,13 @@ mod tests {
 
         let x = ASTStructPropertyDef {
             name: "x".into(),
-            ast_type: Builtin(BuiltinTypeKind::Integer),
+            ast_type: ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
             position: ASTPosition::new(2, 13),
         };
 
         let y = ASTStructPropertyDef {
             name: "y".into(),
-            ast_type: Builtin(BuiltinTypeKind::Integer),
+            ast_type: ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
             position: ASTPosition::new(3, 13),
         };
 
@@ -135,13 +135,13 @@ mod tests {
 
         let x = ASTStructPropertyDef {
             name: "index".into(),
-            ast_type: Builtin(BuiltinTypeKind::Integer),
+            ast_type: ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
             position: ASTPosition::new(2, 13),
         };
 
         let y = ASTStructPropertyDef {
             name: "value".into(),
-            ast_type: Generic(ASTPosition::new(3, 21), "T".into(), Vec::new()),
+            ast_type: ASTGenericType(ASTPosition::new(3, 21), "T".into(), Vec::new()),
             position: ASTPosition::new(3, 13),
         };
 

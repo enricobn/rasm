@@ -16,7 +16,7 @@ use rasm_core::{
     codegen::enh_ast::EnhModuleInfo, type_check::ast_modules_container::ASTTypeFilter,
 };
 
-use rasm_parser::parser::ast::{ASTModule, ASTType, BuiltinTypeKind};
+use rasm_parser::parser::ast::{ASTBuiltinTypeKind, ASTModule, ASTType};
 use rasm_parser::{
     catalog::ASTIndex,
     lexer::{tokens::TokenKind, Lexer},
@@ -269,8 +269,8 @@ impl UI {
         let mut result = HashMap::new();
 
         match ast_type {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::Lambda {
+            ASTType::ASTBuiltinType(kind) => match kind {
+                ASTBuiltinTypeKind::ASTLambdaType {
                     parameters,
                     return_type,
                 } => {
@@ -281,10 +281,10 @@ impl UI {
                 }
                 _ => {}
             },
-            ASTType::Generic(index, _, _) => {
+            ASTType::ASTGenericType(index, _, _) => {
                 result.insert(info.index(index.clone()), SyntaxKind::UnTyped);
             }
-            ASTType::Custom {
+            ASTType::ASTCustomType {
                 name: _,
                 param_types,
                 position: index,
@@ -294,7 +294,7 @@ impl UI {
                     result.extend(Self::set_untyped(p, info));
                 }
             }
-            ASTType::Unit => {}
+            ASTType::ASTUnitType => {}
         }
 
         result

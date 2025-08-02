@@ -1,8 +1,8 @@
 use crate::lexer::tokens::BracketKind::Round;
 use crate::lexer::tokens::BracketStatus::{self, Close, Open};
 use crate::lexer::tokens::{BracketKind, KeywordKind, PunctuationKind, TokenKind};
-use crate::parser::ast::ASTType::{Builtin, Custom, Generic};
-use crate::parser::ast::{ASTType, BuiltinTypeKind};
+use crate::parser::ast::ASTType::{ASTBuiltinType, ASTCustomType, ASTGenericType};
+use crate::parser::ast::{ASTBuiltinTypeKind, ASTType};
 use crate::parser::ParserTrait;
 
 pub struct TypeParser<'a> {
@@ -45,19 +45,19 @@ impl<'a> TypeParser<'a> {
             if let TokenKind::Reserved(reserved_kind) = kind {
                 match reserved_kind {
                     crate::lexer::tokens::ReservedKind::INT => {
-                        Some((Builtin(BuiltinTypeKind::Integer), next_i))
+                        Some((ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType), next_i))
                     }
                     crate::lexer::tokens::ReservedKind::FLOAT => {
-                        Some((Builtin(BuiltinTypeKind::Float), next_i))
+                        Some((ASTBuiltinType(ASTBuiltinTypeKind::ASTFloatType), next_i))
                     }
                     crate::lexer::tokens::ReservedKind::STR => {
-                        Some((Builtin(BuiltinTypeKind::String), next_i))
+                        Some((ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType), next_i))
                     }
                     crate::lexer::tokens::ReservedKind::BOOL => {
-                        Some((Builtin(BuiltinTypeKind::Boolean), next_i))
+                        Some((ASTBuiltinType(ASTBuiltinTypeKind::ASTBooleanType), next_i))
                     }
                     crate::lexer::tokens::ReservedKind::CHAR => {
-                        Some((Builtin(BuiltinTypeKind::Char), next_i))
+                        Some((ASTBuiltinType(ASTBuiltinTypeKind::ASTCharType), next_i))
                     }
                 }
             } else if let TokenKind::AlphaNumeric(type_name) = kind {
@@ -68,7 +68,7 @@ impl<'a> TypeParser<'a> {
                     ) {
                         if let Some((t, n_i)) = self.try_parse(n + 2, context_generic_types, rec)? {
                             return Ok(Some((
-                                Generic(
+                                ASTGenericType(
                                     self.parser.get_position(n_i - self.parser.get_i()),
                                     type_name.into(),
                                     vec![t],
@@ -78,7 +78,7 @@ impl<'a> TypeParser<'a> {
                         }
                     }
                     Some((
-                        Generic(self.parser.get_position(n), type_name.into(), Vec::new()),
+                        ASTGenericType(self.parser.get_position(n), type_name.into(), Vec::new()),
                         next_i,
                     ))
                 } else {
@@ -91,7 +91,7 @@ impl<'a> TypeParser<'a> {
                     };
 
                     Some((
-                        Custom {
+                        ASTCustomType {
                             name: type_name.into(),
                             param_types,
                             position: self.parser.get_position(n),
@@ -107,7 +107,7 @@ impl<'a> TypeParser<'a> {
                     Some(TokenKind::Bracket(Round, Close))
                 )
             {
-                Some((ASTType::Unit, next_i + 1))
+                Some((ASTType::ASTUnitType, next_i + 1))
             } else {
                 None
             }
@@ -225,7 +225,7 @@ impl<'a> TypeParser<'a> {
                 self.parser.get_token_kind_n(n + 1),
             ) {
                 n += 2;
-                ASTType::Unit
+                ASTType::ASTUnitType
             } else if let Some((t, next_i)) =
                 self.try_parse_ast_type_rec(n, context_param_types, rec + 1)?
             {
@@ -239,7 +239,7 @@ impl<'a> TypeParser<'a> {
             };
 
             Ok((
-                Builtin(BuiltinTypeKind::Lambda {
+                ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                     return_type: Box::new(return_type),
                     parameters,
                 }),
@@ -291,13 +291,19 @@ mod tests {
     #[test]
     fn test_int() {
         let parse_result = try_parse("int");
-        assert_eq!(Some((Builtin(BuiltinTypeKind::Integer), 1)), parse_result);
+        assert_eq!(
+            Some((ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType), 1)),
+            parse_result
+        );
     }
 
     #[test]
     fn test_str() {
         let parse_result = try_parse("str");
-        assert_eq!(Some((Builtin(BuiltinTypeKind::String), 1)), parse_result);
+        assert_eq!(
+            Some((ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType), 1)),
+            parse_result
+        );
     }
 
     #[test]
@@ -309,13 +315,13 @@ mod tests {
     #[test]
     fn test_lambda1() {
         let parse_result = try_parse("fn(int,str) -> int");
-        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(Integer), Builtin(String)], return_type: Builtin(Integer) }), 8))");
+        assert_eq!(format!("{:?}", parse_result), "Some((ASTBuiltinType(ASTLambdaType { parameters: [ASTBuiltinType(ASTIntegerType), ASTBuiltinType(ASTStringType)], return_type: ASTBuiltinType(ASTIntegerType) }), 8))");
     }
 
     #[test]
     fn test_lambda2() {
         let parse_result = try_parse("fn(fn() -> (),str) -> int");
-        assert_eq!(format!("{:?}", parse_result), "Some((Builtin(Lambda { parameters: [Builtin(Lambda { parameters: [], return_type: Unit }), Builtin(String)], return_type: Builtin(Integer) }), 13))");
+        assert_eq!(format!("{:?}", parse_result), "Some((ASTBuiltinType(ASTLambdaType { parameters: [ASTBuiltinType(ASTLambdaType { parameters: [], return_type: ASTUnitType }), ASTBuiltinType(ASTStringType)], return_type: ASTBuiltinType(ASTIntegerType) }), 13))");
     }
 
     #[test]
@@ -323,11 +329,11 @@ mod tests {
         let parse_result = try_parse_with_context("Dummy<T,T1>", &["T".into(), "T1".into()]);
         assert_eq!(
             Some((
-                Custom {
+                ASTCustomType {
                     name: "Dummy".into(),
                     param_types: vec![
-                        Generic(ASTPosition::new(1, 8), "T".into(), Vec::new()),
-                        Generic(ASTPosition::new(1, 11), "T1".into(), Vec::new()),
+                        ASTGenericType(ASTPosition::new(1, 8), "T".into(), Vec::new()),
+                        ASTGenericType(ASTPosition::new(1, 11), "T1".into(), Vec::new()),
                     ],
                     position: ASTPosition::new(1, 6)
                 },
@@ -341,7 +347,10 @@ mod tests {
     fn test_param_type() {
         let parse_result = try_parse_with_context("T", &["T".into()]);
         assert_eq!(
-            Some((Generic(ASTPosition::new(1, 2), "T".into(), Vec::new()), 1)),
+            Some((
+                ASTGenericType(ASTPosition::new(1, 2), "T".into(), Vec::new()),
+                1
+            )),
             parse_result
         );
     }
@@ -351,7 +360,7 @@ mod tests {
         let parse_result = try_parse_with_context("T", &["F".into()]);
         assert_eq!(
             Some((
-                Custom {
+                ASTCustomType {
                     name: "T".into(),
                     param_types: vec![],
                     position: ASTPosition::new(1, 2)
@@ -365,14 +374,18 @@ mod tests {
     #[test]
     fn test_complex_type() {
         let parse_result = try_parse_with_context("List<Option<T>>", &["T".into()]);
-        let option_t = Custom {
+        let option_t = ASTCustomType {
             name: "Option".into(),
-            param_types: vec![Generic(ASTPosition::new(1, 14), "T".into(), Vec::new())],
+            param_types: vec![ASTGenericType(
+                ASTPosition::new(1, 14),
+                "T".into(),
+                Vec::new(),
+            )],
             position: ASTPosition::new(1, 12),
         };
         assert_eq!(
             Some((
-                Custom {
+                ASTCustomType {
                     name: "List".into(),
                     param_types: vec![option_t],
                     position: ASTPosition::new(1, 5)
@@ -392,9 +405,9 @@ mod tests {
             None => panic!("Unsupported type"),
             Some((ast_type, _)) => assert_eq!(
                 ast_type,
-                ASTType::Custom {
+                ASTType::ASTCustomType {
                     name: "List".into(),
-                    param_types: vec![ASTType::Builtin(BuiltinTypeKind::String)],
+                    param_types: vec![ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType)],
                     position: ASTPosition::none()
                 }
             ),
@@ -406,7 +419,7 @@ mod tests {
         let parse_result = try_parse_with_context("B<List<String>>", &["B".to_owned()]);
         let t = parse_result.unwrap().0;
 
-        if matches!(t, ASTType::Generic(_, _, _)) {
+        if matches!(t, ASTType::ASTGenericType(_, _, _)) {
             assert_eq!(format!("{t}"), "B<List<String>>");
         } else {
             panic!("{t:?}")

@@ -182,13 +182,13 @@ impl ASTModuleTree {
         };
 
         match statement {
-            ASTStatement::Expression(astexpression) => {
+            ASTStatement::ASTExpressionStatement(astexpression) => {
                 Self::add_expression(astexpression, elements, Some(position.id));
             }
-            ASTStatement::LetStatement(_, astexpression, _astposition) => {
+            ASTStatement::ASTLetStatement(_, astexpression, _astposition) => {
                 Self::add_expression(astexpression, elements, Some(position.id));
             }
-            ASTStatement::ConstStatement(_, astexpression, _astposition, _astmodifiers) => {
+            ASTStatement::ASTConstStatement(_, astexpression, _astposition, _astmodifiers) => {
                 Self::add_expression(astexpression, elements, Some(position.id));
             }
         }
@@ -213,7 +213,7 @@ impl ASTModuleTree {
                     Self::add_expression(argument, elements, Some(position.id));
                 }
             }
-            ASTExpression::Lambda(astlambda_def) => {
+            ASTExpression::ASTLambdaExpression(astlambda_def) => {
                 for (argument_name, argument_position) in astlambda_def.parameter_names.iter() {
                     let argument_element = ASTModuleTreeItem {
                         element: ASTElement::LambdaParam(

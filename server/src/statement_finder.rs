@@ -122,7 +122,7 @@ impl StatementFinder {
     fn find_body(position: &ASTPosition, body: &Vec<ASTStatement>) -> Option<ASTPosition> {
         for statement in body.iter() {
             match statement {
-                ASTStatement::Expression(expr) => {
+                ASTStatement::ASTExpressionStatement(expr) => {
                     let real_position = Self::real_position(expr);
 
                     if real_position == position {
@@ -135,8 +135,8 @@ impl StatementFinder {
                         }
                     }
                 }
-                ASTStatement::LetStatement(_, expr, let_position)
-                | ASTStatement::ConstStatement(_, expr, let_position, _) => {
+                ASTStatement::ASTLetStatement(_, expr, let_position)
+                | ASTStatement::ASTConstStatement(_, expr, let_position, _) => {
                     let real_position = Self::real_position(expr);
                     let stmt_position = let_position.mv_left(4);
                     if real_position == position {
@@ -176,21 +176,21 @@ impl StatementFinder {
                     SFExprResult::NotInExpr
                 }
             }
-            ASTExpression::ValueRef(_, ref_pos) => {
+            ASTExpression::ASTValueRefExpression(_, ref_pos) => {
                 if position == ref_pos {
                     SFExprResult::InExpr
                 } else {
                     SFExprResult::NotInExpr
                 }
             }
-            ASTExpression::Value(_, val_pos) => {
+            ASTExpression::ASTValueExpression(_, val_pos) => {
                 if position == val_pos {
                     SFExprResult::InExpr
                 } else {
                     SFExprResult::NotInExpr
                 }
             }
-            ASTExpression::Lambda(lambda_def) => {
+            ASTExpression::ASTLambdaExpression(lambda_def) => {
                 if let Some(found) = Self::find_body(position, &lambda_def.body) {
                     SFExprResult::InStatement(found)
                 } else {

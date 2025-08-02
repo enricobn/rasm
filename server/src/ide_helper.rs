@@ -19,8 +19,8 @@ use rasm_core::type_check::ast_type_checker::{
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast::{
-    ASTBuiltinFunctionType, ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTModifiers,
-    ASTModule, ASTParameterDef, ASTPosition, ASTStatement, ASTType, BuiltinTypeKind, CustomTypeDef,
+    ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionDef,
+    ASTModifiers, ASTModule, ASTParameterDef, ASTPosition, ASTStatement, ASTType, CustomTypeDef,
 };
 use rasm_parser::parser::Parser;
 use rasm_utils::OptionDisplay;
@@ -413,7 +413,7 @@ impl IDEHelper {
                     if let Some(ref t) = ast_type {
                         if !matches!(
                             t,
-                            ASTType::Builtin(BuiltinTypeKind::Lambda {
+                            ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                                 parameters: _,
                                 return_type: _
                             })
@@ -456,7 +456,7 @@ impl IDEHelper {
         modules_container: &ASTModulesContainer,
         selectable_items: &mut Vec<IDESelectableItem>,
     ) {
-        if let ASTType::Custom {
+        if let ASTType::ASTCustomType {
             name,
             param_types,
             position,
@@ -898,11 +898,11 @@ impl IDEHelper {
                 break;
             }
             match statement {
-                ASTStatement::Expression(expr) => {
+                ASTStatement::ASTExpressionStatement(expr) => {
                     references.append(&mut Self::get_references_until_expr(expr, index));
                 }
-                ASTStatement::LetStatement(name, _, _) => references.push(name.clone()),
-                ASTStatement::ConstStatement(name, _, _, _) => references.push(name.clone()),
+                ASTStatement::ASTLetStatement(name, _, _) => references.push(name.clone()),
+                ASTStatement::ASTConstStatement(name, _, _, _) => references.push(name.clone()),
             }
         }
 
@@ -917,7 +917,7 @@ impl IDEHelper {
                     references.extend(Self::get_references_until_expr(e, index));
                 }
             }
-            ASTExpression::Lambda(lambda_def) => {
+            ASTExpression::ASTLambdaExpression(lambda_def) => {
                 references.extend(
                     lambda_def
                         .parameter_names
@@ -1270,7 +1270,7 @@ impl IDEHelper {
         }
 
         if let ASTElement::Statement(stmt) = last_element {
-            if matches!(stmt, ASTStatement::LetStatement(_, _, _)) {
+            if matches!(stmt, ASTStatement::ASTLetStatement(_, _, _)) {
                 return None;
             }
         } else {
@@ -1404,14 +1404,14 @@ impl IDEHelper {
 
         for statement in body.iter() {
             let statement_result = match statement {
-                ASTStatement::Expression(expr) => {
+                ASTStatement::ASTExpressionStatement(expr) => {
                     Self::extract_vals_expr(expr, &excluding, val_context)
                 }
-                ASTStatement::LetStatement(name, expr, _) => {
+                ASTStatement::ASTLetStatement(name, expr, _) => {
                     excluding.insert(name.to_owned());
                     Self::extract_vals_expr(expr, &excluding, val_context)
                 }
-                ASTStatement::ConstStatement(name, expr, _, _) => {
+                ASTStatement::ASTConstStatement(name, expr, _, _) => {
                     excluding.insert(name.to_owned());
                     Self::extract_vals_expr(expr, &excluding, val_context)
                 }
@@ -1440,7 +1440,7 @@ impl IDEHelper {
                 }
                 result
             }
-            ASTExpression::ValueRef(name, position) => {
+            ASTExpression::ASTValueRefExpression(name, position) => {
                 if excluding.contains(name) {
                     LinkedHashMap::new()
                 } else {
@@ -1449,8 +1449,8 @@ impl IDEHelper {
                     result
                 }
             }
-            ASTExpression::Value(_, _) => LinkedHashMap::new(),
-            ASTExpression::Lambda(lambda_def) => {
+            ASTExpression::ASTValueExpression(_, _) => LinkedHashMap::new(),
+            ASTExpression::ASTLambdaExpression(lambda_def) => {
                 let mut excluding = excluding.clone();
                 for (name, _) in lambda_def.parameter_names.iter() {
                     excluding.insert(name.clone());
@@ -1515,7 +1515,7 @@ mod tests {
     use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
     use rasm_parser::lexer::Lexer;
     use rasm_parser::parser::ast::{
-        ASTBuiltinFunctionType, ASTFunctionSignature, ASTPosition, ASTType, BuiltinTypeKind,
+        ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTFunctionSignature, ASTPosition, ASTType,
     };
     use rasm_parser::parser::Parser;
     use rasm_utils::test_utils::{init_minimal_log, read_chunk};
@@ -1865,7 +1865,7 @@ mod tests {
         if selectable_items.len() == 1 {
             let selectable_item = selectable_items.remove(0);
             if let Some(ref target) = selectable_item.target {
-                if let Some(ASTType::Custom {
+                if let Some(ASTType::ASTCustomType {
                     name,
                     param_types: _,
                     position: _,
@@ -2677,7 +2677,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
     fn not_a_lambda(t: &ASTType) -> bool {
         !matches!(
             t,
-            ASTType::Builtin(BuiltinTypeKind::Lambda {
+            ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 parameters: _,
                 return_type: _
             })

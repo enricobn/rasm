@@ -45,7 +45,7 @@ use crate::project::RasmProject;
 use crate::transformations::typed_functions_creator::struct_has_references;
 
 use log::info;
-use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
+use rasm_parser::parser::ast::{ASTModifiers, ASTValue};
 use walkdir::WalkDir;
 
 use super::c_compiler::CLibAssets;
@@ -682,7 +682,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         is_const: bool,
         statics: &mut Statics,
         _body: &mut String,
-        value_type: &ASTValueType,
+        value_type: &ASTValue,
         typed_type: &ASTTypedType,
         namespace: &EnhASTNameSpace,
         _modifiers: Option<&ASTModifiers>,
@@ -806,10 +806,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     fn value_as_return(
         &self,
         before: &mut String,
-        value_type: &ASTValueType,
+        value_type: &ASTValue,
         statics: &mut Statics,
     ) {
-        if let ASTValueType::String(s) = value_type {
+        if let ASTValue::ASTStringValue(s) = value_type {
             self.string_literal_return(statics, before, s);
         } else {
             let v = self.value_to_string(value_type);
@@ -1264,13 +1264,15 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             });
     }
 
-    fn value_to_string(&self, value_type: &ASTValueType) -> String {
+    fn value_to_string(&self, value_type: &ASTValue) -> String {
         match value_type {
-            ASTValueType::String(v) => format!("\"{}\"", CodeGenC::escape_string(&v)),
-            ASTValueType::Boolean(b) => if *b { "1" } else { "0" }.to_string(),
-            ASTValueType::Integer(v) => format!("{v}"),
-            ASTValueType::Char(v) => format!("\"{}\"", CodeGenC::escape_string(&v.to_string())),
-            ASTValueType::Float(v) => format!("{v}"),
+            ASTValue::ASTStringValue(v) => format!("\"{}\"", CodeGenC::escape_string(&v)),
+            ASTValue::ASTBooleanValue(b) => if *b { "1" } else { "0" }.to_string(),
+            ASTValue::ASTIntegerValue(v) => format!("{v}"),
+            ASTValue::ASTCharValue(v) => {
+                format!("\"{}\"", CodeGenC::escape_string(&v.to_string()))
+            }
+            ASTValue::ASTFloatValue(v) => format!("{v}"),
         }
     }
 
@@ -1313,23 +1315,23 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     }
 }
 
-pub fn value_type_to_enh_type(value_type: &ASTValueType) -> EnhASTType {
+pub fn value_type_to_enh_type(value_type: &ASTValue) -> EnhASTType {
     match value_type {
-        ASTValueType::String(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::String),
-        ASTValueType::Boolean(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Boolean),
-        ASTValueType::Integer(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Integer),
-        ASTValueType::Char(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Char),
-        ASTValueType::Float(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Float),
+        ASTValue::ASTStringValue(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::String),
+        ASTValue::ASTBooleanValue(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Boolean),
+        ASTValue::ASTIntegerValue(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Integer),
+        ASTValue::ASTCharValue(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Char),
+        ASTValue::ASTFloatValue(_) => EnhASTType::Builtin(EnhBuiltinTypeKind::Float),
     }
 }
 
-pub fn value_type_to_typed_type(value_type: &ASTValueType) -> ASTTypedType {
+pub fn value_type_to_typed_type(value_type: &ASTValue) -> ASTTypedType {
     match value_type {
-        ASTValueType::String(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
-        ASTValueType::Boolean(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Boolean),
-        ASTValueType::Integer(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer),
-        ASTValueType::Char(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
-        ASTValueType::Float(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Float),
+        ASTValue::ASTStringValue(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+        ASTValue::ASTBooleanValue(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Boolean),
+        ASTValue::ASTIntegerValue(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer),
+        ASTValue::ASTCharValue(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Char),
+        ASTValue::ASTFloatValue(_) => ASTTypedType::Builtin(BuiltinTypedTypeKind::Float),
     }
 }
 

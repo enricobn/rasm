@@ -6,7 +6,7 @@ use std::{
 use linked_hash_map::LinkedHashMap;
 use rasm_parser::{
     catalog::ASTIndex,
-    parser::ast::{ASTType, BuiltinTypeKind},
+    parser::ast::{ASTBuiltinTypeKind, ASTType},
 };
 use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
 
@@ -49,18 +49,18 @@ impl ASTResolvedGenericTypes {
         indent!();
 
         match generic_type {
-            ASTType::Builtin(kind) => {
+            ASTType::ASTBuiltinType(kind) => {
                 match kind {
-                    BuiltinTypeKind::String => {}
-                    BuiltinTypeKind::Integer => {}
-                    BuiltinTypeKind::Boolean => {}
-                    BuiltinTypeKind::Char => {}
-                    BuiltinTypeKind::Float => {}
-                    BuiltinTypeKind::Lambda {
+                    ASTBuiltinTypeKind::ASTStringType => {}
+                    ASTBuiltinTypeKind::ASTIntegerType => {}
+                    ASTBuiltinTypeKind::ASTBooleanType => {}
+                    ASTBuiltinTypeKind::ASTCharType => {}
+                    ASTBuiltinTypeKind::ASTFloatType => {}
+                    ASTBuiltinTypeKind::ASTLambdaType {
                         parameters: p_parameters,
                         return_type: p_return_type,
                     } => match effective_type {
-                        ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                             parameters: e_parameters,
                             return_type: e_return_type,
                         }) => {
@@ -119,13 +119,13 @@ impl ASTResolvedGenericTypes {
                     },
                 }
             }
-            ASTType::Generic(_, p, var_types) => {
+            ASTType::ASTGenericType(_, p, var_types) => {
                 debug_i!(
                     "resolved generic type {p}[{}] to {effective_type}",
                     SliceDisplay(var_types)
                 );
 
-                if let ASTType::Custom {
+                if let ASTType::ASTCustomType {
                     name: _,
                     param_types,
                     position: _,
@@ -141,7 +141,7 @@ impl ASTResolvedGenericTypes {
                     }) {
                     */
                     for (param_type, var_type) in zip(param_types, var_types) {
-                        if let ASTType::Generic(_, _, _) = var_type {
+                        if let ASTType::ASTGenericType(_, _, _) = var_type {
                             result.extend(
                                 ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                                     var_type, param_type,
@@ -159,12 +159,12 @@ impl ASTResolvedGenericTypes {
                     result.insert(p.clone(), var_types.clone(), effective_type.clone());
                 }
             }
-            ASTType::Custom {
+            ASTType::ASTCustomType {
                 name: g_name,
                 param_types: g_param_types,
                 position: _,
             } => match effective_type {
-                ASTType::Custom {
+                ASTType::ASTCustomType {
                     name: e_name,
                     param_types: e_param_types,
                     position: _,
@@ -203,14 +203,14 @@ impl ASTResolvedGenericTypes {
                         })?;
                     }
                 }
-                ASTType::Generic(_, _, _) => {}
+                ASTType::ASTGenericType(_, _, _) => {}
                 _ => {
                     dedent!();
                     return Err(Self::type_check_error(ASTTypeCheckErroKind::Error, format!(
                         "unmatched types, generic type is {generic_type}, real type is {effective_type}")));
                 }
             },
-            ASTType::Unit => {}
+            ASTType::ASTUnitType => {}
         }
 
         dedent!();
@@ -274,8 +274,8 @@ impl ASTResolvedGenericTypes {
         }
 
         let result = match &ast_type {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::Lambda {
+            ASTType::ASTBuiltinType(kind) => match kind {
+                ASTBuiltinTypeKind::ASTLambdaType {
                     parameters,
                     return_type,
                 } => {
@@ -296,7 +296,7 @@ impl ASTResolvedGenericTypes {
                     };
 
                     if something_substituted {
-                        Some(ASTType::Builtin(BuiltinTypeKind::Lambda {
+                        Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                             parameters: new_parameters,
                             return_type: new_return_type,
                         }))
@@ -306,14 +306,14 @@ impl ASTResolvedGenericTypes {
                 }
                 _ => None,
             },
-            ASTType::Generic(_, p, var_types) => {
+            ASTType::ASTGenericType(_, p, var_types) => {
                 if self.contains_key(p, var_types) {
                     self.get(p, var_types).cloned()
                 } else {
                     None
                 }
             }
-            ASTType::Custom {
+            ASTType::ASTCustomType {
                 name,
                 param_types,
                 position,
@@ -338,14 +338,14 @@ impl ASTResolvedGenericTypes {
                         panic!();
                     }
 
-                    ASTType::Custom {
+                    ASTType::ASTCustomType {
                         name: name.clone(),
                         param_types: new_param_types,
                         position: position.clone(),
                     }
                 })
             }
-            ASTType::Unit => None,
+            ASTType::ASTUnitType => None,
         };
 
         if let Some(r) = &result {

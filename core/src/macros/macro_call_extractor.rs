@@ -5,7 +5,7 @@ use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleNamespace},
     parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTPosition, ASTStatement, ASTType,
-        ASTValueType,
+        ASTValue,
     },
 };
 
@@ -110,7 +110,7 @@ fn transform_macro_calls_in_body(
 ) -> Vec<ASTStatement> {
     let mut new_statements = Vec::with_capacity(body.len());
     for statement in body.iter() {
-        if let ASTStatement::Expression(expr) = statement {
+        if let ASTStatement::ASTExpressionStatement(expr) = statement {
             if let ASTExpression::ASTFunctionCallExpression(call) = expr {
                 if call.is_macro() {
                     let functions_vec = container
@@ -145,7 +145,7 @@ fn transform_macro_calls_in_body(
                         call.parameters().iter(),
                     )
                     .map(|(parameter_type, parameter)| {
-                        let is_expression = if let ASTType::Custom {
+                        let is_expression = if let ASTType::ASTCustomType {
                             name,
                             param_types: _,
                             position: _,
@@ -164,9 +164,9 @@ fn transform_macro_calls_in_body(
                                 module_id,
                                 parameter,
                             )
-                        } else if let ASTExpression::Value(_, _) = parameter {
+                        } else if let ASTExpression::ASTValueExpression(_, _) = parameter {
                             // TODO lambda is allowed)?
-                            if let ASTType::Builtin(_) = parameter_type {
+                            if let ASTType::ASTBuiltinType(_) = parameter_type {
                                 parameter.clone()
                             } else {
                                 panic!(
@@ -195,10 +195,10 @@ fn transform_macro_calls_in_body(
 
                     let macro_id = get_next_macro_id();
 
-                    let new_statement = ASTStatement::LetStatement(
+                    let new_statement = ASTStatement::ASTLetStatement(
                         format!("macroCall{macro_id}"),
-                        ASTExpression::Value(
-                            ASTValueType::Integer(macro_id.try_into().unwrap()),
+                        ASTExpression::ASTValueExpression(
+                            ASTValue::ASTIntegerValue(macro_id.try_into().unwrap()),
                             call.position().mv_right(1),
                         ),
                         call.position().clone(),
@@ -224,7 +224,7 @@ fn transform_macro_calls_in_body(
 
 fn is_macro_result(ast_type: &ASTType) -> bool {
     match ast_type {
-        ASTType::Custom {
+        ASTType::ASTCustomType {
             name,
             param_types: _,
             position: _,
@@ -242,8 +242,8 @@ fn convert_to_rasm_expression(
     match parameter {
         ASTExpression::ASTFunctionCallExpression(function_call) => {
             let mut fcp = Vec::new();
-            fcp.push(ASTExpression::Value(
-                ASTValueType::String(function_call.function_name().clone()),
+            fcp.push(ASTExpression::ASTValueExpression(
+                ASTValue::ASTStringValue(function_call.function_name().clone()),
                 function_call.position().mv_right(2),
             ));
             fcp.push(call_vec_of(
@@ -267,39 +267,39 @@ fn convert_to_rasm_expression(
                 Some("ASTExpression".to_owned()),
             )
         }
-        ASTExpression::ValueRef(name, position) => simple_call(
-            "ValueRef",
-            vec![ASTExpression::Value(
-                ASTValueType::String(name.clone()),
+        ASTExpression::ASTValueRefExpression(name, position) => simple_call(
+            "ASTValueRefExpression",
+            vec![ASTExpression::ASTValueExpression(
+                ASTValue::ASTStringValue(name.clone()),
                 position.mv_right(1), // it must be different for cache purposes
             )],
             position.clone(),
             Some("ASTExpression".to_owned()),
         ),
-        ASTExpression::Value(value_type, position) => {
+        ASTExpression::ASTValueExpression(value_type, position) => {
             let value_function = match value_type {
-                ASTValueType::String(_) => "ASTString",
-                ASTValueType::Boolean(_) => "Boolean",
-                ASTValueType::Integer(_) => "Integer",
-                ASTValueType::Char(_) => "Char",
-                ASTValueType::Float(_) => "Float",
+                ASTValue::ASTStringValue(_) => "ASTStringValue",
+                ASTValue::ASTBooleanValue(_) => "ASTBooleanValue",
+                ASTValue::ASTIntegerValue(_) => "ASTIntegerValue",
+                ASTValue::ASTCharValue(_) => "ASTCharValue",
+                ASTValue::ASTFloatValue(_) => "ASTFloatValue",
             };
             simple_call(
-                "Value",
+                "ASTValueExpression",
                 vec![simple_call(
                     value_function,
-                    vec![ASTExpression::Value(
+                    vec![ASTExpression::ASTValueExpression(
                         value_type.clone(),
                         position.mv_right(2), // it must be different for cache purposes
                     )],
                     position.mv_right(1), // it must be different for cache purposes
-                    Some("ASTValueType".to_owned()),
+                    Some("ASTValue".to_owned()),
                 )],
                 position.clone(),
                 Some("ASTExpression".to_owned()),
             )
         }
-        ASTExpression::Lambda(lambda_def) => todo!(),
+        ASTExpression::ASTLambdaExpression(lambda_def) => todo!(),
     }
 }
 

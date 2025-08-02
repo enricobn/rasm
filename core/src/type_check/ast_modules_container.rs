@@ -11,7 +11,7 @@ use rasm_parser::{
     parser::{
         ast::{
             ASTEnumDef, ASTFunctionDef, ASTFunctionSignature, ASTModule, ASTPosition, ASTStructDef,
-            ASTType, ASTTypeDef, BuiltinTypeKind, CustomTypeDef,
+            ASTType, ASTTypeDef, ASTBuiltinTypeKind, CustomTypeDef,
         },
         builtin_functions::BuiltinFunctions,
     },
@@ -82,8 +82,8 @@ impl ASTFunctionSignatureEntry {
     fn generic_type_coeff_internal(ast_type: &ASTType, coeff: usize) -> usize {
         if ast_type.is_generic() {
             match ast_type {
-                ASTType::Builtin(builtin) => {
-                    if let BuiltinTypeKind::Lambda {
+                ASTType::ASTBuiltinType(builtin) => {
+                    if let ASTBuiltinTypeKind::ASTLambdaType {
                         parameters: _,
                         return_type,
                     } = builtin
@@ -93,8 +93,8 @@ impl ASTFunctionSignatureEntry {
                         0
                     }
                 }
-                ASTType::Generic(_, _, _) => coeff,
-                ASTType::Custom {
+                ASTType::ASTGenericType(_, _, _) => coeff,
+                ASTType::ASTCustomType {
                     name: _,
                     param_types,
                     position: _,
@@ -102,7 +102,7 @@ impl ASTFunctionSignatureEntry {
                     .iter()
                     .map(|it| Self::generic_type_coeff_internal(it, coeff / 100))
                     .sum(),
-                ASTType::Unit => 0,
+                ASTType::ASTUnitType => 0,
             }
         } else {
             0
@@ -522,14 +522,14 @@ impl ASTModulesContainer {
         with_namespace: &ModuleNamespace,
     ) -> bool {
         match a_type {
-            ASTType::Builtin(a_kind) => {
-                if let ASTType::Builtin(with_kind) = with_type {
-                    if let BuiltinTypeKind::Lambda {
+            ASTType::ASTBuiltinType(a_kind) => {
+                if let ASTType::ASTBuiltinType(with_kind) = with_type {
+                    if let ASTBuiltinTypeKind::ASTLambdaType {
                         parameters: a_p,
                         return_type: a_rt,
                     } = a_kind
                     {
-                        if let BuiltinTypeKind::Lambda {
+                        if let ASTBuiltinTypeKind::ASTLambdaType {
                             parameters: w_p,
                             return_type: wrt,
                         } = with_kind
@@ -545,19 +545,19 @@ impl ASTModulesContainer {
                     } else {
                         a_kind == with_kind
                     }
-                } else if let ASTType::Generic(_, _, _) = with_type {
+                } else if let ASTType::ASTGenericType(_, _, _) = with_type {
                     true
                 } else {
                     false
                 }
             }
-            ASTType::Generic(_, _, _) => true,
-            ASTType::Custom {
+            ASTType::ASTGenericType(_, _, _) => true,
+            ASTType::ASTCustomType {
                 name: a_name,
                 param_types: a_param_types,
                 position: _,
             } => {
-                if let ASTType::Custom {
+                if let ASTType::ASTCustomType {
                     name: with_name,
                     param_types: with_param_types,
                     position: _,
@@ -588,14 +588,14 @@ impl ASTModulesContainer {
                     zip(a_param_types, with_param_types).all(|(a_pt, w_pt)| {
                         self.is_compatible(a_pt, a_namespace, w_pt, with_namespace)
                     })
-                } else if let ASTType::Generic(_, _, _) = with_type {
+                } else if let ASTType::ASTGenericType(_, _, _) = with_type {
                     true
                 } else {
                     false
                 }
             }
-            ASTType::Unit => {
-                matches!(with_type, ASTType::Unit) || matches!(with_type, ASTType::Generic(_, _, _))
+            ASTType::ASTUnitType => {
+                matches!(with_type, ASTType::ASTUnitType) || matches!(with_type, ASTType::ASTGenericType(_, _, _))
             }
         }
     }
@@ -706,8 +706,8 @@ impl ASTTypeFilter {
             ),
             ASTTypeFilter::Any => true,
             ASTTypeFilter::Lambda(par_len, return_type_filter) => match ast_type {
-                ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
-                    BuiltinTypeKind::Lambda {
+                ASTType::ASTBuiltinType(builtin_type_kind) => match builtin_type_kind {
+                    ASTBuiltinTypeKind::ASTLambdaType {
                         parameters,
                         return_type,
                     } => {
@@ -729,13 +729,13 @@ impl ASTTypeFilter {
                     }
                     _ => false,
                 },
-                ASTType::Generic(_, _, _) => true,
-                ASTType::Custom {
+                ASTType::ASTGenericType(_, _, _) => true,
+                ASTType::ASTCustomType {
                     name: _,
                     param_types: _,
                     position: _,
                 } => false,
-                ASTType::Unit => false,
+                ASTType::ASTUnitType => false,
             },
         }
     }
@@ -792,8 +792,8 @@ impl ASTTypeFilter {
             }
             ASTTypeFilter::Any => 1000,
             ASTTypeFilter::Lambda(par_len, return_type_filter) => match ast_type {
-                ASTType::Builtin(builtin_type_kind) => match builtin_type_kind {
-                    BuiltinTypeKind::Lambda {
+                ASTType::ASTBuiltinType(builtin_type_kind) => match builtin_type_kind {
+                    ASTBuiltinTypeKind::ASTLambdaType {
                         parameters,
                         return_type,
                     } => {
@@ -816,13 +816,13 @@ impl ASTTypeFilter {
                     }
                     _ => 0,
                 },
-                ASTType::Generic(_, _, _) => 500,
-                ASTType::Custom {
+                ASTType::ASTGenericType(_, _, _) => 500,
+                ASTType::ASTCustomType {
                     name: _,
                     param_types: _,
                     position: _,
                 } => 0,
-                ASTType::Unit => 0,
+                ASTType::ASTUnitType => 0,
             },
         }
     }
@@ -832,7 +832,7 @@ impl ASTTypeFilter {
 mod tests {
     use std::path::PathBuf;
 
-    use rasm_parser::parser::ast::{ASTPosition, ASTType, BuiltinTypeKind};
+    use rasm_parser::parser::ast::{ASTPosition, ASTType, ASTBuiltinTypeKind};
 
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
@@ -851,8 +851,8 @@ mod tests {
             "add",
             &None,
             &vec![
-                exact_builtin(BuiltinTypeKind::Integer),
-                exact_builtin(BuiltinTypeKind::Integer),
+                exact_builtin(ASTBuiltinTypeKind::ASTIntegerType),
+                exact_builtin(ASTBuiltinTypeKind::ASTIntegerType),
             ],
             None,
             &ModuleNamespace::global(),
@@ -868,18 +868,18 @@ mod tests {
             "match",
             &None,
             &vec![
-                exact_custom("Option", vec![ASTType::Builtin(BuiltinTypeKind::Integer)]),
-                exact_builtin(BuiltinTypeKind::Lambda {
-                    parameters: vec![ASTType::Builtin(BuiltinTypeKind::Integer)],
-                    return_type: Box::new(ASTType::Generic(
+                exact_custom("Option", vec![ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType)]),
+                exact_builtin(ASTBuiltinTypeKind::ASTLambdaType {
+                    parameters: vec![ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType)],
+                    return_type: Box::new(ASTType::ASTGenericType(
                         ASTPosition::none(),
                         "T".to_owned(),
                         Vec::new(),
                     )),
                 }),
-                exact_builtin(BuiltinTypeKind::Lambda {
+                exact_builtin(ASTBuiltinTypeKind::ASTLambdaType {
                     parameters: vec![],
-                    return_type: Box::new(ASTType::Generic(
+                    return_type: Box::new(ASTType::ASTGenericType(
                         ASTPosition::none(),
                         "T".to_owned(),
                         Vec::new(),
@@ -902,8 +902,8 @@ mod tests {
         enrich_container(&target, &mut Statics::new(), container, &catalog, false)
     }
 
-    fn exact_builtin(kind: BuiltinTypeKind) -> ASTTypeFilter {
-        ASTTypeFilter::Exact(ASTType::Builtin(kind), ModuleInfo::global())
+    fn exact_builtin(kind: ASTBuiltinTypeKind) -> ASTTypeFilter {
+        ASTTypeFilter::Exact(ASTType::ASTBuiltinType(kind), ModuleInfo::global())
     }
 
     fn exact_custom(name: &str, param_types: Vec<ASTType>) -> ASTTypeFilter {
@@ -911,7 +911,7 @@ mod tests {
             panic!();
         }
         ASTTypeFilter::Exact(
-            ASTType::Custom {
+            ASTType::ASTCustomType {
                 name: name.to_owned(),
                 param_types,
                 position: ASTPosition::none(),

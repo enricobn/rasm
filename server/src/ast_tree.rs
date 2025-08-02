@@ -108,7 +108,7 @@ impl<'a> ASTTree<'a> {
                 if let Some(p_e) = self.get_element(parent) {
                     let expr = match p_e {
                         ASTElement::Statement(stmt) => match stmt {
-                            ASTStatement::Expression(astexpression) => astexpression,
+                            ASTStatement::ASTExpressionStatement(astexpression) => astexpression,
                             _ => {
                                 return None;
                             }
@@ -139,15 +139,15 @@ impl<'a> ASTTree<'a> {
 
     fn add_statement(&mut self, statement: &'a ASTStatement) {
         match statement {
-            ASTStatement::Expression(expr) => self.add_expr(expr),
-            ASTStatement::LetStatement(_, expr, _) => {
+            ASTStatement::ASTExpressionStatement(expr) => self.add_expr(expr),
+            ASTStatement::ASTLetStatement(_, expr, _) => {
                 self.internal_add(
                     ASTElement::Expression(expr),
                     Some(statement.position().clone()),
                 );
                 self.add_expr(expr);
             }
-            ASTStatement::ConstStatement(_, expr, _, _) => {
+            ASTStatement::ASTConstStatement(_, expr, _, _) => {
                 self.internal_add(
                     ASTElement::Expression(expr),
                     Some(statement.position().clone()),
@@ -165,9 +165,9 @@ impl<'a> ASTTree<'a> {
                     self.add_expr(e);
                 }
             }
-            ASTExpression::ValueRef(_, _) => {}
-            ASTExpression::Value(_, _) => {}
-            ASTExpression::Lambda(lambda_def) => {
+            ASTExpression::ASTValueRefExpression(_, _) => {}
+            ASTExpression::ASTValueExpression(_, _) => {}
+            ASTExpression::ASTLambdaExpression(lambda_def) => {
                 for statement in lambda_def.body.iter() {
                     self.internal_add(
                         ASTElement::Statement(statement),

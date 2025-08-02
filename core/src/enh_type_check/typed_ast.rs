@@ -30,7 +30,7 @@ use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::get_new_native_call;
-use rasm_parser::parser::ast::{ASTModifiers, ASTType, ASTValueType};
+use rasm_parser::parser::ast::{ASTModifiers, ASTType, ASTValue};
 use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -452,7 +452,7 @@ impl Display for ASTTypedFunctionCall {
 pub enum ASTTypedExpression {
     ASTFunctionCallExpression(ASTTypedFunctionCall),
     ValueRef(String, EnhASTIndex, EnhASTNameSpace),
-    Value(ASTValueType, EnhASTIndex),
+    Value(ASTValue, EnhASTIndex),
     Lambda(ASTTypedLambdaDef),
 }
 
@@ -1571,22 +1571,23 @@ impl DefaultFunction {
                 .map(|it| match it {
                     EnhASTType::Builtin(kind) => match kind {
                         EnhBuiltinTypeKind::String => EnhASTExpression::Value(
-                            ASTValueType::String(String::new()),
+                            ASTValue::ASTStringValue(String::new()),
                             EnhASTIndex::none(),
                         ),
-                        EnhBuiltinTypeKind::Integer => {
-                            EnhASTExpression::Value(ASTValueType::Integer(0), EnhASTIndex::none())
-                        }
+                        EnhBuiltinTypeKind::Integer => EnhASTExpression::Value(
+                            ASTValue::ASTIntegerValue(0),
+                            EnhASTIndex::none(),
+                        ),
                         EnhBuiltinTypeKind::Boolean => EnhASTExpression::Value(
-                            ASTValueType::Boolean(true),
+                            ASTValue::ASTBooleanValue(true),
                             EnhASTIndex::none(),
                         ),
                         EnhBuiltinTypeKind::Char => EnhASTExpression::Value(
-                            ASTValueType::Char("a".to_string()),
+                            ASTValue::ASTCharValue("a".to_string()),
                             EnhASTIndex::none(),
                         ),
                         EnhBuiltinTypeKind::Float => {
-                            EnhASTExpression::Value(ASTValueType::Float(1.0), EnhASTIndex::none())
+                            EnhASTExpression::Value(ASTValue::ASTFloatValue(1.0), EnhASTIndex::none())
                         }
                         EnhBuiltinTypeKind::Lambda {
                             parameters: _,

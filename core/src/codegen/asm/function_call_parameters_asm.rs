@@ -1,7 +1,7 @@
 use auto_impl::auto_impl;
 use linked_hash_map::LinkedHashMap;
 use log::debug;
-use rasm_parser::parser::ast::ASTValueType;
+use rasm_parser::parser::ast::ASTValue;
 
 use crate::{
     codegen::{
@@ -496,7 +496,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         }
     }
 
-    fn add_value_type(&mut self, name: &str, value_type: &ASTValueType) {
+    fn add_value_type(&mut self, name: &str, value_type: &ASTValue) {
         let v = self.code_gen.value_to_string(value_type);
         self.add_number(name, v, None);
     }

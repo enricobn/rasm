@@ -235,7 +235,7 @@ impl TokensMatcherTrait for ParameterMatcher {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::ast::ASTType::Generic;
+    use crate::parser::ast::ASTType::ASTGenericType;
     use crate::parser::ast::{
         ASTEnumDef, ASTEnumVariantDef, ASTParameterDef, ASTPosition, ASTType,
     };
@@ -301,7 +301,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic(ASTPosition::new(3, 25), "T".into(), Vec::new()),
+                ast_type: ASTGenericType(ASTPosition::new(3, 25), "T".into(), Vec::new()),
                 position: ASTPosition::new(3, 18),
             }],
             position: ASTPosition::new(3, 13),
@@ -363,7 +363,7 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef::new(
                         "value",
-                        Generic(ASTPosition::new(1, 13), "T".into(), Vec::new()),
+                        ASTGenericType(ASTPosition::new(1, 13), "T".into(), Vec::new()),
                         ASTPosition::new(1, 6)
                     )],
                     position: ASTPosition::new(1, 1)
@@ -388,12 +388,12 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef::new(
                             "v",
-                            Generic(ASTPosition::new(1, 14), "T".into(), Vec::new()),
+                            ASTGenericType(ASTPosition::new(1, 14), "T".into(), Vec::new()),
                             ASTPosition::new(1, 11)
                         ),
                         ASTParameterDef::new(
                             "v1",
-                            Generic(ASTPosition::new(1, 21), "T1".into(), Vec::new()),
+                            ASTGenericType(ASTPosition::new(1, 21), "T1".into(), Vec::new()),
                             ASTPosition::new(1, 17)
                         ),
                     ],
@@ -418,14 +418,14 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef::new(
                             "head",
-                            Generic(ASTPosition::new(1, 12), "T".into(), Vec::new()),
+                            ASTGenericType(ASTPosition::new(1, 12), "T".into(), Vec::new()),
                             ASTPosition::new(1, 6)
                         ),
                         ASTParameterDef::new(
                             "tail",
-                            ASTType::Custom {
+                            ASTType::ASTCustomType {
                                 name: "List".into(),
-                                param_types: vec![Generic(
+                                param_types: vec![ASTGenericType(
                                     ASTPosition::new(1, 26),
                                     "T".into(),
                                     Vec::new()
@@ -459,7 +459,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic(ASTPosition::new(3, 25), "T".into(), Vec::new()),
+                ast_type: ASTGenericType(ASTPosition::new(3, 25), "T".into(), Vec::new()),
                 position: ASTPosition::new(3, 18),
             }],
             position: ASTPosition::new(3, 13),
@@ -504,7 +504,7 @@ mod tests {
                     name: "Some".into(),
                     parameters: vec![ASTParameterDef {
                         name: "value".into(),
-                        ast_type: Generic(ASTPosition::new(3, 25), "T".into(), Vec::new()),
+                        ast_type: ASTGenericType(ASTPosition::new(3, 25), "T".into(), Vec::new()),
                         position: ASTPosition::new(3, 18),
                     }],
                     position: ASTPosition::new(3, 13),
@@ -544,14 +544,14 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef {
                             name: "head".into(),
-                            ast_type: Generic(ASTPosition::new(2, 26), "T".into(), Vec::new()),
+                            ast_type: ASTGenericType(ASTPosition::new(2, 26), "T".into(), Vec::new()),
                             position: ASTPosition::new(2, 20),
                         },
                         ASTParameterDef {
                             name: "tail".into(),
-                            ast_type: ASTType::Custom {
+                            ast_type: ASTType::ASTCustomType {
                                 name: "List".into(),
-                                param_types: vec![Generic(
+                                param_types: vec![ASTGenericType(
                                     ASTPosition::new(2, 40),
                                     "T".into(),
                                     Vec::new(),
@@ -597,7 +597,7 @@ mod tests {
                     name: "Left".into(),
                     parameters: vec![ASTParameterDef::new(
                         "l",
-                        Generic(ASTPosition::new(2, 21), "L".into(), Vec::new()),
+                        ASTGenericType(ASTPosition::new(2, 21), "L".into(), Vec::new()),
                         ASTPosition::new(2, 18),
                     )],
                     position: ASTPosition::new(2, 13),
@@ -607,7 +607,7 @@ mod tests {
                     name: "Right".into(),
                     parameters: vec![ASTParameterDef::new(
                         "r",
-                        Generic(ASTPosition::new(3, 22), "R".into(), Vec::new()),
+                        ASTGenericType(ASTPosition::new(3, 22), "R".into(), Vec::new()),
                         ASTPosition::new(3, 19),
                     )],
                     position: ASTPosition::new(3, 13),
@@ -638,7 +638,7 @@ mod tests {
             name: "Some".into(),
             parameters: vec![ASTParameterDef {
                 name: "value".into(),
-                ast_type: Generic(ASTPosition::new(3, 25), "T".into(), Vec::new()),
+                ast_type: ASTGenericType(ASTPosition::new(3, 25), "T".into(), Vec::new()),
                 position: ASTPosition::new(3, 18),
             }],
             position: ASTPosition::new(3, 13),

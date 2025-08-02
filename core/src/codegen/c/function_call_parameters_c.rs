@@ -33,7 +33,7 @@ use crate::enh_type_check::typed_ast::{
 };
 use linked_hash_map::LinkedHashMap;
 use log::debug;
-use rasm_parser::parser::ast::ASTValueType;
+use rasm_parser::parser::ast::ASTValue;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::any::CStructs;
@@ -630,7 +630,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         }
     }
 
-    fn add_value_type(&mut self, name: &str, value_type: &ASTValueType) {
+    fn add_value_type(&mut self, name: &str, value_type: &ASTValue) {
         let value = self.code_gen_c.value_to_string(value_type);
 
         self.parameters_values.insert(name.to_string(), value);

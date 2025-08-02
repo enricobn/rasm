@@ -18,9 +18,9 @@ use crate::project::RasmProject;
 use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
 
 use rasm_parser::parser::ast::{
-    ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTLambdaDef, ASTModifiers, ASTModule, ASTParameterDef, ASTPosition, ASTStatement,
-    ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef, ASTValueType, BuiltinTypeKind,
+    ASTBuiltinTypeKind, ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody,
+    ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModifiers, ASTModule, ASTParameterDef,
+    ASTPosition, ASTStatement, ASTStructDef, ASTStructPropertyDef, ASTType, ASTTypeDef, ASTValue,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -448,17 +448,17 @@ pub enum EnhBuiltinTypeKind {
 }
 
 impl EnhBuiltinTypeKind {
-    pub fn to_ast(&self) -> BuiltinTypeKind {
+    pub fn to_ast(&self) -> ASTBuiltinTypeKind {
         match self {
-            EnhBuiltinTypeKind::Boolean => BuiltinTypeKind::Boolean,
-            EnhBuiltinTypeKind::Char => BuiltinTypeKind::Char,
-            EnhBuiltinTypeKind::Integer => BuiltinTypeKind::Integer,
-            EnhBuiltinTypeKind::Float => BuiltinTypeKind::Float,
-            EnhBuiltinTypeKind::String => BuiltinTypeKind::String,
+            EnhBuiltinTypeKind::Boolean => ASTBuiltinTypeKind::ASTBooleanType,
+            EnhBuiltinTypeKind::Char => ASTBuiltinTypeKind::ASTCharType,
+            EnhBuiltinTypeKind::Integer => ASTBuiltinTypeKind::ASTIntegerType,
+            EnhBuiltinTypeKind::Float => ASTBuiltinTypeKind::ASTFloatType,
+            EnhBuiltinTypeKind::String => ASTBuiltinTypeKind::ASTStringType,
             EnhBuiltinTypeKind::Lambda {
                 parameters,
                 return_type,
-            } => BuiltinTypeKind::Lambda {
+            } => ASTBuiltinTypeKind::ASTLambdaType {
                 parameters: parameters.iter().map(|it| it.to_ast()).collect(),
                 return_type: Box::new(return_type.to_ast()),
             },
@@ -753,9 +753,9 @@ impl EnhASTType {
     pub fn to_ast(&self) -> ASTType {
         match self {
             EnhASTType::Builtin(enh_builtin_type_kind) => {
-                ASTType::Builtin(enh_builtin_type_kind.to_ast())
+                ASTType::ASTBuiltinType(enh_builtin_type_kind.to_ast())
             }
-            EnhASTType::Generic(index, name, var_types) => ASTType::Generic(
+            EnhASTType::Generic(index, name, var_types) => ASTType::ASTGenericType(
                 index.position.clone(),
                 name.clone(),
                 var_types.iter().map(|it| it.to_ast()).collect(),
@@ -765,12 +765,12 @@ impl EnhASTType {
                 name,
                 param_types,
                 index,
-            } => ASTType::Custom {
+            } => ASTType::ASTCustomType {
                 name: name.clone(),
                 param_types: param_types.iter().map(|it| it.to_ast()).collect(),
                 position: index.position.clone(),
             },
-            EnhASTType::Unit => ASTType::Unit,
+            EnhASTType::Unit => ASTType::ASTUnitType,
         }
     }
 
@@ -781,14 +781,14 @@ impl EnhASTType {
         function_name_for_fix_generics: Option<&str>,
     ) -> Self {
         match ast_type {
-            ASTType::Builtin(kind) => {
+            ASTType::ASTBuiltinType(kind) => {
                 let builtin = match kind {
-                    BuiltinTypeKind::Boolean => EnhBuiltinTypeKind::Boolean,
-                    BuiltinTypeKind::Char => EnhBuiltinTypeKind::Char,
-                    BuiltinTypeKind::Integer => EnhBuiltinTypeKind::Integer,
-                    BuiltinTypeKind::Float => EnhBuiltinTypeKind::Float,
-                    BuiltinTypeKind::String => EnhBuiltinTypeKind::String,
-                    BuiltinTypeKind::Lambda {
+                    ASTBuiltinTypeKind::ASTBooleanType => EnhBuiltinTypeKind::Boolean,
+                    ASTBuiltinTypeKind::ASTCharType => EnhBuiltinTypeKind::Char,
+                    ASTBuiltinTypeKind::ASTIntegerType => EnhBuiltinTypeKind::Integer,
+                    ASTBuiltinTypeKind::ASTFloatType => EnhBuiltinTypeKind::Float,
+                    ASTBuiltinTypeKind::ASTStringType => EnhBuiltinTypeKind::String,
+                    ASTBuiltinTypeKind::ASTLambdaType {
                         parameters,
                         return_type,
                     } => EnhBuiltinTypeKind::Lambda {
@@ -808,7 +808,7 @@ impl EnhASTType {
                 };
                 EnhASTType::Builtin(builtin)
             }
-            ASTType::Generic(astposition, name, var_types) => {
+            ASTType::ASTGenericType(astposition, name, var_types) => {
                 let gen_name = if let Some(fun_name) = function_name_for_fix_generics {
                     format!("{}_{}:{name}", namespace.safe_name(), fun_name)
                 } else {
@@ -830,7 +830,7 @@ impl EnhASTType {
                         .collect(),
                 )
             }
-            ASTType::Custom {
+            ASTType::ASTCustomType {
                 name,
                 param_types,
                 position: index,
@@ -845,7 +845,7 @@ impl EnhASTType {
                 ),
                 index: EnhASTIndex::from_position(id.path(), &index),
             },
-            ASTType::Unit => EnhASTType::Unit,
+            ASTType::ASTUnitType => EnhASTType::Unit,
         }
     }
 
@@ -1280,7 +1280,7 @@ impl ASTValueType {
 pub enum EnhASTExpression {
     ASTFunctionCallExpression(EnhASTFunctionCall),
     ValueRef(String, EnhASTIndex, EnhASTNameSpace),
-    Value(ASTValueType, EnhASTIndex),
+    Value(ASTValue, EnhASTIndex),
     Lambda(EnhASTLambdaDef),
     Any(EnhASTType), //EnumConstructor { name: String, variant: String, parameters: Vec<ASTExpression> },
 }
@@ -1328,21 +1328,18 @@ impl EnhASTExpression {
                     function_name_for_fix_generics,
                 ))
             }
-            ASTExpression::ValueRef(name, position) => EnhASTExpression::ValueRef(
+            ASTExpression::ASTValueRefExpression(name, position) => EnhASTExpression::ValueRef(
                 name.clone(),
                 EnhASTIndex::from_position(id.path(), &position),
                 namespace.clone(),
             ),
-            ASTExpression::Value(value_type, position) => EnhASTExpression::Value(
+            ASTExpression::ASTValueExpression(value_type, position) => EnhASTExpression::Value(
                 value_type.clone(),
                 EnhASTIndex::from_position(id.path(), &position),
             ),
-            ASTExpression::Lambda(lambda) => EnhASTExpression::Lambda(EnhASTLambdaDef::from_ast(
-                id,
-                namespace,
-                lambda,
-                function_name_for_fix_generics,
-            )),
+            ASTExpression::ASTLambdaExpression(lambda) => EnhASTExpression::Lambda(
+                EnhASTLambdaDef::from_ast(id, namespace, lambda, function_name_for_fix_generics),
+            ),
         }
     }
 
@@ -1448,10 +1445,10 @@ impl EnhASTStatement {
         function_name_for_fix_generics: Option<&str>,
     ) -> Self {
         match statement {
-            ASTStatement::Expression(expr) => EnhASTStatement::Expression(
+            ASTStatement::ASTExpressionStatement(expr) => EnhASTStatement::Expression(
                 EnhASTExpression::from_ast(id, namespace, expr, function_name_for_fix_generics),
             ),
-            ASTStatement::LetStatement(name, astexpression, position) => {
+            ASTStatement::ASTLetStatement(name, astexpression, position) => {
                 let expr = EnhASTExpression::from_ast(
                     id,
                     namespace,
@@ -1464,7 +1461,7 @@ impl EnhASTStatement {
                     EnhASTIndex::from_position(id.path(), &position),
                 )
             }
-            ASTStatement::ConstStatement(name, astexpression, position, modifiers) => {
+            ASTStatement::ASTConstStatement(name, astexpression, position, modifiers) => {
                 let expr = EnhASTExpression::from_ast(
                     id,
                     namespace,

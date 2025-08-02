@@ -4,7 +4,7 @@ use std::{
 };
 
 use pad::PadStr;
-use rasm_parser::parser::ast::{ASTModifiers, ASTValueType};
+use rasm_parser::parser::ast::{ASTModifiers, ASTValue};
 use snailquote::unescape;
 
 use crate::{
@@ -1325,7 +1325,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         is_const: bool,
         statics: &mut Statics,
         body: &mut String,
-        value_type: &ASTValueType,
+        value_type: &ASTValue,
         typed_type: &ASTTypedType,
         namespace: &EnhASTNameSpace,
         modifiers: Option<&ASTModifiers>,
@@ -1410,13 +1410,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         );
     }
 
-    fn value_as_return(
-        &self,
-        before: &mut String,
-        value_type: &ASTValueType,
-        statics: &mut Statics,
-    ) {
-        if let ASTValueType::String(s) = value_type {
+    fn value_as_return(&self, before: &mut String, value_type: &ASTValue, statics: &mut Statics) {
+        if let ASTValue::ASTStringValue(s) = value_type {
             self.string_literal_return(statics, before, s);
         } else {
             let ws = self.backend.word_size();
@@ -1691,14 +1686,14 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         );
     }
 
-    fn value_to_string(&self, value_type: &ASTValueType) -> String {
+    fn value_to_string(&self, value_type: &ASTValue) -> String {
         match value_type {
-            ASTValueType::Boolean(b) => if *b { "1" } else { "0" }.into(),
-            ASTValueType::Integer(n) => (*n as i32).to_string(),
-            ASTValueType::Float(n) => {
+            ASTValue::ASTBooleanValue(b) => if *b { "1" } else { "0" }.into(),
+            ASTValue::ASTIntegerValue(n) => (*n as i32).to_string(),
+            ASTValue::ASTFloatValue(n) => {
                 format!("0x{:x}", (*n as f32).to_bits())
             }
-            ASTValueType::Char(c) => {
+            ASTValue::ASTCharValue(c) => {
                 let mut b = [0; 4];
                 let unescaped = unescape(&format!("\"{}\"", c.replace("\"", "\\\""))).unwrap();
                 unescaped.chars().next().unwrap().encode_utf8(&mut b);
@@ -1707,7 +1702,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
                 format!("{}", result)
             }
-            ASTValueType::String(_) => panic!(" String value is not handled here"),
+            ASTValue::ASTStringValue(_) => panic!(" String value is not handled here"),
         }
     }
 

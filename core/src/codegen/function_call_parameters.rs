@@ -11,7 +11,7 @@ use crate::enh_type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedStatement, ASTTypedType,
 };
-use rasm_parser::parser::ast::ASTValueType;
+use rasm_parser::parser::ast::ASTValue;
 
 use super::enh_ast::EnhASTNameSpace;
 
@@ -88,7 +88,7 @@ pub trait FunctionCallParameters<CTX> {
         typed_type: &ASTTypedType,
     );
 
-    fn add_value_type(&mut self, name: &str, value_type: &ASTValueType);
+    fn add_value_type(&mut self, name: &str, value_type: &ASTValue);
 
     fn push(&mut self, s: &str);
 

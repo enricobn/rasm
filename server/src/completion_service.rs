@@ -21,7 +21,7 @@ use std::fmt::Display;
 
 use rasm_core::codegen::enh_ast::{EnhASTFunctionDef, EnhASTType, EnhBuiltinTypeKind};
 use rasm_core::enh_type_check::enh_type_check::EnhTypeCheck;
-use rasm_parser::parser::ast::{ASTFunctionSignature, ASTType, BuiltinTypeKind};
+use rasm_parser::parser::ast::{ASTBuiltinTypeKind, ASTFunctionSignature, ASTType};
 use rasm_utils::OptionDisplay;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -86,9 +86,9 @@ impl CompletionItem {
     fn generic_type_coeff_internal(ast_type: &ASTType, coeff: usize) -> usize {
         if ast_type.is_generic() {
             match ast_type {
-                ASTType::Builtin(_) => 0,
-                ASTType::Generic(_, _, _) => coeff,
-                ASTType::Custom {
+                ASTType::ASTBuiltinType(_) => 0,
+                ASTType::ASTGenericType(_, _, _) => coeff,
+                ASTType::ASTCustomType {
                     name: _,
                     param_types,
                     position: _,
@@ -96,7 +96,7 @@ impl CompletionItem {
                     .iter()
                     .map(|it| Self::generic_type_coeff_internal(it, coeff / 100))
                     .sum(),
-                ASTType::Unit => 0,
+                ASTType::ASTUnitType => 0,
             }
         } else {
             0
@@ -110,7 +110,7 @@ impl CompletionItem {
             format!("<{}>", function.generics.join(","))
         };
 
-        let rt = if function.return_type != ASTType::Unit {
+        let rt = if function.return_type != ASTType::ASTUnitType {
             format!("{}", function.return_type)
         } else {
             "()".into()
@@ -182,7 +182,7 @@ impl CompletionItem {
             .iter()
             .skip(1)
             .map(|it| match &it {
-                ASTType::Builtin(BuiltinTypeKind::Lambda {
+                ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                     parameters,
                     return_type: _,
                 }) => {
@@ -219,19 +219,19 @@ impl CompletionItem {
 
     fn type_base_name(ast_type: &ASTType) -> String {
         match ast_type {
-            ASTType::Builtin(kind) => match kind {
-                BuiltinTypeKind::Boolean => "b".to_owned(),
-                BuiltinTypeKind::Char => "c".to_owned(),
-                BuiltinTypeKind::Integer => "i".to_owned(),
-                BuiltinTypeKind::Float => "f".to_owned(),
-                BuiltinTypeKind::String => "s".to_owned(),
-                BuiltinTypeKind::Lambda {
+            ASTType::ASTBuiltinType(kind) => match kind {
+                ASTBuiltinTypeKind::ASTBooleanType => "b".to_owned(),
+                ASTBuiltinTypeKind::ASTCharType => "c".to_owned(),
+                ASTBuiltinTypeKind::ASTIntegerType => "i".to_owned(),
+                ASTBuiltinTypeKind::ASTFloatType => "f".to_owned(),
+                ASTBuiltinTypeKind::ASTStringType => "s".to_owned(),
+                ASTBuiltinTypeKind::ASTLambdaType {
                     parameters: _,
                     return_type: _,
                 } => "fun".to_owned(),
             },
-            ASTType::Generic(_, _, _) => "gen".to_owned(),
-            ASTType::Custom {
+            ASTType::ASTGenericType(_, _, _) => "gen".to_owned(),
+            ASTType::ASTCustomType {
                 name,
                 param_types: _,
                 position: _,
@@ -241,7 +241,7 @@ impl CompletionItem {
                 n[0..1].make_ascii_lowercase();
                 n
             }
-            ASTType::Unit => "unit".to_owned(),
+            ASTType::ASTUnitType => "unit".to_owned(),
         }
     }
 }

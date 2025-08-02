@@ -70,7 +70,7 @@ pub fn parse_property(
     let mut status = PropertyStatus::Name;
     let mut property_def = ASTStructPropertyDef {
         name: String::new(),
-        ast_type: super::ast::ASTType::Unit,
+        ast_type: super::ast::ASTType::ASTUnitType,
         position: parser.get_position(n),
     };
 
@@ -267,7 +267,7 @@ mod tests {
         println!("errors {}", SliceDisplay(&errors));
         assert_eq!(p.name, "v");
         assert_eq!(format!("{}", p.ast_type), "M<String>");
-        if !matches!(p.ast_type, ASTType::Generic(_, _, _)) {
+        if !matches!(p.ast_type, ASTType::ASTGenericType(_, _, _)) {
             panic!("expected a generic type");
         }
         assert!(errors.is_empty());

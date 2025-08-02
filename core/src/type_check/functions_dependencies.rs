@@ -657,11 +657,11 @@ fn statements<'a>(
 ) {
     for statement in statements.iter() {
         match statement {
-            ASTStatement::Expression(expr) => {
+            ASTStatement::ASTExpressionStatement(expr) => {
                 expr_calls(calls, expr, module_namespace, module_id, ast_type_check)
             }
-            ASTStatement::LetStatement(_, expr, _)
-            | ASTStatement::ConstStatement(_, expr, _, _) => {
+            ASTStatement::ASTLetStatement(_, expr, _)
+            | ASTStatement::ASTConstStatement(_, expr, _, _) => {
                 expr_calls(calls, expr, module_namespace, module_id, ast_type_check)
             }
         }
@@ -683,7 +683,7 @@ fn expr_calls<'a>(
                 expr_calls(calls, expr, module_namespace, module_id, ast_type_check);
             }
         }
-        ASTExpression::Lambda(lambda_def) => {
+        ASTExpression::ASTLambdaExpression(lambda_def) => {
             // TODO
             let t = ast_type_check.result.get_by_index(&ASTIndex::new(
                 module_namespace.clone(),

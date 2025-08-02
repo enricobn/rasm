@@ -6,7 +6,7 @@ use linked_hash_set::LinkedHashSet;
 use log::info;
 use rasm_parser::{
     catalog::{modules_catalog::ModulesCatalog, ModuleInfo},
-    parser::ast::{ASTType, BuiltinTypeKind},
+    parser::ast::{ASTBuiltinTypeKind, ASTType},
 };
 use rasm_utils::{debug_i, dedent, indent, OptionDisplay, SliceDisplay};
 
@@ -1656,7 +1656,7 @@ impl<'a> EnhTypeCheck<'a> {
         */
 
         let (filter_module_id, filter_module_namespace) = {
-            if let ASTType::Custom {
+            if let ASTType::ASTCustomType {
                 name,
                 param_types,
                 position,
@@ -1709,7 +1709,7 @@ impl<'a> EnhTypeCheck<'a> {
                         position: position.clone(),
                     },
                 };
-            } else if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            } else if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 parameters,
                 return_type,
             }) = ast_type

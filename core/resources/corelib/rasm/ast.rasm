@@ -20,9 +20,9 @@ pub fn toString(module: ASTModule) -> str {
 }
 
 pub enum ASTStatement {
-    Expression(expr: ASTExpression),
-    LetStatement(name: str, expr: ASTExpression),
-    ConstStatement(name: str, expr: ASTExpression, modifiers: ASTModifiers)
+    ASTExpressionStatement(expr: ASTExpression),
+    ASTLetStatement(name: str, expr: ASTExpression),
+    ASTConstStatement(name: str, expr: ASTExpression, modifiers: ASTModifiers)
 }
 
 pub fn toString(stmt: ASTStatement) -> str {
@@ -39,9 +39,9 @@ pub struct ASTModifiers {
 
 pub enum ASTExpression {
     ASTFunctionCallExpression(call: ASTFunctionCall),
-    ValueRef(name: str),
-    Value(value: ASTValueType),
-    Lambda(lambda: ASTLambdaDef)
+    ASTValueRefExpression(name: str),
+    ASTValueExpression(value: ASTValue),
+    ASTLambdaExpression(lambda: ASTLambdaDef)
 }
 
 pub fn toString(expr: ASTExpression) -> str {
@@ -66,15 +66,15 @@ pub fn toString(call: ASTFunctionCall) -> str {
     .append(")");
 }
 
-pub enum ASTValueType {
-    ASTString(value: str),
-    Boolean(value: bool),
-    Integer(value: int),
-    Char(value: str),
-    Float(value: float)
+pub enum ASTValue {
+    ASTStringValue(value: str),
+    ASTBooleanValue(value: bool),
+    ASTIntegerValue(value: int),
+    ASTCharValue(value: str),
+    ASTFloatValue(value: float)
 }
 
-pub fn toString(v: ASTValueType) -> str {
+pub fn toString(v: ASTValue) -> str {
     v.match(
         fn(value) { "\"".add(value).add("\""); }, 
         fn(value) { if(value, "true", "false"); },
@@ -85,22 +85,22 @@ pub fn toString(v: ASTValueType) -> str {
 }
 
 pub enum ASTType {
-    Builtin(kind: BuiltinTypeKind),
-    Generic(
+    ASTBuiltinType(kind: ASTBuiltinTypeKind),
+    ASTGenericType(
         name: str,
         types: Vec<ASTType>,
     ),
-    Custom(name: str, generics: Vec<ASTType>),
-    Unit
+    ASTCustomType(name: str, generics: Vec<ASTType>),
+    ASTUnitType
 }
 
-pub enum BuiltinTypeKind {
-    Boolean,
-    Char,
-    Integer,
-    Float,
-    String,
-    Lambda(
+pub enum ASTBuiltinTypeKind {
+    ASTBooleanType,
+    ASTCharType,
+    ASTIntegerType,
+    ASTFloatType,
+    ASTStringType,
+    ASTLambdaType(
         parameters: Vec<ASTType>,
         returnType: ASTType
     )

@@ -5,7 +5,7 @@ use rasm_utils::debug_i;
 
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleNamespace},
-    parser::ast::{ASTParameterDef, ASTPosition, ASTType, BuiltinTypeKind},
+    parser::ast::{ASTBuiltinTypeKind, ASTParameterDef, ASTPosition, ASTType},
 };
 
 static COUNT_UNKNOWN_LAMBDA_PAR: AtomicUsize = AtomicUsize::new(0);
@@ -118,7 +118,7 @@ impl ValContext {
 
         let par = ASTParameterDef::new(
             &key,
-            ASTType::Generic(
+            ASTType::ASTGenericType(
                 ASTPosition::none(),
                 format!(
                     "L_{}",
@@ -151,7 +151,7 @@ impl ValContext {
 
     pub fn is_lambda(&self, key: &str) -> bool {
         if let Some(ValKind::ParameterRef(_i, par)) = self.get(key) {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 return_type: _,
                 parameters: _,
             }) = &par.ast_type
@@ -161,7 +161,7 @@ impl ValContext {
         }
 
         if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key) {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 return_type: _,
                 parameters: _,
             }) = ast_type
@@ -174,7 +174,7 @@ impl ValContext {
 
     pub fn get_lambda(&self, key: &str) -> Option<(&Box<ASTType>, &Vec<ASTType>)> {
         if let Some(ValKind::ParameterRef(_i, par)) = self.get(key) {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 return_type,
                 parameters,
             }) = &par.ast_type
@@ -184,7 +184,7 @@ impl ValContext {
         }
 
         if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key) {
-            if let ASTType::Builtin(BuiltinTypeKind::Lambda {
+            if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 return_type,
                 parameters,
             }) = ast_type

@@ -25,7 +25,6 @@ Bug
 
 Road to language version 1.0.0 (not compiler)
 -----------------------------------------------
-- remove i32 and f32 types, add int and float types
 - array type?
 - macro:
   - support a Vec of ASTExpression as the last parameter, and consider it as a varargs

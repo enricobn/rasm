@@ -12,7 +12,7 @@ use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
 use crate::parser::ast::{
     ASTEnumDef, ASTExpression, ASTFunctionCall, ASTFunctionDef, ASTLambdaDef, ASTModifiers,
-    ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, ASTValueType,
+    ASTModule, ASTParameterDef, ASTStatement, ASTStructDef, ASTType, ASTTypeDef, ASTValue,
 };
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
@@ -407,14 +407,14 @@ impl Parser {
                             self.parser_data.pop();
 
                             self.parser_data.push(ParserData::Statement(if is_const {
-                                ASTStatement::ConstStatement(
+                                ASTStatement::ASTConstStatement(
                                     name,
                                     expr.clone(),
                                     index,
                                     modifiers.unwrap(),
                                 )
                             } else {
-                                ASTStatement::LetStatement(name, expr.clone(), index)
+                                ASTStatement::ASTLetStatement(name, expr.clone(), index)
                             }));
                             self.i += 1;
                             continue;
@@ -436,7 +436,7 @@ impl Parser {
                                 self.parser_data.pop();
                                 self.parser_data.pop();
                                 self.parser_data.push(ParserData::Expression(
-                                    ASTExpression::Lambda(lambda_def),
+                                    ASTExpression::ASTLambdaExpression(lambda_def),
                                 ));
                                 continue;
                             }
@@ -508,7 +508,7 @@ impl Parser {
                 name,
                 parameters: Vec::new(),
                 body: RASMBody(Vec::new()),
-                return_type: ASTType::Unit,
+                return_type: ASTType::ASTUnitType,
                 generic_types,
                 position: name_token.position,
                 modifiers,
@@ -526,7 +526,7 @@ impl Parser {
                 name,
                 parameters: Vec::new(),
                 body: NativeBody("".into()),
-                return_type: ASTType::Unit,
+                return_type: ASTType::ASTUnitType,
                 generic_types: param_types,
                 position: name_token.position.clone(),
                 modifiers,
@@ -575,7 +575,9 @@ impl Parser {
                 self.state.pop();
                 self.parser_data.pop();
                 self.parser_data
-                    .push(ParserData::Statement(ASTStatement::Expression(epr)));
+                    .push(ParserData::Statement(ASTStatement::ASTExpressionStatement(
+                        epr,
+                    )));
                 self.i += 1;
             } else {
                 self.add_error(format!(
@@ -599,8 +601,9 @@ impl Parser {
                 if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
                     self.state.pop();
                     self.parser_data.pop();
-                    self.parser_data
-                        .push(ParserData::Statement(ASTStatement::Expression(expr)));
+                    self.parser_data.push(ParserData::Statement(
+                        ASTStatement::ASTExpressionStatement(expr),
+                    ));
                 } else {
                     self.state.pop();
                 }
@@ -634,7 +637,9 @@ impl Parser {
             self.state.pop();
             self.parser_data.pop();
             self.parser_data
-                .push(ParserData::Statement(ASTStatement::Expression(expr)));
+                .push(ParserData::Statement(ASTStatement::ASTExpressionStatement(
+                    expr,
+                )));
         } else {
             self.state.push(ParserState::Expression);
         }
@@ -737,7 +742,7 @@ impl Parser {
             name: String::new(),
             parameters: Vec::new(),
             body: RASMBody(Vec::new()),
-            return_type: ASTType::Unit,
+            return_type: ASTType::ASTUnitType,
             generic_types: Vec::new(),
             position: ASTPosition::none(),
             modifiers: ASTModifiers::public(),
@@ -1230,12 +1235,18 @@ impl Parser {
     fn try_parse_val(&self) -> Result<Option<(ASTExpression, usize)>, String> {
         if let Some(TokenKind::KeyWord(KeywordKind::True)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::Value(ASTValueType::Boolean(true), self.get_position(0)),
+                ASTExpression::ASTValueExpression(
+                    ASTValue::ASTBooleanValue(true),
+                    self.get_position(0),
+                ),
                 self.get_i() + 1,
             )));
         } else if let Some(TokenKind::KeyWord(KeywordKind::False)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::Value(ASTValueType::Boolean(false), self.get_position(0)),
+                ASTExpression::ASTValueExpression(
+                    ASTValue::ASTBooleanValue(false),
+                    self.get_position(0),
+                ),
                 self.get_i() + 1,
             )));
         } else if let Some(TokenKind::Number(n)) = self.get_token_kind() {
@@ -1244,7 +1255,7 @@ impl Parser {
             {
                 if let Some(TokenKind::Number(n1)) = self.get_token_kind_n(2) {
                     (
-                        ASTValueType::Float(format!("{n}.{n1}").parse().map_err(|err| {
+                        ASTValue::ASTFloatValue(format!("{n}.{n1}").parse().map_err(|err| {
                             format!(
                                 "Cannot parse '{n}.{n1}' as a float, {err}: {}",
                                 self.get_position(0)
@@ -1254,7 +1265,7 @@ impl Parser {
                     )
                 } else {
                     (
-                        ASTValueType::Integer(n.parse().map_err(|err| {
+                        ASTValue::ASTIntegerValue(n.parse().map_err(|err| {
                             format!(
                                 "Cannot parse '{n}' as an int, {err}: {}",
                                 self.get_position(0)
@@ -1265,7 +1276,7 @@ impl Parser {
                 }
             } else {
                 (
-                    ASTValueType::Integer(n.parse().map_err(|err| {
+                    ASTValue::ASTIntegerValue(n.parse().map_err(|err| {
                         format!(
                             "Cannot parse '{n}' as an int, {err}: {}",
                             self.get_position(0)
@@ -1276,22 +1287,28 @@ impl Parser {
             };
 
             return Ok(Some((
-                ASTExpression::Value(value, self.get_position(0)),
+                ASTExpression::ASTValueExpression(value, self.get_position(0)),
                 next_i,
             )));
         } else if let Some(TokenKind::CharLiteral(c)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::Value(ASTValueType::Char(c.clone()), self.get_position(0)),
+                ASTExpression::ASTValueExpression(
+                    ASTValue::ASTCharValue(c.clone()),
+                    self.get_position(0),
+                ),
                 self.get_i() + 1,
             )));
         } else if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::ValueRef(name.clone(), self.get_position(0)),
+                ASTExpression::ASTValueRefExpression(name.clone(), self.get_position(0)),
                 self.get_i() + 1,
             )));
         } else if let Some(TokenKind::StringLiteral(s)) = self.get_token_kind() {
             return Ok(Some((
-                ASTExpression::Value(ASTValueType::String(s.clone()), self.get_position(0)),
+                ASTExpression::ASTValueExpression(
+                    ASTValue::ASTStringValue(s.clone()),
+                    self.get_position(0),
+                ),
                 self.get_i() + 1,
             )));
         }
@@ -1438,7 +1455,7 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::parser::ast::{
         ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModifiers, ASTModule,
-        ASTPosition, ASTStatement, ASTType, ASTValueType, BuiltinTypeKind,
+        ASTPosition, ASTStatement, ASTType, ASTValue, ASTBuiltinTypeKind,
     };
     use crate::parser::Parser;
 
@@ -1472,14 +1489,14 @@ mod tests {
     fn test9() {
         let module = parse("resources/test/test9.rasm");
 
-        let par =
-            if let Some(ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(e))) =
-                module.body.get(0)
-            {
-                Some(e)
-            } else {
-                None
-            };
+        let par = if let Some(ASTStatement::ASTExpressionStatement(
+            ASTExpression::ASTFunctionCallExpression(e),
+        )) = module.body.get(0)
+        {
+            Some(e)
+        } else {
+            None
+        };
 
         assert!(!module.body.is_empty());
         assert_eq!(1, par.unwrap().parameters().len());
@@ -1489,14 +1506,14 @@ mod tests {
         if let Some(ASTExpression::ASTFunctionCallExpression(call)) = nprint_parameter {
             assert_eq!("add", call.function_name());
             assert_eq!(2, call.parameters().len());
-            if let Some(ASTExpression::Value(ASTValueType::Integer(n), _)) =
+            if let Some(ASTExpression::ASTValueExpression(ASTValue::ASTIntegerValue(n), _)) =
                 call.parameters().get(0)
             {
                 assert_eq!(10, *n);
             } else {
                 panic!();
             }
-            if let Some(ASTExpression::Value(ASTValueType::Integer(n), _)) =
+            if let Some(ASTExpression::ASTValueExpression(ASTValue::ASTIntegerValue(n), _)) =
                 call.parameters().get(1)
             {
                 assert_eq!(20, *n);
@@ -1530,7 +1547,7 @@ mod tests {
             name: "p".into(),
             body: ASTFunctionBody::RASMBody(Vec::new()),
             parameters: Vec::new(),
-            return_type: ASTType::Unit,
+            return_type: ASTType::ASTUnitType,
             generic_types: vec!["T".into(), "T1".into()],
             position: ASTPosition::new(1, 4),
             modifiers: ASTModifiers::private(),
@@ -1547,7 +1564,7 @@ mod tests {
         let f_def = module.functions.first().unwrap();
         assert_eq!(
             f_def.return_type,
-            ASTType::Builtin(BuiltinTypeKind::Integer)
+            ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType)
         );
     }
 
@@ -1585,19 +1602,21 @@ mod tests {
 
         let function_call = ASTFunctionCall::new(
             "println".to_string(),
-            vec![ASTExpression::Value(
-                ASTValueType::Integer(20),
+            vec![ASTExpression::ASTValueExpression(
+                ASTValue::ASTIntegerValue(20),
                 ASTPosition::new(1, 14),
             )],
             ASTPosition::new(1, 1),
-            vec![ASTType::Builtin(BuiltinTypeKind::Integer)],
+            vec![ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType)],
             None,
             false,
         );
 
         assert_eq!(
             module.body.first().unwrap(),
-            &ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(function_call))
+            &ASTStatement::ASTExpressionStatement(ASTExpression::ASTFunctionCallExpression(
+                function_call
+            ))
         );
     }
 
@@ -1611,12 +1630,12 @@ mod tests {
 
         let function_call = ASTFunctionCall::new(
             "println".to_string(),
-            vec![ASTExpression::ValueRef(
+            vec![ASTExpression::ASTValueRefExpression(
                 "it".to_string(),
                 ASTPosition::new(1, 36),
             )],
             ASTPosition::new(1, 25),
-            vec![ASTType::Generic(
+            vec![ASTType::ASTGenericType(
                 ASTPosition::new(1, 34),
                 "T".to_string(),
                 Vec::new(),
@@ -1628,7 +1647,9 @@ mod tests {
         if let ASTFunctionBody::RASMBody(ref body) = module.functions.first().unwrap().body {
             assert_eq!(
                 body.first().unwrap(),
-                &ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(function_call))
+                &ASTStatement::ASTExpressionStatement(ASTExpression::ASTFunctionCallExpression(
+                    function_call
+                ))
             );
         } else {
             panic!()
@@ -1645,8 +1666,8 @@ mod tests {
 
         let function_call = ASTFunctionCall::new(
             "Some".to_string(),
-            vec![ASTExpression::Value(
-                ASTValueType::Integer(20),
+            vec![ASTExpression::ASTValueExpression(
+                ASTValue::ASTIntegerValue(20),
                 ASTPosition::new(1, 6),
             )],
             ASTPosition::new(1, 1),
@@ -1657,7 +1678,9 @@ mod tests {
 
         assert_eq!(
             module.body.first().unwrap(),
-            &ASTStatement::Expression(ASTExpression::ASTFunctionCallExpression(function_call))
+            &ASTStatement::ASTExpressionStatement(ASTExpression::ASTFunctionCallExpression(
+                function_call
+            ))
         );
     }
 
