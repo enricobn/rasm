@@ -33,6 +33,7 @@ Road to language version 1.0.0 (not compiler)
   - it could be a standard function that takes as first argument:
     - ASTStructDef
     - ASTEnumDef
+    - ASTFunctionDef
     it could be called as a standard function with @:
     
     toString@()

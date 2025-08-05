@@ -87,6 +87,7 @@ mod tests {
                     false,
                 ),
             }],
+            attribute_macros: Vec::new(),
         };
 
         println!("{}", create_macro_module(&mce));

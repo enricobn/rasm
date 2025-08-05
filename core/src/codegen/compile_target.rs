@@ -292,7 +292,7 @@ impl CompileTarget {
             exit(1);
         }
 
-        let extractor = extract_macro_calls(container);
+        let extractor = extract_macro_calls(container, &catalog);
 
         if extractor.calls().is_empty() {
             let out_file = out_folder.join(project.main_out_file_name(&command_line_options));
@@ -307,6 +307,8 @@ impl CompileTarget {
             );
         } else {
             let macro_module = create_macro_module(&extractor);
+
+            // println!("macro module:\n {}", macro_module);
 
             let mut container = extractor.container.clone();
             container.remove_body();
@@ -333,6 +335,7 @@ impl CompileTarget {
             ));
 
             info!("compiling macro module");
+
             self.compile(
                 &project,
                 container,
@@ -366,6 +369,8 @@ impl CompileTarget {
                     let parser = Parser::new(lexer);
                     let (new_module, errors) = parser.parse();
 
+                    // println!("created module from macro:\n {}", new_module);
+
                     if !errors.is_empty() {
                         for error in errors {
                             eprintln!("{error}");
@@ -376,7 +381,11 @@ impl CompileTarget {
                     if let Some((mut module, module_namespace)) =
                         original_container.remove_module(&call.module_id)
                     {
-                        self.replace_in_module(&mut module, &call.position, new_module.body);
+                        if !new_module.body.is_empty() {
+                            self.replace_in_module(&mut module, &call.position, new_module.body);
+                        }
+                        module.functions.extend(new_module.functions);
+
                         original_container.add(
                             module,
                             module_namespace,
@@ -387,7 +396,7 @@ impl CompileTarget {
                     }
                 }
 
-                //println!("{output_string}");
+                // println!("output_s:\n{output_s}");
             }
 
             let out_file = out_folder.join(

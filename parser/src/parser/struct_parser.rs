@@ -48,7 +48,7 @@ mod tests {
     use crate::lexer::tokens::{BracketKind, BracketStatus, TokenKind};
     use crate::parser::ast::ASTType::{ASTBuiltinType, ASTGenericType};
     use crate::parser::ast::{
-        ASTModifiers, ASTPosition, ASTStructDef, ASTStructPropertyDef, ASTBuiltinTypeKind,
+        ASTBuiltinTypeKind, ASTModifiers, ASTPosition, ASTStructDef, ASTStructPropertyDef,
     };
     use crate::parser::properties_parser::parse_properties;
     use crate::parser::struct_parser::StructParser;
@@ -75,6 +75,7 @@ mod tests {
                             properties,
                             position: token.position,
                             modifiers,
+                            attribute_macros: Vec::new(),
                         },
                         errors,
                         new_n - parser.get_i(),
@@ -107,16 +108,17 @@ mod tests {
         };
 
         if let Some((struct_def, errors, n)) = parse_result {
-            assert_eq!(
-                struct_def,
-                ASTStructDef {
+            assert!(almost_equal_structs(
+                &struct_def,
+                &ASTStructDef {
                     name: "Point".to_string(),
                     type_parameters: vec![],
                     properties: vec![x, y],
                     position: ASTPosition::new(1, 8),
-                    modifiers: ASTModifiers::private()
+                    modifiers: ASTModifiers::private(),
+                    attribute_macros: vec![],
                 }
-            );
+            ));
             assert_eq!(n, 11);
             assert!(errors.is_empty());
         } else {
@@ -146,21 +148,30 @@ mod tests {
         };
 
         if let Some((struct_def, errors, n)) = parse_result {
-            assert_eq!(
-                struct_def,
-                ASTStructDef {
+            assert!(almost_equal_structs(
+                &struct_def,
+                &ASTStructDef {
                     name: "EnumerateEntry".to_string(),
                     type_parameters: vec!["T".into()],
                     properties: vec![x, y],
                     position: ASTPosition::new(1, 8),
-                    modifiers: ASTModifiers::private()
-                },
-            );
+                    modifiers: ASTModifiers::private(),
+                    attribute_macros: vec![],
+                }
+            ));
             assert_eq!(n, 14);
             assert!(errors.is_empty());
         } else {
             panic!()
         }
+    }
+
+    fn almost_equal_structs(a: &ASTStructDef, b: &ASTStructDef) -> bool {
+        a.name == b.name
+            && a.type_parameters == b.type_parameters
+            && a.properties == b.properties
+            && a.modifiers == b.modifiers
+            && a.position == b.position
     }
 
     fn try_parse_struct(source: &str) -> Option<(ASTStructDef, Vec<ParserError>, usize)> {

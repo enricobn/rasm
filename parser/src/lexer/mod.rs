@@ -132,6 +132,7 @@ impl Lexer {
         let s = string.as_str();
 
         match s {
+            "@" => Some(TokenKind::Punctuation(PunctuationKind::At)),
             "." => Some(TokenKind::Punctuation(PunctuationKind::Dot)),
             "," => Some(TokenKind::Punctuation(PunctuationKind::Comma)),
             ":" => Some(TokenKind::Punctuation(PunctuationKind::Colon)),

@@ -12,11 +12,11 @@ pub struct ASTModule {
 }
 
 pub fn toString(module: ASTModule) -> str {
-    // TODO functions
     // TODO enums
     // TODO structs
     // TODO types
-    module.body.join("\n");
+    module.body.join("\n")
+    .add(module.functions.join("\n"));
 }
 
 pub enum ASTStatement {
@@ -94,6 +94,15 @@ pub enum ASTType {
     ASTUnitType
 }
 
+pub fn toString(astType: ASTType) -> str {
+    astType.match(
+        fn(builtin) { builtin.toString(); },
+        fn(name, types) { name; },
+        fn(name, generics) { name; },
+        { "()"; }
+    );
+}
+
 pub enum ASTBuiltinTypeKind {
     ASTBooleanType,
     ASTCharType,
@@ -104,6 +113,17 @@ pub enum ASTBuiltinTypeKind {
         parameters: Vec<ASTType>,
         returnType: ASTType
     )
+}
+
+pub fn toString(kind: ASTBuiltinTypeKind) -> str {
+    kind.match(
+        { "bool"; },
+        { "char"; },
+        { "int"; },
+        { "float"; },
+        { "str"; },
+        fn(parameters, returnType) { "lambda TODO"; }
+    );
 }
 
 pub struct ASTLambdaDef {
@@ -130,13 +150,41 @@ pub struct ASTFunctionDef {
     target: Option<str>
 }
 
+pub fn toString(def: ASTFunctionDef) -> str {
+    let returnType = def.returnType.match(
+        fn(builtin) { " -> ".append(builtin); },
+        fn(name, types) { " -> ".add(name); },
+        fn(name, generics) { " -> ".add(name); },
+        { "()"; }
+    );
+
+    let body = def.body.match(
+        fn(statements) { statements.join("\n"); },
+        fn(nativeBody) { nativeBody;}
+    );
+
+    let parameters = def.parameters.join(", ");
+
+    if(def.modifiers.public, "pub ", "")
+    .add("fn ")
+    .add(def.name)
+    .add("(")
+    .add(parameters)
+    .add(") ")
+    .add(returnType)
+    .add(" {\n")
+    .add(body)
+    .add(" }\n");
+
+}
+
 pub struct ASTParameterDef {
     name: str,
     astType: ASTType
 }
 
 pub fn toString(def: ASTParameterDef) -> str {
-    def.name.add(" : TODO"); // TODO .append(def.astType);
+    def.name.add(" : ").append(def.astType);
 }
 
 pub enum ASTFunctionBody {

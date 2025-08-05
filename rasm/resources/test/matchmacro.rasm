@@ -1,7 +1,3 @@
-fn toString(t: ASTType) -> str {
-    t.match({ "Str";}, { "Void"; });
-}
-
 let def = ASTEnumDef("ABC", 
     Vec(),
     vecOf(

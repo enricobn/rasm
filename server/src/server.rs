@@ -312,6 +312,7 @@ fn token_to_string(token: &Token, row: usize) -> String {
         TokenKind::KeyWord(keyword) => format!("{:?}", keyword).to_lowercase(),
         TokenKind::Number(n) => n.to_string(),
         TokenKind::Punctuation(kind) => match kind {
+            PunctuationKind::At => "@".to_owned(),
             PunctuationKind::Dot => ".".to_owned(),
             PunctuationKind::Colon => ":".to_owned(),
             PunctuationKind::Comma => ",".to_owned(),

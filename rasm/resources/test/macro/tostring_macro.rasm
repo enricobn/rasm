@@ -1,0 +1,66 @@
+@toString()
+pub struct Circle {
+    center: Point,
+    radius: int
+}
+
+@toString()
+pub struct Point {
+    x: int,
+    y: int
+}
+
+println(Circle(Point(10, 20), 5));
+
+pub fn toString(s: ASTStructDef) -> MacroResult {
+    let structRef = ASTValueRefExpression("s");
+    
+    let parameters = s.properties.map(fn(p) {
+        simpleCall(p.name, vecOf(structRef));
+    });
+
+    let basePropertyExpression = stringValue(s.name)
+                    .dotAdd("(");
+
+    let propertiesExpression = parameters.foldLeft(basePropertyExpression, 
+            fn(prev, act) { prev.dotAppend(act).dotAdd(", "); })
+        .dotAdd(")");
+
+    let function = ASTFunctionDef(
+        "toString",
+        vecOf(ASTParameterDef("s", ASTCustomType(s.name, Vec()))),
+        ASTBuiltinType(ASTStringType()),
+        RASMBody(vecOf(
+            ASTExpressionStatement(propertiesExpression)
+        )),
+        Vec(),
+        ASTModifiers(true),
+        None()
+    );
+
+    let module = ASTModule(
+        Vec(), // body
+        vecOf(function), // functions
+        Vec(), // enums
+        Vec(), // structs
+        Vec()  // types
+    );
+
+    MacroModule(module);
+}
+
+fn simpleCall(name: str, expressions: Vec<ASTExpression>) -> ASTExpression {
+    ASTFunctionCallExpression(ASTFunctionCall(name, expressions, Vec(), None()));
+}
+
+fn dotAppend(a: ASTExpression, b: ASTExpression) -> ASTExpression {
+    simpleCall("append", vecOf(a, b));
+}
+
+fn stringValue(s: str) -> ASTExpression {
+    ASTValueExpression(ASTStringValue(s));
+}
+
+fn dotAdd(a: ASTExpression, s: str) -> ASTExpression {
+    simpleCall("add", vecOf(a, ASTValueExpression(ASTStringValue(s))));
+}

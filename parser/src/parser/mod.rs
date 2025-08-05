@@ -2,6 +2,7 @@ use ast::ASTPosition;
 use lazy_static::lazy_static;
 use properties_parser::parse_properties;
 use std::fmt::{Display, Formatter};
+use strum_macros::Display;
 
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
@@ -91,6 +92,7 @@ pub struct Parser {
     structs: Vec<ASTStructDef>,
     types: Vec<ASTTypeDef>,
     errors: Vec<ParserError>,
+    attributes_macros: Vec<ASTFunctionCall>,
 }
 
 #[derive(Clone, Debug)]
@@ -149,8 +151,9 @@ impl Display for ParserData {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Display)]
 enum ParserState {
+    AttributeMacro,
     EnumDef,
     FunctionCall,
     FunctionDef,
@@ -204,6 +207,7 @@ impl Parser {
             structs: Vec::new(),
             types: Vec::new(),
             errors,
+            attributes_macros: Vec::new(),
         }
     }
 
@@ -456,6 +460,9 @@ impl Parser {
                     }
                     Err(message) => self.add_error(message),
                 },
+                Some(ParserState::AttributeMacro) => {
+                    self.add_error("Error parsing attribute macro".to_string());
+                }
             }
 
             self.i += 1;
@@ -498,7 +505,17 @@ impl Parser {
         } else if let TokenKind::EndOfLine = token.kind {
             return Ok(false);
         } else if !self.parser_data.is_empty() {
-            return Err(format!("Error: {}", self.get_position(0)));
+            return Err(format!("Internal error, parser data is not empty"));
+        } else if let TokenKind::Punctuation(PunctuationKind::At) = token.kind {
+            self.i += 1;
+            self.state.push(ParserState::AttributeMacro);
+            self.process_expression()?;
+            /*
+            if let Some((function_name, generics, next_i, function_name_index, target, is_macro)) =
+                self.try_parse_function_call()
+            {
+                self.i = next_i;
+            }*/
         } else if let Some((name_token, generic_types, modifiers, next_i)) =
             self.try_parse_function_def()?
         {
@@ -555,7 +572,9 @@ impl Parser {
                 properties: Vec::new(),
                 position: name_token.position.clone(),
                 modifiers,
+                attribute_macros: self.attributes_macros.clone(),
             }));
+            self.attributes_macros.clear();
             self.state.push(StructDef);
             self.i = next_i;
         } else if let Some((type_def, next_i)) = self.parse_type_def()? {
@@ -891,9 +910,14 @@ impl Parser {
             if let Some(ParserData::FunctionCall(call)) = self.last_parser_data() {
                 self.state.pop();
                 self.parser_data.pop();
-                self.parser_data.push(ParserData::Expression(
-                    ASTExpression::ASTFunctionCallExpression(call),
-                ));
+                if let Some(ParserState::AttributeMacro) = self.get_state() {
+                    self.state.pop();
+                    self.attributes_macros.push(call);
+                } else {
+                    self.parser_data.push(ParserData::Expression(
+                        ASTExpression::ASTFunctionCallExpression(call),
+                    ));
+                }
                 self.i += 1;
             } else {
                 return Err(format!("expected function call: {}", self.get_position(0)));
@@ -1454,8 +1478,8 @@ mod tests {
 
     use crate::lexer::Lexer;
     use crate::parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModifiers, ASTModule,
-        ASTPosition, ASTStatement, ASTType, ASTValue, ASTBuiltinTypeKind,
+        ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
+        ASTModifiers, ASTModule, ASTPosition, ASTStatement, ASTType, ASTValue,
     };
     use crate::parser::Parser;
 

@@ -989,13 +989,14 @@ impl Display for ASTEnumVariantDef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct ASTStructDef {
     pub name: String,
     pub type_parameters: Vec<String>,
     pub properties: Vec<ASTStructPropertyDef>,
     pub position: ASTPosition,
     pub modifiers: ASTModifiers,
+    pub attribute_macros: Vec<ASTFunctionCall>,
 }
 
 impl CustomTypeDef for ASTStructDef {

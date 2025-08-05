@@ -690,6 +690,17 @@ fn test_print_macro() {
     );
 }
 
+#[test]
+fn test_tostring_macro() {
+    // TODO: asm
+    run_test_with_target(
+        "macro/tostring_macro",
+        vec![],
+        "Circle(Point(10, 20, ), 5, )\n",
+        CompileTarget::C(COptions::default()),
+    );
+}
+
 // Compile tests
 
 #[test]
