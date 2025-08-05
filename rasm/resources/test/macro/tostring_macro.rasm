@@ -22,8 +22,12 @@ pub fn toString(s: ASTStructDef) -> MacroResult {
     let basePropertyExpression = stringValue(s.name)
                     .dotAdd("(");
 
-    let propertiesExpression = parameters.foldLeft(basePropertyExpression, 
-            fn(prev, act) { prev.dotAppend(act).dotAdd(", "); })
+    let propertiesExpression = parameters.enumerate.foldLeft(basePropertyExpression, 
+            fn(prev, act) { 
+                let propertyValue = prev.dotAppend(act.value);
+                if (act.index.less(parameters.len.sub(1)), propertyValue.dotAdd(", "), propertyValue);
+                 
+            })
         .dotAdd(")");
 
     let function = ASTFunctionDef(
