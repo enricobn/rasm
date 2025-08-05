@@ -9,7 +9,7 @@ mprintln("{}, {}!", ASTValueExpression(ASTStringValue(h)), ASTValueExpression(AS
     fn(error)  { println(error);  });
 */
 
-pub fn println(s: str, e1: ASTExpression, e2: ASTExpression) -> MacroResult {
+pub fn println(s: str, e1: ASTExpression, e2: ASTExpression) -> MacroModuleResult {
     let indexes = s.find("{}");
 
     let result = indexes.enumerate.foldLeft(Pair(0, Vec<ASTExpression>()), fn(prev,e) {

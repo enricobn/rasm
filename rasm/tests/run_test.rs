@@ -701,6 +701,17 @@ fn test_tostring_macro() {
     );
 }
 
+#[test]
+fn test_format_macro() {
+    // TODO: asm
+    run_test_with_target(
+        "macro/format_macro",
+        vec![],
+        "Hello guy, how do you do?\n",
+        CompileTarget::C(COptions::default()),
+    );
+}
+
 // Compile tests
 
 #[test]

@@ -37,7 +37,9 @@ pub fn enrich_container(
         .into_modules()
         .into_iter()
         .for_each(|(id, ns, m, ro)| {
-            let (e_id, e_ns) = catalog.catalog_info(&id).unwrap();
+            let (e_id, e_ns) = catalog
+                .catalog_info(&id)
+                .expect(&format!("cannot find module with id {id}"));
             let info = EnhModuleInfo::new(e_id.clone(), e_ns.clone());
 
             let mut module = m;

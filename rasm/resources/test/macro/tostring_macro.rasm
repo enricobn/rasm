@@ -12,7 +12,7 @@ pub struct Point {
 
 println(Circle(Point(10, 20), 5));
 
-pub fn toString(s: ASTStructDef) -> MacroResult {
+pub fn toString(s: ASTStructDef) -> MacroModuleResult {
     let structRef = ASTValueRefExpression("s");
     
     let parameters = s.properties.map(fn(p) {

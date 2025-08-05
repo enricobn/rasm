@@ -20,7 +20,9 @@ use log::info;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ModuleId, ModuleNamespace};
 use rasm_parser::lexer::Lexer;
-use rasm_parser::parser::ast::{ASTModule, ASTPosition, ASTStatement};
+use rasm_parser::parser::ast::{
+    ASTExpression, ASTFunctionCall, ASTModule, ASTPosition, ASTStatement,
+};
 use rasm_parser::parser::{Parser, ParserError};
 use rasm_utils::OptionDisplay;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -49,7 +51,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::CompilationError;
-use crate::macros::macro_call_extractor::{extract_macro_calls, MacroCall};
+use crate::macros::macro_call_extractor::{extract_macro_calls, MacroCall, MacroResultType};
 use crate::macros::macro_module::create_macro_module;
 use crate::project::{RasmProject, RasmProjectRunType};
 use crate::transformations::enrich_container;
@@ -284,7 +286,7 @@ impl CompileTarget {
             RasmProjectRunType::Main
         };
 
-        let (container, mut catalog, errors) = project.container_and_catalog(&run_type, self);
+        let (mut container, mut catalog, errors) = project.container_and_catalog(&run_type, self);
 
         if !errors.is_empty() {
             for error in errors {
@@ -293,13 +295,13 @@ impl CompileTarget {
             exit(1);
         }
 
-        let extractor = extract_macro_calls(container, &catalog);
+        let extractor = extract_macro_calls(&container, &catalog);
 
         if extractor.calls().is_empty() {
             let out_file = out_folder.join(project.main_out_file_name(&command_line_options));
             self.compile(
                 &project,
-                extractor.container,
+                container,
                 &catalog,
                 start,
                 &command_line_options,
@@ -311,7 +313,9 @@ impl CompileTarget {
 
             // println!("macro module:\n {}", macro_module);
 
-            let mut container = extractor.container.clone();
+            let mut original_container = container.clone();
+            let orig_catalog = catalog.clone_catalog();
+
             container.remove_body();
 
             container.add(
@@ -321,9 +325,6 @@ impl CompileTarget {
                 false,
                 true,
             );
-
-            let orig_catalog = catalog.clone_catalog();
-            let mut original_container = extractor.container.clone();
 
             catalog.add(
                 EnhModuleId::Other("__macro".to_owned()),
@@ -366,15 +367,30 @@ impl CompileTarget {
             }
 
             for (call, (new_module, _)) in macro_modules {
-                // println!("created module from macro:\n {}", new_module);
-
                 if let Some((mut module, module_namespace)) =
                     original_container.remove_module(&call.module_id)
                 {
-                    if !new_module.body.is_empty() {
-                        self.replace_in_module(&mut module, &call.position, new_module.body);
+                    match call.macro_result_type {
+                        MacroResultType::Module => {
+                            if !new_module.body.is_empty() {
+                                self.replace_in_module_body(
+                                    &mut module,
+                                    &call.position,
+                                    new_module.body,
+                                );
+                            }
+                            module.functions.extend(new_module.functions);
+                        }
+                        MacroResultType::Expression => {
+                            self.replace_expression_in_module(
+                                &mut module,
+                                &call.position,
+                                new_module.body,
+                            );
+                        }
                     }
-                    module.functions.extend(new_module.functions);
+
+                    // println!("new module:\n{module}");
 
                     original_container.add(
                         module,
@@ -384,8 +400,6 @@ impl CompileTarget {
                         false,
                     );
                 }
-
-                // println!("output_s:\n{output_s}");
             }
 
             let out_file = out_folder.join(
@@ -418,16 +432,21 @@ impl CompileTarget {
 
         let output = command.output().unwrap();
         let output_s = String::from_utf8_lossy(&output.stdout).to_string();
+
+        // println!("output_s:\n{output_s}");
+
         let mut output_lines = output_s.lines();
         if let Some(first) = output_lines.next() {
-            let output_string = output_lines.collect::<Vec<_>>().join("\n");
-            if first == "MacroError" {
+            let mut output_string = output_lines.collect::<Vec<_>>().join("\n");
+            if first == "Error" {
                 if let Some(info) = catalog.catalog_info(call.module_id()) {
                     let index = EnhASTIndex::new(info.0.path(), call.position().clone());
                     panic!("{} in {}", output_string, index);
                 } else {
                     panic!("{} in {}", output_string, call.position());
                 }
+            } else if first == "Expression" {
+                output_string.push(';');
             }
 
             let lexer = Lexer::new(output_string);
@@ -439,7 +458,7 @@ impl CompileTarget {
         }
     }
 
-    fn replace_in_module(
+    fn replace_in_module_body(
         &self,
         module: &mut ASTModule,
         position: &ASTPosition,
@@ -449,7 +468,7 @@ impl CompileTarget {
             .body
             .iter()
             .enumerate()
-            .find(|(_, it)| it.position() == position)
+            .find(|(_, it)| it.position().id == position.id)
             .map(|(i, _)| i)
         {
             module.body.remove(i);
@@ -461,6 +480,90 @@ impl CompileTarget {
         }
 
         //println!("{module}");
+    }
+
+    fn replace_expression_in_module(
+        &self,
+        module: &mut ASTModule,
+        position: &ASTPosition,
+        new_body: Vec<ASTStatement>,
+    ) {
+        if new_body.len() != 1 {
+            panic!("Expected one single expression");
+        }
+
+        let statement = new_body[0].clone();
+
+        let expression = if let ASTStatement::ASTExpressionStatement(e) = statement {
+            e
+        } else {
+            panic!("Expected expression statement, got {statement}");
+        };
+
+        let new_body = module
+            .body
+            .iter()
+            .map(|statement| match statement {
+                ASTStatement::ASTExpressionStatement(astexpression) => {
+                    ASTStatement::ASTExpressionStatement(self.replace_expression_in_expression(
+                        astexpression,
+                        position,
+                        &expression,
+                    ))
+                }
+                ASTStatement::ASTLetStatement(name, astexpression, astposition) => {
+                    ASTStatement::ASTLetStatement(
+                        name.clone(),
+                        self.replace_expression_in_expression(astexpression, position, &expression),
+                        astposition.clone(),
+                    )
+                }
+                ASTStatement::ASTConstStatement(name, astexpression, astposition, astmodifiers) => {
+                    ASTStatement::ASTConstStatement(
+                        name.clone(),
+                        self.replace_expression_in_expression(astexpression, position, &expression),
+                        astposition.clone(),
+                        astmodifiers.clone(),
+                    )
+                }
+            })
+            .collect::<Vec<_>>();
+
+        module.body = new_body;
+
+        //println!("{module}");
+    }
+
+    fn replace_expression_in_expression(
+        &self,
+        from: &ASTExpression,
+        position: &ASTPosition,
+        to: &ASTExpression,
+    ) -> ASTExpression {
+        if from.position().id == position.id {
+            to.clone()
+        } else {
+            match from {
+                ASTExpression::ASTFunctionCallExpression(call) => {
+                    let new_parameters = call
+                        .parameters()
+                        .iter()
+                        .map(|it| self.replace_expression_in_expression(it, position, to))
+                        .collect::<Vec<_>>();
+                    ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
+                        call.function_name().clone(),
+                        new_parameters,
+                        call.position().clone(),
+                        call.generics().clone(),
+                        call.target().clone(),
+                        call.is_macro(),
+                    ))
+                }
+                ASTExpression::ASTValueRefExpression(_, _) => from.clone(),
+                ASTExpression::ASTValueExpression(_, _) => from.clone(),
+                ASTExpression::ASTLambdaExpression(_) => from.clone(), // TODO
+            }
+        }
     }
 
     fn compile(

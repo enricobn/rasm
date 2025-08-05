@@ -1,5 +1,10 @@
-pub enum MacroResult {
+pub enum MacroModuleResult {
     MacroModule(module: ASTModule),
+    MacroError(message: str)
+}
+
+pub enum MacroExpressionResult {
+    MacroExpression(expr: ASTExpression),
     MacroError(message: str)
 }
 

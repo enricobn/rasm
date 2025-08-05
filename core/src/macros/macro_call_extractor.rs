@@ -16,16 +16,11 @@ use crate::{
 };
 
 pub struct MacroCallExtractor {
-    pub container: ASTModulesContainer,
     pub calls: Vec<MacroCall>,
     pub attribute_macros: Vec<MacroCall>,
 }
 
 impl MacroCallExtractor {
-    pub fn container(&self) -> &ASTModulesContainer {
-        &self.container
-    }
-
     pub fn calls(&self) -> Vec<&MacroCall> {
         self.calls
             .iter()
@@ -45,6 +40,7 @@ pub struct MacroCall {
     pub module_id: ModuleId,
     pub position: ASTPosition,
     pub transformed_macro: ASTFunctionCall,
+    pub macro_result_type: MacroResultType,
 }
 
 impl MacroCall {
@@ -70,11 +66,11 @@ impl MacroCall {
 }
 
 pub fn extract_macro_calls(
-    container: ASTModulesContainer,
+    container: &ASTModulesContainer,
     catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
 ) -> MacroCallExtractor {
     info!("extract macro calls");
-    let mut new_container = ASTModulesContainer::new();
+    //let mut new_container = ASTModulesContainer::new();
     let mut calls = Vec::new();
     let mut attribute_macros = Vec::new();
 
@@ -83,21 +79,16 @@ pub fn extract_macro_calls(
         .into_par_iter()
         .map(|(id, namespace, module)| {
             let mut calls = Vec::new();
-            let mut new_module = module.clone();
-            new_module.functions.clear();
+
             for function in module.functions.iter() {
-                let mut new_function = function.clone();
                 if let ASTFunctionBody::RASMBody(ref body) = function.body {
-                    let new_statements = transform_macro_calls_in_body(
+                    extract_macro_calls_in_body(
                         &container, catalog, &namespace, &id, body, &mut calls,
                     );
-                    new_function.body = ASTFunctionBody::RASMBody(new_statements);
                 }
-
-                new_module.add_function(new_function);
             }
 
-            new_module.body = transform_macro_calls_in_body(
+            extract_macro_calls_in_body(
                 &container,
                 catalog,
                 &namespace,
@@ -105,19 +96,12 @@ pub fn extract_macro_calls(
                 &module.body,
                 &mut calls,
             );
-            (id, namespace, new_module, calls)
+            (id, namespace, calls)
         })
         .collect::<Vec<_>>();
 
-    for (id, namespace, new_module, module_calls) in new_modules.into_iter() {
+    for (id, namespace, module_calls) in new_modules.into_iter() {
         calls.extend(module_calls);
-        new_container.add(
-            new_module,
-            namespace.clone(),
-            id.clone(),
-            false,
-            container.is_readonly_module(id),
-        );
     }
 
     // TODO parallelize?
@@ -137,7 +121,6 @@ pub fn extract_macro_calls(
 
     info!("end extracting macro calls");
     MacroCallExtractor {
-        container: new_container,
         calls,
         attribute_macros,
     }
@@ -151,46 +134,81 @@ fn get_next_macro_id() -> usize {
     MACRO_ID_COUNTER.fetch_add(1, Ordering::SeqCst)
 }
 
-fn transform_macro_calls_in_body(
+fn extract_macro_calls_in_body(
     container: &ASTModulesContainer,
     catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     module_namespace: &ModuleNamespace,
     module_id: &ModuleId,
     body: &Vec<ASTStatement>,
     calls: &mut Vec<MacroCall>,
-) -> Vec<ASTStatement> {
-    let mut new_statements = Vec::with_capacity(body.len());
+) {
     for statement in body.iter() {
-        if let ASTStatement::ASTExpressionStatement(expr) = statement {
-            if let ASTExpression::ASTFunctionCallExpression(call) = expr {
-                if call.is_macro() {
-                    let macro_call = get_macro_call(
-                        MacroType::Standard,
-                        call,
+        match statement {
+            ASTStatement::ASTExpressionStatement(expression) => extract_macro_calls_in_expression(
+                container,
+                catalog,
+                module_namespace,
+                module_id,
+                expression,
+                calls,
+            ),
+            ASTStatement::ASTLetStatement(_, expression, _) => extract_macro_calls_in_expression(
+                container,
+                catalog,
+                module_namespace,
+                module_id,
+                expression,
+                calls,
+            ),
+            ASTStatement::ASTConstStatement(_, expression, _, _) => {
+                extract_macro_calls_in_expression(
+                    container,
+                    catalog,
+                    module_namespace,
+                    module_id,
+                    expression,
+                    calls,
+                )
+            }
+        }
+    }
+}
+
+fn extract_macro_calls_in_expression(
+    container: &ASTModulesContainer,
+    catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    module_namespace: &ModuleNamespace,
+    module_id: &ModuleId,
+    expression: &ASTExpression,
+    calls: &mut Vec<MacroCall>,
+) {
+    match expression {
+        ASTExpression::ASTFunctionCallExpression(function_call) => {
+            if function_call.is_macro() {
+                calls.push(get_macro_call(
+                    MacroType::Standard,
+                    function_call,
+                    container,
+                    catalog,
+                    module_namespace,
+                    module_id,
+                ));
+            } else {
+                function_call.parameters().iter().for_each(|it| {
+                    extract_macro_calls_in_expression(
                         container,
                         catalog,
                         module_namespace,
                         module_id,
-                    );
-                    let placeholder_statement = ASTStatement::ASTLetStatement(
-                        format!("macroCall{}", macro_call.id),
-                        ASTExpression::ASTValueExpression(
-                            ASTValue::ASTIntegerValue(macro_call.id.try_into().unwrap()),
-                            call.position().mv_right(1),
-                        ),
-                        call.position().clone(),
-                    );
-
-                    calls.push(macro_call);
-
-                    new_statements.push(placeholder_statement);
-                    continue;
-                }
+                        it,
+                        calls,
+                    )
+                });
             }
         }
-        new_statements.push(statement.clone());
+        //TODO ASTExpression::ASTLambdaExpression(astlambda_def) => todo!(),
+        _ => (),
     }
-    new_statements
 }
 
 fn get_macro_call(
@@ -205,9 +223,11 @@ fn get_macro_call(
         .signatures()
         .into_iter()
         .filter(|it| &it.signature.name == call.function_name())
-        .filter(|it| {
-            (it.signature.modifiers.public || it.module_info().namespace() == module_namespace)
-                && is_macro_result(&it.signature.return_type)
+        .map(|it| (it, get_macro_result_type(&it.signature.return_type)))
+        .filter(|(entry, result_type)| {
+            (entry.signature.modifiers.public
+                || entry.module_info().namespace() == module_namespace)
+                && result_type.is_some()
         })
         .collect::<Vec<_>>();
     if functions_vec.is_empty() {
@@ -226,7 +246,7 @@ fn get_macro_call(
         );
     }
 
-    let function = functions_vec[0];
+    let (function, macro_result_type) = functions_vec[0];
 
     let fixed_parameters = match macro_type {
         MacroType::StructAttribute(s) => {
@@ -392,6 +412,7 @@ fn get_macro_call(
         module_id: module_id.clone(),
         position: call.position().clone(),
         transformed_macro,
+        macro_result_type: macro_result_type.unwrap(),
     }
 }
 
@@ -408,14 +429,28 @@ fn error(
     panic!("{} : {}:{}", message, enh_module_id, position);
 }
 
-fn is_macro_result(ast_type: &ASTType) -> bool {
+#[derive(Clone, Copy)]
+pub enum MacroResultType {
+    Module,
+    Expression,
+}
+
+fn get_macro_result_type(ast_type: &ASTType) -> Option<MacroResultType> {
     match ast_type {
         ASTType::ASTCustomType {
             name,
             param_types: _,
             position: _,
-        } => name == "MacroResult",
-        _ => false,
+        } => {
+            if name == "MacroModuleResult" {
+                Some(MacroResultType::Module)
+            } else if name == "MacroExpressionResult" {
+                Some(MacroResultType::Expression)
+            } else {
+                None
+            }
+        }
+        _ => None,
     }
 }
 

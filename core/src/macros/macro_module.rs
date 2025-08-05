@@ -5,7 +5,7 @@ use rasm_parser::{
     parser::{ast::ASTModule, Parser},
 };
 
-use crate::macros::macro_call_extractor::MacroCallExtractor;
+use crate::macros::macro_call_extractor::{MacroCallExtractor, MacroResultType};
 
 /// Creates a new module from a macro call extractor, with a function for each macro call and a body
 /// that gets a number as an argument, that is the macro id, then calls the related function and
@@ -31,9 +31,20 @@ pub fn create_macro_module(mce: &MacroCallExtractor) -> ASTModule {
             "let macroResult = {};\n",
             call.transformed_macro()
         ));
-        body.push_str(
-            "macroResult.match(fn (module) { \"MacroModule\\n\".append(module); }, fn (message) { \"MacroError\\n\".add(message); });\n",
+
+        match &call.macro_result_type {
+            MacroResultType::Module => {
+                body.push_str(
+            "macroResult.match(fn (module) { \"Module\\n\".append(module); }, fn (message) { \"Error\\n\".add(message); });\n",
         );
+            }
+            MacroResultType::Expression => {
+                body.push_str(
+            "macroResult.match(fn (expr) { \"Expression\\n\".append(expr); }, fn (message) { \"Error\\n\".add(message); });\n",
+        );
+            }
+        }
+
         //body.push_str(&format!("{}.toString();", call.transformed_macro()));
         body.push_str("}\n");
     }
@@ -62,17 +73,13 @@ mod tests {
         parser::ast::{ASTFunctionCall, ASTPosition},
     };
 
-    use crate::{
-        macros::macro_call_extractor::MacroCall,
-        type_check::ast_modules_container::ASTModulesContainer,
-    };
+    use crate::macros::macro_call_extractor::{MacroCall, MacroResultType};
 
     use super::*;
 
     #[test]
     fn test_create_macro_module() {
         let mce = MacroCallExtractor {
-            container: ASTModulesContainer::new(),
             calls: vec![MacroCall {
                 id: 1,
                 module_namespace: ModuleNamespace::global(),
@@ -86,6 +93,7 @@ mod tests {
                     None,
                     false,
                 ),
+                macro_result_type: MacroResultType::Module,
             }],
             attribute_macros: Vec::new(),
         };
