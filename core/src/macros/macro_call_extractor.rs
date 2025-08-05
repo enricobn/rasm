@@ -8,6 +8,7 @@ use rasm_parser::{
         ASTType, ASTValue,
     },
 };
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     codegen::enh_ast::{EnhASTNameSpace, EnhModuleId},
@@ -72,34 +73,44 @@ pub fn extract_macro_calls(
     container: ASTModulesContainer,
     catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
 ) -> MacroCallExtractor {
-    info!("transform_macro_calls");
+    info!("extract macro calls");
     let mut new_container = ASTModulesContainer::new();
     let mut calls = Vec::new();
     let mut attribute_macros = Vec::new();
-    for (id, namespace, module) in container.modules().into_iter() {
-        let mut new_module = module.clone().clone();
-        new_module.functions.clear();
-        for function in module.functions.iter() {
-            let mut new_function = function.clone();
-            if let ASTFunctionBody::RASMBody(ref body) = function.body {
-                let new_statements = transform_macro_calls_in_body(
-                    &container, catalog, &namespace, &id, body, &mut calls,
-                );
-                new_function.body = ASTFunctionBody::RASMBody(new_statements);
+
+    let new_modules = container
+        .modules()
+        .into_par_iter()
+        .map(|(id, namespace, module)| {
+            let mut calls = Vec::new();
+            let mut new_module = module.clone();
+            new_module.functions.clear();
+            for function in module.functions.iter() {
+                let mut new_function = function.clone();
+                if let ASTFunctionBody::RASMBody(ref body) = function.body {
+                    let new_statements = transform_macro_calls_in_body(
+                        &container, catalog, &namespace, &id, body, &mut calls,
+                    );
+                    new_function.body = ASTFunctionBody::RASMBody(new_statements);
+                }
+
+                new_module.add_function(new_function);
             }
 
-            new_module.add_function(new_function);
-        }
+            new_module.body = transform_macro_calls_in_body(
+                &container,
+                catalog,
+                &namespace,
+                &id,
+                &module.body,
+                &mut calls,
+            );
+            (id, namespace, new_module, calls)
+        })
+        .collect::<Vec<_>>();
 
-        new_module.body = transform_macro_calls_in_body(
-            &container,
-            catalog,
-            &namespace,
-            &id,
-            &module.body,
-            &mut calls,
-        );
-
+    for (id, namespace, new_module, module_calls) in new_modules.into_iter() {
+        calls.extend(module_calls);
         new_container.add(
             new_module,
             namespace.clone(),
@@ -109,6 +120,7 @@ pub fn extract_macro_calls(
         );
     }
 
+    // TODO parallelize?
     for (info, s) in container.struct_defs().iter() {
         for attribute_macro in s.attribute_macros.iter() {
             let macro_call = get_macro_call(
@@ -123,7 +135,7 @@ pub fn extract_macro_calls(
         }
     }
 
-    info!("end transform_macro_calls");
+    info!("end extracting macro calls");
     MacroCallExtractor {
         container: new_container,
         calls,

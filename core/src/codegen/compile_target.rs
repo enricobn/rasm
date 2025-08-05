@@ -21,8 +21,9 @@ use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ModuleId, ModuleNamespace};
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast::{ASTModule, ASTPosition, ASTStatement};
-use rasm_parser::parser::Parser;
+use rasm_parser::parser::{Parser, ParserError};
 use rasm_utils::OptionDisplay;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -48,7 +49,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_typed_module, AsmOptions, CodeGen};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::CompilationError;
-use crate::macros::macro_call_extractor::extract_macro_calls;
+use crate::macros::macro_call_extractor::{extract_macro_calls, MacroCall};
 use crate::macros::macro_module::create_macro_module;
 use crate::project::{RasmProject, RasmProjectRunType};
 use crate::transformations::enrich_container;
@@ -346,54 +347,42 @@ impl CompileTarget {
                 out_file.clone(),
             );
 
-            for call in extractor.calls() {
-                let mut command = Command::new(out_file.clone());
-                command.arg(call.id.to_string());
+            let macro_modules = extractor
+                .calls()
+                .par_iter()
+                .map(|it| (*it, Self::evaluate_macro(&catalog, out_file.clone(), it)))
+                .collect::<Vec<_>>();
 
-                let output = command.output().unwrap();
-                let output_s = String::from_utf8_lossy(&output.stdout).to_string();
-                let mut output_lines = output_s.lines();
-                if let Some(first) = output_lines.next() {
-                    let output_string = output_lines.collect::<Vec<_>>().join("\n");
-                    if first == "MacroError" {
-                        if let Some(info) = catalog.catalog_info(call.module_id()) {
-                            let index = EnhASTIndex::new(info.0.path(), call.position().clone());
-                            panic!("{} in {}", output_string, index);
-                        } else {
-                            panic!("{} in {}", output_string, call.position());
-                        }
+            let macro_errors = macro_modules
+                .iter()
+                .flat_map(|it| it.1 .1.iter())
+                .collect::<Vec<_>>();
+
+            if !macro_errors.is_empty() {
+                for error in macro_errors {
+                    eprintln!("{error}");
+                }
+                panic!()
+            }
+
+            for (call, (new_module, _)) in macro_modules {
+                // println!("created module from macro:\n {}", new_module);
+
+                if let Some((mut module, module_namespace)) =
+                    original_container.remove_module(&call.module_id)
+                {
+                    if !new_module.body.is_empty() {
+                        self.replace_in_module(&mut module, &call.position, new_module.body);
                     }
+                    module.functions.extend(new_module.functions);
 
-                    let lexer = Lexer::new(output_string);
-
-                    let parser = Parser::new(lexer);
-                    let (new_module, errors) = parser.parse();
-
-                    // println!("created module from macro:\n {}", new_module);
-
-                    if !errors.is_empty() {
-                        for error in errors {
-                            eprintln!("{error}");
-                        }
-                        panic!()
-                    }
-
-                    if let Some((mut module, module_namespace)) =
-                        original_container.remove_module(&call.module_id)
-                    {
-                        if !new_module.body.is_empty() {
-                            self.replace_in_module(&mut module, &call.position, new_module.body);
-                        }
-                        module.functions.extend(new_module.functions);
-
-                        original_container.add(
-                            module,
-                            module_namespace,
-                            call.module_id.clone(),
-                            false,
-                            false,
-                        );
-                    }
+                    original_container.add(
+                        module,
+                        module_namespace,
+                        call.module_id.clone(),
+                        false,
+                        false,
+                    );
                 }
 
                 // println!("output_s:\n{output_s}");
@@ -416,6 +405,37 @@ impl CompileTarget {
                 out_folder,
                 out_file.clone(),
             );
+        }
+    }
+
+    fn evaluate_macro(
+        catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        macro_program: PathBuf,
+        call: &MacroCall,
+    ) -> (ASTModule, Vec<ParserError>) {
+        let mut command = Command::new(macro_program);
+        command.arg(call.id.to_string());
+
+        let output = command.output().unwrap();
+        let output_s = String::from_utf8_lossy(&output.stdout).to_string();
+        let mut output_lines = output_s.lines();
+        if let Some(first) = output_lines.next() {
+            let output_string = output_lines.collect::<Vec<_>>().join("\n");
+            if first == "MacroError" {
+                if let Some(info) = catalog.catalog_info(call.module_id()) {
+                    let index = EnhASTIndex::new(info.0.path(), call.position().clone());
+                    panic!("{} in {}", output_string, index);
+                } else {
+                    panic!("{} in {}", output_string, call.position());
+                }
+            }
+
+            let lexer = Lexer::new(output_string);
+
+            let parser = Parser::new(lexer);
+            parser.parse()
+        } else {
+            panic!("Expected a macro result.")
         }
     }
 
