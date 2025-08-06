@@ -1,6 +1,6 @@
 Doing
 ------
-- optimize / refactor C target codegen
+- macros
 
 Bug
 ----
@@ -28,24 +28,8 @@ Road to language version 1.0.0 (not compiler)
 - array type?
 - macro:
   - support a Vec of ASTExpression as the last parameter, and consider it as a varargs
-  - support MacroResult to be an expression
-  - attribute macro:
-  - it could be a standard function that takes as first argument:
-    - ASTStructDef
-    - ASTEnumDef
-    - ASTFunctionDef
-    it could be called as a standard function with @:
-    
-    toString@()
-    pub struct MyStruct {
-      a: str
-    }
-
-    fn toString(def: ASTStructDef) -> MacroResult {
-      
-    }
-
-
+  - attribute macro for structs and functions
+  - resolve macros in functions and lambdas
   
 Major
 -----

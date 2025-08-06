@@ -1,4 +1,4 @@
-let h = "guy";
+let h = "Joe";
 let w = "how do you do";
 
 println!("Hello {}, {}?", h, w);
