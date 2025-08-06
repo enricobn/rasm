@@ -27,7 +27,6 @@ Road to language version 1.0.0 (not compiler)
 -----------------------------------------------
 - array type?
 - macro:
-  - support a Vec of ASTExpression as the last parameter, and consider it as a varargs
   - attribute macro for structs and functions
   - resolve macros in functions and lambdas
   

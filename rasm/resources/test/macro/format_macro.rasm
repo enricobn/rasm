@@ -1,8 +1,42 @@
 let h = "Joe";
 let w = "how do you do";
 
-println(format!("Hello {}, {}?", h, w));
+println(format!("Hello {}, {}{}", h, w, "?"));
 
+pub fn format(s: str, exprs: Vec<ASTExpression>) -> MacroExpressionResult {
+    let indexes = s.find("{}");
+
+    let expressions = indexes.zip(exprs, fn(a,b) { Pair(a, b); }).foldLeft(Pair(0, Vec<ASTExpression>()), fn(prev,e) {
+        let charIndex = e.first;
+        let prefix = s.substr(prev.first, charIndex.sub(prev.first)).orEmpty;
+        let newExpressions = 
+            prev.second
+            .push(ASTValueExpression(ASTStringValue(prefix)))
+            .push(e.second);
+        Pair(charIndex.add(2), newExpressions);
+    });
+
+    let finalExpressions = 
+        if(expressions.first.less(s.len.sub(1)), 
+            {expressions.second;}, 
+            {
+                let end = s.substr(expressions.first, s.len.sub(expressions.first)).orEmpty;
+                expressions.second.push(stringValue(end));
+            });
+
+    let result = finalExpressions.foldLeft(stringValue(""), fn(prev, act) {
+        prev.dotAppend(act);
+    });
+
+    if(indexes.len.eq(exprs.len), {
+        MacroExpression(result);
+    }, {
+        MacroExpressionResult::MacroError("Expected ".append(exprs.len).add(" parameters, got ".append(indexes.len.toString()));
+    });
+}
+
+
+/*
 pub fn format(s: str, e1: ASTExpression, e2: ASTExpression) -> MacroExpressionResult {
     let indexes = s.find("{}");
 
@@ -35,6 +69,7 @@ pub fn format(s: str, e1: ASTExpression, e2: ASTExpression) -> MacroExpressionRe
         MacroExpressionResult::MacroError("Expected two parameters, got ".append(indexes.len.toString()));
     });
 }
+*/
 
 fn orEmpty(o: Option<str>) -> str {
    o.match(fn(s) {s;}, {"";});

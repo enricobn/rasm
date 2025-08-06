@@ -1,7 +1,7 @@
 let h = "Joe";
 let w = "how do you do";
 
-println!("Hello {}, {}?", h, w);
+println!("Hello {}, {}{}", h, w, "?");
 
 /*
 mprintln("{}, {}!", ASTValueExpression(ASTStringValue(h)), ASTValueExpression(ASTStringValue(w))).match(
@@ -9,17 +9,16 @@ mprintln("{}, {}!", ASTValueExpression(ASTStringValue(h)), ASTValueExpression(AS
     fn(error)  { println(error);  });
 */
 
-pub fn println(s: str, e1: ASTExpression, e2: ASTExpression) -> MacroModuleResult {
+pub fn println(s: str, , exprs: Vec<ASTExpression>) -> MacroModuleResult {
     let indexes = s.find("{}");
 
-    let result = indexes.enumerate.foldLeft(Pair(0, Vec<ASTExpression>()), fn(prev,e) {
-        let exprIndex = e.index;
-        let charIndex = e.value;
+    let result = indexes.zip(exprs, fn(a,b) { Pair(a, b); }).foldLeft(Pair(0, Vec<ASTExpression>()), fn(prev,e) {
+        let charIndex = e.first;
         let prefix = s.substr(prev.first, charIndex.sub(prev.first)).orEmpty;
         let newExpressions = 
             prev.second
             .push(ASTValueExpression(ASTStringValue(prefix)))
-            .push(if(exprIndex.eq(0), e1, e2));
+            .push(e.second);
         Pair(charIndex.add(2), newExpressions);
     });
 
@@ -34,12 +33,14 @@ pub fn println(s: str, e1: ASTExpression, e2: ASTExpression) -> MacroModuleResul
             })
         .push(simpleCall("println", Vec()));
 
-    if(indexes.len.eq(2), {
+    if(indexes.len.eq(exprs.len), {
         MacroModule(ASTModule(
             finalCalls
             , Vec(), Vec(), Vec(), Vec()
         ));
-    }, {MacroError("Expected two parameters, got ".append(indexes.len.toString()));});
+    }, {
+        MacroModuleResult::MacroError("Expected ".append(exprs.len).add(" parameters, got ".append(indexes.len.toString()));
+    });
 }
 
 fn orEmpty(o: Option<str>) -> str {

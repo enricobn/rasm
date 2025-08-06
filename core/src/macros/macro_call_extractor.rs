@@ -1,5 +1,3 @@
-use std::iter::zip;
-
 use log::info;
 use rasm_parser::{
     catalog::{modules_catalog::ModulesCatalog, ASTIndex, ModuleId, ModuleNamespace},
@@ -100,7 +98,7 @@ pub fn extract_macro_calls(
         })
         .collect::<Vec<_>>();
 
-    for (id, namespace, module_calls) in new_modules.into_iter() {
+    for (_, _, module_calls) in new_modules.into_iter() {
         calls.extend(module_calls);
     }
 
@@ -231,18 +229,24 @@ fn get_macro_call(
         })
         .collect::<Vec<_>>();
     if functions_vec.is_empty() {
-        error(
-            catalog,
-            module_id,
-            call.position(),
-            format!("Macro {} not found", call.function_name()),
+        panic!(
+            "{}",
+            error(
+                catalog,
+                module_id,
+                call.position(),
+                format!("Macro {} not found", call.function_name()),
+            )
         );
     } else if functions_vec.len() > 1 {
-        error(
-            catalog,
-            module_id,
-            call.position(),
-            format!("Macro {} is ambiguous", call.function_name()),
+        panic!(
+            "{}",
+            error(
+                catalog,
+                module_id,
+                call.position(),
+                format!("Macro {} is ambiguous", call.function_name()),
+            )
         );
     }
 
@@ -319,85 +323,175 @@ fn get_macro_call(
                 ),
             ));
 
-            vec![ASTExpression::ASTFunctionCallExpression(
-                ASTFunctionCall::new(
+            vec![(
+                ASTType::ASTCustomType {
+                    name: "ASTStructDef".to_string(),
+                    param_types: Vec::new(),
+                    position: ASTPosition::none(),
+                },
+                ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
                     "ASTStructDef".to_string(),
                     parameters,
                     call.position().mv_right(2),
                     Vec::new(),
                     None,
                     false,
-                ),
+                )),
             )]
         }
         MacroType::Standard => Vec::new(),
     };
 
-    if function.signature.parameters_types.len()
-        != (call.parameters().len() + fixed_parameters.len())
-    {
-        error(
-            catalog,
-            module_id,
-            call.position(),
-            format!(
-                "Macro {} expects {} arguments, but {} were given",
-                call.function_name(),
-                function.signature.parameters_types.len() - fixed_parameters.len(),
-                call.parameters().len()
-            ),
-        );
-    }
+    let mut custom_parameters = Vec::new();
+    let mut function_par_types = function.signature.parameters_types.iter();
+    let mut call_pars = call.parameters().iter();
+    let mut errors = Vec::new();
 
-    let custom_parameters = zip(
-        function.signature.parameters_types.iter(),
-        call.parameters().iter(),
-    )
-    .map(|(parameter_type, parameter)| {
-        let is_expression = if let ASTType::ASTCustomType {
-            name,
-            param_types: _,
-            position: _,
-        } = parameter_type
-        {
-            name == "ASTExpression"
-        } else {
-            false
-        };
-
-        if is_expression {
-            // convert the parameter to a rasm expression
-            convert_to_rasm_expression(container, module_namespace, module_id, parameter)
-        } else if let ASTExpression::ASTValueExpression(_, _) = parameter {
-            // TODO lambda is allowed)?
-            if let ASTType::ASTBuiltinType(_) = parameter_type {
-                parameter.clone()
+    for (ast_type, expr) in fixed_parameters {
+        let next_function_par_type = function_par_types.next();
+        if let Some(function_par_type) = next_function_par_type {
+            if &ast_type != function_par_type {
+                errors.push(error(
+                    catalog,
+                    module_id,
+                    call.position(),
+                    format!("Expected {ast_type} got {function_par_type}"),
+                ));
             } else {
-                panic!(
-                    "Type {} is not allowed as a macro parameter: {}",
-                    parameter_type,
-                    function.index()
-                );
+                custom_parameters.push(expr);
             }
         } else {
-            panic!(
-                "Only ASTExpression or constant is allowed as a macro parameter : {}",
-                ASTIndex::new(
-                    module_namespace.clone(),
-                    module_id.clone(),
-                    call.position().clone()
-                )
-            );
+            errors.push(error(
+                catalog,
+                module_id,
+                call.position(),
+                format!("Expected {ast_type}"),
+            ));
         }
-    })
-    .collect::<Vec<_>>();
+    }
+
+    while errors.is_empty() {
+        let next_function_par_type = function_par_types.next();
+        let mut next_call_par = call_pars.next();
+
+        if let Some(function_par_type) = next_function_par_type {
+            if is_vec_of_expressions(function_par_type) {
+                let mut vec_of_expressions = Vec::new();
+                while let Some(call_par) = next_call_par {
+                    vec_of_expressions.push(convert_to_rasm_expression(
+                        container,
+                        module_namespace,
+                        module_id,
+                        call_par,
+                    ));
+                    next_call_par = call_pars.next();
+                }
+                if vec_of_expressions.is_empty() {
+                    custom_parameters.push(simple_call(
+                        "Vec",
+                        Vec::new(),
+                        ASTPosition::none(),
+                        None,
+                    ));
+                } else {
+                    custom_parameters.push(simple_call(
+                        "vecOf",
+                        vec_of_expressions,
+                        ASTPosition::none(),
+                        None,
+                    ));
+                }
+            } else if let Some(call_par) = next_call_par {
+                if is_expression(function_par_type) {
+                    // convert the parameter to a rasm expression
+                    custom_parameters.push(convert_to_rasm_expression(
+                        container,
+                        module_namespace,
+                        module_id,
+                        call_par,
+                    ));
+                } else if let ASTExpression::ASTValueExpression(_, _) = call_par {
+                    // TODO lambda is allowed)?
+                    if let ASTType::ASTBuiltinType(_) = function_par_type {
+                        custom_parameters.push(call_par.clone())
+                    } else {
+                        errors.push(format!(
+                            "Type {} is not allowed as a macro parameter: {}",
+                            function_par_type,
+                            function.index()
+                        ));
+                    }
+                } else {
+                    errors.push(format!(
+                        "Only ASTExpression or constant is allowed as a macro parameter : {}",
+                        ASTIndex::new(
+                            module_namespace.clone(),
+                            module_id.clone(),
+                            call_par.position().clone()
+                        )
+                    ));
+                }
+            } else {
+                errors.push(error(
+                    catalog,
+                    module_id,
+                    call.position(),
+                    format!("Unmatched parameters"),
+                ));
+            }
+        } else if next_call_par.is_some() {
+            errors.push(error(
+                catalog,
+                module_id,
+                call.position(),
+                format!("Unmatched parameters"),
+            ));
+        } else {
+            break;
+        }
+    }
+
+    if !errors.is_empty() {
+        panic!("{}", errors[0]);
+    }
+
+    /*
+        let custom_parameters = zip(
+            function.signature.parameters_types.iter(),
+            call.parameters().iter(),
+        )
+        .map(|(parameter_type, parameter)| {
+            if is_expression(parameter_type) {
+                // convert the parameter to a rasm expression
+                convert_to_rasm_expression(container, module_namespace, module_id, parameter)
+            } else if let ASTExpression::ASTValueExpression(_, _) = parameter {
+                // TODO lambda is allowed)?
+                if let ASTType::ASTBuiltinType(_) = parameter_type {
+                    parameter.clone()
+                } else {
+                    panic!(
+                        "Type {} is not allowed as a macro parameter: {}",
+                        parameter_type,
+                        function.index()
+                    );
+                }
+            } else {
+                panic!(
+                    "Only ASTExpression or constant is allowed as a macro parameter : {}",
+                    ASTIndex::new(
+                        module_namespace.clone(),
+                        module_id.clone(),
+                        call.position().clone()
+                    )
+                );
+            }
+        })
+        .collect::<Vec<_>>();
+    */
 
     let transformed_macro = ASTFunctionCall::new(
         call.function_name().clone(),
-        fixed_parameters
-            .into_iter()
-            .chain(custom_parameters.into_iter())
-            .collect(),
+        custom_parameters,
         call.position().clone(),
         call.generics().clone(),
         call.target().clone(),
@@ -416,17 +510,47 @@ fn get_macro_call(
     }
 }
 
+fn is_vec_of_expressions(ast_type: &ASTType) -> bool {
+    if let ASTType::ASTCustomType {
+        name,
+        param_types,
+        position: _,
+    } = ast_type
+    {
+        if name == "Vec" && param_types.len() == 1 {
+            if let Some(param_type) = param_types.last() {
+                return is_expression(param_type);
+            }
+        }
+    }
+    false
+}
+
+fn is_expression(ast_type: &ASTType) -> bool {
+    if let ASTType::ASTCustomType {
+        name,
+        param_types: _,
+        position: _,
+    } = ast_type
+    {
+        if name == "ASTExpression" {
+            return true;
+        }
+    }
+    false
+}
+
 fn error(
     catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     module_id: &ModuleId,
     position: &ASTPosition,
     message: String,
-) {
+) -> String {
     let enh_module_id = catalog
         .catalog_info(&module_id)
         .map(|it| it.0.clone())
         .unwrap_or(EnhModuleId::none());
-    panic!("{} : {}:{}", message, enh_module_id, position);
+    format!("{} : {}:{}", message, enh_module_id, position)
 }
 
 #[derive(Clone, Copy)]
