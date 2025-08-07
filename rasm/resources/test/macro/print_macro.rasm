@@ -11,30 +11,3 @@ printInFunction(10);
 fn printInFunction(n: int) {
     println!("an int {}", n);
 }
-
-pub fn println(s: str, , exprs: Vec<ASTExpression>) -> MacroModuleResult {
-    let parameters = vecOf(ASTValueExpression(ASTStringValue(s))).add(exprs);
-    let f = ASTFunctionCallExpression(ASTFunctionCall("format", parameters, Vec(), None(), true));
-    let statement = ASTExpressionStatement(simpleCall("println", vecOf(f)));
-    MacroModule(ASTModule(
-            vecOf(statement), Vec(), Vec(), Vec(), Vec()
-        ));
-}
-
-fn orEmpty(o: Option<str>) -> str {
-   o.match(fn(s) {s;}, {"";});
-}
-
-fn find(s: str, v: str) -> Vec<int> {
-    vecRange(0, s.len.sub(v.len()).add(1))
-    .map(fn(i) {
-        Pair(i, s.substr(i, v.len));
-    }).filter(fn(it) { 
-        it.second.match(fn(found) { found.eq(v); }, { false; });
-    })
-    .map(fn(it) { it.first; });
-}
-
-fn simpleCall(f: str, parameters: Vec<ASTExpression>) -> ASTExpression {
-    ASTFunctionCallExpression(ASTFunctionCall(f, parameters, Vec(), None(), false));
-}
