@@ -654,6 +654,10 @@ impl ASTFunctionCall {
         &self.parameters
     }
 
+    pub fn parameters_mut(&mut self) -> &mut Vec<ASTExpression> {
+        &mut self.parameters
+    }
+
     pub fn position(&self) -> &ASTPosition {
         &self.position
     }

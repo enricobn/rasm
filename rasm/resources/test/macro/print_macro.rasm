@@ -3,11 +3,14 @@ let w = "how do you do";
 
 println!("Hello {}, {}{}", h, w, "?");
 
-/*
-mprintln("{}, {}!", ASTValueExpression(ASTStringValue(h)), ASTValueExpression(ASTStringValue(w))).match(
-    fn(module) { println(module); }, 
-    fn(error)  { println(error);  });
-*/
+range(1, 2)
+.forEach(fn(i) { println!("Number {}", i); });
+
+printInFunction(10);
+
+fn printInFunction(n: int) {
+    println!("an int {}", n);
+}
 
 pub fn println(s: str, , exprs: Vec<ASTExpression>) -> MacroModuleResult {
     let indexes = s.find("{}");

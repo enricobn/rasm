@@ -3,6 +3,15 @@ let w = "how do you do";
 
 println(format!("Hello {}, {}{}", h, w, "?"));
 
+range(1, 2)
+.forEach(fn(i) { println(format!("Number {}", i)); });
+
+printInFunction(10);
+
+fn printInFunction(n: int) {
+    println(format!("an int {}", n));
+}
+
 pub fn format(s: str, exprs: Vec<ASTExpression>) -> MacroExpressionResult {
     let indexes = s.find("{}");
 

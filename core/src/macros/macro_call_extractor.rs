@@ -204,7 +204,14 @@ fn extract_macro_calls_in_expression(
                 });
             }
         }
-        //TODO ASTExpression::ASTLambdaExpression(astlambda_def) => todo!(),
+        ASTExpression::ASTLambdaExpression(lambda_def) => extract_macro_calls_in_body(
+            container,
+            catalog,
+            module_namespace,
+            module_id,
+            &lambda_def.body,
+            calls,
+        ),
         _ => (),
     }
 }
@@ -454,40 +461,6 @@ fn get_macro_call(
     if !errors.is_empty() {
         panic!("{}", errors[0]);
     }
-
-    /*
-        let custom_parameters = zip(
-            function.signature.parameters_types.iter(),
-            call.parameters().iter(),
-        )
-        .map(|(parameter_type, parameter)| {
-            if is_expression(parameter_type) {
-                // convert the parameter to a rasm expression
-                convert_to_rasm_expression(container, module_namespace, module_id, parameter)
-            } else if let ASTExpression::ASTValueExpression(_, _) = parameter {
-                // TODO lambda is allowed)?
-                if let ASTType::ASTBuiltinType(_) = parameter_type {
-                    parameter.clone()
-                } else {
-                    panic!(
-                        "Type {} is not allowed as a macro parameter: {}",
-                        parameter_type,
-                        function.index()
-                    );
-                }
-            } else {
-                panic!(
-                    "Only ASTExpression or constant is allowed as a macro parameter : {}",
-                    ASTIndex::new(
-                        module_namespace.clone(),
-                        module_id.clone(),
-                        call.position().clone()
-                    )
-                );
-            }
-        })
-        .collect::<Vec<_>>();
-    */
 
     let transformed_macro = ASTFunctionCall::new(
         call.function_name().clone(),
