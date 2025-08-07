@@ -18,7 +18,10 @@ pub fn create_macro_module(mce: &MacroCallExtractor) -> ASTModule {
     for (i, call) in mce.calls().iter().enumerate() {
         let function_name = format!("macroCall{}", call.id());
         let conditional = if i == 0 { "if" } else { ".elseIf" };
-        body.push_str(&format!("{conditional}(id.eq({i}), {function_name})\n"));
+        body.push_str(&format!(
+            "{conditional}(id.eq({}), {function_name})\n",
+            call.id
+        ));
     }
     body.push_str(".else(macroEmpty);\n");
     body.push_str("print(functionToCall());\n");

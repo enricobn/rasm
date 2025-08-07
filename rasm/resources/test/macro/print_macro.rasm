@@ -13,45 +13,16 @@ fn printInFunction(n: int) {
 }
 
 pub fn println(s: str, , exprs: Vec<ASTExpression>) -> MacroModuleResult {
-    let indexes = s.find("{}");
-
-    let result = indexes.zip(exprs, fn(a,b) { Pair(a, b); }).foldLeft(Pair(0, Vec<ASTExpression>()), fn(prev,e) {
-        let charIndex = e.first;
-        let prefix = s.substr(prev.first, charIndex.sub(prev.first)).orEmpty;
-        let newExpressions = 
-            prev.second
-            .push(ASTValueExpression(ASTStringValue(prefix)))
-            .push(e.second);
-        Pair(charIndex.add(2), newExpressions);
-    });
-
-    let calls = result.second.map(fn(e) {simpleCall("print", vecOf(e));});
-
-    let finalCalls = 
-        if(result.first.less(s.len.sub(1)), 
-            {calls;}, 
-            {
-                let end = s.substr(result.first, s.len.sub(result.first)).orEmpty;
-                calls.push(simpleCall("print", vecOf(ASTValueExpression(ASTStringValue(end)))));
-            })
-        .push(simpleCall("println", Vec()));
-
-    if(indexes.len.eq(exprs.len), {
-        MacroModule(ASTModule(
-            finalCalls
-            , Vec(), Vec(), Vec(), Vec()
+    let parameters = vecOf(ASTValueExpression(ASTStringValue(s))).add(exprs);
+    let f = ASTFunctionCallExpression(ASTFunctionCall("format", parameters, Vec(), None(), true));
+    let statement = ASTExpressionStatement(simpleCall("println", vecOf(f)));
+    MacroModule(ASTModule(
+            vecOf(statement), Vec(), Vec(), Vec(), Vec()
         ));
-    }, {
-        MacroModuleResult::MacroError("Expected ".append(exprs.len).add(" parameters, got ".append(indexes.len.toString()));
-    });
 }
 
 fn orEmpty(o: Option<str>) -> str {
    o.match(fn(s) {s;}, {"";});
-}
-
-pub fn toString<F,S>(p: Pair<F,S>) -> str {
-    "(".append(p.first).add(", ").append(p.second).add(")");
 }
 
 fn find(s: str, v: str) -> Vec<int> {
@@ -64,6 +35,6 @@ fn find(s: str, v: str) -> Vec<int> {
     .map(fn(it) { it.first; });
 }
 
-fn simpleCall(f: str, parameters: Vec<ASTExpression>) -> ASTStatement {
-    ASTExpressionStatement(ASTFunctionCallExpression(ASTFunctionCall(f, parameters, Vec(), None())));
+fn simpleCall(f: str, parameters: Vec<ASTExpression>) -> ASTExpression {
+    ASTFunctionCallExpression(ASTFunctionCall(f, parameters, Vec(), None(), false));
 }

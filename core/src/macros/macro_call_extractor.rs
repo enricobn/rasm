@@ -617,7 +617,7 @@ fn convert_to_rasm_expression(
                 Some("ASTExpression".to_owned()),
             )
         }
-        ASTExpression::ASTLambdaExpression(lambda_def) => todo!(),
+        ASTExpression::ASTLambdaExpression(def) => todo!(),
     }
 }
 

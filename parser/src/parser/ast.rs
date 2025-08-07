@@ -684,7 +684,12 @@ impl Display for ASTFunctionCall {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();
 
-        f.write_str(&format!("{}({})", self.function_name, pars.join(",")))
+        let suffix = if self.is_macro { "!" } else { "" };
+        f.write_str(&format!(
+            "{}{suffix}({})",
+            self.function_name,
+            pars.join(",")
+        ))
     }
 }
 

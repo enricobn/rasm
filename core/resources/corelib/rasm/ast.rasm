@@ -62,11 +62,13 @@ pub struct ASTFunctionCall {
     functionName: str,
     parameters: Vec<ASTExpression>,
     generics: Vec<ASTType>,
-    target: Option<str>
+    target: Option<str>,
+    macro: bool
 }
 
 pub fn toString(call: ASTFunctionCall) -> str {
-    call.functionName.append("(")
+    let suffix = if(call.macro, "!", "");
+    call.functionName.add(suffix).append("(")
     .append(call.parameters.join(", "))
     .append(")");
 }

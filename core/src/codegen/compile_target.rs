@@ -27,10 +27,12 @@ use rasm_parser::parser::ast::{
 use rasm_parser::parser::{Parser, ParserError};
 use rasm_utils::OptionDisplay;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use toml::Value;
@@ -69,6 +71,8 @@ use super::asm::backend::BackendNasmi386;
 use super::asm::code_gen_asm::CodeGenAsm;
 use super::asm::typed_functions_creator_asm::TypedFunctionsCreatorNasmi386;
 use super::c::typed_function_creator_c::TypedFunctionsCreatorC;
+
+static COUNT_MACRO_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone)]
 pub enum CompileTarget {
@@ -287,7 +291,7 @@ impl CompileTarget {
             RasmProjectRunType::Main
         };
 
-        let (mut container, mut catalog, errors) = project.container_and_catalog(&run_type, self);
+        let (container, catalog, errors) = project.container_and_catalog(&run_type, self);
 
         if !errors.is_empty() {
             for error in errors {
@@ -296,14 +300,51 @@ impl CompileTarget {
             exit(1);
         }
 
-        let extractor = extract_macro_calls(&container, &catalog);
+        let out_file = out_folder.join(project.main_out_file_name(&command_line_options));
+
+        self.process_macro_and_compile(
+            &project,
+            container,
+            &catalog,
+            start,
+            &command_line_options,
+            out_folder,
+            out_file,
+        );
+    }
+
+    fn process_macro_and_compile(
+        &self,
+        project: &RasmProject,
+        mut container: ASTModulesContainer,
+        catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        start: Instant,
+        command_line_options: &CommandLineOptions,
+        out_folder: PathBuf,
+        out_file: PathBuf,
+    ) {
+        if COUNT_MACRO_ID.load(Ordering::SeqCst) > 100 {
+            panic!("Recursion in macro evaluation");
+        }
+        let extractor = extract_macro_calls(&container, catalog);
+
+        /*
+        println!("extracted {} macro calls", extractor.calls().len());
+
+        for call in extractor.calls() {
+            println!(
+                "transformed macro {} : {}",
+                call.position(),
+                call.transformed_macro
+            );
+        }
+        */
 
         if extractor.calls().is_empty() {
-            let out_file = out_folder.join(project.main_out_file_name(&command_line_options));
             self.compile(
                 &project,
                 container,
-                &catalog,
+                catalog,
                 start,
                 &command_line_options,
                 out_folder,
@@ -316,43 +357,54 @@ impl CompileTarget {
 
             let mut original_container = container.clone();
             let orig_catalog = catalog.clone_catalog();
+            let mut new_catalog = catalog.clone_catalog();
 
             container.remove_body();
+
+            let macro_id = format!(
+                "{}_macro_{}",
+                project.config.package.name.clone(),
+                COUNT_MACRO_ID.fetch_add(1, Ordering::SeqCst)
+            );
 
             container.add(
                 macro_module,
                 ModuleNamespace("".to_owned()),
-                ModuleId("__macro".to_owned()),
+                ModuleId(macro_id.clone()),
                 false,
                 true,
             );
 
-            catalog.add(
-                EnhModuleId::Other("__macro".to_owned()),
+            new_catalog.add(
+                EnhModuleId::Other(macro_id.clone()),
                 EnhASTNameSpace::global(),
             );
 
-            let out_file = out_folder.join(format!(
-                "{}_macro",
-                project.main_out_file_name(&command_line_options)
-            ));
+            let macro_out_file = out_folder.join(macro_id.clone());
 
             info!("compiling macro module");
 
             self.compile(
                 &project,
                 container,
-                &catalog,
+                new_catalog.as_ref(),
                 start,
                 &command_line_options,
                 out_folder.clone(),
-                out_file.clone(),
+                macro_out_file.clone(),
             );
+
+            // TODO move code in macro module
 
             let macro_modules = extractor
                 .calls()
                 .par_iter()
-                .map(|it| (*it, Self::evaluate_macro(&catalog, out_file.clone(), it)))
+                .map(|it| {
+                    (
+                        *it,
+                        Self::evaluate_macro(new_catalog.as_ref(), macro_out_file.clone(), it),
+                    )
+                })
                 .collect::<Vec<_>>();
 
             let macro_errors = macro_modules
@@ -367,51 +419,67 @@ impl CompileTarget {
                 panic!()
             }
 
-            // TODO move code in macro module
-            for (call, (new_module, _)) in macro_modules {
-                if let Some((mut module, module_namespace)) =
-                    original_container.remove_module(&call.module_id)
+            let mut macro_modules_map: HashMap<
+                ModuleId,
+                Vec<(&MacroCall, (ASTModule, Vec<ParserError>))>,
+            > = HashMap::new();
+
+            for it in macro_modules {
+                macro_modules_map
+                    .entry(it.0.module_id.clone())
+                    .or_insert(Vec::new())
+                    .push(it);
+            }
+
+            for (key, value) in macro_modules_map {
+                if let Some((mut module, module_namespace)) = original_container.remove_module(&key)
                 {
-                    match call.macro_result_type {
-                        MacroResultType::Module => {
-                            if !new_module.body.is_empty() {
-                                self.replace_statements_in_module(
+                    for (call, (new_module, _)) in value {
+                        match call.macro_result_type {
+                            MacroResultType::Module => {
+                                if !new_module.body.is_empty() {
+                                    self.replace_statements_in_module(
+                                        &mut module,
+                                        &call.position,
+                                        new_module.body,
+                                    );
+                                }
+                                module.functions.extend(new_module.functions);
+                            }
+                            MacroResultType::Expression => {
+                                if new_module.body.len() != 1 {
+                                    panic!("Expected one single expression");
+                                }
+
+                                let statement = new_module.body[0].clone();
+
+                                let expression =
+                                    if let ASTStatement::ASTExpressionStatement(e) = statement {
+                                        e
+                                    } else {
+                                        panic!("Expected expression statement, got {statement}");
+                                    };
+
+                                // TODO otimize
+                                self.replace_expression_in_module(
                                     &mut module,
                                     &call.position,
-                                    new_module.body,
+                                    expression,
                                 );
                             }
-                            module.functions.extend(new_module.functions);
                         }
-                        MacroResultType::Expression => {
-                            if new_module.body.len() != 1 {
-                                panic!("Expected one single expression");
-                            }
 
-                            let statement = new_module.body[0].clone();
-
-                            let expression =
-                                if let ASTStatement::ASTExpressionStatement(e) = statement {
-                                    e
-                                } else {
-                                    panic!("Expected expression statement, got {statement}");
-                                };
-
-                            // TODO otimize
-                            self.replace_expression_in_module(
-                                &mut module,
-                                &call.position,
-                                expression,
-                            );
-                        }
+                        // println!("new module:\n{module}");
                     }
 
-                    // println!("new module:\n{module}");
+                    for s in module.structs.iter_mut() {
+                        s.attribute_macros.clear();
+                    }
 
                     original_container.add(
                         module,
-                        module_namespace,
-                        call.module_id.clone(),
+                        module_namespace.clone(),
+                        key.clone(),
                         false,
                         false,
                     );
@@ -426,7 +494,7 @@ impl CompileTarget {
 
             info!("compiling final module");
 
-            self.compile(
+            self.process_macro_and_compile(
                 &project,
                 original_container,
                 orig_catalog.as_ref(),
@@ -443,15 +511,37 @@ impl CompileTarget {
         macro_program: PathBuf,
         call: &MacroCall,
     ) -> (ASTModule, Vec<ParserError>) {
-        let mut command = Command::new(macro_program);
+        let mut command = Command::new(macro_program.clone());
         command.arg(call.id.to_string());
 
         let output = command.output().unwrap();
-        let output_s = String::from_utf8_lossy(&output.stdout).to_string();
+        let output_stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let output_stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-        // println!("output_s:\n{output_s}");
+        if !output_stderr.is_empty() {
+            panic!(
+                "Error in macro. Calling {} {}:\n{}",
+                macro_program.to_string_lossy(),
+                call.id,
+                output_stderr
+            );
+        }
 
-        let mut output_lines = output_s.lines();
+        if output_stdout.is_empty() {
+            panic!(
+                "Not output in macro. Calling {} {}",
+                macro_program.to_string_lossy(),
+                call.id
+            );
+        }
+
+        /*
+        println!("calling {} {}", macro_program.to_string_lossy(), call.id);
+        println!("output_stderr:\n{output_stderr}");
+        println!("output_stderr:\n{output_stderr}");
+        */
+
+        let mut output_lines = output_stdout.lines();
         if let Some(first) = output_lines.next() {
             let mut output_string = output_lines.collect::<Vec<_>>().join("\n");
             if first == "Error" {

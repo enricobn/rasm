@@ -54,7 +54,7 @@ pub fn toString(s: ASTStructDef) -> MacroModuleResult {
 }
 
 fn simpleCall(name: str, expressions: Vec<ASTExpression>) -> ASTExpression {
-    ASTFunctionCallExpression(ASTFunctionCall(name, expressions, Vec(), None()));
+    ASTFunctionCallExpression(ASTFunctionCall(name, expressions, Vec(), None(), false));
 }
 
 fn dotAppend(a: ASTExpression, b: ASTExpression) -> ASTExpression {
