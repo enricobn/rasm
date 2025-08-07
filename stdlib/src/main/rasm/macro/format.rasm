@@ -20,7 +20,7 @@ pub fn format(s: str, exprs: Vec<ASTExpression>) -> MacroExpressionResult {
             });
 
     let result = finalExpressions.foldLeft(stringValue(""), fn(prev, act) {
-        prev.dotAppend(act);
+        prev.append(act);
     });
 
     if(indexes.len.eq(exprs.len), {
@@ -34,8 +34,9 @@ fn orEmpty(o: Option<str>) -> str {
    o.match(fn(s) {s;}, {"";});
 }
 
+// TODO move in stdlib vec.rasm
 fn find(s: str, v: str) -> Vec<int> {
-    vecRange(0, s.len.sub(v.len()).add(1))
+    vecRange(0, s.len.sub(v.len).add(1))
     .map(fn(i) {
         Pair(i, s.substr(i, v.len));
     }).filter(fn(it) { 
@@ -48,14 +49,10 @@ fn simpleCall(name: str, expressions: Vec<ASTExpression>) -> ASTExpression {
     ASTFunctionCallExpression(ASTFunctionCall(name, expressions, Vec(), None(), false));
 }
 
-fn dotAppend(a: ASTExpression, b: ASTExpression) -> ASTExpression {
+fn append(a: ASTExpression, b: ASTExpression) -> ASTExpression {
     simpleCall("append", vecOf(a, b));
 }
 
 fn stringValue(s: str) -> ASTExpression {
     ASTValueExpression(ASTStringValue(s));
-}
-
-fn dotAdd(a: ASTExpression, s: str) -> ASTExpression {
-    simpleCall("add", vecOf(a, ASTValueExpression(ASTStringValue(s))));
 }
