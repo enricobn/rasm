@@ -5,16 +5,16 @@ pub fn toString(s: ASTStructDef) -> MacroModuleResult {
         simpleCall(p.name, vecOf(structRef));
     });
 
-    let basePropertyExpression = stringValue(s.name)
-                    .dotAdd("(");
+    let basePropertyExpression = stringValue(s.name).add("(");
 
-    let propertiesExpression = parameters.enumerate.foldLeft(basePropertyExpression, 
+    let propertiesExpression = 
+        parameters.enumerate.foldLeft(
+            basePropertyExpression, 
             fn(prev, act) { 
-                let propertyValue = prev.dotAppend(act.value);
-                if (act.index.less(parameters.len.sub(1)), propertyValue.dotAdd(", "), propertyValue);
-                 
-            })
-        .dotAdd(")");
+                let propertyValue = prev.append(act.value);
+                if (act.index.less(parameters.len.sub(1)), propertyValue.add(", "), propertyValue);
+            }
+        ).add(")");
 
     let function = ASTFunctionDef(
         "toString",
@@ -43,14 +43,14 @@ fn simpleCall(name: str, expressions: Vec<ASTExpression>) -> ASTExpression {
     ASTFunctionCallExpression(ASTFunctionCall(name, expressions, Vec(), None(), false));
 }
 
-fn dotAppend(a: ASTExpression, b: ASTExpression) -> ASTExpression {
+fn add(a: ASTExpression, s: str) -> ASTExpression {
+    simpleCall("add", vecOf(a, ASTValueExpression(ASTStringValue(s))));
+}
+
+fn append(a: ASTExpression, b: ASTExpression) -> ASTExpression {
     simpleCall("append", vecOf(a, b));
 }
 
 fn stringValue(s: str) -> ASTExpression {
     ASTValueExpression(ASTStringValue(s));
-}
-
-fn dotAdd(a: ASTExpression, s: str) -> ASTExpression {
-    simpleCall("add", vecOf(a, ASTValueExpression(ASTStringValue(s))));
 }
