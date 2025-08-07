@@ -1,4 +1,4 @@
-pub fn println(s: str, , exprs: Vec<ASTExpression>) -> MacroModuleResult {
+pub fn println(s: str, exprs: Vec<ASTExpression>) -> MacroModuleResult {
     let parameters = vecOf(ASTValueExpression(ASTStringValue(s))).add(exprs);
     let f = ASTFunctionCallExpression(ASTFunctionCall("format", parameters, Vec(), None(), true));
     let statement = ASTExpressionStatement(simpleCall("println", vecOf(f)));
@@ -7,7 +7,7 @@ pub fn println(s: str, , exprs: Vec<ASTExpression>) -> MacroModuleResult {
         ));
 }
 
-pub fn print(s: str, , exprs: Vec<ASTExpression>) -> MacroModuleResult {
+pub fn print(s: str, exprs: Vec<ASTExpression>) -> MacroModuleResult {
     let parameters = vecOf(ASTValueExpression(ASTStringValue(s))).add(exprs);
     let f = ASTFunctionCallExpression(ASTFunctionCall("format", parameters, Vec(), None(), true));
     let statement = ASTExpressionStatement(simpleCall("print", vecOf(f)));
