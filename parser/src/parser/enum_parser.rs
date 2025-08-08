@@ -261,6 +261,7 @@ mod tests {
                             variants,
                             position: index,
                             modifiers,
+                            attribute_macros: Vec::new(),
                         },
                         next_i,
                     )));
@@ -313,19 +314,16 @@ mod tests {
             position: ASTPosition::new(2, 13),
         };
 
-        assert_eq!(
-            parse_result,
-            Some((
-                ASTEnumDef {
-                    name: "Option".to_string(),
-                    type_parameters: vec!["T".to_string()],
-                    variants: vec![empty, some],
-                    position: ASTPosition::new(1, 6),
-                    modifiers: ASTModifiers::private()
-                },
-                15
-            )),
-        );
+        if let Some(parse_result) = parse_result {
+            assert_eq!(parse_result.0.name, "Option");
+            assert_eq!(parse_result.0.type_parameters, vec!["T".to_string()]);
+            assert_eq!(parse_result.0.variants, vec![empty, some]);
+            assert_eq!(parse_result.0.position, ASTPosition::new(1, 6));
+            assert_eq!(parse_result.0.modifiers, ASTModifiers::private());
+            assert_eq!(parse_result.1, 15);
+        } else {
+            panic!();
+        }
     }
 
     #[test]
@@ -544,7 +542,11 @@ mod tests {
                     parameters: vec![
                         ASTParameterDef {
                             name: "head".into(),
-                            ast_type: ASTGenericType(ASTPosition::new(2, 26), "T".into(), Vec::new()),
+                            ast_type: ASTGenericType(
+                                ASTPosition::new(2, 26),
+                                "T".into(),
+                                Vec::new(),
+                            ),
                             position: ASTPosition::new(2, 20),
                         },
                         ASTParameterDef {
@@ -650,19 +652,16 @@ mod tests {
             position: ASTPosition::new(2, 13),
         };
 
-        assert_eq!(
-            parse_result,
-            Some((
-                ASTEnumDef {
-                    name: "Option".to_string(),
-                    type_parameters: vec!["T".to_string()],
-                    variants: vec![empty, some],
-                    position: ASTPosition::new(1, 10),
-                    modifiers: ASTModifiers::public()
-                },
-                16
-            )),
-        );
+        if let Some(parse_result) = parse_result {
+            assert_eq!(parse_result.0.name, "Option");
+            assert_eq!(parse_result.0.type_parameters, vec!["T".to_string()]);
+            assert_eq!(parse_result.0.variants, vec![empty, some]);
+            assert_eq!(parse_result.0.position, ASTPosition::new(1, 10));
+            assert_eq!(parse_result.0.modifiers, ASTModifiers::public());
+            assert_eq!(parse_result.1, 16);
+        } else {
+            panic!();
+        }
     }
 
     fn try_parse(source: &str) -> Option<(Token, Vec<String>, ASTModifiers, usize)> {

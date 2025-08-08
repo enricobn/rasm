@@ -560,7 +560,9 @@ impl Parser {
                 variants: Vec::new(),
                 position: name.position.clone(),
                 modifiers,
+                attribute_macros: self.attributes_macros.clone(),
             }));
+            self.attributes_macros.clear();
             self.state.push(ParserState::EnumDef);
             self.i = next_i;
         } else if let Some((name_token, type_params, modifiers, next_i)) =

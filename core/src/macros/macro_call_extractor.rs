@@ -2,8 +2,8 @@ use log::info;
 use rasm_parser::{
     catalog::{modules_catalog::ModulesCatalog, ASTIndex, ModuleId, ModuleNamespace},
     parser::ast::{
-        ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTPosition, ASTStatement, ASTStructDef,
-        ASTType, ASTValue,
+        ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTPosition, ASTStatement,
+        ASTStructDef, ASTType, ASTValue,
     },
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -29,6 +29,7 @@ impl MacroCallExtractor {
 
 pub enum MacroType {
     StructAttribute(ASTStructDef),
+    EnumAttribute(ASTEnumDef),
     Standard,
 }
 
@@ -107,6 +108,20 @@ pub fn extract_macro_calls(
         for attribute_macro in s.attribute_macros.iter() {
             let macro_call = get_macro_call(
                 MacroType::StructAttribute(s.clone()),
+                attribute_macro,
+                &container,
+                catalog,
+                info.namespace(),
+                info.id(),
+            );
+            attribute_macros.push(macro_call);
+        }
+    }
+
+    for (info, e) in container.enum_defs().iter() {
+        for attribute_macro in e.attribute_macros.iter() {
+            let macro_call = get_macro_call(
+                MacroType::EnumAttribute(e.clone()),
                 attribute_macro,
                 &container,
                 catalog,
@@ -234,6 +249,39 @@ fn get_macro_call(
                 || entry.module_info().namespace() == module_namespace)
                 && result_type.is_some()
         })
+        .filter(|it| match &macro_type {
+            MacroType::Standard => true,
+            MacroType::StructAttribute(_) => {
+                if it.0.signature.parameters_types.len() == 0 {
+                    return false;
+                }
+                if let ASTType::ASTCustomType {
+                    name,
+                    param_types: _,
+                    position: _,
+                } = &it.0.signature.parameters_types[0]
+                {
+                    name == "ASTStructDef"
+                } else {
+                    false
+                }
+            }
+            MacroType::EnumAttribute(_) => {
+                if it.0.signature.parameters_types.len() == 0 {
+                    return false;
+                }
+                if let ASTType::ASTCustomType {
+                    name,
+                    param_types: _,
+                    position: _,
+                } = &it.0.signature.parameters_types[0]
+                {
+                    name == "ASTEnumDef"
+                } else {
+                    false
+                }
+            }
+        })
         .collect::<Vec<_>>();
     if functions_vec.is_empty() {
         panic!(
@@ -266,23 +314,111 @@ fn get_macro_call(
                 call.position().mv_right(1),
             )];
 
-            parameters.push(ASTExpression::ASTFunctionCallExpression(
-                ASTFunctionCall::new(
-                    "Vec".to_owned(),
-                    Vec::new(),
-                    call.position().mv_right(1),
-                    Vec::new(),
-                    None,
-                    false,
-                ),
+            parameters.push(simple_call(
+                "Vec",
+                s.type_parameters
+                    .iter()
+                    .map(|it| {
+                        ASTExpression::ASTValueExpression(
+                            ASTValue::ASTStringValue(it.clone()),
+                            call.position().mv_right(1),
+                        )
+                    })
+                    .collect(),
+                call.position().mv_right(1),
+                None,
             ));
 
             let mut properties = Vec::new();
 
             for p in s.properties.iter() {
-                properties.push(ASTExpression::ASTFunctionCallExpression(
-                    ASTFunctionCall::new(
-                        "ASTStructPropertyDef".to_string(),
+                properties.push(simple_call(
+                    "ASTStructPropertyDef",
+                    vec![
+                        ASTExpression::ASTValueExpression(
+                            ASTValue::ASTStringValue(p.name.clone()),
+                            call.position().mv_right(1),
+                        ),
+                        ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
+                            "ASTUnitType".to_owned(),
+                            Vec::new(),
+                            call.position().mv_right(1),
+                            Vec::new(),
+                            None,
+                            false,
+                        )),
+                    ],
+                    call.position().mv_right(1),
+                    None,
+                ));
+            }
+
+            parameters.push(simple_call(
+                "vecOf",
+                properties,
+                call.position().mv_right(1),
+                None,
+            ));
+
+            parameters.push(simple_call(
+                "ASTModifiers",
+                vec![ASTExpression::ASTValueExpression(
+                    ASTValue::ASTBooleanValue(s.modifiers.public),
+                    call.position().mv_right(1),
+                )],
+                call.position().mv_right(1),
+                None,
+            ));
+
+            vec![(
+                ASTType::ASTCustomType {
+                    name: "ASTStructDef".to_string(),
+                    param_types: Vec::new(),
+                    position: ASTPosition::none(),
+                },
+                simple_call(
+                    "ASTStructDef",
+                    parameters,
+                    call.position().mv_right(2),
+                    None,
+                ),
+            )]
+        }
+        MacroType::EnumAttribute(e) => {
+            let mut parameters = vec![ASTExpression::ASTValueExpression(
+                ASTValue::ASTStringValue(e.name.clone()),
+                call.position().clone(),
+            )];
+
+            parameters.push(simple_call(
+                "Vec",
+                e.type_parameters
+                    .iter()
+                    .map(|it| {
+                        ASTExpression::ASTValueExpression(
+                            ASTValue::ASTStringValue(it.clone()),
+                            call.position().mv_right(1),
+                        )
+                    })
+                    .collect(),
+                call.position().mv_right(1),
+                None,
+            ));
+
+            let mut variants = Vec::new();
+
+            for v in e.variants.iter() {
+                let mut properties = Vec::new();
+                properties.push(ASTExpression::ASTValueExpression(
+                    ASTValue::ASTStringValue(v.name.clone()),
+                    call.position().mv_right(1),
+                ));
+
+                let mut variant_properties = Vec::new();
+
+                for p in v.parameters.iter() {
+                    variant_properties.push(simple_call(
+                        "ASTParameterDef",
                         vec![
                             ASTExpression::ASTValueExpression(
                                 ASTValue::ASTStringValue(p.name.clone()),
@@ -298,52 +434,49 @@ fn get_macro_call(
                             )),
                         ],
                         call.position().mv_right(1),
-                        Vec::new(),
                         None,
-                        false,
-                    ),
+                    ));
+                }
+
+                properties.push(simple_call(
+                    "vecOf",
+                    variant_properties,
+                    call.position().mv_right(1),
+                    None,
+                ));
+
+                variants.push(simple_call(
+                    "ASTEnumVariantDef",
+                    properties,
+                    call.position().mv_right(1),
+                    None,
                 ));
             }
 
-            parameters.push(ASTExpression::ASTFunctionCallExpression(
-                ASTFunctionCall::new(
-                    "vecOf".to_owned(),
-                    properties,
-                    call.position().mv_right(1),
-                    Vec::new(),
-                    None,
-                    false,
-                ),
+            parameters.push(simple_call(
+                "vecOf",
+                variants,
+                call.position().mv_right(1),
+                None,
             ));
 
-            parameters.push(ASTExpression::ASTFunctionCallExpression(
-                ASTFunctionCall::new(
-                    "ASTModifiers".to_owned(),
-                    vec![ASTExpression::ASTValueExpression(
-                        ASTValue::ASTBooleanValue(s.modifiers.public),
-                        call.position().mv_right(1),
-                    )],
+            parameters.push(simple_call(
+                "ASTModifiers",
+                vec![ASTExpression::ASTValueExpression(
+                    ASTValue::ASTBooleanValue(e.modifiers.public),
                     call.position().mv_right(1),
-                    Vec::new(),
-                    None,
-                    false,
-                ),
+                )],
+                call.position().mv_right(1),
+                None,
             ));
 
             vec![(
                 ASTType::ASTCustomType {
-                    name: "ASTStructDef".to_string(),
+                    name: "ASTEnumDef".to_string(),
                     param_types: Vec::new(),
                     position: ASTPosition::none(),
                 },
-                ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
-                    "ASTStructDef".to_string(),
-                    parameters,
-                    call.position().mv_right(2),
-                    Vec::new(),
-                    None,
-                    false,
-                )),
+                simple_call("ASTEnumDef", parameters, call.position().mv_right(2), None),
             )]
         }
         MacroType::Standard => Vec::new(),

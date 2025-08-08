@@ -944,13 +944,14 @@ pub trait CustomTypeDef: Display {
     fn position(&self) -> &ASTPosition;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct ASTEnumDef {
     pub name: String,
     pub type_parameters: Vec<String>,
     pub variants: Vec<ASTEnumVariantDef>,
     pub position: ASTPosition,
     pub modifiers: ASTModifiers,
+    pub attribute_macros: Vec<ASTFunctionCall>,
 }
 
 impl CustomTypeDef for ASTEnumDef {
