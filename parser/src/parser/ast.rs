@@ -95,6 +95,15 @@ impl ASTPosition {
     pub fn after(&self, position: &ASTPosition) -> bool {
         self.row > position.row || (self.row == position.row && self.column > position.column)
     }
+
+    pub fn copy(&self) -> Self {
+        Self {
+            id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            row: self.row,
+            column: self.column,
+            builtin: self.builtin.clone(),
+        }
+    }
 }
 
 impl Display for ASTPosition {
