@@ -26,8 +26,6 @@ Bug
 Road to language version 1.0.0 (not compiler)
 -----------------------------------------------
 - array type?
-- macro:
-  - attribute macro for enums and functions
   
 Major
 -----

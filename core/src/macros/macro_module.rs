@@ -54,7 +54,7 @@ pub fn create_macro_module(mce: &MacroCallExtractor) -> ASTModule {
 
     body.push_str("pub fn macroEmpty() -> str {\"\";}");
 
-    // println!("macro body:\n{}", body);
+    // println!("macro module:\n {}", body);
 
     let (module, errors) = Parser::new(Lexer::new(body)).parse();
 

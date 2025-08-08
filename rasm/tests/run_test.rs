@@ -696,7 +696,7 @@ fn test_tostring_macro() {
     run_test_with_target(
         "macro/tostring_macro",
         vec![],
-        "Circle(Point(10, 20), 5)\n",
+        "Circle(Point(10, 20), 5)\nShape(CircleShape(Circle(Point(10, 20), 5)))\nShape(NoShape())\n",
         CompileTarget::C(COptions::default()),
     );
 }

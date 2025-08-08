@@ -10,4 +10,13 @@ pub struct Point {
     y: int
 }
 
+@toString()
+pub enum Shape {
+    PointShape(point: Point),
+    CircleShape(circle: Circle),
+    NoShape
+}
+
 println(Circle(Point(10, 20), 5));
+println(CircleShape(Circle(Point(10, 20), 5)));
+println(NoShape());

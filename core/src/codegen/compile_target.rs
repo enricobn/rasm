@@ -353,8 +353,6 @@ impl CompileTarget {
         } else {
             let macro_module = create_macro_module(&extractor);
 
-            println!("macro module:\n {}", macro_module);
-
             let mut original_container = container.clone();
             let orig_catalog = catalog.clone_catalog();
             let mut new_catalog = catalog.clone_catalog();
@@ -468,8 +466,6 @@ impl CompileTarget {
                                 );
                             }
                         }
-
-                        // println!("new module:\n{module}");
                     }
 
                     for s in module.structs.iter_mut() {
@@ -479,6 +475,8 @@ impl CompileTarget {
                     for e in module.enums.iter_mut() {
                         e.attribute_macros.clear();
                     }
+
+                    // println!("new module:\n{module}");
 
                     original_container.add(
                         module,

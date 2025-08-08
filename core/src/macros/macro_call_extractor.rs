@@ -2,8 +2,8 @@ use log::info;
 use rasm_parser::{
     catalog::{modules_catalog::ModulesCatalog, ASTIndex, ModuleId, ModuleNamespace},
     parser::ast::{
-        ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTPosition, ASTStatement,
-        ASTStructDef, ASTType, ASTValue,
+        ASTBuiltinTypeKind, ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall,
+        ASTPosition, ASTStatement, ASTStructDef, ASTType, ASTValue,
     },
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -339,14 +339,7 @@ fn get_macro_call(
                             ASTValue::ASTStringValue(p.name.clone()),
                             call.position().mv_right(1),
                         ),
-                        ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
-                            "ASTUnitType".to_owned(),
-                            Vec::new(),
-                            call.position().mv_right(1),
-                            Vec::new(),
-                            None,
-                            false,
-                        )),
+                        to_ast_type(&p.ast_type, call.position().mv_right(1)),
                     ],
                     call.position().mv_right(1),
                     None,
@@ -424,25 +417,16 @@ fn get_macro_call(
                                 ASTValue::ASTStringValue(p.name.clone()),
                                 call.position().mv_right(1),
                             ),
-                            ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
-                                "ASTUnitType".to_owned(),
-                                Vec::new(),
-                                call.position().mv_right(1),
-                                Vec::new(),
-                                None,
-                                false,
-                            )),
+                            to_ast_type(&p.ast_type, p.position.mv_right(1)),
                         ],
                         call.position().mv_right(1),
                         None,
                     ));
                 }
 
-                properties.push(simple_call(
-                    "vecOf",
+                properties.push(vec_or_vec_of(
                     variant_properties,
                     call.position().mv_right(1),
-                    None,
                 ));
 
                 variants.push(simple_call(
@@ -614,6 +598,96 @@ fn get_macro_call(
         transformed_macro,
         macro_result_type: macro_result_type.unwrap(),
     }
+}
+
+fn to_ast_type(ast_type: &ASTType, position: ASTPosition) -> ASTExpression {
+    match ast_type {
+        ASTType::ASTBuiltinType(astbuiltin_type_kind) => {
+            let kind = match astbuiltin_type_kind {
+                ASTBuiltinTypeKind::ASTBooleanType => {
+                    simple_call("ASTBooleanType", Vec::new(), position.mv_right(1), None)
+                }
+                ASTBuiltinTypeKind::ASTCharType => {
+                    simple_call("ASTCharType", Vec::new(), position.mv_right(1), None)
+                }
+                ASTBuiltinTypeKind::ASTIntegerType => {
+                    simple_call("ASTIntegerType", Vec::new(), position.mv_right(1), None)
+                }
+                ASTBuiltinTypeKind::ASTFloatType => {
+                    simple_call("ASTFloatType", Vec::new(), position.mv_right(1), None)
+                }
+                ASTBuiltinTypeKind::ASTStringType => {
+                    simple_call("ASTStringType", Vec::new(), position.mv_right(1), None)
+                }
+                ASTBuiltinTypeKind::ASTLambdaType {
+                    parameters,
+                    return_type,
+                } => simple_call(
+                    "ASTLambdaType",
+                    vec![
+                        vec_or_vec_of(
+                            parameters
+                                .iter()
+                                .map(|it| to_ast_type(it, position.mv_right(1)))
+                                .collect(),
+                            position.mv_right(1),
+                        ),
+                        to_ast_type(return_type, position.mv_right(1)),
+                    ],
+                    position.mv_right(1),
+                    None,
+                ),
+            };
+            simple_call("ASTBuiltinType", vec![kind], position.mv_right(1), None)
+        }
+        ASTType::ASTGenericType(astposition, name, asttypes) => simple_call(
+            "ASTGenericType",
+            vec![
+                string_value(name, astposition.mv_right(1)),
+                vec_or_vec_of(
+                    asttypes
+                        .iter()
+                        .map(|it| to_ast_type(it, astposition.mv_right(1)))
+                        .collect(),
+                    position.mv_right(1),
+                ),
+            ],
+            position.mv_right(1),
+            None,
+        ),
+        ASTType::ASTCustomType {
+            name,
+            param_types,
+            position,
+        } => simple_call(
+            "ASTCustomType",
+            vec![
+                string_value(name, position.mv_right(1)),
+                vec_or_vec_of(
+                    param_types
+                        .iter()
+                        .map(|it| to_ast_type(it, position.mv_right(1)))
+                        .collect(),
+                    position.mv_right(1),
+                ),
+            ],
+            position.mv_right(1),
+            None,
+        ),
+        ASTType::ASTUnitType => simple_call("ASTUnitType", Vec::new(), position.mv_right(1), None),
+    }
+}
+
+fn vec_or_vec_of(parameters: Vec<ASTExpression>, position: ASTPosition) -> ASTExpression {
+    if parameters.is_empty() {
+        simple_call("Vec", Vec::new(), position.mv_right(1), None)
+    } else {
+        simple_call("vecOf", parameters, position.mv_right(1), None)
+    }
+}
+
+fn string_value(s: &str, position: ASTPosition) -> ASTExpression {
+    ASTExpression::ASTValueExpression(ASTValue::ASTStringValue(s.to_string()), position)
 }
 
 fn is_vec_of_expressions(ast_type: &ASTType) -> bool {

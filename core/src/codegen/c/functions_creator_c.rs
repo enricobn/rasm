@@ -62,7 +62,7 @@ impl FunctionsCreator for CFunctionsCreator {
                 "else"
             };
 
-            if i < enum_def.variants.len() - 1 {
+            if i < enum_def.variants.len() - 1 || enum_def.variants.len() == 1 {
                 self.code_manipulator.add(
                     &mut result,
                     &format!("{stmt} (enum_value->variant_num == {i}) {{"),
