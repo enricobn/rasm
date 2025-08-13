@@ -21,7 +21,6 @@ Bug
     }
 
   and we don't declare a non-generic function for add(s1: str, s2: str), calling add with two strings leads to an infinite recursion!!!
-- sometimes "test_can_lambda_be_in_stack_native_type" fails in the assertion
 
 Road to language version 1.0.0 (not compiler)
 -----------------------------------------------
@@ -67,13 +66,13 @@ Major
   - private
   - readonly
     - structs
-        - cannot call constructor from another namespace
-        - cannot call setters from another namespace
+      - constructor is private
+      - setters are private
   - opaque
     - structs
-      - cannot call constructor from another namespace
-      - cannot call setters from another namespace
-      - cannot call getters from another namespace
+      - constructor is private
+      - setters are private
+      - getters are private
 - optimize
   - can a recursive function's lambda space be reused?
 - threads library
@@ -109,7 +108,7 @@ Minor
   - to print memory allocation
   - to debug asm
   - to run the program
-- rename lambda to closure
+- rename lambda to closure?
 - more on error source in codegen
 
 Ideas

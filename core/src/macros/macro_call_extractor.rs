@@ -3,7 +3,7 @@ use rasm_parser::{
     catalog::{modules_catalog::ModulesCatalog, ASTIndex, ModuleId, ModuleNamespace},
     parser::ast::{
         ASTBuiltinTypeKind, ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall,
-        ASTPosition, ASTStatement, ASTStructDef, ASTType, ASTValue,
+        ASTModifiers, ASTPosition, ASTStatement, ASTStructDef, ASTType, ASTValue,
     },
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -341,15 +341,7 @@ fn get_macro_call(
                 ast_custom_type("ASTStructPropertyDef"),
             ));
 
-            parameters.push(simple_call(
-                "ASTModifiers",
-                vec![ASTExpression::ASTValueExpression(
-                    ASTValue::ASTBooleanValue(s.modifiers.public),
-                    call.position().copy(),
-                )],
-                call.position().copy(),
-                None,
-            ));
+            parameters.push(ast_modifiers(&s.modifiers, call.position()));
 
             vec![(
                 ASTType::ASTCustomType {
@@ -414,15 +406,7 @@ fn get_macro_call(
                 ast_custom_type("ASTEnumVariantDef"),
             ));
 
-            parameters.push(simple_call(
-                "ASTModifiers",
-                vec![ASTExpression::ASTValueExpression(
-                    ASTValue::ASTBooleanValue(e.modifiers.public),
-                    call.position().copy(),
-                )],
-                call.position().copy(),
-                None,
-            ));
+            parameters.push(ast_modifiers(&e.modifiers, call.position()));
 
             vec![(
                 ASTType::ASTCustomType {
@@ -559,6 +543,18 @@ fn get_macro_call(
         transformed_macro,
         macro_result_type: macro_result_type.unwrap(),
     }
+}
+
+fn ast_modifiers(m: &ASTModifiers, position: &ASTPosition) -> ASTExpression {
+    simple_call(
+        "ASTModifiers",
+        vec![ASTExpression::ASTValueExpression(
+            ASTValue::ASTBooleanValue(m.public),
+            position.copy(),
+        )],
+        position.copy(),
+        None,
+    )
 }
 
 fn ast_expression_type() -> ASTType {
@@ -750,9 +746,9 @@ fn convert_to_rasm_expression(
     container: &ASTModulesContainer,
     module_namespace: &ModuleNamespace,
     module_id: &ModuleId,
-    parameter: &ASTExpression,
+    expr: &ASTExpression,
 ) -> ASTExpression {
-    match parameter {
+    match expr {
         ASTExpression::ASTFunctionCallExpression(function_call) => {
             let mut fcp = Vec::new();
             fcp.push(ASTExpression::ASTValueExpression(
@@ -823,7 +819,81 @@ fn convert_to_rasm_expression(
                 Some("ASTExpression".to_owned()),
             )
         }
-        ASTExpression::ASTLambdaExpression(def) => todo!(),
+        ASTExpression::ASTLambdaExpression(def) => {
+            let parameters_names = def
+                .parameter_names
+                .iter()
+                .map(|it| string_value(&it.0, it.1.copy()))
+                .collect();
+            let body = def
+                .body
+                .iter()
+                .map(|it| convert_to_rasm_statement(container, module_namespace, module_id, it))
+                .collect::<Vec<_>>();
+
+            let lambda_def = simple_call(
+                "ASTLambdaDef",
+                vec![
+                    vec_or_vec_of(parameters_names, def.position.copy(), ast_str_type()),
+                    vec_or_vec_of(body, def.position.copy(), ast_custom_type("ASTStatement")),
+                ],
+                def.position.copy(),
+                None,
+            );
+            simple_call(
+                "ASTLambdaExpression",
+                vec![lambda_def],
+                def.position.copy(),
+                None,
+            )
+        }
+    }
+}
+
+fn convert_to_rasm_statement(
+    container: &ASTModulesContainer,
+    module_namespace: &ModuleNamespace,
+    module_id: &ModuleId,
+    stmt: &ASTStatement,
+) -> ASTExpression {
+    match stmt {
+        ASTStatement::ASTExpressionStatement(astexpression, astposition) => simple_call(
+            "ASTExpressionStatement",
+            vec![convert_to_rasm_expression(
+                container,
+                module_namespace,
+                module_id,
+                astexpression,
+            )],
+            astposition.copy(),
+            None,
+        ),
+        ASTStatement::ASTLetStatement(name, astexpression, astposition) => simple_call(
+            "ASTLetStatement",
+            vec![
+                string_value(name, astposition.copy()),
+                convert_to_rasm_expression(container, module_namespace, module_id, astexpression),
+            ],
+            astposition.copy(),
+            None,
+        ),
+        ASTStatement::ASTConstStatement(name, astexpression, astposition, astmodifiers) => {
+            simple_call(
+                "ASTConstStatement",
+                vec![
+                    string_value(name, astposition.copy()),
+                    convert_to_rasm_expression(
+                        container,
+                        module_namespace,
+                        module_id,
+                        astexpression,
+                    ),
+                    ast_modifiers(astmodifiers, &astposition),
+                ],
+                astposition.copy(),
+                None,
+            )
+        }
     }
 }
 
