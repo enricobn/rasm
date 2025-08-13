@@ -2162,11 +2162,6 @@ impl<'a> EnhTypeCheck<'a> {
 
             if let Some(t) = self.get_type_check_entry(index) {
                 if let ASTTypeCheckInfo::Ref(_, ref_index) = t.info() {
-                    let (eh_id, _) = self
-                        .modules_catalog
-                        .catalog_info(ref_index.module_id())
-                        .unwrap();
-
                     function_references = function_references
                         .into_iter()
                         .filter(|it| it.index.position.id == ref_index.position().id)

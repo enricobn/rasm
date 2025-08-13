@@ -1,21 +1,24 @@
 pub fn println(s: str, exprs: Vec<ASTExpression>) -> MacroModuleResult {
-    let parameters = vecOf(ASTValueExpression(ASTStringValue(s))).add(exprs);
-    let f = ASTFunctionCallExpression(ASTFunctionCall("format", parameters, Vec(), None(), true));
-    let statement = ASTExpressionStatement(simpleCall("println", vecOf(f)));
-    MacroModule(ASTModule(
-            vecOf(statement), Vec(), Vec(), Vec(), Vec()
-        ));
+    printLike(s, exprs, "println");
 }
 
 pub fn print(s: str, exprs: Vec<ASTExpression>) -> MacroModuleResult {
-    let parameters = vecOf(ASTValueExpression(ASTStringValue(s))).add(exprs);
-    let f = ASTFunctionCallExpression(ASTFunctionCall("format", parameters, Vec(), None(), true));
-    let statement = ASTExpressionStatement(simpleCall("print", vecOf(f)));
-    MacroModule(ASTModule(
-            vecOf(statement), Vec(), Vec(), Vec(), Vec()
-        ));
+    printLike(s, exprs, "print");
 }
 
 fn simpleCall(f: str, parameters: Vec<ASTExpression>) -> ASTExpression {
     ASTFunctionCallExpression(ASTFunctionCall(f, parameters, Vec(), None(), false));
+}
+
+fn printLike(s: str, exprs: Vec<ASTExpression>, functionToCall: str) -> MacroModuleResult {
+    let parameters = vecOf(ASTValueExpression(ASTStringValue(s))).add(exprs);
+    let f = format(s, exprs);
+    f.match(fn(e) {
+        let statement = ASTExpressionStatement(simpleCall(functionToCall, vecOf(e)));
+        MacroModule(ASTModule(
+            vecOf(statement), Vec(), Vec(), Vec(), Vec()
+        ));
+    }, fn(e) {
+        MacroModuleResult::MacroError(e);
+    });
 }

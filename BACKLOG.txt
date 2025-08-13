@@ -29,7 +29,6 @@ Road to language version 1.0.0 (not compiler)
   
 Major
 -----
-- call the "non macro" format function in println macro
 - in type check, try to evaluate in opposite order:
   fa(fb(p1, p2), fc(p3, p4)) => p1.fb(p2).fa(p3.fc(p4))
   we should evaluate the type of p1 and p2, so we have the type of fb

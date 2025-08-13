@@ -2,6 +2,7 @@ let h = "Joe";
 let w = "how do you do";
 
 println!("Hello {}, {}{}", h, w, "?");
+println!("Hello world");
 
 range(1, 2)
 .forEach(fn(i) { println!("Number {}", i); });

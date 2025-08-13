@@ -685,7 +685,7 @@ fn test_print_macro() {
     run_test_with_target(
         "macro/print_macro",
         vec![],
-        "Hello Joe, how do you do?\nNumber 1\nan int 10\n",
+        "Hello Joe, how do you do?\nHello world\nNumber 1\nan int 10\n",
         CompileTarget::C(COptions::default()),
     );
 }

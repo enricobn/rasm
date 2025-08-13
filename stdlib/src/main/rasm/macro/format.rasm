@@ -12,7 +12,7 @@ pub fn format(s: str, exprs: Vec<ASTExpression>) -> MacroExpressionResult {
     });
 
     let finalExpressions = 
-        if(expressions.first.less(s.len.sub(1)), 
+        if(expressions.first.less(s.len.sub(1)).and(expressions.first.eq(0).not), 
             {expressions.second;}, 
             {
                 let end = s.substr(expressions.first, s.len.sub(expressions.first)).orEmpty;
