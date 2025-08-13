@@ -23,11 +23,11 @@ pub trait Backend: Send + Sync {
         intermediate_file: &Path,
         out_file: &Path,
         requires: &[String],
-    );
+    ) -> Result<(), String>;
 
-    fn compile(&self, source_file: &Path, out_file: &Path);
+    fn compile(&self, source_file: &Path, out_file: &Path) -> Result<(), String>;
 
-    fn link(&self, source_file: &Path, out_file: &Path, requires: &[String]);
+    fn link(&self, source_file: &Path, out_file: &Path, requires: &[String]) -> Result<(), String>;
 
     fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String>;
 
@@ -104,13 +104,13 @@ impl Backend for BackendNasmi386 {
         intermediate_file: &Path,
         out_file: &Path,
         requires: &[String],
-    ) {
-        self.compile(source_file, intermediate_file);
+    ) -> Result<(), String> {
+        self.compile(source_file, intermediate_file)?;
 
-        self.link(intermediate_file, out_file, requires);
+        self.link(intermediate_file, out_file, requires)
     }
 
-    fn compile(&self, source_file: &Path, out_file: &Path) {
+    fn compile(&self, source_file: &Path, out_file: &Path) -> Result<(), String> {
         let start = Instant::now();
         info!("source file : '{:?}'", source_file);
         let mut nasm_command = Command::new("nasm");
@@ -124,18 +124,20 @@ impl Backend for BackendNasmi386 {
             .arg("-o")
             .arg(out_file);
         log_command(&nasm_command);
-        let result = nasm_command
-            .stderr(Stdio::inherit())
-            .output()
-            .expect("failed to execute nasm");
-        info!("assembler ended in {:?}", start.elapsed());
+        if let Ok(result) = nasm_command.stderr(Stdio::inherit()).output() {
+            info!("assembler ended in {:?}", start.elapsed());
 
-        if !result.status.success() {
-            panic!("Error running nasm")
+            if !result.status.success() {
+                Err("Error running nasm".to_owned())
+            } else {
+                Ok(())
+            }
+        } else {
+            Err("Error running nasm".to_owned())
         }
     }
 
-    fn link(&self, src_file: &Path, out_file: &Path, requires: &[String]) {
+    fn link(&self, src_file: &Path, out_file: &Path, requires: &[String]) -> Result<(), String> {
         let start = Instant::now();
         let result = match self.linker {
             Linker::Ld => {
@@ -153,7 +155,7 @@ impl Backend for BackendNasmi386 {
                 ld_command
                     .stderr(Stdio::inherit())
                     .output()
-                    .expect("failed to execute ld")
+                    .map_err(|it| format!("Error running ld: {it}"))
             }
             Linker::Gcc => {
                 let libraries = requires
@@ -179,13 +181,15 @@ impl Backend for BackendNasmi386 {
                 gcc_command
                     .stderr(Stdio::inherit())
                     .output()
-                    .expect("failed to execute gcc")
+                    .map_err(|it| format!("Error running gcc: {it}"))
             }
         };
         info!("linker ended in {:?}", start.elapsed());
 
-        if !result.status.success() {
-            panic!("Error running linker")
+        if !result?.status.success() {
+            Err("Error running linker".to_owned())
+        } else {
+            Ok(())
         }
     }
 

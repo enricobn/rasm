@@ -67,8 +67,14 @@ pub struct ASTFunctionCall {
 }
 
 pub fn toString(call: ASTFunctionCall) -> str {
+    let prefix = if(call.generics.len.eq(0),{
+            "";
+        }, {
+            "<".add(call.generics.map(fn(it) { it.toString();}).join(", ")).add(">");
+        });
+
     let suffix = if(call.macro, "!", "");
-    call.functionName.add(suffix).append("(")
+    call.functionName.add(suffix).add(prefix).append("(")
     .append(call.parameters.join(", "))
     .append(")");
 }

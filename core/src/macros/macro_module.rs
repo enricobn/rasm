@@ -1,16 +1,9 @@
-use core::panic;
-
-use rasm_parser::{
-    lexer::Lexer,
-    parser::{ast::ASTModule, Parser},
-};
-
 use crate::macros::macro_call_extractor::{MacroCallExtractor, MacroResultType};
 
 /// Creates a new module from a macro call extractor, with a function for each macro call and a body
 /// that gets a number as an argument, that is the macro id, then calls the related function and
 /// prints the result.
-pub fn create_macro_module(mce: &MacroCallExtractor) -> ASTModule {
+pub fn create_macro_module(mce: &MacroCallExtractor) -> String {
     let mut body = String::new();
     body.push_str("let id = argv(1).fmap(fn(it) { it.toi32(); }).getOrElse(-1);\n");
     body.push_str("let functionToCall = \n");
@@ -53,20 +46,7 @@ pub fn create_macro_module(mce: &MacroCallExtractor) -> ASTModule {
     }
 
     body.push_str("pub fn macroEmpty() -> str {\"\";}");
-
-    // println!("macro module:\n {}", body);
-
-    let (module, errors) = Parser::new(Lexer::new(body)).parse();
-
-    // it should not happens
-    if !errors.is_empty() {
-        for error in errors {
-            println!("{}", error);
-        }
-        panic!();
-    }
-
-    module
+    body
 }
 
 #[cfg(test)]

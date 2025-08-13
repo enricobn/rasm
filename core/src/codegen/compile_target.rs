@@ -302,7 +302,7 @@ impl CompileTarget {
 
         let out_file = out_folder.join(project.main_out_file_name(&command_line_options));
 
-        self.process_macro_and_compile(
+        if let Err(errors) = self.process_macro_and_compile(
             &project,
             container,
             &catalog,
@@ -310,7 +310,14 @@ impl CompileTarget {
             &command_line_options,
             out_folder,
             out_file,
-        );
+        ) {
+            for error in errors {
+                eprintln!("{error}");
+            }
+            eprintln!("error: could not compile due to previous errors");
+
+            exit(1);
+        }
     }
 
     fn process_macro_and_compile(
@@ -322,9 +329,11 @@ impl CompileTarget {
         command_line_options: &CommandLineOptions,
         out_folder: PathBuf,
         out_file: PathBuf,
-    ) {
-        if COUNT_MACRO_ID.load(Ordering::SeqCst) > 100 {
-            panic!("Recursion in macro evaluation");
+    ) -> Result<(), Vec<CompilationError>> {
+        if COUNT_MACRO_ID.load(Ordering::SeqCst) > 10 {
+            return Err(vec![CompilationError::generic_none(
+                "Recursion in macro evaluation".to_owned(),
+            )]);
         }
         let extractor = extract_macro_calls(&container, catalog);
 
@@ -349,9 +358,23 @@ impl CompileTarget {
                 &command_line_options,
                 out_folder,
                 out_file,
-            );
+            )
         } else {
-            let macro_module = create_macro_module(&extractor);
+            let macro_module_body = create_macro_module(&extractor);
+
+            // println!("macro module:\n{macro_module_body}");
+
+            let (macro_module, macro_module_errors) =
+                Parser::new(Lexer::new(macro_module_body.clone())).parse();
+
+            // it should not happens
+            if !macro_module_errors.is_empty() {
+                eprintln!("Errors parsing macro module:\n{macro_module_body}");
+                return Err(macro_module_errors
+                    .into_iter()
+                    .map(|it| CompilationError::from_parser_error(it, None))
+                    .collect());
+            }
 
             let mut original_container = container.clone();
             let orig_catalog = catalog.clone_catalog();
@@ -382,7 +405,7 @@ impl CompileTarget {
 
             info!("compiling macro module");
 
-            self.compile(
+            if let Err(errors) = self.compile(
                 &project,
                 container,
                 new_catalog.as_ref(),
@@ -390,7 +413,11 @@ impl CompileTarget {
                 &command_line_options,
                 out_folder.clone(),
                 macro_out_file.clone(),
-            );
+            ) {
+                eprintln!("Errors compiling macro module\n{}", macro_module_body);
+
+                return Err(errors);
+            }
 
             // TODO move code in macro module
 
@@ -411,10 +438,11 @@ impl CompileTarget {
                 .collect::<Vec<_>>();
 
             if !macro_errors.is_empty() {
-                for error in macro_errors {
-                    eprintln!("{error}");
-                }
-                panic!()
+                eprintln!("Errors evaluating macros");
+                return Err(macro_errors
+                    .into_iter()
+                    .map(|it| CompilationError::from_parser_error(it.clone(), None))
+                    .collect());
             }
 
             let mut macro_modules_map: HashMap<
@@ -446,23 +474,29 @@ impl CompileTarget {
                             }
                             MacroResultType::Expression => {
                                 if new_module.body.len() != 1 {
-                                    panic!("Expected one single expression");
+                                    return Err(vec![CompilationError::generic_none(format!(
+                                        "Expected one single expression, evaluating macro {}",
+                                        call.transformed_macro
+                                    ))]);
                                 }
 
                                 let statement = new_module.body[0].clone();
 
                                 let expression =
-                                    if let ASTStatement::ASTExpressionStatement(e) = statement {
+                                    if let ASTStatement::ASTExpressionStatement(e, _) = statement {
                                         e
                                     } else {
-                                        panic!("Expected expression statement, got {statement}");
+                                        return Err(vec![CompilationError::generic_none(format!(
+                                            "Expected expression statement, evaluating macro {}",
+                                            call.transformed_macro
+                                        ))]);
                                     };
 
                                 // TODO otimize
                                 self.replace_expression_in_module(
                                     &mut module,
                                     &call.position,
-                                    expression,
+                                    &expression,
                                 );
                             }
                         }
@@ -496,7 +530,7 @@ impl CompileTarget {
 
             info!("compiling final module");
 
-            self.process_macro_and_compile(
+            if let Err(errors) = self.process_macro_and_compile(
                 &project,
                 original_container,
                 orig_catalog.as_ref(),
@@ -504,7 +538,13 @@ impl CompileTarget {
                 &command_line_options,
                 out_folder,
                 out_file.clone(),
-            );
+            ) {
+                eprintln!("Errors compiling after evaluating macros",);
+                //eprintln!("{}", macro_module_body);
+
+                return Err(errors);
+            }
+            return Ok(());
         }
     }
 
@@ -513,6 +553,8 @@ impl CompileTarget {
         macro_program: PathBuf,
         call: &MacroCall,
     ) -> (ASTModule, Vec<ParserError>) {
+        // println!("evaluating macro:\n{}", call.transformed_macro);
+
         let mut command = Command::new(macro_program.clone());
         command.arg(call.id.to_string());
 
@@ -560,7 +602,9 @@ impl CompileTarget {
             let lexer = Lexer::new(output_string);
 
             let parser = Parser::new(lexer);
-            parser.parse()
+            let result = parser.parse();
+            // println!("result:\n{}", result.0);
+            result
         } else {
             panic!("Expected a macro result.")
         }
@@ -592,7 +636,13 @@ impl CompileTarget {
         if let Some(mut i) = body
             .iter()
             .enumerate()
-            .find(|(_, it)| it.position().id == position.id)
+            .find(|(_, it)| {
+                if let ASTStatement::ASTExpressionStatement(expr, _) = it {
+                    expr.position().id == position.id
+                } else {
+                    false
+                }
+            })
             .map(|(i, _)| i)
         {
             body.remove(i);
@@ -605,7 +655,7 @@ impl CompileTarget {
 
         for statement in body.iter_mut() {
             match statement {
-                ASTStatement::ASTExpressionStatement(expr) => {
+                ASTStatement::ASTExpressionStatement(expr, _) => {
                     self.replace_statements_in_expression(expr, position, new_body.clone());
                 }
                 ASTStatement::ASTLetStatement(_, expr, _) => {
@@ -642,13 +692,13 @@ impl CompileTarget {
         &self,
         module: &mut ASTModule,
         position: &ASTPosition,
-        expression: ASTExpression,
+        expression: &ASTExpression,
     ) {
-        module.body = self.replace_expression_in_body(&module.body, position, expression.clone());
+        module.body = self.replace_expression_in_body(&module.body, position, expression);
 
         for function in module.functions.iter_mut() {
             if let ASTFunctionBody::RASMBody(ref mut body) = function.body {
-                *body = self.replace_expression_in_body(body, position, expression.clone());
+                *body = self.replace_expression_in_body(body, position, expression);
             }
         }
 
@@ -659,14 +709,15 @@ impl CompileTarget {
         &self,
         body: &Vec<ASTStatement>,
         position: &ASTPosition,
-        expression: ASTExpression,
+        expression: &ASTExpression,
     ) -> Vec<ASTStatement> {
         let mut new_body = Vec::new();
         for statement in body.iter() {
             match statement {
-                ASTStatement::ASTExpressionStatement(astexpression) => {
+                ASTStatement::ASTExpressionStatement(astexpression, astposition) => {
                     new_body.push(ASTStatement::ASTExpressionStatement(
                         self.replace_expression_in_expression(astexpression, position, &expression),
+                        astposition.clone(),
                     ));
                 }
                 ASTStatement::ASTLetStatement(name, astexpression, astposition) => {
@@ -709,7 +760,7 @@ impl CompileTarget {
                     ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
                         call.function_name().clone(),
                         new_parameters,
-                        call.position().clone(),
+                        call.position().copy(),
                         call.generics().clone(),
                         call.target().clone(),
                         call.is_macro(),
@@ -720,12 +771,8 @@ impl CompileTarget {
                 ASTExpression::ASTLambdaExpression(lambda_def) => {
                     ASTExpression::ASTLambdaExpression(ASTLambdaDef {
                         parameter_names: lambda_def.parameter_names.clone(),
-                        body: self.replace_expression_in_body(
-                            &lambda_def.body,
-                            position,
-                            to.clone(),
-                        ),
-                        position: lambda_def.position.clone(),
+                        body: self.replace_expression_in_body(&lambda_def.body, position, &to),
+                        position: lambda_def.position.copy(),
                     })
                 }
             }
@@ -741,7 +788,7 @@ impl CompileTarget {
         command_line_options: &CommandLineOptions,
         out_folder: PathBuf,
         out_file: PathBuf,
-    ) {
+    ) -> Result<(), Vec<CompilationError>> {
         let mut statics = Statics::new();
 
         let enriched_container = enrich_container(
@@ -781,10 +828,7 @@ impl CompileTarget {
         );
 
         if !errors.is_empty() {
-            for error in errors {
-                eprintln!("{error}");
-            }
-            panic!()
+            return Err(errors);
         }
 
         let typed_module = get_typed_module(
@@ -798,7 +842,7 @@ impl CompileTarget {
             catalog,
             &enriched_container,
         )
-        .unwrap_or_else(|e| Self::raise_error(e));
+        .map_err(|it| vec![it])?;
 
         info!("type check ended in {:?}", start.elapsed());
 
@@ -838,14 +882,18 @@ impl CompileTarget {
                     let out = out_paths.remove(0);
 
                     if command_line_options.only_compile {
-                        backend.compile(&out, &out_file.with_extension("o"));
+                        backend
+                            .compile(&out, &out_file.with_extension("o"))
+                            .map_err(|it| vec![CompilationError::generic_none(it)])
                     } else {
-                        backend.compile_and_link(
-                            &out,
-                            &out_file.with_extension("o"),
-                            &out_file,
-                            &options.requires,
-                        );
+                        backend
+                            .compile_and_link(
+                                &out,
+                                &out_file.with_extension("o"),
+                                &out_file,
+                                &options.requires,
+                            )
+                            .map_err(|it| vec![CompilationError::generic_none(it)])
                     }
                 }
                 _ => {
@@ -862,34 +910,19 @@ impl CompileTarget {
                     &out_folder,
                     out_paths,
                     &out_file,
-                );
+                )
+                .map_err(|message| vec![CompilationError::generic_none(message)])?;
 
                 info!("compiler ended in {:?}", start.elapsed());
 
                 if !result.status.success() {
-                    panic!("Error running native compiler")
+                    return Err(vec![CompilationError::generic_none(
+                        "Error running native compiler".to_owned(),
+                    )]);
                 }
+                Ok(())
             }
         }
-    }
-
-    fn raise_error(error: CompilationError) -> ! {
-        /*
-        if let CompilationErrorKind::TypeCheck(a, b) = &error.error_kind {
-            let important = b.iter().flat_map(|it| it.important()).collect::<Vec<_>>();
-            if let Some(e) = important.first() {
-                let index = e.main.0.clone();
-                let message = e.main.1.clone();
-
-                eprintln!("{message} : {index}");
-                eprintln!("error: could not compile due to previous errors");
-                exit(-1);
-            }
-        }
-        */
-        eprintln!("{error}");
-        eprintln!("error: could not compile due to previous errors");
-        exit(-1);
     }
 
     pub fn get_mandatory_functions(&self, module: &EnhancedASTModule) -> Vec<DefaultFunction> {
@@ -1062,4 +1095,55 @@ fn get_native_string_array(projects: &[RasmProject], native: &str, key: &str) ->
     result.dedup_by(|s1, s2| s1 == s2);
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+
+    use tempdir::TempDir;
+
+    use crate::{
+        codegen::{c::options::COptions, compile_target::CompileTarget},
+        commandline::{CommandLineAction, CommandLineOptions},
+        project::RasmProject,
+    };
+
+    #[test]
+    fn compile_tostring() {
+        compile_test("../rasm/resources/test/macro/tostring_macro.rasm");
+    }
+
+    #[test]
+    fn compile_vecmacro() {
+        compile_test("../rasm/resources/test/macro/vec_macro.rasm");
+    }
+
+    #[test]
+    fn compile_printmacro() {
+        compile_test("../rasm/resources/test/macro/print_macro.rasm");
+    }
+
+    fn compile_test(source: &str) {
+        env::set_var("RASM_STDLIB", "../stdlib");
+
+        let sut = CompileTarget::C(COptions::default());
+
+        let project = RasmProject::new(std::path::PathBuf::from(source));
+
+        let dir = TempDir::new("rasm_int_test").unwrap();
+
+        let command_line_options = CommandLineOptions {
+            action: CommandLineAction::Build,
+            debug: false,
+            print_code: false,
+            print_memory: false,
+            only_compile: false,
+            out: Some(dir.path().to_str().unwrap().to_string()),
+            release: false,
+            arguments: Vec::new(),
+            include_tests: Vec::new(),
+        };
+        sut.run(project, command_line_options);
+    }
 }

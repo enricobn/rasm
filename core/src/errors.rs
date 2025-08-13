@@ -36,6 +36,20 @@ impl CompilationError {
             error_kind: CompilationErrorKind::Parser(error.message),
         }
     }
+
+    pub fn generic(index: EnhASTIndex, message: String) -> Self {
+        Self {
+            index,
+            error_kind: CompilationErrorKind::Generic(message),
+        }
+    }
+
+    pub fn generic_none(message: String) -> Self {
+        Self {
+            index: EnhASTIndex::none(),
+            error_kind: CompilationErrorKind::Generic(message),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

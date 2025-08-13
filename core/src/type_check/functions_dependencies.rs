@@ -657,7 +657,7 @@ fn statements<'a>(
 ) {
     for statement in statements.iter() {
         match statement {
-            ASTStatement::ASTExpressionStatement(expr) => {
+            ASTStatement::ASTExpressionStatement(expr, _) => {
                 expr_calls(calls, expr, module_namespace, module_id, ast_type_check)
             }
             ASTStatement::ASTLetStatement(_, expr, _)

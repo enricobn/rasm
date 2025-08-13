@@ -17,6 +17,23 @@ pub enum Shape {
     NoShape
 }
 
+@toString()
+pub enum SVGLengthType {
+    unknown,
+    number,
+    percentage,
+    ems,
+    exs,
+    px,
+    cm,
+    mm,
+    in,
+    pt,
+    pc 
+}
+
+
 println(Circle(Point(10, 20), 5));
 println(CircleShape(Circle(Point(10, 20), 5)));
 println(NoShape());
+println(percentage());

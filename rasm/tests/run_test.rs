@@ -696,7 +696,7 @@ fn test_tostring_macro() {
     run_test_with_target(
         "macro/tostring_macro",
         vec![],
-        "Circle(Point(10, 20), 5)\nShape(CircleShape(Circle(Point(10, 20), 5)))\nShape(NoShape())\n",
+        "Circle(Point(10, 20), 5)\nShape(CircleShape(Circle(Point(10, 20), 5)))\nShape(NoShape())\nSVGLengthType(percentage())\n",
         CompileTarget::C(COptions::default()),
     );
 }
@@ -708,6 +708,17 @@ fn test_format_macro() {
         "macro/format_macro",
         vec![],
         "Hello Joe, how do you do?\nNumber 1\nan int 10\n",
+        CompileTarget::C(COptions::default()),
+    );
+}
+
+#[test]
+fn test_vec_macro() {
+    // TODO: asm
+    run_test_with_target(
+        "macro/vec_macro",
+        vec![],
+        "1,2,3,4,5,6,7,8,9,10,\n",
         CompileTarget::C(COptions::default()),
     );
 }

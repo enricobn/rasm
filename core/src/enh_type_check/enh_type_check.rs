@@ -787,26 +787,19 @@ impl<'a> EnhTypeCheck<'a> {
         let mut original_functions = Vec::new();
 
         if let Some(e) = self.get_type_check_entry(&call.index) {
+            // println!("optimized call {}: {call} -> {e}", call.index);
             if let ASTTypeCheckInfo::Call(_, vec) = e.info() {
                 if vec.len() == 1 {
                     let (f, index) = vec.first().unwrap();
 
-                    if let Some((eh_id, _eh_ns)) =
-                        self.modules_catalog.catalog_info(index.module_id())
+                    if let Some(f) = module
+                        .find_functions_by_original_name(&f.name)
+                        .iter()
+                        .find(|it| it.index.position.id == index.position().id)
                     {
-                        if let Some(f) = module
-                            .find_functions_by_original_name(&f.name)
-                            .iter()
-                            .find(|it| {
-                                &it.index.id() == eh_id
-                                    && it.index.position.row == index.position().row
-                                    && it.index.position.builtin == index.position().builtin
-                            })
-                        {
-                            if f.generic_types.is_empty() {
-                                // println!("optimized call {call}:{} {f}", call.index);
-                                original_functions = vec![f];
-                            }
+                        if f.generic_types.is_empty() {
+                            // println!("optimized call {call}:{} {f}", call.index);
+                            original_functions = vec![f];
                         }
                     }
                 }
@@ -1173,11 +1166,11 @@ impl<'a> EnhTypeCheck<'a> {
         expected_return_type: Option<&EnhASTType>,
     ) -> String {
         let first_type = first_type
-            .map(|it| format!("{it}"))
-            .unwrap_or(String::new());
+            .map(|it| format!("{it} ..."))
+            .unwrap_or(format!("with {} arguments", call.parameters.len()));
 
         let mut message = format!(
-            "cannot find a valid function from namespace {namespace} for call {}({first_type} ...)",
+            "cannot find a valid function from namespace {namespace} for call {}({first_type})",
             call.original_function_name
         );
 
@@ -2176,12 +2169,7 @@ impl<'a> EnhTypeCheck<'a> {
 
                     function_references = function_references
                         .into_iter()
-                        .filter(|it| {
-                            it.index.position.id == ref_index.position().id
-                                || (&it.index.id() == eh_id
-                                    && it.index.position.row == ref_index.position().row
-                                    && it.index.position.column == ref_index.position().column)
-                        })
+                        .filter(|it| it.index.position.id == ref_index.position().id)
                         .collect::<Vec<_>>();
 
                     if function_references.len() == 1 {

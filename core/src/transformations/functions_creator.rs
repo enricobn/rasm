@@ -6,10 +6,10 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::CodeGen;
 use rasm_parser::parser::ast::{
-    ASTBuiltinFunctionType, ASTEnumDef, ASTEnumVariantDef, ASTExpression, ASTFunctionBody,
-    ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature, ASTModifiers, ASTModule,
-    ASTParameterDef, ASTPosition, ASTStatement, ASTStructDef, ASTStructPropertyDef, ASTType,
-    ASTBuiltinTypeKind,
+    ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTEnumDef, ASTEnumVariantDef, ASTExpression,
+    ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature, ASTModifiers,
+    ASTModule, ASTParameterDef, ASTPosition, ASTStatement, ASTStructDef, ASTStructPropertyDef,
+    ASTType,
 };
 
 use crate::codegen::enh_ast::{
@@ -266,8 +266,8 @@ pub trait FunctionsCreator {
                     ASTBuiltinFunctionType::Other("_f let".to_owned()),
                 ),
             ),
-            ASTStatement::ASTExpressionStatement(ASTExpression::ASTFunctionCallExpression(
-                ASTFunctionCall::new(
+            ASTStatement::ASTExpressionStatement(
+                ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
                     "_f".to_owned(),
                     parameters
                         .iter()
@@ -291,8 +291,12 @@ pub trait FunctionsCreator {
                     Vec::new(),
                     None,
                     false,
+                )),
+                ASTPosition::builtin(
+                    &property_def.position,
+                    ASTBuiltinFunctionType::Other("_f statement call".to_owned()),
                 ),
-            )),
+            ),
         ]
     }
 

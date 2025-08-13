@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+};
 
 use rasm_parser::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionDef, ASTModule, ASTPosition, ASTStatement,
@@ -15,6 +18,17 @@ pub enum ASTElement {
     Expression(ASTExpression),
     LambdaParam(String, ASTPosition),
     FunctionDef(ASTFunctionDef),
+}
+
+impl Display for ASTElement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ASTElement::Statement(statement) => write!(f, "{}", statement),
+            ASTElement::Expression(expression) => write!(f, "{}", expression),
+            ASTElement::LambdaParam(name, _) => write!(f, "{}", name),
+            ASTElement::FunctionDef(function_def) => write!(f, "{}", function_def),
+        }
+    }
 }
 
 impl ASTElement {
@@ -51,6 +65,7 @@ impl ASTModuleTree {
             .map(|it| it.position.clone())
             .collect::<Vec<_>>();
         functions_positions.sort();
+
         Self {
             items,
             sorted_functions_positions: functions_positions,
@@ -182,13 +197,13 @@ impl ASTModuleTree {
         };
 
         match statement {
-            ASTStatement::ASTExpressionStatement(astexpression) => {
+            ASTStatement::ASTExpressionStatement(astexpression, _) => {
                 Self::add_expression(astexpression, elements, Some(position.id));
             }
-            ASTStatement::ASTLetStatement(_, astexpression, _astposition) => {
+            ASTStatement::ASTLetStatement(_, astexpression, _) => {
                 Self::add_expression(astexpression, elements, Some(position.id));
             }
-            ASTStatement::ASTConstStatement(_, astexpression, _astposition, _astmodifiers) => {
+            ASTStatement::ASTConstStatement(_, astexpression, _, _) => {
                 Self::add_expression(astexpression, elements, Some(position.id));
             }
         }

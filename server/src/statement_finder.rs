@@ -122,11 +122,11 @@ impl StatementFinder {
     fn find_body(position: &ASTPosition, body: &Vec<ASTStatement>) -> Option<ASTPosition> {
         for statement in body.iter() {
             match statement {
-                ASTStatement::ASTExpressionStatement(expr) => {
+                ASTStatement::ASTExpressionStatement(expr, statement_position) => {
                     let real_position = Self::real_position(expr);
 
                     if real_position == position {
-                        return Some(position.clone());
+                        return Some(statement_position.clone());
                     } else {
                         match Self::find_expr(position, expr) {
                             SFExprResult::InExpr => return Some(real_position.clone()),

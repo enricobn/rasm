@@ -237,6 +237,10 @@ impl ASTTypeCheckerResult {
     pub fn remove(&mut self, index: &ASTIndex) -> Option<ASTTypeCheckEntry> {
         self.map.remove(&index.position().id)
     }
+
+    pub fn find_by_index(&self, index: &ASTIndex) -> Vec<(&usize, &ASTTypeCheckEntry)> {
+        self.map.iter().filter(|it| it.1.index() == index).collect()
+    }
 }
 
 pub struct ASTTypeChecker {
@@ -253,18 +257,6 @@ impl ASTTypeChecker {
     }
 
     fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) {
-        /*
-                if format!("{entry}").contains("fn (Vec<f32>) -> PathElement") {
-            println!("inserting {index} {entry}");
-        }
-        if index.info().id().0.contains("option.rasm") {
-            if index.position().row == 15 && index.position().column == 5 {
-                println!("inserting option {index} {entry}");
-                println!("inserting 15:5 {entry}");
-            }
-        }
-        */
-
         self.result.insert(index, entry);
     }
 
@@ -389,7 +381,7 @@ impl ASTTypeChecker {
 
         for (i, statement) in body.iter().enumerate() {
             match statement {
-                ASTStatement::ASTExpressionStatement(e) => {
+                ASTStatement::ASTExpressionStatement(e, _) => {
                     if i == body.len() - 1 {
                         let index = ASTIndex::new(
                             module_namespace.clone(),
@@ -1483,7 +1475,7 @@ mod tests {
     use rasm_utils::{test_utils::init_minimal_log, OptionDisplay, SliceDisplay};
 
     use crate::{
-        ast::ast_module_tree::ASTModuleTree,
+        ast::ast_module_tree::{ASTElement, ASTModuleTree},
         codegen::{
             c::options::COptions,
             compile_target::CompileTarget,
@@ -1860,7 +1852,10 @@ mod tests {
 
         let l = ASTExpression::ASTLambdaExpression(ASTLambdaDef {
             parameter_names: Vec::new(),
-            body: vec![ASTStatement::ASTExpressionStatement(o)],
+            body: vec![ASTStatement::ASTExpressionStatement(
+                o,
+                ASTPosition::new(2, 16),
+            )],
             position: ASTPosition::new(2, 14),
         });
 
@@ -1940,7 +1935,10 @@ mod tests {
         );
         let o = ASTExpression::ASTFunctionCallExpression(some);
 
-        let body = vec![ASTStatement::ASTExpressionStatement(o)];
+        let body = vec![ASTStatement::ASTExpressionStatement(
+            o,
+            ASTPosition::new(2, 16),
+        )];
 
         let res = type_checker.add_body(
             &mut val_context,
@@ -2001,16 +1999,39 @@ mod tests {
         row: usize,
         column: usize,
     ) -> Option<&'a ASTTypeCheckEntry> {
-        let tree = ASTModuleTree::new(module);
-        let id = tree
-            .get_elements_at(row, column)
-            .get(0)
-            .unwrap()
-            .element
-            .position()
-            .id;
+        let entries = get_type_check_entries(module, types_map, row, column);
 
-        types_map.get(id)
+        if entries.len() > 1 {
+            for entry in entries.iter() {
+                println!("entry {:?}", entry);
+            }
+
+            panic!();
+        }
+
+        entries.first().cloned()
+    }
+
+    fn get_type_check_entries<'a>(
+        module: &ASTModule,
+        types_map: &'a ASTTypeCheckerResult,
+        row: usize,
+        column: usize,
+    ) -> Vec<&'a ASTTypeCheckEntry> {
+        let tree = ASTModuleTree::new(module);
+        let elements = tree.get_elements_at(row, column);
+
+        elements
+            .into_iter()
+            .flat_map(|element| {
+                let id = element.element.position().id;
+                if let Some(t) = types_map.get(id) {
+                    vec![t]
+                } else {
+                    Vec::new()
+                }
+            })
+            .collect::<Vec<_>>()
     }
 
     fn test_single_file(path: &str, row: usize, column: usize, expected: &str) {
@@ -2039,14 +2060,19 @@ mod tests {
             PathBuf::from_str(path).unwrap().canonicalize().unwrap(),
         )) {
             let tree = container.tree(info.id()).unwrap();
-            return Some(
-                tree.get_elements_at(row, column)
-                    .get(0)
-                    .unwrap()
-                    .element
-                    .position()
-                    .id,
-            );
+
+            let mut elements = tree.get_elements_at(row, column);
+
+            // for expression statements, we find two elements the statement and the expression, we usually 
+            // want the expression
+            if elements.len() != 1 {
+                elements = elements
+                    .into_iter()
+                    .filter(|it| matches!(it.element, ASTElement::Expression(_)))
+                    .collect();
+            }
+
+            return Some(elements.get(0).unwrap().element.position().id);
         }
         None
     }

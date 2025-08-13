@@ -1445,7 +1445,7 @@ impl EnhASTStatement {
         function_name_for_fix_generics: Option<&str>,
     ) -> Self {
         match statement {
-            ASTStatement::ASTExpressionStatement(expr) => EnhASTStatement::Expression(
+            ASTStatement::ASTExpressionStatement(expr, _) => EnhASTStatement::Expression(
                 EnhASTExpression::from_ast(id, namespace, expr, function_name_for_fix_generics),
             ),
             ASTStatement::ASTLetStatement(name, astexpression, position) => {

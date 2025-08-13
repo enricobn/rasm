@@ -37,6 +37,19 @@ pub struct ASTPosition {
     pub builtin: Option<ASTBuiltinFunctionType>,
 }
 
+/*
+impl Clone for ASTPosition {
+    fn clone(&self) -> Self {
+        Self {
+            id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            row: self.row,
+            column: self.column,
+            builtin: self.builtin.clone(),
+        }
+    }
+}
+    */
+
 impl ASTPosition {
     pub fn new(row: usize, column: usize) -> Self {
         Self {
@@ -691,11 +704,16 @@ impl ASTFunctionCall {
 
 impl Display for ASTFunctionCall {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let prefix = if self.generics.is_empty() {
+            ""
+        } else {
+            &format!("<{}>", self.generics.iter().join(", "))
+        };
         let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();
 
         let suffix = if self.is_macro { "!" } else { "" };
         f.write_str(&format!(
-            "{}{suffix}({})",
+            "{}{prefix}{suffix}({})",
             self.function_name,
             pars.join(",")
         ))
@@ -812,7 +830,7 @@ impl Display for ASTExpression {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTStatement {
-    ASTExpressionStatement(ASTExpression),
+    ASTExpressionStatement(ASTExpression, ASTPosition),
     ASTLetStatement(String, ASTExpression, ASTPosition),
     ASTConstStatement(String, ASTExpression, ASTPosition, ASTModifiers),
 }
@@ -820,7 +838,7 @@ pub enum ASTStatement {
 impl ASTStatement {
     pub fn position(&self) -> &ASTPosition {
         match self {
-            ASTStatement::ASTExpressionStatement(expr) => expr.position(),
+            ASTStatement::ASTExpressionStatement(_, position) => position,
             ASTStatement::ASTLetStatement(_, _, position) => position,
             ASTStatement::ASTConstStatement(_, _, position, _) => position,
         }
@@ -830,7 +848,7 @@ impl ASTStatement {
 impl Display for ASTStatement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTStatement::ASTExpressionStatement(e) => f.write_str(&format!("{e};\n")),
+            ASTStatement::ASTExpressionStatement(e, _) => f.write_str(&format!("{e};\n")),
             ASTStatement::ASTLetStatement(name, e, _) => {
                 let keyword = "let";
                 f.write_str(&format!("{keyword} {name} = {e};\n"))
@@ -984,7 +1002,7 @@ impl Display for ASTEnumDef {
             .iter()
             .map(|it| format!("  {it}"))
             .collect::<Vec<_>>()
-            .join("\n");
+            .join(",\n");
         f.write_str(&format!("enum {} {{\n{variants}\n}}\n\n", self.name))
     }
 }
@@ -1004,6 +1022,9 @@ impl Display for ASTEnumVariantDef {
             .map(|it| format!("{it}"))
             .collect::<Vec<String>>()
             .join(",");
+        if pars.is_empty() {
+            return f.write_str(&self.name);
+        }
         f.write_str(&format!("{}({})", self.name, pars))
     }
 }
@@ -1037,10 +1058,10 @@ impl Display for ASTStructDef {
         let pars = self
             .properties
             .iter()
-            .map(|it| format!("{it}"))
+            .map(|it| format!("  {it}"))
             .collect::<Vec<_>>()
-            .join(",");
-        f.write_str(&format!("struct {}({pars})", self.name))
+            .join(",\n");
+        f.write_str(&format!("struct {} {{\n{pars}\n}}\n\n", self.name))
     }
 }
 

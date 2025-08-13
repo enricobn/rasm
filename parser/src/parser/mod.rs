@@ -52,6 +52,7 @@ lazy_static! {
     };
 }
 
+#[derive(Clone)]
 pub struct ParserError {
     position: ASTPosition,
     pub message: String,
@@ -592,12 +593,14 @@ impl Parser {
         if let Some(ParserData::Statement(_st)) = self.last_parser_data() {
             self.state.pop();
         } else if let TokenKind::Punctuation(PunctuationKind::SemiColon) = token.kind {
-            if let Some(ParserData::Expression(epr)) = self.last_parser_data() {
+            if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+                let statement_position = expr.position().copy();
                 self.state.pop();
                 self.parser_data.pop();
                 self.parser_data
                     .push(ParserData::Statement(ASTStatement::ASTExpressionStatement(
-                        epr,
+                        expr,
+                        statement_position,
                     )));
                 self.i += 1;
             } else {
@@ -620,10 +623,11 @@ impl Parser {
             } else {
                 self.add_error("Unexpected end of block.".to_string());
                 if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+                    let statement_position = expr.position().copy();
                     self.state.pop();
                     self.parser_data.pop();
                     self.parser_data.push(ParserData::Statement(
-                        ASTStatement::ASTExpressionStatement(expr),
+                        ASTStatement::ASTExpressionStatement(expr, statement_position),
                     ));
                 } else {
                     self.state.pop();
@@ -651,6 +655,7 @@ impl Parser {
             self.state.push(ParserState::Expression);
             self.i = next_i;
         } else if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+            let statement_position = expr.position().copy();
             self.add_error(Self::token_message(
                 "Unexpected token processing statement",
                 self.get_token_kind(),
@@ -660,6 +665,7 @@ impl Parser {
             self.parser_data
                 .push(ParserData::Statement(ASTStatement::ASTExpressionStatement(
                     expr,
+                    statement_position,
                 )));
         } else {
             self.state.push(ParserState::Expression);
@@ -1517,6 +1523,7 @@ mod tests {
 
         let par = if let Some(ASTStatement::ASTExpressionStatement(
             ASTExpression::ASTFunctionCallExpression(e),
+            _,
         )) = module.body.get(0)
         {
             Some(e)
@@ -1640,9 +1647,10 @@ mod tests {
 
         assert_eq!(
             module.body.first().unwrap(),
-            &ASTStatement::ASTExpressionStatement(ASTExpression::ASTFunctionCallExpression(
-                function_call
-            ))
+            &ASTStatement::ASTExpressionStatement(
+                ASTExpression::ASTFunctionCallExpression(function_call),
+                ASTPosition::new(1, 1)
+            )
         );
     }
 
@@ -1673,9 +1681,10 @@ mod tests {
         if let ASTFunctionBody::RASMBody(ref body) = module.functions.first().unwrap().body {
             assert_eq!(
                 body.first().unwrap(),
-                &ASTStatement::ASTExpressionStatement(ASTExpression::ASTFunctionCallExpression(
-                    function_call
-                ))
+                &ASTStatement::ASTExpressionStatement(
+                    ASTExpression::ASTFunctionCallExpression(function_call),
+                    ASTPosition::new(1, 25)
+                )
             );
         } else {
             panic!()
@@ -1704,9 +1713,10 @@ mod tests {
 
         assert_eq!(
             module.body.first().unwrap(),
-            &ASTStatement::ASTExpressionStatement(ASTExpression::ASTFunctionCallExpression(
-                function_call
-            ))
+            &ASTStatement::ASTExpressionStatement(
+                ASTExpression::ASTFunctionCallExpression(function_call),
+                ASTPosition::new(1, 1)
+            )
         );
     }
 

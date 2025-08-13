@@ -157,14 +157,16 @@ fn extract_macro_calls_in_body(
 ) {
     for statement in body.iter() {
         match statement {
-            ASTStatement::ASTExpressionStatement(expression) => extract_macro_calls_in_expression(
-                container,
-                catalog,
-                module_namespace,
-                module_id,
-                expression,
-                calls,
-            ),
+            ASTStatement::ASTExpressionStatement(expression, _) => {
+                extract_macro_calls_in_expression(
+                    container,
+                    catalog,
+                    module_namespace,
+                    module_id,
+                    expression,
+                    calls,
+                )
+            }
             ASTStatement::ASTLetStatement(_, expression, _) => extract_macro_calls_in_expression(
                 container,
                 catalog,
@@ -314,20 +316,7 @@ fn get_macro_call(
                 call.position().copy(),
             )];
 
-            parameters.push(simple_call(
-                "Vec",
-                s.type_parameters
-                    .iter()
-                    .map(|it| {
-                        ASTExpression::ASTValueExpression(
-                            ASTValue::ASTStringValue(it.clone()),
-                            call.position().copy(),
-                        )
-                    })
-                    .collect(),
-                call.position().copy(),
-                None,
-            ));
+            parameters.push(call_empty_vec(call.position().copy(), ast_str_type()));
 
             let mut properties = Vec::new();
 
@@ -339,18 +328,17 @@ fn get_macro_call(
                             ASTValue::ASTStringValue(p.name.clone()),
                             call.position().copy(),
                         ),
-                        to_ast_type(&p.ast_type, call.position().copy()),
+                        to_ast_type(&p.ast_type, p.position.copy()),
                     ],
-                    call.position().copy(),
+                    p.position.copy(),
                     None,
                 ));
             }
 
-            parameters.push(simple_call(
-                "vecOf",
+            parameters.push(vec_or_vec_of(
                 properties,
                 call.position().copy(),
-                None,
+                ast_custom_type("ASTStructPropertyDef"),
             ));
 
             parameters.push(simple_call(
@@ -367,36 +355,18 @@ fn get_macro_call(
                 ASTType::ASTCustomType {
                     name: "ASTStructDef".to_string(),
                     param_types: Vec::new(),
-                    position: ASTPosition::none(),
+                    position: call.position().copy(),
                 },
-                simple_call(
-                    "ASTStructDef",
-                    parameters,
-                    call.position().mv_right(2),
-                    None,
-                ),
+                simple_call("ASTStructDef", parameters, call.position().copy(), None),
             )]
         }
         MacroType::EnumAttribute(e) => {
             let mut parameters = vec![ASTExpression::ASTValueExpression(
                 ASTValue::ASTStringValue(e.name.clone()),
-                call.position().clone(),
+                call.position().copy(),
             )];
 
-            parameters.push(simple_call(
-                "Vec",
-                e.type_parameters
-                    .iter()
-                    .map(|it| {
-                        ASTExpression::ASTValueExpression(
-                            ASTValue::ASTStringValue(it.clone()),
-                            call.position().copy(),
-                        )
-                    })
-                    .collect(),
-                call.position().copy(),
-                None,
-            ));
+            parameters.push(call_empty_vec(call.position().copy(), ast_str_type()));
 
             let mut variants = Vec::new();
 
@@ -424,7 +394,11 @@ fn get_macro_call(
                     ));
                 }
 
-                properties.push(vec_or_vec_of(variant_properties, call.position().copy()));
+                properties.push(vec_or_vec_of(
+                    variant_properties,
+                    call.position().copy(),
+                    ast_custom_type("ASTParameterDef"),
+                ));
 
                 variants.push(simple_call(
                     "ASTEnumVariantDef",
@@ -434,7 +408,11 @@ fn get_macro_call(
                 ));
             }
 
-            parameters.push(simple_call("vecOf", variants, call.position().copy(), None));
+            parameters.push(vec_or_vec_of(
+                variants,
+                call.position().copy(),
+                ast_custom_type("ASTEnumVariantDef"),
+            ));
 
             parameters.push(simple_call(
                 "ASTModifiers",
@@ -452,7 +430,7 @@ fn get_macro_call(
                     param_types: Vec::new(),
                     position: ASTPosition::none(),
                 },
-                simple_call("ASTEnumDef", parameters, call.position().mv_right(2), None),
+                simple_call("ASTEnumDef", parameters, call.position().copy(), None),
             )]
         }
         MacroType::Standard => Vec::new(),
@@ -502,21 +480,12 @@ fn get_macro_call(
                     ));
                     next_call_par = call_pars.next();
                 }
-                if vec_of_expressions.is_empty() {
-                    custom_parameters.push(simple_call(
-                        "Vec",
-                        Vec::new(),
-                        ASTPosition::none(),
-                        None,
-                    ));
-                } else {
-                    custom_parameters.push(simple_call(
-                        "vecOf",
-                        vec_of_expressions,
-                        ASTPosition::none(),
-                        None,
-                    ));
-                }
+
+                custom_parameters.push(vec_or_vec_of(
+                    vec_of_expressions,
+                    ASTPosition::none(),
+                    ast_expression_type(),
+                ));
             } else if let Some(call_par) = next_call_par {
                 if is_expression(function_par_type) {
                     // convert the parameter to a rasm expression
@@ -543,7 +512,7 @@ fn get_macro_call(
                         ASTIndex::new(
                             module_namespace.clone(),
                             module_id.clone(),
-                            call_par.position().clone()
+                            call_par.position().copy()
                         )
                     ));
                 }
@@ -574,7 +543,7 @@ fn get_macro_call(
     let transformed_macro = ASTFunctionCall::new(
         call.function_name().clone(),
         custom_parameters,
-        call.position().clone(),
+        call.position().copy(),
         call.generics().clone(),
         call.target().clone(),
         false,
@@ -590,6 +559,22 @@ fn get_macro_call(
         transformed_macro,
         macro_result_type: macro_result_type.unwrap(),
     }
+}
+
+fn ast_expression_type() -> ASTType {
+    ast_custom_type("ASTExpression")
+}
+
+fn ast_custom_type(name: &str) -> ASTType {
+    ASTType::ASTCustomType {
+        name: name.to_owned(),
+        param_types: Vec::new(),
+        position: ASTPosition::none(),
+    }
+}
+
+fn ast_str_type() -> ASTType {
+    ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType)
 }
 
 fn to_ast_type(ast_type: &ASTType, position: ASTPosition) -> ASTExpression {
@@ -623,6 +608,7 @@ fn to_ast_type(ast_type: &ASTType, position: ASTPosition) -> ASTExpression {
                                 .map(|it| to_ast_type(it, position.copy()))
                                 .collect(),
                             position.copy(),
+                            ast_custom_type("ASTType"),
                         ),
                         to_ast_type(return_type, position.copy()),
                     ],
@@ -642,6 +628,7 @@ fn to_ast_type(ast_type: &ASTType, position: ASTPosition) -> ASTExpression {
                         .map(|it| to_ast_type(it, astposition.copy()))
                         .collect(),
                     position.copy(),
+                    ast_custom_type("ASTType"),
                 ),
             ],
             position.copy(),
@@ -661,6 +648,7 @@ fn to_ast_type(ast_type: &ASTType, position: ASTPosition) -> ASTExpression {
                         .map(|it| to_ast_type(it, position.copy()))
                         .collect(),
                     position.copy(),
+                    ast_custom_type("ASTType"),
                 ),
             ],
             position.copy(),
@@ -670,11 +658,19 @@ fn to_ast_type(ast_type: &ASTType, position: ASTPosition) -> ASTExpression {
     }
 }
 
-fn vec_or_vec_of(parameters: Vec<ASTExpression>, position: ASTPosition) -> ASTExpression {
+fn vec_or_vec_of(
+    parameters: Vec<ASTExpression>,
+    position: ASTPosition,
+    ast_type: ASTType,
+) -> ASTExpression {
     if parameters.is_empty() {
-        simple_call("Vec", Vec::new(), position.copy(), None)
+        call_empty_vec(position.copy(), ast_type)
     } else {
-        simple_call("vecOf", parameters, position.copy(), None)
+        let start = call_empty_vec(position.copy(), ast_type);
+
+        parameters.iter().fold(start, |prev, actual| {
+            simple_call("push", vec![prev, actual.clone()], position.copy(), None)
+        })
     }
 }
 
@@ -761,26 +757,37 @@ fn convert_to_rasm_expression(
             let mut fcp = Vec::new();
             fcp.push(ASTExpression::ASTValueExpression(
                 ASTValue::ASTStringValue(function_call.function_name().clone()),
-                function_call.position().mv_right(2),
+                function_call.position().copy(),
             ));
             fcp.push(call_vec_of(
                 container,
                 module_namespace,
                 module_id,
                 function_call.parameters(),
-                function_call.position().mv_right(3),
+                function_call.position().copy(),
             ));
-            fcp.push(call_empty_vec(function_call.position().mv_right(4)));
-            fcp.push(call_none(function_call.position().mv_right(5)));
+            fcp.push(call_empty_vec(
+                function_call.position().copy(),
+                ASTType::ASTCustomType {
+                    name: "ASTType".to_owned(),
+                    param_types: Vec::new(),
+                    position: function_call.position().copy(),
+                },
+            ));
+            fcp.push(call_none(function_call.position().copy()));
+            fcp.push(ASTExpression::ASTValueExpression(
+                ASTValue::ASTBooleanValue(false),
+                function_call.position().copy(),
+            ));
             simple_call(
                 "ASTFunctionCallExpression",
                 vec![simple_call(
                     "ASTFunctionCall",
                     fcp,
-                    function_call.position().mv_right(6),
+                    function_call.position().copy(),
                     None,
                 )],
-                function_call.position().clone(),
+                function_call.position().copy(),
                 Some("ASTExpression".to_owned()),
             )
         }
@@ -790,7 +797,7 @@ fn convert_to_rasm_expression(
                 ASTValue::ASTStringValue(name.clone()),
                 position.copy(), // it must be different for cache purposes
             )],
-            position.clone(),
+            position.copy(),
             Some("ASTExpression".to_owned()),
         ),
         ASTExpression::ASTValueExpression(value_type, position) => {
@@ -812,7 +819,7 @@ fn convert_to_rasm_expression(
                     position.copy(),
                     Some("ASTValue".to_owned()),
                 )],
-                position.clone(),
+                position.copy(),
                 Some("ASTExpression".to_owned()),
             )
         }
@@ -843,19 +850,25 @@ fn call_vec_of(
     parameters: &Vec<ASTExpression>,
     position: ASTPosition,
 ) -> ASTExpression {
-    simple_call(
-        "vecOf",
+    vec_or_vec_of(
         parameters
             .iter()
             .map(|it| convert_to_rasm_expression(container, module_namespace, module_id, it))
             .collect(),
         position,
-        None,
+        ast_expression_type(),
     )
 }
 
-fn call_empty_vec(position: ASTPosition) -> ASTExpression {
-    simple_call("Vec", Vec::new(), position, None)
+fn call_empty_vec(position: ASTPosition, ast_type: ASTType) -> ASTExpression {
+    ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
+        "Vec".to_owned(),
+        Vec::new(),
+        position,
+        vec![ast_type],
+        None,
+        false,
+    ))
 }
 
 fn call_none(position: ASTPosition) -> ASTExpression {

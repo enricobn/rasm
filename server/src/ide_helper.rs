@@ -898,7 +898,7 @@ impl IDEHelper {
                 break;
             }
             match statement {
-                ASTStatement::ASTExpressionStatement(expr) => {
+                ASTStatement::ASTExpressionStatement(expr, _) => {
                     references.append(&mut Self::get_references_until_expr(expr, index));
                 }
                 ASTStatement::ASTLetStatement(name, _, _) => references.push(name.clone()),
@@ -1404,7 +1404,7 @@ impl IDEHelper {
 
         for statement in body.iter() {
             let statement_result = match statement {
-                ASTStatement::ASTExpressionStatement(expr) => {
+                ASTStatement::ASTExpressionStatement(expr, _) => {
                     Self::extract_vals_expr(expr, &excluding, val_context)
                 }
                 ASTStatement::ASTLetStatement(name, expr, _) => {
@@ -2167,7 +2167,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(values, vec!["Some(value: T)", "None()"]);
+        assert_eq!(values, vec!["Some(value: T)", "None"]);
     }
 
     #[test]

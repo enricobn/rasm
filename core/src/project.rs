@@ -646,7 +646,7 @@ impl RasmProject {
             self.module_from_file(&path.canonicalize().unwrap());
         // const statements are allowed
         let first_body_statement = entry_module.body.iter().find(|it| match it {
-            ASTStatement::ASTExpressionStatement(ASTFunctionCallExpression(_)) => true,
+            ASTStatement::ASTExpressionStatement(ASTFunctionCallExpression(_), _) => true,
             ASTStatement::ASTLetStatement(_, _, _) => true,
             _ => false,
         });

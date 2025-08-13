@@ -25,9 +25,9 @@ pub fn compile_c(
     out_folder: &Path,
     src_paths: Vec<PathBuf>,
     out_file: &PathBuf,
-) -> Output {
+) -> Result<Output, String> {
     if src_paths.len() != 1 {
-        panic!("Only one native file to compile is supported!");
+        return Err("Only one native file to compile is supported!".to_owned());
     }
 
     let make_file_template =
@@ -100,7 +100,7 @@ pub fn compile_c(
     command
         .stderr(Stdio::inherit())
         .output()
-        .expect("failed to execute native compiler")
+        .map_err(|err| format!("failed to execute native compiler: {err}"))
 }
 
 fn generate_pre_compile_artifacts(out_folder: &Path) -> Vec<String> {
