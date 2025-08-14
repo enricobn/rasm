@@ -21,6 +21,7 @@ Bug
     }
 
   and we don't declare a non-generic function for add(s1: str, s2: str), calling add with two strings leads to an infinite recursion!!!
+- sometimes "test_can_lambda_be_in_stack_native_type" fails in the assertion
 
 Road to language version 1.0.0 (not compiler)
 -----------------------------------------------

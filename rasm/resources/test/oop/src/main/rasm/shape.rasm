@@ -4,6 +4,6 @@ pub struct Shape {
     toString: fn() -> str
 }
 
-pub fn print(file: File, shape: Shape) -> Option<IOError> {
-    print(file, shape.toString.call());
+pub fn toString(shape: Shape) -> str {
+    shape.toString.call();
 }

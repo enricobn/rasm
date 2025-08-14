@@ -4,13 +4,6 @@ pub fn cartesianProduct<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T
     });
 }
 
-// TODO native implementation
-pub fn print<T>(file: File, v: Vec<T>) -> Option<IOError> {
-    let v1 = map(v, fn(n) { print(file, n, ",");});
-    let errors = v1.filter( fn(o) { o.isSome; });
-    errors.first.flatten;
-}
-
 pub fn print<T>(v: Vec<T>, printFunction: fn(T) -> ()) {
     forEach(v, fn(n) {printFunction(n); print(",");});
 }
@@ -91,4 +84,8 @@ pub fn toList<T>(v: Vec<T>) -> List<T> {
 pub fn pop<T>(v: Vec<T>) -> Pair<Option<T>,Vec<T>> {
     let popped = v.toList.pop;
     Pair(popped.first, popped.second.toVec);
+}
+
+pub fn toString<T>(v: Vec<T>) -> str {
+    "[".add(v.join(",")).add("]");
 }

@@ -89,6 +89,6 @@ pub native toString(n: float) -> str /{
     int s_len = 20;
 
     char *_str = malloc((s_len + 1) * sizeof(char));
-    sprintf(_str, "%f", $n);
+    sprintf(_str, "%.9f", $n);
     return _str;
 }/

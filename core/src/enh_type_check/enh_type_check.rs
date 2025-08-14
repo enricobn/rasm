@@ -2268,7 +2268,8 @@ mod tests {
     #[test]
     fn test_type_check_vec() {
         let project = file_to_project("vec.rasm");
-        test_project(project).unwrap();
+        // TODO we cannot run asm due to the lack of toString(float)
+        project_to_ast_typed_module(&project, &CompileTarget::C(COptions::default())).unwrap();
     }
 
     #[test]
