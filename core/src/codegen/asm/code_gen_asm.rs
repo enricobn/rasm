@@ -1570,7 +1570,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         statics: &Statics,
         _typed_module: &ASTTypedModule,
         _out_folder: &Path,
-    ) -> (String, String) {
+    ) -> (String, String, String) {
         let mut data = String::new();
         let mut bss = String::new();
 
@@ -1586,7 +1586,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         declarations.push_str("SECTION .text\n");
         self.add(&mut declarations, "global  main", None, true);
         declarations.push_str("main:\n");
-        (declarations, code)
+        (declarations, code, String::new())
     }
 
     fn function_preamble(

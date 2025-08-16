@@ -17,6 +17,7 @@
  */
 
 use core::panic;
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
@@ -617,10 +618,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         // TODO should be const? But in this way I get a warning. Should all pointer be consts? But can we release them?
         CConsts::add_to_statics(
             statics,
+            statics_key.to_owned(),
             format!(
                 "{} {statics_key};",
                 CodeGenC::real_type_to_string(typed_type)
             ),
+            None,
         );
         self.add(before, &format!("{statics_key} = ",), None, true);
     }
@@ -662,7 +665,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             let entry = statics.get_typed_const(name, namespace).unwrap();
             CConsts::add_to_statics(
                 statics,
-                format!("char* {} = \"{}\";", entry.key, Self::escape_string(value)),
+                entry.key.clone(),
+                format!("char* {}", entry.key),
+                Some(format!("\"{}\"", Self::escape_string(value))),
             );
         } else {
             self.add(
@@ -693,12 +698,13 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             let entry = statics.get_typed_const(name, namespace).unwrap();
             CConsts::add_to_statics(
                 statics,
+                entry.key.clone(),
                 format!(
-                    "{} {} = {};",
+                    "{} {}",
                     CodeGenC::type_to_string(typed_type, statics),
-                    entry.key,
-                    value
+                    entry.key
                 ),
+                Some(value),
             );
         } else {
             self.add(
@@ -803,12 +809,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         }
     }
 
-    fn value_as_return(
-        &self,
-        before: &mut String,
-        value_type: &ASTValue,
-        statics: &mut Statics,
-    ) {
+    fn value_as_return(&self, before: &mut String, value_type: &ASTValue, statics: &mut Statics) {
         if let ASTValue::ASTStringValue(s) = value_type {
             self.string_literal_return(statics, before, s);
         } else {
@@ -958,27 +959,35 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         statics: &Statics,
         typed_module: &ASTTypedModule,
         _out_folder: &Path,
-    ) -> (String, String) {
+    ) -> (String, String, String) {
+        let mut include = String::new();
         let mut before = String::new();
-        let after = String::new();
+        let mut after = String::new();
 
         if let Some(includes) = statics.any::<CInclude>() {
             for inc in includes.unique() {
-                self.add(&mut before, &format!("#include {inc}"), None, false);
+                self.add(&mut include, &format!("#include {inc}"), None, false);
             }
-            self.add_empty_line(&mut before);
+            self.add_empty_line(&mut include);
         }
 
         if self.debug {
-            self.add(&mut before, "#define __RASM_DEBUG__", None, false);
+            self.add(&mut include, "#define __RASM_DEBUG__", None, false);
         }
 
         if let Some(consts) = statics.any::<CConsts>() {
-            for c in consts.vec.iter() {
-                self.add(&mut before, c, None, false);
+            for (name, def, value) in consts.vec.iter() {
+                self.add(&mut include, &format!("extern {def};"), None, false);
+                self.add(&mut before, &format!("{def};"), None, false);
+
+                if let Some(v) = value {
+                    self.add(&mut after, &format!("{name} = {v};"), None, false);
+                }
             }
-            self.add_empty_line(&mut before);
+            self.add_empty_line(&mut include);
         }
+
+        let mut variant_consts = HashSet::new();
 
         for s in typed_module.enums.iter() {
             for variant in s.variants.iter() {
@@ -992,6 +1001,18 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                     {
                         let variant_const_name =
                             Self::variant_const_name(s.namespace(), name, &variant.name);
+
+                        if variant_consts.contains(&variant_const_name) {
+                            continue;
+                        }
+                        variant_consts.insert(variant_const_name.clone());
+
+                        self.add(
+                            &mut include,
+                            &format!("extern struct RasmPointer_ *{variant_const_name};"),
+                            None,
+                            false,
+                        );
                         self.add(
                             &mut before,
                             &format!("struct RasmPointer_ *{variant_const_name};"),
@@ -1003,7 +1024,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                     }
                 } else {
                     self.add(
-                        &mut before,
+                        &mut include,
                         &format!(
                             "struct {}_{}_{} {{",
                             s.namespace.safe_name(),
@@ -1016,7 +1037,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
                     for property in variant.parameters.iter() {
                         self.add(
-                            &mut before,
+                            &mut include,
                             &format!(
                                 "{} {};",
                                 CodeGenC::real_type_to_string(&property.ast_type),
@@ -1027,25 +1048,25 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                         );
                     }
 
-                    self.add(&mut before, "};", None, false);
+                    self.add(&mut include, "};", None, false);
                 }
             }
         }
 
         if !typed_module.enums.is_empty() {
-            self.add_empty_line(&mut before);
+            self.add_empty_line(&mut include);
         }
 
         for s in typed_module.structs.iter() {
             self.add(
-                &mut before,
+                &mut include,
                 &format!("struct {}_{} {{", s.namespace.safe_name(), s.name),
                 None,
                 false,
             );
             for property in s.properties.iter() {
                 self.add(
-                    &mut before,
+                    &mut include,
                     &format!(
                         "{} {};",
                         CodeGenC::real_type_to_string(&property.ast_type),
@@ -1055,23 +1076,23 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                     true,
                 );
             }
-            self.add(&mut before, "};", None, false);
+            self.add(&mut include, "};", None, false);
         }
 
         if !typed_module.structs.is_empty() {
-            self.add_empty_line(&mut before);
+            self.add_empty_line(&mut include);
         }
 
         if let Some(clambdas) = statics.any::<CLambdas>() {
             for (_i, clambda) in clambdas.lambdas.values().enumerate() {
                 self.add(
-                    &mut before,
+                    &mut include,
                     &format!("struct {} {{", clambda.name),
                     None,
                     false,
                 );
                 self.add(
-                    &mut before,
+                    &mut include,
                     "struct RasmPointer_ *lambda_space;",
                     None,
                     true,
@@ -1088,7 +1109,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                 }
 
                 self.add(
-                    &mut before,
+                    &mut include,
                     &format!(
                         "{} (*functionPtr)({args}struct RasmPointer_*);",
                         Self::real_type_to_string(&clambda.return_type)
@@ -1098,35 +1119,35 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                 );
 
                 self.add(
-                    &mut before,
+                    &mut include,
                     "struct Void_* (*addref_function)(struct RasmPointer_ *);",
                     None,
                     true,
                 );
                 self.add(
-                    &mut before,
+                    &mut include,
                     "struct Void_* (*deref_function)(struct RasmPointer_ *);",
                     None,
                     true,
                 );
 
-                self.add(&mut before, "};", None, false);
-                self.add_empty_line(&mut before);
+                self.add(&mut include, "};", None, false);
+                self.add_empty_line(&mut include);
             }
-            self.add_empty_line(&mut before);
+            self.add_empty_line(&mut include);
         }
 
         if let Some(cstructs) = statics.any::<CStructs>() {
             for cstruct in cstructs.structs.iter() {
-                before.push_str(&cstruct.generate(&self.code_manipulator))
+                include.push_str(&cstruct.generate(&self.code_manipulator))
             }
         }
 
         if let Some(declarations) = statics.any::<CFunctionsDeclarations>() {
             for c in declarations.vec.iter() {
-                self.add(&mut before, c, None, false);
+                self.add(&mut include, c, None, false);
             }
-            self.add_empty_line(&mut before);
+            self.add_empty_line(&mut include);
         }
 
         self.add_rows(
@@ -1186,7 +1207,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             }
         }
 
-        (before, after)
+        (include, before, after)
     }
 
     fn function_preamble(

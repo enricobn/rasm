@@ -29,7 +29,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use super::code_gen_c::{CCodeManipulator, CodeGenC};
 
 pub struct CConsts {
-    pub vec: Vec<String>,
+    pub vec: Vec<(String, String, Option<String>)>,
 }
 
 impl CConsts {
@@ -37,16 +37,16 @@ impl CConsts {
         Self { vec: Vec::new() }
     }
 
-    pub fn add(&mut self, c: String) {
-        self.vec.push(c)
+    fn add(&mut self, name: String, def: String, value: Option<String>) {
+        self.vec.push((name, def, value))
     }
 
-    pub fn add_to_statics(statics: &mut Statics, const_def: String) {
+    pub fn add_to_statics(statics: &mut Statics, name: String, def: String, value: Option<String>) {
         if let Some(c) = statics.any_mut::<CConsts>() {
-            c.add(const_def);
+            c.add(name, def, value);
         } else {
             let mut c = CConsts::new();
-            c.add(const_def);
+            c.add(name, def, value);
             statics.add_any(c);
         }
     }

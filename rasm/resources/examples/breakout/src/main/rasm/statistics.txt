@@ -217,3 +217,10 @@ breakout.c size 675996
 C target: switched to GNU make for build
 compiler ended in 684.852128ms
 finished in 825.633899ms
+
+breakout 
+C target: before compiler optimization
+type check ended in 94.139064ms
+code generation ended in 56.226184ms
+compiler ended in 763.898399ms
+finished in 973.014665ms

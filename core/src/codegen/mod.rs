@@ -1,4 +1,7 @@
+use std::collections::{HashMap, HashSet};
 use std::env;
+use std::fs::File;
+use std::io::Write;
 use std::iter::zip;
 use std::ops::Deref;
 use std::path::Path;
@@ -313,12 +316,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         def: &ASTTypedFunctionDef,
     );
 
-    fn value_as_return(
-        &self,
-        before: &mut String,
-        value_type: &ASTValue,
-        statics: &mut Statics,
-    );
+    fn value_as_return(&self, before: &mut String, value_type: &ASTValue, statics: &mut Statics);
 
     fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String);
 
@@ -363,7 +361,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         statics: &Statics,
         typed_module: &ASTTypedModule,
         out_folder: &Path,
-    ) -> (String, String);
+    ) -> (String, String, String);
 
     fn function_preamble(
         &self,
@@ -410,12 +408,13 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         out_folder: &Path,
     ) -> Vec<(String, String)> {
         GLOBAL_LAMBDA_IN_STACK.write().unwrap().clear();
+
+        let mut result = Vec::new();
+
         let mut statics = statics;
         let mut id: usize = 0;
         let mut body = String::new();
-
         let mut lambdas = Vec::new();
-
         // for now main has no context
         let mut context = TypedValContext::new(None);
 
@@ -448,7 +447,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         body.push_str(&after);
 
         let mut functions_generated_code =
-            self.create_lambdas(lambdas, 0, &mut id, &mut statics, typed_module);
+            self.create_lambdas(lambdas.clone(), 0, &mut id, &mut statics, typed_module);
 
         functions_generated_code.extend(self.create_all_functions(
             &mut id,
@@ -462,10 +461,18 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         self.add_statics(project, &mut statics, out_folder);
 
-        let (static_declarations, static_code) =
+        let (include_code, static_code, initialization) =
             self.generate_statics_code(project, &statics, typed_module, out_folder);
 
-        generated_code.push_str(&static_declarations);
+        let include_file = format!("{}.h", project.config.package.name.clone());
+        result.push((include_file.clone(), include_code));
+
+        generated_code = format!("#include \"{include_file}\"\n{generated_code}");
+
+        //println!("static_declarations:\n{static_declarations}\n");
+        //println!("static_code:\n{static_code}\n");
+
+        // generated_code.push_str(&static_declarations);
 
         if self.debug() {
             self.define_debug(&mut generated_code);
@@ -485,10 +492,46 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         self.reserve_local_vals(&code_gen_context, &mut generated_code);
 
+        generated_code.push('\n');
+        generated_code.push_str(&initialization);
+        generated_code.push('\n');
+
+        let mut definitions_by_namespace = HashMap::new();
+        let mut body_by_namespace = HashMap::new();
+
+        let mut already_defined_functions = HashSet::new();
         // probably there is not a valid body from functions
-        for (_name, (_defs, bd)) in functions_generated_code.iter() {
+        for (name, (defs, bd)) in functions_generated_code.iter() {
+            if let Some(function_def) = typed_module.functions_by_name.get(name) {
+                already_defined_functions.insert(function_def.name.clone());
+                definitions_by_namespace
+                    .entry(function_def.namespace.clone())
+                    .or_insert(String::new())
+                    .push_str(defs);
+                body_by_namespace
+                    .entry(function_def.namespace.clone())
+                    .or_insert(String::new())
+                    .push_str(bd);
+            }
+
             // TODO if I add the body before, here I can add directly to generated_code
-            body.push_str(bd);
+            // body.push_str(bd);
+        }
+
+        let mut namespaces = body_by_namespace.keys().collect::<Vec<_>>();
+        namespaces.append(definitions_by_namespace.keys().collect::<Vec<_>>().as_mut());
+
+        for namespace in namespaces {
+            let file_name = format!("{}.{}", namespace.safe_name(), target.extension());
+            let mut file_code = format!("#include \"{include_file}\"\n");
+
+            if let Some(defs) = definitions_by_namespace.get(namespace) {
+                file_code.push_str(defs);
+            }
+            if let Some(body) = body_by_namespace.get(namespace) {
+                file_code.push_str(body);
+            }
+            result.push((file_name, file_code));
         }
 
         generated_code.push_str(&body);
@@ -506,18 +549,23 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         let used_functions =
             self.get_used_functions(&functions_generated_code, &generated_code, typed_module);
 
-        for (_, (defs, _bd)) in used_functions {
+        for (name, (defs, _bd)) in used_functions {
+            if already_defined_functions.contains(&name) {
+                continue;
+            }
             generated_code.push_str(&defs);
         }
 
-        vec![(
+        result.push((
             format!(
                 "{}.{}",
                 project.main_out_file_name(command_line_options),
                 target.extension()
             ),
             generated_code,
-        )]
+        ));
+
+        result
     }
 
     fn translate_static_code(&self, static_code: String, typed_module: &ASTTypedModule) -> String {

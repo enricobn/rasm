@@ -26,10 +26,6 @@ pub fn compile_c(
     src_paths: Vec<PathBuf>,
     out_file: &PathBuf,
 ) -> Result<Output, String> {
-    if src_paths.len() != 1 {
-        return Err("Only one native file to compile is supported!".to_owned());
-    }
-
     let make_file_template =
         String::from_utf8(CLibAssets::get("Makefile").unwrap().data.to_vec()).unwrap();
     let mut make_file_content = String::new();
