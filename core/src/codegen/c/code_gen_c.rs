@@ -760,7 +760,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         CFunctionsDeclarations::add_to_statics(
             statics,
             format!(
-                "{} {}({});",
+                "extern {} {}({});",
                 Self::real_type_to_string(&function_def.return_type),
                 function_def.name,
                 args.join(", ")
@@ -1151,11 +1151,22 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         }
 
         self.add_rows(
+            &mut include,
+            vec![
+                "extern int argc_;",
+                "extern char **argv_;",
+                "extern struct RCTable *rasm_rc_table;",
+            ],
+            None,
+            false,
+        );
+
+        self.add_rows(
             &mut before,
             vec![
-                "static int argc_;",
-                "static char **argv_;",
-                "static struct RCTable *rasm_rc_table;",
+                "int argc_;",
+                "char **argv_;",
+                "struct RCTable *rasm_rc_table;",
                 "",
                 "int main(int argc, char **argv)",
                 "{",
