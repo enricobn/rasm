@@ -510,7 +510,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             self.get_used_functions(&functions_generated_code, &generated_code, typed_module);
 
         let mut i = 0;
-        for partition in used_functions.chunks(used_functions.len() / num_cpus::get()) {
+        for partition in
+            used_functions.chunks(used_functions.len() / (num_cpus::get_physical() - 2))
+        {
             let file_name = format!(
                 "{}_{}.{}",
                 project.main_out_file_name(command_line_options),
