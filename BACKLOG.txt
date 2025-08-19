@@ -1,6 +1,5 @@
 Doing
 ------
-- macros
 
 Bug
 ----
@@ -34,8 +33,6 @@ Major
   we should evaluate the type of p1 and p2, so we have the type of fb
   then we evaluate p3 and p4, so we have the type of fc
   then we have the type of fa
-
-- divide C generated source to multiple files, to optimize make
 - command line tool:
   - add "new" for creating a new project
   - add "init" for creating a new project in the current folder
