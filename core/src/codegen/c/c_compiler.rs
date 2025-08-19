@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsStr,
     fs,
     path::{Path, PathBuf},
     process::{Command, Output, Stdio},
@@ -46,7 +47,10 @@ pub fn compile_c(
 
     make_file_content.push_str("\nOBJECTS =");
 
-    for add_file in src_paths.iter() {
+    for add_file in src_paths
+        .iter()
+        .filter(|it| it.extension().unwrap_or(OsStr::new("")) == "c")
+    {
         let mut f = PathBuf::from(add_file);
         f.set_extension("o");
         make_file_content.push_str(" ");

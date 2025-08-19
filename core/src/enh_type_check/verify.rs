@@ -437,10 +437,3 @@ fn verify_function_call(
     dedent!();
     Ok(())
 }
-
-fn expression_return_value_is_not_used(statement: &ASTTypedStatement) -> CompilationError {
-    verify_error(
-        statement.get_index().unwrap(),
-        "Expression return value is not used".to_string(),
-    )
-}

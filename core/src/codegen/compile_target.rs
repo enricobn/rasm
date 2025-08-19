@@ -137,6 +137,13 @@ impl CompileTarget {
         }
     }
 
+    pub fn include_extension(&self) -> String {
+        match self {
+            CompileTarget::Nasmi386(_) => "h".to_string(), // TODO we don't know, since for now it's not used for nasm
+            CompileTarget::C(_) => "h".to_string(),
+        }
+    }
+
     fn generate(
         &self,
         project: &RasmProject,

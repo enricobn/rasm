@@ -396,6 +396,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn get_reference_type_name(&self, ast_type: &ASTTypedType) -> Option<String>;
 
+    fn split_source(&self) -> usize;
+
+    fn include_file(&self, file: &str) -> String;
+
     fn generate(
         &'a self,
         project: &RasmProject,
@@ -462,15 +466,18 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         let (include_code, static_code, initialization) =
             self.generate_statics_code(project, &statics, typed_module, out_folder);
 
-        let include_file = format!("{}.h", project.config.package.name.clone());
-        result.push((include_file.clone(), include_code));
+        let include_file = format!(
+            "{}_main_include.{}",
+            project.config.package.name.clone(),
+            target.include_extension()
+        );
+        if self.split_source() > 0 {
+            result.push((include_file.clone(), include_code));
 
-        generated_code = format!("#include \"{include_file}\"\n{generated_code}");
-
-        //println!("static_declarations:\n{static_declarations}\n");
-        //println!("static_code:\n{static_code}\n");
-
-        // generated_code.push_str(&static_declarations);
+            generated_code = format!("{}\n{generated_code}", self.include_file(&include_file));
+        } else {
+            generated_code.push_str(&include_code);
+        }
 
         if self.debug() {
             self.define_debug(&mut generated_code);
@@ -509,26 +516,32 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         let used_functions =
             self.get_used_functions(&functions_generated_code, &generated_code, typed_module);
 
-        let mut i = 0;
-        for partition in
-            used_functions.chunks(used_functions.len() / (num_cpus::get_physical() - 2))
-        {
-            let file_name = format!(
-                "{}_{}.{}",
-                project.main_out_file_name(command_line_options),
-                i,
-                target.extension()
-            );
+        if self.split_source() > 0 {
+            let mut i = 0;
+            for partition in used_functions.chunks(used_functions.len() / self.split_source()) {
+                let file_name = format!(
+                    "{}_{}.{}",
+                    project.main_out_file_name(command_line_options),
+                    i,
+                    target.extension()
+                );
 
-            let mut generated_code = format!("#include \"{include_file}\"\n");
+                let mut generated_code = format!("{}\n", self.include_file(&include_file));
 
-            for (_, (defs, _bd)) in partition {
+                // TODO why _bd is not used?
+                for (_, (defs, _bd)) in partition {
+                    generated_code.push_str(&defs);
+                }
+
+                result.push((file_name, generated_code.clone()));
+
+                i += 1;
+            }
+        } else {
+            // TODO why _bd is not used?
+            for (_, (defs, _bd)) in used_functions {
                 generated_code.push_str(&defs);
             }
-
-            result.push((file_name, generated_code.clone()));
-
-            i += 1;
         }
 
         result.push((
@@ -2223,7 +2236,7 @@ mod tests {
             dir.path(),
         );
 
-        assert_eq!(1, result.len());
-        assert_eq!("breakout_test.c", result.get(0).unwrap().0);
+        assert!(!result.is_empty());
+        assert!(result.iter().any(|it| it.0 == "breakout_test.c"));
     }
 }

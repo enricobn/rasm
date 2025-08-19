@@ -1345,6 +1345,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     fn get_reference_type_name(&self, ast_type: &ASTTypedType) -> Option<String> {
         get_reference_type_name(ast_type, &TypeDefBodyTarget::C)
     }
+
+    fn split_source(&self) -> usize {
+        num_cpus::get_physical() - 2
+    }
+    
+    fn include_file(&self, file: &str) -> String {
+        format!("#include \"{file}\"")
+    }
 }
 
 pub fn value_type_to_enh_type(value_type: &ASTValue) -> EnhASTType {

@@ -1781,4 +1781,12 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
             .clone()
             */
     }
+
+    fn split_source(&self) -> usize {
+        0
+    }
+
+    fn include_file(&self, file: &str) -> String {
+        format!("include '{}'", file)
+    }
 }
