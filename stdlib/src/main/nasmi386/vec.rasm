@@ -651,7 +651,7 @@ pub native zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) ->
     jmp .loop
 .end:
     pop     eax
-    $call(deref, eax, "for map")
+    $deref(eax:Vec<T>)
 
     pop     edi
     pop     esi

@@ -3,8 +3,6 @@ Doing
 
 Bug
 ----
-- in nasmi386 the breakout examples crashes with an "Out of heap space" error. I think it is a problem related to 
-  function reference
 - consts are not reliable: if a const is defined with a function call, that uses a const that is defined after, 
   then it will compile, but it will crash at runtime!!! Add a verify or sort them by dependency
 - "Universal Polymorphism" can create an infinite recursion, for example:
