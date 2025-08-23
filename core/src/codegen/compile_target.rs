@@ -890,7 +890,11 @@ impl CompileTarget {
 
                     if command_line_options.only_compile {
                         backend
-                            .compile(&out, &out_file.with_extension("o"))
+                            .compile(
+                                &out,
+                                &out_file.with_extension("o"),
+                                command_line_options.release,
+                            )
                             .map_err(|it| vec![CompilationError::generic_none(it)])
                     } else {
                         backend
@@ -899,6 +903,7 @@ impl CompileTarget {
                                 &out_file.with_extension("o"),
                                 &out_file,
                                 &options.requires,
+                                command_line_options.release,
                             )
                             .map_err(|it| vec![CompilationError::generic_none(it)])
                     }

@@ -23,9 +23,10 @@ pub trait Backend: Send + Sync {
         intermediate_file: &Path,
         out_file: &Path,
         requires: &[String],
+        release: bool,
     ) -> Result<(), String>;
 
-    fn compile(&self, source_file: &Path, out_file: &Path) -> Result<(), String>;
+    fn compile(&self, source_file: &Path, out_file: &Path, release: bool) -> Result<(), String>;
 
     fn link(&self, source_file: &Path, out_file: &Path, requires: &[String]) -> Result<(), String>;
 
@@ -104,17 +105,23 @@ impl Backend for BackendNasmi386 {
         intermediate_file: &Path,
         out_file: &Path,
         requires: &[String],
+        release: bool,
     ) -> Result<(), String> {
-        self.compile(source_file, intermediate_file)?;
+        self.compile(source_file, intermediate_file, release)?;
 
         self.link(intermediate_file, out_file, requires)
     }
 
-    fn compile(&self, source_file: &Path, out_file: &Path) -> Result<(), String> {
+    fn compile(&self, source_file: &Path, out_file: &Path, release: bool) -> Result<(), String> {
         let start = Instant::now();
         info!("source file : '{:?}'", source_file);
         let mut nasm_command = Command::new("nasm");
+        // For now we cannot go with less than O2, because it fails at runtime, due to
+        // relative jumps ($+...), that seems to work differently. Probably we could fix it using
+        // the ALIGN directive in nasm, to have a precise relative jump offset:
+        // https://stackoverflow.com/questions/11277652/what-is-the-meaning-of-align-an-the-start-of-a-section
         nasm_command
+            .arg(if release { "-O3" } else { "-O2" })
             .arg("-f")
             .arg("elf")
             .arg("-g")
