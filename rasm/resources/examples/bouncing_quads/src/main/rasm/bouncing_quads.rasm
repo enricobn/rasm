@@ -38,29 +38,33 @@ const YELLOW = SDLColor(255, 255, 0, 255);
 initRandom();
 
 sdlInit();
+
 if(sdlTTFInit().eq(1), { panic("TTFInit error."); }, { });
 
 let font = sdlErrorIfNull(sdlOpenFont(resource("DejaVuSerif.ttf"), 24), "cannot open font: %s\n");
-let quads = vecRange(0, QUADS).map(fn(it) {
-                    let x = random(WIDTH);
-                    let y = random(HEIGHT);
-                    let xDir = if(random(2).eq(0), Right(), Left());
-                    let yDir = if(random(2).eq(0), YDirection::Up(), YDirection::Down());
-                    Quad(x, y, xDir, yDir, SDLColor(random(255), random(255), random(255), 255));
-                });
-let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(fn(it) {it.toi32;}).getOrElse(5000));
+let quads = vecRange(0, QUADS)
+    .map(fn(it) {
+        let x = random(WIDTH);
+        let y = random(HEIGHT);
+        let xDir = if(random(2).eq(0), Right(), Left());
+        let yDir = if(random(2).eq(0), YDirection::Up(), YDirection::Down());
+        Quad(x, y, xDir, yDir, SDLColor(random(255), random(255), random(255), 255));
+    });
+let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(toi32).getOrElse(5000));
 
 let win = sdlErrorIfNull(sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
 
-sdlLoop(ren, initialModel,
-    fn(event, model) { update(event, model);},
-    fn(sdlRen, model) { render(sdlRen, model);}
-);
+sdlLoop(ren, initialModel, update, render);
 
 fn update(event: Option<KeyEvent>, model: Model) -> Model {
-    let newModel = model.quads(model.quads.map(fn(quad) { quad.update;})).fps(model.fps.update).count(model.count.sub(1));
+    let newModel = model
+        .quads(model.quads.map(update))
+        .fps(model.fps.update)
+        .count(model.count.sub(1));
+
     if(newModel.count.less(0), {sdlQuit(); exitMain(0);}, {});
+
     newModel;
 }
 
@@ -89,7 +93,7 @@ fn render(ren: SDLRenderer, model: Model) {
         sdlRenderFillRect(ren, SDLRect(quad.x, quad.y, QUADWIDTH, QUADWIDTH));
     });
 
-    let fpsText = createSDLText(ren, model.font, add("FPS: ", toString(model.fps.fps)), BLACK);
+    let fpsText = createSDLText(ren, model.font, add("FPS: ", toString(model.fps.fps)), WHITE);
     renderAndRelease(ren, fpsText, SDLRect(400, 2, 100, 24));
 
     sdlRenderPresent(ren);
