@@ -1,11 +1,12 @@
 extern crate core;
 
 use std::env;
-use std::io::Write;
+use std::fs::{self, DirBuilder};
+use std::io::{self, stdout, Write};
 use std::path::Path;
-use std::time::Instant;
 
 use clap::{Arg, ArgAction, Command};
+use dirs::home_dir;
 use env_logger::Builder;
 use log::info;
 use rasm_core::codegen::compile_target::{CompileTarget, C, NASMI386};
@@ -18,8 +19,6 @@ use rasm_core::commandline::{CommandLineAction, CommandLineOptions};
 use rasm_ui::UI;
 
 fn main() {
-    let start = Instant::now();
-
     Builder::from_default_env()
         .format(|buf, record| {
             writeln!(
@@ -40,7 +39,7 @@ fn main() {
             Arg::new("ACTION")
                 .help("the action to perform")
                 .required(true)
-                .value_parser(["build", "test", "server", "ui"])
+                .value_parser(["build", "install", "run", "test", "server", "ui"])
                 .required(true)
                 .index(1),
         )
@@ -140,8 +139,10 @@ fn main() {
         .as_str()
     {
         "build" => CommandLineAction::Build,
-        "test" => CommandLineAction::Test,
+        "install" => CommandLineAction::Install,
+        "run" => CommandLineAction::Run,
         "server" => CommandLineAction::Server,
+        "test" => CommandLineAction::Test,
         "ui" => CommandLineAction::UI,
         it => panic!("Unsupported action {it}"),
     };
@@ -178,6 +179,8 @@ fn main() {
         rasm_server(project);
     } else if command_line_options.action == CommandLineAction::UI {
         UI::show(project, target).unwrap();
+    } else if command_line_options.action == CommandLineAction::Install {
+        install_project(&project, &target, &command_line_options);
     } else {
         debug_i!("project {:?}", project);
 
@@ -185,7 +188,100 @@ fn main() {
         info!("resource folder: {:?}", resource_folder);
 
         target.run(project, command_line_options);
-
-        info!("finished in {:?}", start.elapsed());
     }
+}
+
+fn install_project(
+    project: &RasmProject,
+    target: &CompileTarget,
+    command_line_options: &CommandLineOptions,
+) {
+    if project.config.package.main.is_some() {
+        panic!("You cannot install a project with a main");
+    }
+
+    let home_dir = home_dir().expect("home dir not found");
+
+    if project.main_test_src_file().is_some() {
+        info!("running tests");
+        let mut test_command_line_options = command_line_options.clone();
+        test_command_line_options.action = CommandLineAction::Test;
+
+        target.run(project.clone(), test_command_line_options);
+    }
+
+    let destination_folder = home_dir
+        .join(".rasm/repository")
+        .join(project.config.package.name.clone())
+        .join(project.config.package.version.clone());
+
+    info!(
+        "installing {} to {}",
+        project.root.as_os_str().to_string_lossy(),
+        destination_folder.as_os_str().to_string_lossy()
+    );
+
+    if destination_folder.exists() {
+        print!("library has already been installed, do you want to overwrite it? (y/n) ");
+        stdout().flush().unwrap();
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+        if input.trim() != "y" {
+            println!("Aborting");
+            return;
+        }
+
+        fs::remove_dir_all(&destination_folder).unwrap();
+    }
+
+    DirBuilder::new()
+        .recursive(true)
+        .create(&destination_folder)
+        .unwrap();
+
+    fs::copy(
+        project.root.join("rasm.toml"),
+        destination_folder.join("rasm.toml"),
+    )
+    .expect("rasm.toml copy failed");
+
+    let source_folder = project
+        .config
+        .package
+        .source_folder
+        .clone()
+        .unwrap_or("src".to_owned());
+
+    if let Err(msg) = copy_dir_all(
+        project.root.join(source_folder.clone()),
+        destination_folder.join(source_folder),
+    ) {
+        panic!("copy failed: {}", msg);
+    }
+
+    println!(
+        "Successfully installed {} to {}",
+        project.config.package.name,
+        destination_folder.as_os_str().to_string_lossy()
+    );
+}
+
+fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
+    fs::create_dir_all(&dst)?; // Create destination directory if it doesn't exist
+
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+
+        let src_path = entry.path();
+        let dst_path = dst.as_ref().join(entry.file_name());
+
+        if file_type.is_dir() {
+            copy_dir_all(&src_path, &dst_path)?; // Recursive copy for directories
+        } else {
+            fs::copy(&src_path, &dst_path)?; // Copy file
+        }
+    }
+
+    Ok(())
 }

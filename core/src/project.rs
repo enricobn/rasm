@@ -967,7 +967,15 @@ fn get_rasm_config_from_directory(src_path: &Path) -> RasmConfig {
     if let Ok(mut file) = File::open(toml_file) {
         if let Ok(_size) = file.read_to_string(&mut s) {
             match toml::from_str::<RasmConfig>(&s) {
-                Ok(config) => config,
+                Ok(config) => {
+                    match semver::Version::parse(&config.package.version) {
+                        Ok(version) => {
+                            info!("project version: {}", version);
+                        }
+                        Err(msg) => panic!("Invalid semver version in rasm.toml: {}", msg),
+                    }
+                    config
+                }
                 Err(err) => panic!("Error parsing rasm.toml:\n{}", err),
             }
         } else {

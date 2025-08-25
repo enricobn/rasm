@@ -85,19 +85,20 @@ impl Statics {
     ) {
         let const_key = Self::const_key(&name, namespace, modifiers);
 
-        // TODO it's a trick: during type check passes consts are added again
-        if !self.const_map.contains_key(&const_key) {
-            self.insert(const_key.clone(), MemoryValue::Mem(1, MemoryUnit::Words));
-
-            self.const_map.insert(
-                const_key.clone(),
-                ConstEntry {
-                    key: const_key.clone(),
-                    ast_type,
-                    modifiers: modifiers.clone(),
-                },
-            );
+        if self.const_map.contains_key(&const_key) {
+            panic!("already added value for const {const_key}");
         }
+
+        self.insert(const_key.clone(), MemoryValue::Mem(1, MemoryUnit::Words));
+
+        self.const_map.insert(
+            const_key.clone(),
+            ConstEntry {
+                key: const_key.clone(),
+                ast_type,
+                modifiers: modifiers.clone(),
+            },
+        );
     }
 
     pub fn const_key(name: &str, namespace: &EnhASTNameSpace, modifiers: &ASTModifiers) -> String {
@@ -116,6 +117,11 @@ impl Statics {
         modifiers: &ASTModifiers,
     ) -> String {
         let const_key = Self::const_key(&name, namespace, modifiers);
+
+        if self.const_typed_map.contains_key(&const_key) {
+            panic!("already added value for const {const_key}");
+        }
+
         self.const_typed_map.insert(
             const_key.to_owned(),
             ConstTypedEntry {
@@ -129,6 +135,7 @@ impl Statics {
 
     pub fn get_const(&self, name: &str, namespace: &EnhASTNameSpace) -> Option<&ConstEntry> {
         let const_key = Self::const_key(&name, namespace, &ASTModifiers::private());
+
         if let Some(entry) = self.const_map.get(&const_key) {
             return Some(entry);
         }
@@ -142,6 +149,7 @@ impl Statics {
         namespace: &EnhASTNameSpace,
     ) -> Option<&ConstTypedEntry> {
         let const_key = Self::const_key(&name, namespace, &ASTModifiers::private());
+
         if let Some(entry) = self.const_typed_map.get(&const_key) {
             return Some(entry);
         }
@@ -182,14 +190,6 @@ impl Statics {
 
     pub fn is_empty(&self) -> bool {
         self.statics.is_empty()
-    }
-
-    pub fn const_names(&self) -> Vec<&String> {
-        self.const_map.keys().collect::<Vec<_>>()
-    }
-
-    pub fn typed_const_names(&self) -> Vec<&String> {
-        self.const_typed_map.keys().collect::<Vec<_>>()
     }
 
     pub fn insert_value_in_heap(&mut self, label: &str, descr: &str, value: i32) {

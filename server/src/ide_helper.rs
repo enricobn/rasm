@@ -1293,10 +1293,15 @@ impl IDEHelper {
 
         let mut parameters_defs = Vec::new();
         let mut parameters_values = Vec::new();
-        let parameters = Self::extract_vals_body(&module.body, &HashSet::new(), &val_context);
+        let parameters = Self::extract_vals_body(
+            &module.body,
+            &HashSet::new(),
+            &val_context,
+            start_index.module_namespace(),
+        );
         let mut generics = HashSet::new();
         for par in parameters {
-            if let Some(kind) = val_context.get(&par.0) {
+            if let Some(kind) = val_context.get(&par.0, start_index.module_namespace()) {
                 let ast_type = kind.ast_type().remove_generic_prefix();
                 generics.extend(ast_type.generics());
 
@@ -1398,6 +1403,7 @@ impl IDEHelper {
         body: &Vec<ASTStatement>,
         excluding: &HashSet<String>,
         val_context: &ValContext,
+        namespace: &ModuleNamespace,
     ) -> LinkedHashMap<String, ASTPosition> {
         let mut result = LinkedHashMap::new();
         let mut excluding = excluding.clone();
@@ -1405,15 +1411,15 @@ impl IDEHelper {
         for statement in body.iter() {
             let statement_result = match statement {
                 ASTStatement::ASTExpressionStatement(expr, _) => {
-                    Self::extract_vals_expr(expr, &excluding, val_context)
+                    Self::extract_vals_expr(expr, &excluding, val_context, namespace)
                 }
                 ASTStatement::ASTLetStatement(name, expr, _) => {
                     excluding.insert(name.to_owned());
-                    Self::extract_vals_expr(expr, &excluding, val_context)
+                    Self::extract_vals_expr(expr, &excluding, val_context, namespace)
                 }
                 ASTStatement::ASTConstStatement(name, expr, _, _) => {
                     excluding.insert(name.to_owned());
-                    Self::extract_vals_expr(expr, &excluding, val_context)
+                    Self::extract_vals_expr(expr, &excluding, val_context, namespace)
                 }
             };
             result.extend(statement_result);
@@ -1426,17 +1432,23 @@ impl IDEHelper {
         expr: &ASTExpression,
         excluding: &HashSet<String>,
         val_context: &ValContext,
+        namespace: &ModuleNamespace,
     ) -> LinkedHashMap<String, ASTPosition> {
         match expr {
             ASTExpression::ASTFunctionCallExpression(function_call) => {
                 let mut result = LinkedHashMap::new();
                 if let Some(ValKind::ParameterRef(_, par)) =
-                    val_context.get(function_call.function_name())
+                    val_context.get(function_call.function_name(), namespace)
                 {
                     result.insert(function_call.function_name().clone(), par.position.clone());
                 }
                 for e in function_call.parameters().iter() {
-                    result.extend(Self::extract_vals_expr(e, excluding, val_context));
+                    result.extend(Self::extract_vals_expr(
+                        e,
+                        excluding,
+                        val_context,
+                        namespace,
+                    ));
                 }
                 result
             }
@@ -1455,7 +1467,7 @@ impl IDEHelper {
                 for (name, _) in lambda_def.parameter_names.iter() {
                     excluding.insert(name.clone());
                 }
-                Self::extract_vals_body(&lambda_def.body, &excluding, val_context)
+                Self::extract_vals_body(&lambda_def.body, &excluding, val_context, namespace)
             }
         }
     }

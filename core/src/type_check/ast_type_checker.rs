@@ -494,7 +494,7 @@ impl ASTTypeChecker {
                         }
                     }
                 }
-                ASTStatement::ASTConstStatement(name, e, position, _astmodifiers) => {
+                ASTStatement::ASTConstStatement(name, e, position, astmodifiers) => {
                     self.add_expr(
                         e,
                         inner_val_context,
@@ -520,8 +520,12 @@ impl ASTTypeChecker {
                     if let Some(entry) = self.result.get_by_index(&e_index) {
                         if let Some(filter) = &entry.filter {
                             if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
-                                let insert_result =
-                                    statics.insert_let(name.clone(), ast_type.clone(), &index);
+                                let insert_result = statics.insert_const(
+                                    name.clone(),
+                                    ast_type.clone(),
+                                    &index,
+                                    astmodifiers,
+                                );
 
                                 if let Err(e) = insert_result {
                                     self.errors.push(ASTTypeCheckError::new(
@@ -593,7 +597,7 @@ impl ASTTypeChecker {
                 );
             }
             ASTExpression::ASTValueRefExpression(name, _) => {
-                if let Some(kind) = val_context.get(name) {
+                if let Some(kind) = val_context.get(name, module_namespace) {
                     self.insert(
                         index.clone(),
                         ASTTypeCheckEntry::reference(
@@ -603,7 +607,7 @@ impl ASTTypeChecker {
                             kind.index(module_namespace, module_id),
                         ),
                     );
-                } else if let Some(kind) = statics.get(name) {
+                } else if let Some(kind) = statics.get(name, module_namespace) {
                     self.insert(
                         index.clone(),
                         ASTTypeCheckEntry::reference(
@@ -1053,7 +1057,7 @@ impl ASTTypeChecker {
         }
 
         if let Some((lambda_return_type, parameters_types)) =
-            val_context.get_lambda(call.function_name())
+            val_context.get_lambda(call.function_name(), module_namespace)
         {
             let return_type = lambda_return_type.as_ref().clone();
             let parameters_types = parameters_types.clone();
@@ -2063,7 +2067,7 @@ mod tests {
 
             let mut elements = tree.get_elements_at(row, column);
 
-            // for expression statements, we find two elements the statement and the expression, we usually 
+            // for expression statements, we find two elements the statement and the expression, we usually
             // want the expression
             if elements.len() != 1 {
                 elements = elements

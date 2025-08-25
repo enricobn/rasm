@@ -1,5 +1,7 @@
 Doing
 ------
+- install library
+  - in ~/.rasm/repository/library-name/library-version
 
 Bug
 ----
@@ -34,7 +36,6 @@ Major
 - command line tool:
   - add "new" for creating a new project
   - add "init" for creating a new project in the current folder
-  - add "run" to run an executable
 - I don't like methods to handle "generic prefix" in AST, it should be handled outside the AST modules
 - populate target for ASTFunctionDef, for regular functions (not builtin), with the name of the type of the first 
   parameter, even if generic when not completely generic (Option<T>)? Adjust code completion
@@ -43,8 +44,6 @@ Major
 - move all asm code to backend
 - List library
 - SDL library
-- install library
-  - in ~/.rasm/repository/library-name/library-version
 - library from http (https)
 - library from git
 - Unit type: ()

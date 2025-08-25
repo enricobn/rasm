@@ -5,7 +5,7 @@ use rasm_utils::debug_i;
 
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleNamespace},
-    parser::ast::{ASTBuiltinTypeKind, ASTParameterDef, ASTPosition, ASTType},
+    parser::ast::{ASTBuiltinTypeKind, ASTModifiers, ASTParameterDef, ASTPosition, ASTType},
 };
 
 static COUNT_UNKNOWN_LAMBDA_PAR: AtomicUsize = AtomicUsize::new(0);
@@ -14,6 +14,7 @@ static COUNT_UNKNOWN_LAMBDA_PAR: AtomicUsize = AtomicUsize::new(0);
 pub enum ValKind {
     ParameterRef(usize, ASTParameterDef),
     LetRef(usize, ASTType, ASTIndex),
+    ConstRef(usize, ASTType, ASTIndex, ASTModifiers),
 }
 
 impl ValKind {
@@ -21,6 +22,7 @@ impl ValKind {
         match self {
             ValKind::ParameterRef(_, par) => par.ast_type.clone(),
             ValKind::LetRef(_, ast_type, _) => ast_type.clone(),
+            ValKind::ConstRef(_, ast_type, _, _) => ast_type.clone(),
         }
     }
 
@@ -32,6 +34,7 @@ impl ValKind {
                 astparameter_def.position.clone(),
             ),
             ValKind::LetRef(_, _, astindex) => astindex.clone(),
+            ValKind::ConstRef(_, _, astindex, _) => astindex.clone(),
         }
     }
 }
@@ -109,6 +112,38 @@ impl ValContext {
         }
     }
 
+    pub fn insert_const(
+        &mut self,
+        key: String,
+        ast_type: ASTType,
+        ast_index: &ASTIndex,
+        modifiers: &ASTModifiers,
+    ) -> Result<Option<ValKind>, String> {
+        debug_i!("adding const val {key} of type {ast_type} to context");
+
+        let key = if modifiers.public {
+            key
+        } else {
+            format!("{}_{}", ast_index.module_namespace(), key)
+        };
+
+        let result = self.value_to_address.insert(
+            key.clone(),
+            ValKind::ConstRef(
+                self.let_index,
+                ast_type,
+                ast_index.clone(),
+                modifiers.clone(),
+            ),
+        );
+        self.let_index += 1;
+        if result.is_some() {
+            Err(format!("already defined {key}: {}", ast_index))
+        } else {
+            Ok(result)
+        }
+    }
+
     pub fn insert_unknown_lambda_parameter(
         &mut self,
         key: String,
@@ -141,16 +176,21 @@ impl ValContext {
         }
     }
 
-    pub fn get(&self, key: &str) -> Option<&ValKind> {
-        self.value_to_address.get(key)
+    pub fn get(&self, key: &str, namespace: &ModuleNamespace) -> Option<&ValKind> {
+        let result = self.value_to_address.get(&format!("{}_{}", namespace, key));
+        if result.is_none() {
+            self.value_to_address.get(key)
+        } else {
+            result
+        }
     }
 
     pub fn names(&self) -> Vec<&String> {
         self.value_to_address.keys().collect()
     }
 
-    pub fn is_lambda(&self, key: &str) -> bool {
-        if let Some(ValKind::ParameterRef(_i, par)) = self.get(key) {
+    pub fn is_lambda(&self, key: &str, namespace: &ModuleNamespace) -> bool {
+        if let Some(ValKind::ParameterRef(_i, par)) = self.get(key, namespace) {
             if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 return_type: _,
                 parameters: _,
@@ -160,7 +200,7 @@ impl ValContext {
             }
         }
 
-        if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key) {
+        if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key, namespace) {
             if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 return_type: _,
                 parameters: _,
@@ -169,11 +209,17 @@ impl ValContext {
                 return true;
             }
         }
+
+        // TODO add const
         false
     }
 
-    pub fn get_lambda(&self, key: &str) -> Option<(&Box<ASTType>, &Vec<ASTType>)> {
-        if let Some(ValKind::ParameterRef(_i, par)) = self.get(key) {
+    pub fn get_lambda(
+        &self,
+        key: &str,
+        namespace: &ModuleNamespace,
+    ) -> Option<(&Box<ASTType>, &Vec<ASTType>)> {
+        if let Some(ValKind::ParameterRef(_i, par)) = self.get(key, namespace) {
             if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 return_type,
                 parameters,
@@ -183,7 +229,7 @@ impl ValContext {
             }
         }
 
-        if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key) {
+        if let Some(ValKind::LetRef(_i, ast_type, _)) = self.get(key, namespace) {
             if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 return_type,
                 parameters,
@@ -192,6 +238,9 @@ impl ValContext {
                 return Some((return_type, parameters));
             }
         }
+
+        // TODO add const
+
         None
     }
 }

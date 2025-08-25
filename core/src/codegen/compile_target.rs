@@ -31,7 +31,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{exit, Command};
+use std::process::{exit, Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
@@ -261,9 +261,17 @@ impl CompileTarget {
     pub fn supported_actions(&self) -> Vec<CommandLineAction> {
         match self {
             CompileTarget::Nasmi386(_) => {
-                vec![CommandLineAction::Build, CommandLineAction::Test]
+                vec![
+                    CommandLineAction::Build,
+                    CommandLineAction::Run,
+                    CommandLineAction::Test,
+                ]
             }
-            CompileTarget::C(_) => vec![CommandLineAction::Build, CommandLineAction::Test],
+            CompileTarget::C(_) => vec![
+                CommandLineAction::Build,
+                CommandLineAction::Run,
+                CommandLineAction::Test,
+            ],
         }
     }
 
@@ -316,7 +324,7 @@ impl CompileTarget {
             start,
             &command_line_options,
             out_folder,
-            out_file,
+            out_file.clone(),
         ) {
             for error in errors {
                 eprintln!("{error}");
@@ -324,6 +332,24 @@ impl CompileTarget {
             eprintln!("error: could not compile due to previous errors");
 
             exit(1);
+        }
+
+        info!("finished in {:?}", start.elapsed());
+
+        if command_line_options.action == CommandLineAction::Test
+            || command_line_options.action == CommandLineAction::Run
+        {
+            let mut command = Command::new(out_file.to_string_lossy().to_string());
+
+            let output = command
+                .stderr(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .output()
+                .unwrap();
+
+            if !output.status.success() {
+                exit(1);
+            }
         }
     }
 
@@ -879,7 +905,7 @@ impl CompileTarget {
 
         match self {
             CompileTarget::Nasmi386(options) => match command_line_options.action {
-                CommandLineAction::Build | CommandLineAction::Test => {
+                CommandLineAction::Build | CommandLineAction::Test | CommandLineAction::Run => {
                     if out_paths.len() != 1 {
                         panic!("Only one native file to compile is supported!");
                     }

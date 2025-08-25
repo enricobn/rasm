@@ -1256,7 +1256,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         statics: &mut Statics,
         body: &mut String,
         value: &String,
-        typed_type: &ASTTypedType,
+        _typed_type: &ASTTypedType,
         namespace: &EnhASTNameSpace,
         modifiers: Option<&ASTModifiers>,
     ) {
@@ -1274,12 +1274,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
                 self,
             );
 
-            let key = statics.add_typed_const(
-                name.to_owned(),
-                typed_type.clone(),
-                namespace,
-                modifiers.unwrap(),
-            );
+            let key = Statics::const_key(name, namespace, modifiers.unwrap());
 
             self.indirect_mov(
                 body,
@@ -1323,10 +1318,10 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         before: &mut String,
         name: &str,
         is_const: bool,
-        statics: &mut Statics,
+        _statics: &mut Statics,
         body: &mut String,
         value_type: &ASTValue,
-        typed_type: &ASTTypedType,
+        _typed_type: &ASTTypedType,
         namespace: &EnhASTNameSpace,
         modifiers: Option<&ASTModifiers>,
     ) {
@@ -1339,12 +1334,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         let wl = self.backend.word_len();
 
         if is_const {
-            let key = statics.add_typed_const(
-                name.to_owned(),
-                typed_type.clone(),
-                namespace,
-                modifiers.unwrap(),
-            );
+            let key = Statics::const_key(name, namespace, modifiers.unwrap());
 
             self.add(
                 body,

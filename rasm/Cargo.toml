@@ -17,6 +17,9 @@ env_logger.workspace = true
 chrono.workspace = true
 log.workspace = true
 
+# others
+dirs = "6.0.0"
+
 [dev-dependencies]
 rand.workspace = true
 tempdir.workspace = true

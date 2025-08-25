@@ -1,13 +1,11 @@
-let result = TestSuite("My tests")
+TestSuite("My tests")
     .add("test1", test1)
     .add("test2", test2)
     .run(None());
 
-println(result);
-
 fn test1() -> Assertions {
     Assertions()
-    .assertEquals(0, 1);
+        .assertEquals(0, 0);
 }
 
 fn test2() -> Assertions {

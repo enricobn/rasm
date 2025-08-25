@@ -1079,12 +1079,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             if !bf.is_empty() || !cur.is_empty() {
                 body.push_str(&bf);
 
-                let key = statics.add_typed_const(
-                    name.to_owned(),
-                    return_type.clone(),
-                    namespace,
-                    modifiers.unwrap(),
-                );
+                let key = Statics::const_key(name, namespace, modifiers.unwrap());
 
                 self.set_let_const_for_function_call_result(
                     &key,

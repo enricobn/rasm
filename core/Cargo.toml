@@ -36,3 +36,4 @@ walkdir.workspace = true
 anymap = "0.12.1"
 num_cpus = "1.0"
 once_cell = "1.19"
+semver = "1.0.26"

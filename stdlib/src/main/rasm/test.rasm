@@ -1,3 +1,6 @@
+const RED = 31;
+const GREEN = 32;
+
 pub struct TestSuite {
     name: str,
     tests: Vec<RunTest>,
@@ -16,10 +19,16 @@ pub fn add(suite: TestSuite, s: TestSuite) -> TestSuite {
     suite.suites(fn(it) { it.push(s);});
 }
 
-pub fn run(suite: TestSuite, test: Option<str>) -> bool {
+pub fn run(suite: TestSuite, test: Option<str>) {
+    if(suite.runInternal(test), {
+        exitMain(1);
+    }, {});
+}
+
+fn runInternal(suite: TestSuite, test: Option<str>) -> bool {
     println("Running suite ", suite.name());
     
-    let suitesResult = suite.suites.foldLeft(false, fn(prev, it) { prev.or(it.run(test)); });
+    let suitesResult = suite.suites.foldLeft(false, fn(prev, it) { prev.or(it.runInternal(test)); });
 
     let testsResult = suite.tests
         .filter(fn(it) { 
@@ -27,7 +36,7 @@ pub fn run(suite: TestSuite, test: Option<str>) -> bool {
         .foldLeft(false, fn(prev,it) { prev.or(it.run()); });
 
     if (suitesResult.or(testsResult), 
-        { println(suite.name, " \033[31mTests failed\033[0m"); }, 
+        { println(suite.name, " ".add(color("Tests failed", RED))); }, 
         {});
 
     suitesResult.or(testsResult);
@@ -105,14 +114,18 @@ pub fn runTest(name: str, testRun: fn() -> Assertions) -> bool {
 
     runResult.failed.first.match(
         fn(error) {
-            let message = " - \033[31mFAILED\033[0m : ";
+            let message = " - ".add(color("FAILED", RED)).add(" : ");
             print(message);
             println(error);
             true;
         },
         {
-            println(" - \033[32mok\033[0m");
+            println(" - ".add(color("ok", GREEN)));
             false;
         }
     );
+}
+
+fn color(text: str, color: int) -> str {
+    "\033[".append(color).add("m").add(text).add("\033[0m");
 }

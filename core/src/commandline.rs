@@ -18,14 +18,17 @@
 
 use strum_macros::Display;
 
-#[derive(PartialEq, Display)]
+#[derive(PartialEq, Display, Clone)]
 pub enum CommandLineAction {
     Build,
-    Test,
+    Install,
+    Run,
     Server,
+    Test,
     UI,
 }
 
+#[derive(Clone)]
 pub struct CommandLineOptions {
     pub action: CommandLineAction,
     pub debug: bool,
