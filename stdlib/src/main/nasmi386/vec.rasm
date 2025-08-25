@@ -484,6 +484,7 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     push    edx
     push    esi
 
+    mov     eax, $zero          ; the actual value
     mov     dword ecx, $vec
     mov     dword ecx, [ecx]    ; the address of the value in the vector
     mov     dword esi, [ecx]    ; the size of the vector
@@ -493,7 +494,6 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     mov     dword ebx, $accum
     mov     dword ebx,[ebx]     ; the lambda space
 
-    mov     eax, $zero          ; the actual value
 .loop:
     add     ecx, 4
     push    eax
