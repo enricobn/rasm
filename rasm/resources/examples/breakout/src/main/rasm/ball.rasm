@@ -7,7 +7,7 @@ pub struct Ball {
 }
 
 pub fn initialBall(now: TimeVal) -> Ball {
-    Ball(500.0, 200.0, Right(), Down(), now);
+    Ball(WIDTH.div(2).toFloat, HEIGHT.div(4).toFloat, if(random(2).eq(0), Right(), Left()), Down(), now);
 }
 
 pub fn update(ball: Ball, actualTime: TimeVal) -> Ball {
@@ -41,7 +41,7 @@ fn update(x: float, xDir: XDirection, diff: float) -> Pair<float,XDirection> {
 fn update(y: float, yDir: YDirection, diff: float) -> Pair<float,YDirection> {
     let newY = y.move(yDir, diff);
     if(newY.less(HEADERHEIGHT),
-        { Pair(HEADERHEIGHT.tof32.add(HEADERHEIGHT.tof32.sub(newY)), yDir.flip);},
+        { Pair(HEADERHEIGHT.toFloat.add(HEADERHEIGHT.toFloat.sub(newY)), yDir.flip);},
         { Pair(newY, yDir);}
     );
 }

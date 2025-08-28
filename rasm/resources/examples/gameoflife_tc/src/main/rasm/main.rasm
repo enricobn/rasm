@@ -7,7 +7,7 @@ argv(1).match(fn(file) {
     let start = readCellFile(file);
 
     argv(2)
-    .fmap(fn(s) { s.toi32;})
+    .fmap(fn(s) { s.toInt;})
     .match(
         fn(count) {
             run(moveCells(start, 20), 80, 50, count);

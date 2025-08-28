@@ -16,13 +16,13 @@ println(-10.0);
 println(-20.1);
 println(-20.001);
 
-println(tof32(10));
-println(tof32(123456));
-println(tof32(-10));
-println(tof32(-123456));
+println(toFloat(10));
+println(toFloat(123456));
+println(toFloat(-10));
+println(toFloat(-123456));
 
-println(toi32(10.1234));
-println(toi32(-10.1234));
+println(toInt(10.1234));
+println(toInt(-10.1234));
 
 println(mul(10.0, 0.2));
 println(div(10.0, 2.0));

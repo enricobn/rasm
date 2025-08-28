@@ -1,9 +1,9 @@
-pub native tof32(n: int) -> float /{
+pub native toFloat(n: int) -> float /{
     $inline()
     return ((float) $n);
 }/
 
-pub native toi32(n: float) -> Option<int> /{
+pub native toInt(n: float) -> Option<int> /{
     int result = (int)$n;
     return
         $call(Some, result)

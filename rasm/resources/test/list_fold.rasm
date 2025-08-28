@@ -1,4 +1,4 @@
-let n = argv(1).fmap(fn(s) { s.toi32;}).getOrElse(999);
+let n = argv(1).fmap(fn(s) { s.toInt;}).getOrElse(999);
 
 println(foldLeft(range(0, n), 0, fn(prev, actual) { add(prev, add(prev, actual)); }));
 

@@ -116,9 +116,9 @@ fn loadHighScores() -> Vec<HighScore> {
         lines.fmap(fn(line) {
             let splitted = line.splitToList(",");
             splitted.map3(fn(score, sec, nano) {
-                score.toi32.fmap(fn(sc) {
-                    sec.toi32.fmap(fn(s) {
-                        nano.toi32.map(fn(n) {
+                score.toInt.fmap(fn(sc) {
+                    sec.toInt.fmap(fn(s) {
+                        nano.toInt.map(fn(n) {
                             HighScore(sc, TimeVal(s, n));
                         });
                     });

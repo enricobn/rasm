@@ -1,8 +1,8 @@
-pub native tof32(n: int) -> float /{
+pub native toFloat(n: int) -> float /{
     push    ebx
     push    ecx
 
-    ; $call(print, "tof32(", $n)
+    ; $call(print, "toFloat(", $n)
     ; $call(println, ")")
     mov     dword ebx,$n
     mov     dword eax,$n
@@ -44,7 +44,7 @@ native countBits(n: int) -> int /{
     pop     ebx
 }/
 
-pub native toi32(n: float) -> Option<int> /{
+pub native toInt(n: float) -> Option<int> /{
     push    ebx
     push    ecx
     push    edx

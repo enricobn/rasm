@@ -5,7 +5,7 @@ use crate::macros::macro_call_extractor::{MacroCallExtractor, MacroResultType};
 /// prints the result.
 pub fn create_macro_module(mce: &MacroCallExtractor) -> String {
     let mut body = String::new();
-    body.push_str("let id = argv(1).fmap(fn(it) { it.toi32(); }).getOrElse(-1);\n");
+    body.push_str("let id = argv(1).fmap(fn(it) { it.toInt(); }).getOrElse(-1);\n");
     body.push_str("let functionToCall = \n");
 
     for (i, call) in mce.calls().iter().enumerate() {

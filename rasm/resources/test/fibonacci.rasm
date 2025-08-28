@@ -34,7 +34,7 @@
 // some changes...
 // real    0m3,388s
 //
-argv(1).fmap(fn(s) {s.toi32;}).match(fn(n) {
+argv(1).fmap(fn(s) {s.toInt;}).match(fn(n) {
     println(fib(n));
 }, { println("Expected a numeric parameter");});
 

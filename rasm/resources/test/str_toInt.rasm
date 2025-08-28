@@ -1,5 +1,5 @@
 argv(1).match(fn(v) {
-    println(toi32(v));
+    println(toInt(v));
 }, { println("not found");});
 
-println(toi32("unknown"));
+println(toInt("unknown"));

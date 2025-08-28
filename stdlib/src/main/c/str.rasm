@@ -35,7 +35,7 @@ pub native add(s: str, c: char) -> str /{
 }/
 
 // from https://stackoverflow.com/questions/26080829/detecting-strtol-failure
-pub native toi32(s: str) -> Option<int> /{
+pub native toInt(s: str) -> Option<int> /{
     $include(<errno.h>)
 
     char *end = NULL;

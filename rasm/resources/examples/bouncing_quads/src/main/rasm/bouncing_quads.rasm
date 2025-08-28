@@ -50,7 +50,7 @@ let quads = vecRange(0, QUADS)
         let yDir = if(random(2).eq(0), YDirection::Up(), YDirection::Down());
         Quad(x, y, xDir, yDir, SDLColor(random(255), random(255), random(255), 255));
     });
-let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(toi32).getOrElse(5000));
+let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(toInt).getOrElse(5000));
 
 let win = sdlErrorIfNull(sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");

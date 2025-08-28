@@ -54,8 +54,8 @@ fn test_cmdlineargs() {
 }
 
 #[test]
-fn test_str_toi32() {
-    run_test("str_toi32", vec!["1000"], "Some(1000)\nNone\n");
+fn test_str_toInt() {
+    run_test("str_toInt", vec!["1000"], "Some(1000)\nNone\n");
 }
 
 #[test]

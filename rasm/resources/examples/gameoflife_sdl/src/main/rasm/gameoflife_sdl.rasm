@@ -10,7 +10,7 @@ sdlInit();
 argv(1).match(fn(file) {
     let start = readCellFile(file);
 
-    argv(2).fmap(fn(s) { toi32(s);}).match(fn(count) {
+    argv(2).fmap(fn(s) { toInt(s);}).match(fn(count) {
         run(moveCells(start, 20), 80, 50, count);
     }, { println("A number for count must be specified."); });
 }, { println("A file must be specified."); });

@@ -13,7 +13,7 @@ main();
 printAllocated();
 
 fn main() {
-    let points = points(toi32(argv(1)));
+    let points = points(toInt(argv(1)));
     println(points.len);
 }
 

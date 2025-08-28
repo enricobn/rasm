@@ -13,14 +13,14 @@ pub fn update(bar: Bar, actualTime: TimeVal, keys: Vec<int>) -> Bar {
     let leftOrRight = left.add(right);
 
     let newVelocity = if(eq(leftOrRight, 0), {
-        bar.velocity.tof32.div(1.03).toi32(0);
+        bar.velocity.toFloat.div(1.03).toInt(0);
     }, {
         bar.velocity.add(leftOrRight.mul(30));
     });
 
     let realVelocity = between(newVelocity, -1000, 1000);
 
-    let seconds = elapsed.tof32.div(1000000);
+    let seconds = elapsed.toFloat.div(1000000);
 
     let diff = seconds.mul(newVelocity);
 

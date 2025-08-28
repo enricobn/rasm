@@ -104,9 +104,9 @@ fn render(ren: SDLRenderer, resources: Resources, world: World, fps: int) {
 
     sdlSetRenderDrawColor(ren, WHITE);
 
-    sdlRenderFillRect(ren, SDLRect(world.bar.x.toi32(0), HEIGHT.sub(BARHEIGHT), BARWIDTH, BARHEIGHT));
+    sdlRenderFillRect(ren, SDLRect(world.bar.x.toInt(0), HEIGHT.sub(BARHEIGHT), BARWIDTH, BARHEIGHT));
 
-    sdlRenderFillRect(ren, SDLRect(world.ball.x.toi32(0), world.ball.y.toi32(0), BALLSIZE, BALLSIZE));
+    sdlRenderFillRect(ren, SDLRect(world.ball.x.toInt(0), world.ball.y.toInt(0), BALLSIZE, BALLSIZE));
 
     sdlSetRenderDrawColor(ren, BLUE);
     sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
