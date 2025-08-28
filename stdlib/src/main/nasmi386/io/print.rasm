@@ -59,7 +59,7 @@ pub native print(file: File, n: int) -> Option<IOError>/{
 
 /**
  * Prints the number to the File specified.
- **/
+ * now it's done via the toString function
 pub native print(file: File, n: float) -> Option<IOError> /{
     push    ebx
     push    ecx
@@ -235,6 +235,7 @@ native getNthBit(value: int, n: int) -> bool /{
 .end:
     pop     ecx
 }/
+*/
 
 /**
  * Prints a new line to file.

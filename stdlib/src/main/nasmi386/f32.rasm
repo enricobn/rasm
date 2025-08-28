@@ -369,3 +369,236 @@ pub native min(f1: float, f2: float) -> float /{
     mov     dword eax,$f1
 .end:
 }/
+
+pub native toString(n: float) -> str /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    $call(rasmalloc, 20, " temp for toString(int)")
+    push eax
+
+    $call(addRef, eax, "")
+    mov     dword eax,[eax]
+
+    mov     dword edx, $n
+    and     dword edx, 0x80000000
+    jz      .mantissa
+    mov     byte [eax],'-'
+    inc     eax
+    ; gotoOnSome .end
+.mantissa:
+    ; mantissa
+    mov     dword edx, $n
+    and     dword edx, 0x7FFFFF
+
+    mov     dword ebx, $n
+    and     dword ebx, 0x7F800000
+    shr     dword ebx, 23
+    cmp     dword ebx, 255
+    jne     .defined
+.undefined:
+    ; TODO
+    ; $call(print, $file, "undefined")
+    jmp     .end
+.defined:
+    cmp     dword ebx, 0
+    je      .denorm
+    or      dword edx,0x800000
+    cmp     dword ebx, 127
+    jb      .below
+    sub     ebx,126
+    $call(printAligned, eax, edx, ebx)
+    jmp      .end
+.below:
+    mov     dword ecx,126
+    sub     dword ecx,ebx
+    shr     edx,cl
+    $call(printAligned, eax, edx, 0)
+    jmp     .end
+.denorm:
+    $call(printAligned, eax, edx, 1)
+.end:
+    mov   byte  [eax], 0
+
+    pop     eax
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+native printAligned(s: int, alignedMantissa: int, intNumbersCount: int) -> int /{
+    push    ebx
+    push    ecx
+    mov     dword eax, $s
+
+    mov     dword ecx, 24
+    sub     dword ecx, $intNumbersCount
+    mov     dword ebx, $alignedMantissa
+    shr     dword ebx, cl
+
+    $call(intToString, eax, ebx)
+
+    mov     dword ebx, 1
+    shl     dword ebx, cl
+    dec     ebx
+    and     ebx, $alignedMantissa
+    $call(printDecimals, eax, ebx, ecx)
+
+.end:
+    pop     ecx
+    pop     ebx
+}/
+
+native printDecimals(s: int, n: int, count: int) -> int /{
+    ; local val for result
+    sub     dword esp,4
+
+    mov     dword eax,$s
+
+    push    ebx
+    push    ecx
+    push    edx
+    push    esi
+
+    mov     dword esi,5             ; five_multiplier
+    mov     dword ebx,0             ; temp_result
+    mov     dword ecx,0             ; inner_count
+    mov     dword edx,$count        ; actual_count
+    mov     dword [ebp -4],0        ; result
+
+.loop:
+    cmp     dword edx,0
+    jz      .end
+
+    cmp     dword ecx, 9
+    jne     .continue
+    mov     dword [ebp -4], ebx
+    mov     dword ebx,0
+.continue:
+    cmp     dword ecx,9
+    jb      .continue2
+    push    edx
+    push    ecx
+    mov     dword ecx,10
+    xor     edx,edx
+
+    push    eax
+    mov     eax,esi
+
+    div     ecx
+    mov     esi,eax
+    pop     eax
+    pop     ecx
+    pop     edx
+    jmp     .continue3
+.continue2:
+    push    edx
+    imul    dword ebx,10
+    pop     edx
+.continue3:
+    push    eax
+    $call(getNthBit, $n, edx)
+    cmp     dword eax,0
+    je      .continue4
+    pop     eax
+    add     dword ebx,esi
+    jmp     .continue5
+.continue4:
+    pop     eax
+.continue5:
+    push    edx
+    imul    dword esi,5
+    pop     edx
+    dec     edx
+    inc     ecx
+    jmp     .loop
+.end:
+    mov     dword esi,[ebp -4]                     ; result
+    add     dword esi, ebx
+    mov     dword ebx,esi
+    mov     byte [eax],'.'
+    inc     eax
+    $call(printPadLeft, eax, ebx, '0': char, 9)
+
+.end2:
+    pop    esi
+    pop    edx
+    pop    ecx
+    pop    ebx
+
+    add    dword esp,4
+}/
+
+native printPadLeft(s: int, n: int, ch: char, count: int) -> int /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    ; TODO we can optimize it, because we are running the toString and the len two times. Here only to calculate the length
+    ; of the number, then in the intToString function
+    $call(toString, $n)
+    $call(len, eax: str)
+
+    mov     dword ebx,$count
+    sub     dword ebx,eax
+
+    mov     dword eax, $s
+    mov     ecx,$ch
+
+.loop:
+    cmp     dword ebx, 0
+    jz      .end
+    mov     byte [eax], cl
+    inc     eax
+    dec     dword ebx
+    jmp     .loop
+.end:
+    $call(intToString, eax, $n)
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/
+
+/**
+ *  "prints" an integer (n) to an address (s) that is a pointer (an assembly pointer, not rasm pointer) to a string.
+ *  It returns the new address of the string
+ */
+native intToString(s: int, n: int) -> int /{
+    push    ecx
+    push    edx
+
+    $call(toString, $n)
+    mov     edx,eax
+    $call(len, eax: str)
+    mov     ecx, eax
+    sub     dword ebx,eax
+    mov     dword eax,$s
+
+    $call(memcopy, [edx], eax, ecx)
+    add     eax, ecx
+
+    pop     edx
+    pop     ecx
+}/
+
+// false = 0 true = any other value
+// false if not valid
+native getNthBit(value: int, n: int) -> bool /{
+    push ecx
+
+    mov     dword eax,1
+    mov     dword ecx,$n
+    dec     ecx
+    shl     eax,cl
+    and     dword eax,$value
+    cmp     dword eax,0
+    jz      .false
+    mov     dword eax,1
+    jmp     .end
+.false:
+    mov     dword eax,0
+.end:
+    pop     ecx
+}/
