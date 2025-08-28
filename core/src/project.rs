@@ -22,11 +22,12 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use crate::codegen::compile_target::CompileTarget;
+use crate::codegen::compile_target::{CompileTarget, C, NASMI386};
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 use crate::commandline::CommandLineOptions;
 use crate::project_catalog::RasmProjectCatalog;
 use crate::type_check::ast_modules_container::ASTModulesContainer;
+use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use log::info;
 use pathdiff::diff_paths;
@@ -523,6 +524,37 @@ impl RasmProject {
         None
     }
 
+    pub fn targets(&self) -> Vec<String> {
+        let targets = vec![NASMI386.to_owned(), C.to_owned()]
+            .into_iter()
+            .filter(|it| self.main_native_source_folder(it).is_some())
+            .collect_vec();
+
+        let mut targets = if targets.is_empty() {
+            vec![NASMI386.to_owned(), C.to_owned()]
+        } else {
+            targets
+        };
+
+        for dep in self.get_dependencies().iter() {
+            let dep_targets = dep.targets();
+            let mut new_targets = Vec::new();
+            for target in targets {
+                if dep_targets.contains(&target) {
+                    new_targets.push(target);
+                } else {
+                    info!(
+                        "Dependency {} does not have target {}",
+                        dep.config.package.name, target
+                    );
+                }
+            }
+            targets = new_targets;
+        }
+
+        targets
+    }
+
     fn get_modules(
         &self,
         source_folder: PathBuf,
@@ -909,7 +941,7 @@ pub struct RasmPackage {
 pub struct RasmConfig {
     pub package: RasmPackage,
     pub dependencies: Option<Table>,
-    pub natives: Option<Table>,
+    pub targets: Option<Table>,
 }
 
 fn get_rasm_config(src_path: &Path) -> RasmConfig {
@@ -954,7 +986,7 @@ fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
             main: Some(main_name.to_string()),
         },
         dependencies: Some(dependencies_map),
-        natives: None,
+        targets: None,
     }
 }
 
@@ -964,7 +996,7 @@ fn get_rasm_config_from_directory(src_path: &Path) -> RasmConfig {
         panic!("Cannot find rasm.toml");
     }
     let mut s = String::new();
-    if let Ok(mut file) = File::open(toml_file) {
+    if let Ok(mut file) = File::open(toml_file.clone()) {
         if let Ok(_size) = file.read_to_string(&mut s) {
             match toml::from_str::<RasmConfig>(&s) {
                 Ok(config) => {
@@ -976,7 +1008,7 @@ fn get_rasm_config_from_directory(src_path: &Path) -> RasmConfig {
                     }
                     config
                 }
-                Err(err) => panic!("Error parsing rasm.toml:\n{}", err),
+                Err(err) => panic!("Error parsing {:?} :\n{}", toml_file, err),
             }
         } else {
             panic!("Cannot parse rasm.toml");

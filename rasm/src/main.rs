@@ -180,7 +180,7 @@ fn main() {
     } else if command_line_options.action == CommandLineAction::UI {
         UI::show(project, target).unwrap();
     } else if command_line_options.action == CommandLineAction::Install {
-        install_project(&project, &target, &command_line_options);
+        install_project(&project, &command_line_options);
     } else {
         debug_i!("project {:?}", project);
 
@@ -191,24 +191,12 @@ fn main() {
     }
 }
 
-fn install_project(
-    project: &RasmProject,
-    target: &CompileTarget,
-    command_line_options: &CommandLineOptions,
-) {
+fn install_project(project: &RasmProject, command_line_options: &CommandLineOptions) {
     if project.config.package.main.is_some() {
         panic!("You cannot install a project with a main");
     }
 
     let home_dir = home_dir().expect("home dir not found");
-
-    if project.main_test_src_file().is_some() {
-        info!("running tests");
-        let mut test_command_line_options = command_line_options.clone();
-        test_command_line_options.action = CommandLineAction::Test;
-
-        target.run(project.clone(), test_command_line_options);
-    }
 
     let destination_folder = home_dir
         .join(".rasm/repository")
@@ -232,6 +220,17 @@ fn install_project(
         }
 
         fs::remove_dir_all(&destination_folder).unwrap();
+    }
+
+    if project.main_test_src_file().is_some() {
+        let mut test_command_line_options = command_line_options.clone();
+        test_command_line_options.action = CommandLineAction::Test;
+        for native in project.targets() {
+            info!("running tests for native {}", native);
+            let native_target =
+                CompileTarget::from(native.clone(), &project, &command_line_options);
+            native_target.run(project.clone(), test_command_line_options.clone());
+        }
     }
 
     DirBuilder::new()

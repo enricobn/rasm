@@ -80,8 +80,8 @@ pub enum CompileTarget {
     C(COptions),
 }
 
-pub const NASMI386: &str = "nasmi386";
-pub const C: &str = "c";
+pub const NASMI386: &'static str = "nasmi386";
+pub const C: &'static str = "c";
 
 impl CompileTarget {
     pub fn from(
@@ -1085,12 +1085,12 @@ impl CompileTarget {
     }
 }
 
-fn get_native_string_array(projects: &[RasmProject], native: &str, key: &str) -> Vec<String> {
+fn get_native_string_array(projects: &[RasmProject], target: &str, key: &str) -> Vec<String> {
     let mut result = projects
         .iter()
         .flat_map(|it| {
-            if let Some(ref natives) = it.config.natives {
-                if let Some(nasm_i386_value) = natives.get(native) {
+            if let Some(ref targets) = it.config.targets {
+                if let Some(nasm_i386_value) = targets.get(target) {
                     if let Value::Table(nasm_i386_table) = nasm_i386_value {
                         if let Some(value) = nasm_i386_table.get(key) {
                             if let Value::Array(a) = value {
@@ -1099,14 +1099,14 @@ fn get_native_string_array(projects: &[RasmProject], native: &str, key: &str) ->
                                         s.clone()
                                     } else {
                                         panic!(
-                                            "{native}/{key} should be an array of strings {}/rasm.toml",
+                                            "{target}/{key} should be an array of strings {}/rasm.toml",
                                             it.root.to_string_lossy()
                                         );
                                     }
                                 }).collect::<Vec<_>>()
                             } else {
                                 panic!(
-                                    "{native}/{key} should be an array in {}/rasm.toml, but is {}",
+                                    "{target}/{key} should be an array in {}/rasm.toml, but is {}",
                                     it.root.to_string_lossy(),
                                     OptionDisplay(&nasm_i386_table.get(key))
                                 );
@@ -1116,7 +1116,7 @@ fn get_native_string_array(projects: &[RasmProject], native: &str, key: &str) ->
                         }
                     } else {
                         panic!(
-                            "{native} should be a table in {}/rasm.toml",
+                            "{target} should be a table in {}/rasm.toml",
                             it.root.to_string_lossy()
                         );
                     }

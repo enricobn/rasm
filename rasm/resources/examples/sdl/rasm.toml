@@ -5,7 +5,7 @@ version = "0.1.0-alpha.0"
 [dependencies]
 stdlib = { path = "../../../../stdlib" }
 
-[natives.nasmi386]
+[targets.nasmi386]
 requires = ["libc", "SDL2", "SDL2_ttf", "SDL2_image"]
 externals = [
     "printf",
@@ -33,6 +33,6 @@ externals = [
     "TTF_OpenFont",
     "TTF_RenderText_Solid"]
 
-[natives.c]
+[targets.c]
 requires = ["SDL2", "SDL2_ttf", "SDL2_image"]
 includes = ["/usr/include/SDL2/"]

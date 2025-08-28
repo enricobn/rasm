@@ -954,7 +954,7 @@ mod tests {
                     source_folder: Some("".to_string()),
                 },
                 dependencies: None,
-                natives: None,
+                targets: None,
             },
             from_file: false,
             in_memory_files: LinkedHashMap::new(),

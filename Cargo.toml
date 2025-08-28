@@ -41,6 +41,6 @@ strum_macros = "0.24"
 tempdir = "0.3"
 test_bin = "0.4"
 test-log = "0.2"
-toml = "0.7"
+toml = "0.8"
 walkdir = "2.3"
 

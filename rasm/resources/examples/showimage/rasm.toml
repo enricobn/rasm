@@ -7,8 +7,7 @@ main = "showimage.rasm"
 stdlib = { path = "../../../../stdlib" }
 sdl = { path = "../sdl" }
 
-[natives]
-[natives.nasmi386]
+[targets.nasmi386]
 externals = [
     "printf",
     "exit"
