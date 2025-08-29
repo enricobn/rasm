@@ -54,7 +54,7 @@ fn test_cmdlineargs() {
 }
 
 #[test]
-fn test_str_toInt() {
+fn test_str_to_int() {
     run_test("str_toInt", vec!["1000"], "Some(1000)\nNone\n");
 }
 

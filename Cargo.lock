@@ -2975,7 +2975,6 @@ version = "0.1.0-alpha.0"
 dependencies = [
  "chrono",
  "clap",
- "dirs 6.0.0",
  "env_logger",
  "log",
  "ntest",
@@ -2996,6 +2995,7 @@ dependencies = [
  "auto_impl",
  "chrono",
  "derivative",
+ "dirs 6.0.0",
  "env_logger",
  "itertools",
  "lazy_static",
