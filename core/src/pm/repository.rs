@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     fs::{self, DirBuilder},
     io::{self, stdout, Write},
     path::{Path, PathBuf},
@@ -42,7 +41,7 @@ pub struct RepositoryAuthorization {
 }
 
 pub trait PackageRepository {
-    fn get_package(&self, name: &str, version: &VersionFilter) -> Result<RasmProject, String>;
+    fn get_package(&self, name: &str, version: &str) -> Result<RasmProject, String>;
 
     fn install_package(
         &self,
@@ -54,6 +53,10 @@ pub trait PackageRepository {
         &self,
         auth: &RepositoryAuthentication,
     ) -> Result<RepositoryAuthorization, String>;
+
+    fn versions(&self, lib: &str) -> Vec<String>;
+
+    fn libs(&self) -> Vec<String>;
 }
 
 pub trait PackageManager {
@@ -77,7 +80,13 @@ pub trait PackageManager {
 struct LocalPackageRepository {}
 
 impl PackageRepository for LocalPackageRepository {
-    fn get_package(&self, name: &str, version: &VersionFilter) -> Result<RasmProject, String> {
+    fn get_package(&self, name: &str, version: &str) -> Result<RasmProject, String> {
+        let path = self.repository_folder().join(name).join(version);
+
+        if !path.exists() {
+            return Err(format!("version {} of {} not found", version, name));
+        }
+        /*
         let mut matches = self
             .versions(name)
             .into_iter()
@@ -89,8 +98,9 @@ impl PackageRepository for LocalPackageRepository {
         if matches.len() > 1 {
             matches.sort_by(|a, b| a.0.cmp(&b.0).reverse());
         }
+        */
 
-        Ok(RasmProject::new(matches[0].1.clone()))
+        Ok(RasmProject::new(path))
     }
 
     fn install_package(
@@ -180,25 +190,38 @@ impl PackageRepository for LocalPackageRepository {
             write: true,
         })
     }
-}
 
-impl LocalPackageRepository {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    fn versions(&self, name: &str) -> HashMap<String, PathBuf> {
+    fn versions(&self, lib: &str) -> Vec<String> {
         self.repository_folder()
-            .join(name)
+            .join(lib)
             .read_dir()
             .unwrap()
             .map(|entry| {
                 let entry = entry.unwrap();
                 let path = entry.path();
                 let version = path.file_name().unwrap().to_str().unwrap().to_owned();
-                (version, path)
+                version
             })
             .collect()
+    }
+
+    fn libs(&self) -> Vec<String> {
+        self.repository_folder()
+            .read_dir()
+            .unwrap()
+            .map(|entry| {
+                let entry = entry.unwrap();
+                let path = entry.path();
+                let lib = path.file_name().unwrap().to_str().unwrap().to_owned();
+                lib
+            })
+            .collect()
+    }
+}
+
+impl LocalPackageRepository {
+    pub fn new() -> Self {
+        Self {}
     }
 
     fn repository_folder(&self) -> PathBuf {
@@ -233,14 +256,37 @@ impl PackageManager for PackageManagerImpl {
         Ok(())
     }
 
-    fn get_package(&self, name: &str, version: &VersionFilter) -> Option<RasmProject> {
+    fn get_package(&self, lib: &str, version_filter: &VersionFilter) -> Option<RasmProject> {
+        let mut versions = LinkedHashMap::new();
+
+        // we get all the matching versions from all the repositories retaining repository precedence
         for (_, (repository, authorization)) in &self.repositories {
             if authorization.read {
-                if let Ok(project) = repository.get_package(name, version) {
-                    return Some(project);
+                for version in repository.versions(lib) {
+                    if version_filter.matches(&version) {
+                        if !versions.contains_key(&version) {
+                            versions.insert(version, repository);
+                        }
+                    }
                 }
             }
         }
+
+        let mut versions = versions
+            .iter()
+            .map(|(version, repository)| (version.clone(), repository))
+            .collect_vec();
+
+        // TODO does we retain repository precedence?
+        versions.sort_by(|a, b| a.0.cmp(&b.0).reverse());
+
+        for (version, repository) in versions {
+            // TODO must we fail if the package is not found?
+            if let Ok(project) = repository.get_package(lib, &version) {
+                return Some(project);
+            }
+        }
+
         None
     }
 
@@ -314,6 +360,6 @@ mod tests {
     pub fn test() {
         let package_manager = PackageManagerImpl::new();
 
-        assert_eq!(1, package_manager.repositories.len());
+        assert_eq!(1, package_manager.);
     }
 }
