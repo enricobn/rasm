@@ -75,6 +75,8 @@ pub trait PackageManager {
         project: &RasmProject,
         command_line_options: &CommandLineOptions,
     ) -> Result<(), String>;
+
+    fn get_version(&self, lib: &str, version_filter: &VersionFilter) -> Option<String>;
 }
 
 struct LocalPackageRepository {}
@@ -86,19 +88,6 @@ impl PackageRepository for LocalPackageRepository {
         if !path.exists() {
             return Err(format!("version {} of {} not found", version, name));
         }
-        /*
-        let mut matches = self
-            .versions(name)
-            .into_iter()
-            .filter(|(v, _)| version.matches(v))
-            .collect_vec();
-        if matches.len() == 0 {
-            return Err(format!("no version of {} found", name));
-        }
-        if matches.len() > 1 {
-            matches.sort_by(|a, b| a.0.cmp(&b.0).reverse());
-        }
-        */
 
         Ok(RasmProject::new(path))
     }
@@ -192,9 +181,11 @@ impl PackageRepository for LocalPackageRepository {
     }
 
     fn versions(&self, lib: &str) -> Vec<String> {
-        self.repository_folder()
-            .join(lib)
-            .read_dir()
+        let path = self.repository_folder().join(lib);
+        if !path.exists() {
+            return Vec::new();
+        }
+        path.read_dir()
             .unwrap()
             .map(|entry| {
                 let entry = entry.unwrap();
@@ -311,6 +302,32 @@ impl PackageManager for PackageManagerImpl {
         }
         repository.install_package(project, command_line_options)
     }
+
+    fn get_version(&self, lib: &str, version_filter: &VersionFilter) -> Option<String> {
+        let mut versions = Vec::new();
+
+        // we get all the matching versions from all the repositories retaining repository precedence
+        for (_, (repository, authorization)) in &self.repositories {
+            if authorization.read {
+                for version in repository.versions(lib) {
+                    if version_filter.matches(&version) {
+                        if !versions.contains(&version) {
+                            versions.push(version);
+                        }
+                    }
+                }
+            }
+        }
+
+        versions.sort_by(|a, b| a.cmp(b).reverse());
+
+        if versions.len() > 0 {
+            let version = versions[0].clone();
+            Some(version)
+        } else {
+            None
+        }
+    }
 }
 
 impl PackageManagerImpl {
@@ -354,12 +371,85 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
 #[cfg(test)]
 mod tests {
 
-    use crate::pm::repository::PackageManagerImpl;
+    use crate::pm::repository::{
+        PackageManager, PackageManagerImpl, PackageRepository, RepositoryAuthentication,
+        RepositoryAuthorization,
+    };
 
     #[test]
     pub fn test() {
-        let package_manager = PackageManagerImpl::new();
+        let mut package_manager = PackageManagerImpl::new();
+        package_manager
+            .register_repository(
+                "_test".to_owned(),
+                TestRepository {},
+                RepositoryAuthentication::None,
+            )
+            .unwrap();
 
-        assert_eq!(1, package_manager.);
+        assert_eq!(
+            "0.1.1",
+            package_manager
+                .get_version("lib1", &super::VersionFilter::Latest)
+                .unwrap()
+        );
+
+        assert_eq!(
+            "0.1.0",
+            package_manager
+                .get_version("lib1", &super::VersionFilter::Exact("0.1.0".to_owned()))
+                .unwrap()
+        );
+
+        assert_eq!(
+            "1.0.1",
+            package_manager
+                .get_version("lib2", &super::VersionFilter::Compatible("1".to_owned()))
+                .unwrap()
+        );
+    }
+
+    struct TestRepository {}
+
+    impl PackageRepository for TestRepository {
+        fn get_package(
+            &self,
+            _name: &str,
+            _version: &str,
+        ) -> Result<crate::project::RasmProject, String> {
+            todo!()
+        }
+
+        fn install_package(
+            &self,
+            _project: &crate::project::RasmProject,
+            _command_line_options: &crate::commandline::CommandLineOptions,
+        ) -> Result<(), String> {
+            todo!()
+        }
+
+        fn authenticate(
+            &self,
+            _auth: &super::RepositoryAuthentication,
+        ) -> Result<super::RepositoryAuthorization, String> {
+            Ok(RepositoryAuthorization {
+                read: true,
+                write: false,
+            })
+        }
+
+        fn versions(&self, lib: &str) -> Vec<String> {
+            if lib == "lib1" {
+                vec!["0.1.0".to_owned(), "0.1.1".to_owned()]
+            } else if lib == "lib2" {
+                vec!["1.0.0".to_owned(), "1.0.1".to_owned(), "2.0.1".to_owned()]
+            } else {
+                Vec::new()
+            }
+        }
+
+        fn libs(&self) -> Vec<String> {
+            vec!["lib1".to_owned(), "lib2".to_owned()]
+        }
     }
 }
