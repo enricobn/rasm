@@ -2610,7 +2610,6 @@ mod tests {
 
     fn file_to_project(test_file: &str) -> RasmProject {
         init_log();
-        env::set_var("RASM_STDLIB", "../stdlib");
 
         let current_path = env::current_dir().unwrap();
 
@@ -2630,8 +2629,6 @@ mod tests {
     }
 
     fn dir_to_project(test_folder: &str) -> RasmProject {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         init_log();
         let file_name = PathBuf::from(test_folder);
 

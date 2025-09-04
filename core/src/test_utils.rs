@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf};
+use std::path::PathBuf;
 
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 
@@ -18,17 +18,6 @@ pub fn project_and_container(
     target: &CompileTarget,
     project_path: &str,
 ) -> (RasmProject, ASTModulesContainer) {
-    let path = env::current_dir().unwrap();
-    env::set_var(
-        "RASM_STDLIB",
-        &format!(
-            "{}",
-            path.join("../stdlib")
-                .canonicalize()
-                .unwrap()
-                .to_string_lossy()
-        ),
-    );
     let rasm_project = RasmProject::new(PathBuf::from(project_path));
     let project = rasm_project;
 

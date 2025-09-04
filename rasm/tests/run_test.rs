@@ -889,14 +889,6 @@ fn compile_with_target_with_action(
     }
 
     let output = test_bin::get_test_bin("rasm")
-        .env(
-            "RASM_STDLIB",
-            Path::new("../stdlib")
-                .canonicalize()
-                .unwrap()
-                .to_str()
-                .unwrap(),
-        )
         .args(args)
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())

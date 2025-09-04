@@ -1515,7 +1515,6 @@ impl IDEHelper {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::env;
     use std::iter::zip;
     use std::path::{Path, PathBuf};
 
@@ -1650,8 +1649,6 @@ mod tests {
 
     #[test]
     fn complex_expression_completions() {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         let values = get_completion_values(
             Some(RasmProject::new(PathBuf::from(
                 "resources/test/complex_expression.rasm",
@@ -1670,8 +1667,6 @@ mod tests {
 
     #[test]
     fn complex_expression_ref() {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         let values = get_find(
             Some(RasmProject::new(PathBuf::from(
                 "resources/test/complex_expression.rasm",
@@ -1747,8 +1742,6 @@ mod tests {
 
     #[test]
     fn types_completion_struct_property() {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         let values = get_completion_values(
             Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
             "types.rasm",
@@ -1763,8 +1756,6 @@ mod tests {
 
     #[test]
     fn types_completion_match() {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         let values = get_completion_values(
             Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
             "types.rasm",
@@ -1779,7 +1770,6 @@ mod tests {
 
     #[test]
     fn types_completion_dot() {
-        env::set_var("RASM_STDLIB", "../stdlib");
         let values = get_completion_values(
             Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
             "types.rasm",
@@ -1793,7 +1783,6 @@ mod tests {
 
     #[test]
     fn types_completion_invoked_function_call() {
-        env::set_var("RASM_STDLIB", "../stdlib");
         let values = get_completion_values(
             Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
             "types.rasm",
@@ -1809,7 +1798,6 @@ mod tests {
 
     #[test]
     fn types_completion_invoked_function_call_on_object() {
-        env::set_var("RASM_STDLIB", "../stdlib");
         let values = get_completion_values(
             Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
             "types.rasm",
@@ -1825,7 +1813,6 @@ mod tests {
     #[test]
     #[ignore = "not yet supported"]
     fn types_completion_invoked_parameter() {
-        env::set_var("RASM_STDLIB", "../stdlib");
         let values = get_completion_values(
             Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
             "types.rasm",
@@ -1840,7 +1827,6 @@ mod tests {
 
     #[test]
     fn types_completion_dot_string() {
-        env::set_var("RASM_STDLIB", "../stdlib");
         let values = get_completion_values(
             Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
             "types.rasm",
@@ -1855,7 +1841,6 @@ mod tests {
 
     #[test]
     fn types_completion_dot_char() {
-        env::set_var("RASM_STDLIB", "../stdlib");
         let values = get_completion_values(
             Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
             "types.rasm",
@@ -2168,8 +2153,6 @@ mod tests {
 
     #[test]
     fn enum_double_colon_completion() {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         let values = get_completion_values(
             Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
             "types.rasm",
@@ -2184,8 +2167,6 @@ mod tests {
 
     #[test]
     fn enum_not_double_colon_completion() {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         let values = get_completion_values(
             Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
             "types.rasm",
@@ -2202,8 +2183,6 @@ mod tests {
 
     #[test]
     fn test_incomplete_id_completion() {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         let result = get_completion_values(
             Some(RasmProject::new(PathBuf::from(
                 "resources/test/simple.rasm",
@@ -2220,8 +2199,6 @@ mod tests {
 
     #[test]
     fn test_incomplete_id_in_main_completion() {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         let result = get_completion_values(
             Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
             "types.rasm",
@@ -2236,8 +2213,6 @@ mod tests {
 
     #[test]
     fn test_incomplete_id_body() {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         let result = get_completion_values(
             Some(RasmProject::new(PathBuf::from(
                 "resources/test/incomplete_statements.rasm",
@@ -2254,8 +2229,6 @@ mod tests {
 
     #[test]
     fn test_incomplete_id_in_lambda() {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         let result = get_completion_values(
             Some(RasmProject::new(PathBuf::from(
                 "resources/test/incomplete_statements.rasm",
@@ -2859,8 +2832,6 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
     fn get_helper_with_errors(
         project_path: &str,
     ) -> (RasmProject, IDEHelper, Vec<CompilationError>) {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         let file_name = Path::new(project_path);
         let project = RasmProject::new(file_name.to_path_buf());
 
@@ -2875,7 +2846,6 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         col: usize,
         trigger: CompletionTrigger,
     ) -> Result<Vec<String>, String> {
-        env::set_var("RASM_STDLIB", "../stdlib");
         let project = if let Some(project) = project {
             project
         } else {
@@ -2956,7 +2926,6 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         row: usize,
         col: usize,
     ) -> Vec<ASTIndex> {
-        env::set_var("RASM_STDLIB", "../stdlib");
         let project = if let Some(project) = project {
             project
         } else {

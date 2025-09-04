@@ -1471,7 +1471,6 @@ impl ASTTypeChecker {
 #[cfg(test)]
 mod tests {
     use std::{
-        env,
         path::{Path, PathBuf},
         str::FromStr,
     };
@@ -1819,7 +1818,6 @@ mod tests {
     #[test]
     fn test_lambda2_if() {
         init_minimal_log();
-        env::set_var("RASM_STDLIB", "../stdlib");
 
         let path = PathBuf::from("../rasm/resources/test/lambda2.rasm");
         let project = RasmProject::new(path.clone());
@@ -1904,7 +1902,6 @@ mod tests {
     #[test]
     fn test_lambda2_if_body() {
         init_minimal_log();
-        env::set_var("RASM_STDLIB", "../stdlib");
 
         let path = PathBuf::from("../rasm/resources/test/lambda2.rasm");
         let project = RasmProject::new(path.clone());
@@ -2089,7 +2086,6 @@ mod tests {
         ValContext,
         ASTModulesContainer,
     ) {
-        env::set_var("RASM_STDLIB", "../stdlib");
         let project = RasmProject::new(PathBuf::from(path));
 
         let target = CompileTarget::C(COptions::default());

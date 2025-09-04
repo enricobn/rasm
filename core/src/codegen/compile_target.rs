@@ -1137,8 +1137,6 @@ fn get_native_string_array(projects: &[RasmProject], target: &str, key: &str) ->
 
 #[cfg(test)]
 mod tests {
-    use std::env;
-
     use tempdir::TempDir;
 
     use crate::{
@@ -1163,8 +1161,6 @@ mod tests {
     }
 
     fn compile_test(source: &str) {
-        env::set_var("RASM_STDLIB", "../stdlib");
-
         let sut = CompileTarget::C(COptions::default());
 
         let project = RasmProject::new(std::path::PathBuf::from(source));
