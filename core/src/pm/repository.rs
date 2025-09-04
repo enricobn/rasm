@@ -5,9 +5,9 @@ use std::{
 };
 
 use dirs::home_dir;
-use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use log::info;
+use semver::Version;
 
 use crate::{
     codegen::compile_target::CompileTarget,
@@ -16,17 +16,37 @@ use crate::{
 };
 
 pub enum VersionFilter {
-    Exact(String),
-    Compatible(String),
-    Latest,
+    Exact(Version),
+    Compatible(u64, u64),
 }
 
 impl VersionFilter {
-    pub fn matches(&self, version: &str) -> bool {
+    pub fn parse(version: &str) -> Result<VersionFilter, String> {
+        if let Ok(version) = Version::parse(version) {
+            Ok(VersionFilter::Exact(version))
+        } else if let Some((major, minor)) = version.split_once('.') {
+            if let Ok(major) = major.parse::<u64>() {
+                if let Ok(minor) = minor.parse::<u64>() {
+                    Ok(VersionFilter::Compatible(major, minor))
+                } else {
+                    Err(format!("Invalid minor version: {}", minor))
+                }
+            } else {
+                Err(format!("Invalid major version: {}", major))
+            }
+        } else {
+            Err(format!("Invalid version: {}", version))
+        }
+    }
+}
+
+impl VersionFilter {
+    pub fn matches(&self, version: &Version) -> bool {
         match self {
             VersionFilter::Exact(v) => v == version,
-            VersionFilter::Compatible(v) => version.starts_with(v),
-            VersionFilter::Latest => true,
+            VersionFilter::Compatible(major, minor) => {
+                version.major == *major && version.minor >= *minor
+            }
         }
     }
 }
@@ -41,7 +61,7 @@ pub struct RepositoryAuthorization {
 }
 
 pub trait PackageRepository {
-    fn get_package(&self, name: &str, version: &str) -> Result<RasmProject, String>;
+    fn package(&self, name: &str, version: &Version) -> Result<RasmProject, String>;
 
     fn install_package(
         &self,
@@ -54,20 +74,13 @@ pub trait PackageRepository {
         auth: &RepositoryAuthentication,
     ) -> Result<RepositoryAuthorization, String>;
 
-    fn versions(&self, lib: &str) -> Vec<String>;
+    fn versions(&self, lib: &str) -> Vec<Version>;
 
     fn libs(&self) -> Vec<String>;
 }
 
 pub trait PackageManager {
-    fn register_repository(
-        &mut self,
-        id: String,
-        repository: impl PackageRepository + 'static,
-        authentication: RepositoryAuthentication,
-    ) -> Result<(), String>;
-
-    fn get_package(&self, name: &str, version: &VersionFilter) -> Option<RasmProject>;
+    fn get_package(&self, name: &str, version: &Version) -> Option<RasmProject>;
 
     fn install_package(
         &self,
@@ -76,14 +89,21 @@ pub trait PackageManager {
         command_line_options: &CommandLineOptions,
     ) -> Result<(), String>;
 
-    fn get_version(&self, lib: &str, version_filter: &VersionFilter) -> Option<String>;
+    /*
+    fn version(&self, lib: &str, version_filter: &VersionFilter) -> Option<String>;
+    */
+
+    fn versions(&self, lib: &str) -> Vec<Version>;
 }
 
 struct LocalPackageRepository {}
 
 impl PackageRepository for LocalPackageRepository {
-    fn get_package(&self, name: &str, version: &str) -> Result<RasmProject, String> {
-        let path = self.repository_folder().join(name).join(version);
+    fn package(&self, name: &str, version: &Version) -> Result<RasmProject, String> {
+        let path = self
+            .repository_folder()
+            .join(name)
+            .join(version.to_string());
 
         if !path.exists() {
             return Err(format!("version {} of {} not found", version, name));
@@ -180,7 +200,7 @@ impl PackageRepository for LocalPackageRepository {
         })
     }
 
-    fn versions(&self, lib: &str) -> Vec<String> {
+    fn versions(&self, lib: &str) -> Vec<Version> {
         let path = self.repository_folder().join(lib);
         if !path.exists() {
             return Vec::new();
@@ -191,7 +211,7 @@ impl PackageRepository for LocalPackageRepository {
                 let entry = entry.unwrap();
                 let path = entry.path();
                 let version = path.file_name().unwrap().to_str().unwrap().to_owned();
-                version
+                Version::parse(&version).unwrap()
             })
             .collect()
     }
@@ -227,54 +247,12 @@ pub struct PackageManagerImpl {
 }
 
 impl PackageManager for PackageManagerImpl {
-    fn register_repository(
-        &mut self,
-        id: String,
-        repository: impl PackageRepository + 'static,
-        authentication: RepositoryAuthentication,
-    ) -> Result<(), String> {
-        if self.repositories.contains_key(&id) {
-            return Err(format!("repository {} already registered", id));
-        }
-        let authorization = repository.authenticate(&authentication)?;
-        self.repositories.insert(
-            id,
-            (
-                Box::new(repository) as Box<dyn PackageRepository>,
-                authorization,
-            ),
-        );
-        Ok(())
-    }
-
-    fn get_package(&self, lib: &str, version_filter: &VersionFilter) -> Option<RasmProject> {
-        let mut versions = LinkedHashMap::new();
-
-        // we get all the matching versions from all the repositories retaining repository precedence
+    fn get_package(&self, lib: &str, version: &Version) -> Option<RasmProject> {
         for (_, (repository, authorization)) in &self.repositories {
             if authorization.read {
-                for version in repository.versions(lib) {
-                    if version_filter.matches(&version) {
-                        if !versions.contains_key(&version) {
-                            versions.insert(version, repository);
-                        }
-                    }
+                if let Ok(project) = repository.package(lib, version) {
+                    return Some(project);
                 }
-            }
-        }
-
-        let mut versions = versions
-            .iter()
-            .map(|(version, repository)| (version.clone(), repository))
-            .collect_vec();
-
-        // TODO does we retain repository precedence?
-        versions.sort_by(|a, b| a.0.cmp(&b.0).reverse());
-
-        for (version, repository) in versions {
-            // TODO must we fail if the package is not found?
-            if let Ok(project) = repository.get_package(lib, &version) {
-                return Some(project);
             }
         }
 
@@ -303,7 +281,8 @@ impl PackageManager for PackageManagerImpl {
         repository.install_package(project, command_line_options)
     }
 
-    fn get_version(&self, lib: &str, version_filter: &VersionFilter) -> Option<String> {
+    /*
+    fn version(&self, lib: &str, version_filter: &VersionFilter) -> Option<String> {
         let mut versions = Vec::new();
 
         // we get all the matching versions from all the repositories retaining repository precedence
@@ -328,6 +307,21 @@ impl PackageManager for PackageManagerImpl {
             None
         }
     }
+    */
+
+    fn versions(&self, lib: &str) -> Vec<Version> {
+        let mut versions = Vec::new();
+        for (_, (repository, auth)) in self.repositories.iter() {
+            if auth.read {
+                for version in repository.versions(lib) {
+                    if !versions.contains(&version) {
+                        versions.push(version);
+                    }
+                }
+            }
+        }
+        versions
+    }
 }
 
 impl PackageManagerImpl {
@@ -345,6 +339,26 @@ impl PackageManagerImpl {
             ),
         );
         Self { repositories }
+    }
+
+    fn register_repository(
+        &mut self,
+        id: String,
+        repository: impl PackageRepository + 'static,
+        authentication: RepositoryAuthentication,
+    ) -> Result<(), String> {
+        if self.repositories.contains_key(&id) {
+            return Err(format!("repository {} already registered", id));
+        }
+        let authorization = repository.authenticate(&authentication)?;
+        self.repositories.insert(
+            id,
+            (
+                Box::new(repository) as Box<dyn PackageRepository>,
+                authorization,
+            ),
+        );
+        Ok(())
     }
 }
 
@@ -371,6 +385,8 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
 #[cfg(test)]
 mod tests {
 
+    use semver::Version;
+
     use crate::pm::repository::{
         PackageManager, PackageManagerImpl, PackageRepository, RepositoryAuthentication,
         RepositoryAuthorization,
@@ -379,6 +395,7 @@ mod tests {
     #[test]
     pub fn test() {
         let mut package_manager = PackageManagerImpl::new();
+
         package_manager
             .register_repository(
                 "_test".to_owned(),
@@ -388,34 +405,30 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            "0.1.1",
-            package_manager
-                .get_version("lib1", &super::VersionFilter::Latest)
-                .unwrap()
+            vec![
+                Version::parse("0.1.0").unwrap(),
+                Version::parse("0.1.1").unwrap()
+            ],
+            package_manager.versions("lib1")
         );
 
         assert_eq!(
-            "0.1.0",
-            package_manager
-                .get_version("lib1", &super::VersionFilter::Exact("0.1.0".to_owned()))
-                .unwrap()
-        );
-
-        assert_eq!(
-            "1.0.1",
-            package_manager
-                .get_version("lib2", &super::VersionFilter::Compatible("1".to_owned()))
-                .unwrap()
+            vec![
+                Version::parse("1.0.0").unwrap(),
+                Version::parse("1.0.1").unwrap(),
+                Version::parse("2.0.1").unwrap()
+            ],
+            package_manager.versions("lib2")
         );
     }
 
-    struct TestRepository {}
+    pub struct TestRepository {}
 
     impl PackageRepository for TestRepository {
-        fn get_package(
+        fn package(
             &self,
             _name: &str,
-            _version: &str,
+            _version: &Version,
         ) -> Result<crate::project::RasmProject, String> {
             todo!()
         }
@@ -438,11 +451,18 @@ mod tests {
             })
         }
 
-        fn versions(&self, lib: &str) -> Vec<String> {
+        fn versions(&self, lib: &str) -> Vec<Version> {
             if lib == "lib1" {
-                vec!["0.1.0".to_owned(), "0.1.1".to_owned()]
+                vec![
+                    Version::parse("0.1.0").unwrap(),
+                    Version::parse("0.1.1").unwrap(),
+                ]
             } else if lib == "lib2" {
-                vec!["1.0.0".to_owned(), "1.0.1".to_owned(), "2.0.1".to_owned()]
+                vec![
+                    Version::parse("1.0.0").unwrap(),
+                    Version::parse("1.0.1").unwrap(),
+                    Version::parse("2.0.1").unwrap(),
+                ]
             } else {
                 Vec::new()
             }

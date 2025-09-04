@@ -98,12 +98,16 @@ To build a project from another directory:
 an executable will be created in the `<directory>/target` directory.
 
 There is a limited support for building a single file, since you need some library to do something useful,
-you can define an environment variable called RASM_STDLIB with a path to a library to be added as a dependency:
+by default to a single file project is added a dependency to stdlib 0.1 compatible version,
+so before compiling such a project, you have to install stdlib :  
 `rasm build <name>.rasm`
 
 an executable `<name>` will be created in the current directory.
 
 ## Examples
+
+to successfully compile the examples you have to install some rasm libraries, run:  
+`./install_libs.sh`
 
 In the examples the -- is really not needed when running manually from the command line,
 it's needed if you are running it with an IDE that parses markdown and lets

@@ -16,7 +16,10 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use derivative::Derivative;
 use std::cmp::Ordering;
+use std::collections::{BTreeMap, HashMap};
+use std::fmt::Display;
 use std::fs;
 use std::fs::File;
 use std::io::Read;
@@ -25,17 +28,19 @@ use std::path::{Path, PathBuf};
 use crate::codegen::compile_target::{CompileTarget, C, NASMI386};
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 use crate::commandline::CommandLineOptions;
+use crate::pm::repository::{PackageManager, PackageManagerImpl, VersionFilter};
 use crate::project_catalog::RasmProjectCatalog;
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
-use log::info;
+use log::{info, warn};
 use pathdiff::diff_paths;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::ModuleInfo;
 use rasm_utils::debug_indent::{enable_log, log_enabled};
 use rayon::prelude::*;
 use rust_embed::RustEmbed;
+use semver::Version;
 use serde::Deserialize;
 use toml::map::Map;
 use toml::{Table, Value};
@@ -47,6 +52,8 @@ use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::ast::ASTExpression::{self, ASTFunctionCallExpression};
 use rasm_parser::parser::ast::{ASTModifiers, ASTModule, ASTPosition, ASTStatement, ASTValue};
 use rasm_parser::parser::Parser;
+
+const STD_LIB_VERSION: &str = "0.1";
 
 #[derive(Debug, Clone)]
 pub struct RasmProject {
@@ -64,6 +71,66 @@ pub enum RasmProjectRunType {
     Main,
     Test,
     All,
+}
+
+struct DependencyNode {
+    lib: String,
+    project: RasmProject,
+    children: HashMap<String, Vec<DependencyNode>>,
+}
+
+impl DependencyNode {
+    fn new(lib: String, project: RasmProject) -> Self {
+        Self {
+            lib,
+            project,
+            children: HashMap::new(),
+        }
+    }
+
+    fn add_child(&mut self, lib: String, children: Vec<DependencyNode>) {
+        self.children.insert(lib, children);
+    }
+
+    fn print(&self, indent: usize) {
+        print!("{}", " ".repeat(indent));
+        println!("{} - {}", self.lib, self.project.config.package.version);
+        for (lib, versions) in self.children.iter() {
+            print!("{}", " ".repeat(indent + 1));
+            println!("{}", lib);
+            for version in versions.iter() {
+                version.print(indent + 2);
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Derivative)]
+#[derivative(PartialEq)]
+pub struct ResolvedDependency {
+    version: Version,
+    #[derivative(PartialEq = "ignore")]
+    project: RasmProject,
+}
+
+impl Display for ResolvedDependency {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}={}", self.project.config.package.name, self.version)
+    }
+}
+
+impl ResolvedDependency {
+    pub fn new(version: Version, project: RasmProject) -> Self {
+        Self { version, project }
+    }
+
+    pub fn project(&self) -> &RasmProject {
+        &self.project
+    }
+
+    pub fn version(&self) -> &Version {
+        &self.version
+    }
 }
 
 impl RasmProjectRunType {
@@ -747,11 +814,460 @@ impl RasmProject {
         }
     }
 
+    pub fn dependencies(&self) -> Result<HashMap<String, VersionFilter>, String> {
+        let mut result = HashMap::new();
+
+        if let Some(dependencies) = &self.config.dependencies {
+            for (dependency_name, dependency) in dependencies {
+                if let Value::String(version) = dependency {
+                    result.insert(dependency_name.clone(), VersionFilter::parse(version)?);
+                } else {
+                    return Err(format!(
+                        "Unsupport dependency type for {dependency} in project {}. It should be a string",
+                        self.config.package.name
+                    ));
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    /*
+    pub fn get_dependencies(&self) -> Result<HashMap<String, Vec<ResolvedDependency>>, String> {
+        let package_manager = PackageManagerImpl::new();
+        let mut result = HashMap::new();
+
+        if let Some(dependencies) = &self.config.dependencies {
+            for (dependency_name, dependency) in dependencies {
+                let project = if let Value::Table(table) = dependency {
+                    if let Some(path_value) = table.get("path") {
+                        if let Value::String(path) = path_value {
+                            let path_buf = if Path::new(path).is_absolute() {
+                                PathBuf::from(path)
+                            } else {
+                                let path_from_relative_to_root =
+                                    self.from_relative_to_root(Path::new(path));
+
+                                if !path_from_relative_to_root.exists() {
+                                    panic!(
+                                        "Cannot find path of dependency {dependency} in project {}",
+                                        self.config.package.name
+                                    );
+                                }
+
+                                path_from_relative_to_root
+                                .canonicalize()
+                                .unwrap_or_else(|_| {
+                                    panic!(
+                                        "error canonicalizing {path}, path_from_relative_to_root {}, root {}",
+                                        path_from_relative_to_root.to_string_lossy(),
+                                        self.root.to_string_lossy()
+                                    )
+                                })
+                            };
+
+                            result
+                                .entry(dependency_name.clone())
+                                .or_insert(Vec::new())
+                                .push(ResolvedDependency::Path(path_buf.clone()));
+
+                            RasmProject::new(path_buf)
+                        } else {
+                            return Err(format!(
+                                "Unsupported path value for {dependency} : {path_value}"
+                            ));
+                        }
+                    } else {
+                        return Err(format!(
+                            "Cannot find \"path\" for dependency {dependency} in project {}",
+                            self.config.package.name
+                        ));
+                    }
+                } else if let Value::String(version) = dependency {
+                    if let Some(project) = package_manager.get_package(
+                        &dependency_name,
+                        &VersionFilter::Compatible(version.to_string()),
+                    ) {
+                        result
+                            .entry(dependency_name.clone())
+                            .or_insert(Vec::new())
+                            .push(ResolvedDependency::Version(
+                                project.config.package.version.clone(),
+                            ));
+
+                        project
+                    } else {
+                        return Err(format!(
+                            "Cannot find package {} with version {}",
+                            dependency_name, version
+                        ));
+                    }
+                } else {
+                    return Err(format!(
+                        "Unsupport dependency type for {dependency} in project {}",
+                        self.config.package.name
+                    ));
+                };
+                result.extend(&mut project.get_dependencies()?.into_iter());
+            }
+        }
+        Ok(result)
+    }
+    */
+
+    fn tree(
+        &self,
+        package_manager: &dyn PackageManager,
+    ) -> Result<HashMap<String, Vec<DependencyNode>>, String> {
+        let mut result = HashMap::new();
+
+        for (lib, filter) in self.dependencies()? {
+            let mut projects = Vec::new();
+            match filter {
+                VersionFilter::Exact(version) => {
+                    if let Some(project) = package_manager.get_package(&lib, &version) {
+                        projects.push(project);
+                    }
+                }
+                VersionFilter::Compatible(_, _) => {
+                    for version in package_manager.versions(&lib) {
+                        if filter.matches(&version) {
+                            if let Some(project) = package_manager.get_package(&lib, &version) {
+                                projects.push(project);
+                            }
+                        }
+                    }
+                }
+            }
+
+            let mut lib_children = Vec::new();
+
+            for project in projects {
+                let children = project.tree(package_manager)?;
+                let node = DependencyNode {
+                    lib: project.config.package.name.clone(),
+                    project,
+                    children,
+                };
+                lib_children.push(node);
+            }
+
+            result.insert(lib, lib_children);
+        }
+        Ok(result)
+    }
+
+    fn self_rows(
+        &self,
+        package_manager: &dyn PackageManager,
+    ) -> Result<Vec<HashMap<String, Version>>, String> {
+        let mut self_rows: Vec<HashMap<String, Version>> = Vec::new();
+
+        for (lib, filter) in self.dependencies()? {
+            let valid_versions = package_manager
+                .versions(&lib)
+                .into_iter()
+                .filter(|v| filter.matches(v))
+                .collect_vec();
+            let mut new_result = Vec::new();
+            //let mut children = Vec::new();
+            for version in valid_versions.iter() {
+                if self_rows.is_empty() {
+                    let mut row = HashMap::new();
+                    row.insert(lib.clone(), version.clone());
+                    new_result.push(row);
+                } else {
+                    for row in self_rows.iter() {
+                        let mut new_row = row.clone();
+                        new_row.insert(lib.clone(), version.clone());
+                        new_result.push(new_row);
+                    }
+                }
+            }
+
+            self_rows = new_result;
+        }
+
+        Ok(self_rows)
+    }
+
+    fn all_rows(
+        &self,
+        package_manager: &dyn PackageManager,
+    ) -> Result<Vec<BTreeMap<String, Version>>, String> {
+        let mut result = Vec::new();
+        for row in self.self_rows(package_manager)?.into_iter() {
+            for (lib, version) in row.iter() {
+                let project = package_manager.get_package(&lib, &version).unwrap();
+                let lib_rows = project.self_rows(package_manager)?;
+
+                if lib_rows.is_empty() {
+                    let mut new_row = BTreeMap::new();
+                    new_row.extend(row.clone());
+                    result.push(new_row);
+                    continue;
+                }
+                for lib_row in lib_rows {
+                    let mut new_row = BTreeMap::new();
+                    new_row.extend(row.clone());
+                    new_row.extend(lib_row);
+                    result.push(new_row);
+                }
+            }
+        }
+
+        result.sort();
+        result.dedup();
+
+        let mut filtered_result = Vec::new();
+        for row in result.iter() {
+            let mut is_valid = true;
+            for (lib, version) in row.iter() {
+                let project = package_manager.get_package(&lib, &version).unwrap();
+                if !project
+                    .dependencies()?
+                    .iter()
+                    .all(|(lib_dependency, filter)| {
+                        row.get(lib_dependency).is_some_and(|v| filter.matches(v))
+                    })
+                {
+                    warn!("dep {} {} is not valid", lib, version);
+                    is_valid = false;
+                }
+            }
+
+            if is_valid {
+                filtered_result.push(row.clone());
+            }
+        }
+
+        Ok(filtered_result)
+    }
+
+    fn res_dep(
+        &self,
+        package_manager: &dyn PackageManager,
+        prev_result: &Vec<HashMap<String, Version>>,
+    ) -> Result<Vec<HashMap<String, Version>>, String> {
+        if prev_result.len() > 100 {
+            panic!("Too many results");
+        }
+        let mut result: Vec<HashMap<String, Version>> = prev_result.clone();
+
+        if self.dependencies()?.is_empty() {
+            return Ok(result);
+        }
+
+        let mut self_rows = Vec::new();
+
+        for (lib, filter) in self.dependencies()? {
+            let valid_versions = package_manager
+                .versions(&lib)
+                .into_iter()
+                .filter(|v| filter.matches(v))
+                .collect_vec();
+            let mut new_result = Vec::new();
+            //let mut children = Vec::new();
+            for version in valid_versions.iter() {
+                if result.is_empty() {
+                    let mut row = HashMap::new();
+                    row.insert(lib.clone(), version.clone());
+                    new_result.push(row);
+                } else {
+                    for row in result.iter() {
+                        let mut new_row = row.clone();
+                        new_row.insert(lib.clone(), version.clone());
+                        new_result.push(new_row);
+                    }
+                }
+
+                /*
+                let child = package_manager.get_package(&lib, version).unwrap();
+                result.extend(child.res_dep(package_manager, &new_result)?);
+                */
+            }
+
+            /*
+            for child in children {
+                let new_result = self.res_dep(package_manager, new_result.clone())?;
+                result = new_result;
+            }
+            */
+
+            self_rows = new_result;
+        }
+
+        let mut new_result = Vec::new();
+        for row in result.iter() {
+            for (lib, version) in row {
+                let child = package_manager.get_package(&lib, version).unwrap();
+
+                new_result.extend(child.res_dep(package_manager, &result)?);
+            }
+        }
+        result = new_result;
+
+        println!("Resolved dependencies");
+        for row in result.iter() {
+            for (lib, version) in row {
+                print!("{} {}, ", lib, version);
+            }
+            println!();
+        }
+
+        Ok(result)
+    }
+
+    fn resolved_dependencies(
+        &self,
+        package_manager: &dyn PackageManager,
+    ) -> Result<HashMap<String, ResolvedDependency>, String> {
+        let tree = self.tree(package_manager)?;
+
+        let mut versions: Vec<HashMap<String, ResolvedDependency>> = Vec::new();
+        let mut lib_versions = Vec::new();
+        for (_lib, dependencies) in tree {
+            for dep in dependencies {
+                lib_versions.extend(Self::add_to_versions(&versions, &dep, 0));
+            }
+        }
+        versions.extend(lib_versions);
+
+        println!("Resolved dependencies");
+
+        for resolved in versions {
+            for (lib, dep) in resolved {
+                print!("{lib} {}, ", dep.version);
+            }
+            println!();
+        }
+
+        todo!()
+
+        /*
+        let dependencies = self.get_dependencies()?;
+        for (lib, versions) in dependencies.iter() {
+            if versions
+                .iter()
+                .any(|d| matches!(d, ResolvedDependency::Path(_)))
+                && versions
+                    .iter()
+                    .any(|d| matches!(d, ResolvedDependency::Version(_)))
+            {
+                return Err(format!(
+                    "Cannot have both path and version dependency for {lib} in project {}",
+                    self.config.package.name
+                ));
+            }
+        }
+
+        for dependency in self.config.dependencies.iter() {
+            if let Some(versions) = dependencies.get(dependency.0) {
+                // TODO
+            }
+        }
+        */
+
+        // Ok(result)
+    }
+
+    fn add_to_versions(
+        versions: &Vec<HashMap<String, ResolvedDependency>>,
+        dep: &DependencyNode,
+        indent: usize,
+    ) -> Vec<HashMap<String, ResolvedDependency>> {
+        println!(
+            "{}add_to_versions {} {}",
+            " ".repeat(indent * 2),
+            dep.lib,
+            dep.project.config.package.version
+        );
+        //println!("versions");
+
+        for v in versions.iter() {
+            print!("{}", " ".repeat(indent * 2));
+            for (lib, resolved) in v.iter() {
+                print!("{}, ", resolved);
+            }
+            println!();
+        }
+
+        let mut result = Vec::new();
+        let dep_version = Version::parse(dep.project.config.package.version.as_str()).unwrap();
+
+        if versions.is_empty() {
+            let mut new_vec = HashMap::new();
+            new_vec.insert(
+                dep.lib.clone(),
+                ResolvedDependency::new(dep_version.clone(), dep.project.clone()),
+            );
+            result.push(new_vec);
+        } else {
+            for v in versions.iter() {
+                let mut new_vec = v.clone();
+                if let Some(resolved) = new_vec.get(&dep.lib) {
+                    if resolved.version.major == dep_version.major {
+                        if dep_version.cmp_precedence(&resolved.version) == Ordering::Greater {
+                            new_vec.insert(
+                                dep.lib.clone(),
+                                ResolvedDependency::new(dep_version.clone(), dep.project.clone()),
+                            );
+                        }
+                        result.push(new_vec);
+                    } else {
+                        println!(
+                            "incompatible versions {} {} {}",
+                            dep.lib, dep_version, resolved.version
+                        );
+                    }
+                } else {
+                    new_vec.insert(
+                        dep.lib.clone(),
+                        ResolvedDependency::new(dep_version.clone(), dep.project.clone()),
+                    );
+                    result.push(new_vec);
+                }
+            }
+        }
+
+        //let original_result = result.clone();
+
+        for (_, children) in dep.children.iter() {
+            let mut children_versions = Vec::new();
+            for child in children.iter() {
+                children_versions.extend(Self::add_to_versions(&result, child, indent + 1));
+            }
+            result.extend(children_versions);
+            result.dedup_by(|a, b| a == b);
+        }
+
+        result
+    }
+
     pub fn get_all_dependencies(&self) -> Vec<RasmProject> {
+        let package_manager = PackageManagerImpl::new();
+
+        let rows = self.all_rows(&package_manager).unwrap();
+
+        let mut result = Vec::new();
+
+        if rows.is_empty() {
+            warn!("No dependencies found");
+            return result;
+        }
+        for (lib, version) in rows.last().unwrap() {
+            let project = package_manager.get_package(&lib, &version).unwrap();
+            result.push(project);
+        }
+
+        result
+
+        /*
         let mut result = Vec::new();
 
         if let Some(dependencies) = &self.config.dependencies {
-            for dependency in dependencies.values() {
+            for (dependency_name, dependency) in dependencies {
                 if let Value::Table(table) = dependency {
                     if let Some(path_value) = table.get("path") {
                         if let Value::String(path) = path_value {
@@ -788,6 +1304,15 @@ impl RasmProject {
                     } else {
                         panic!("Cannot find path for {dependency}");
                     }
+                } else if let Value::String(v) = dependency {
+                    if let Some(project) = package_manager
+                        .get_package(&dependency_name, &VersionFilter::parse(v).unwrap())
+                    {
+                        result.append(&mut project.get_all_dependencies());
+                        result.push(project);
+                    } else {
+                        panic!("Cannot find package {} with version {}", dependency_name, v);
+                    }
                 } else {
                     panic!("Unsupported dependency type {dependency}");
                 }
@@ -798,6 +1323,7 @@ impl RasmProject {
         result.dedup_by(|a, b| a.root.cmp(&b.root) == Ordering::Equal);
 
         result
+        */
     }
 
     fn get_dependencies(&self) -> Vec<RasmProject> {
@@ -976,7 +1502,10 @@ fn get_rasm_config_from_file(src_path: &Path) -> RasmConfig {
     } else {
         eprintln!("cannot find stdlib path. Define RASM_STDLIB environment variable.");
     }
-    dependencies_map.insert("stdlib".to_owned(), Value::Table(stdlib));
+    dependencies_map.insert(
+        "stdlib".to_owned(),
+        Value::String(STD_LIB_VERSION.to_owned()),
+    );
 
     RasmConfig {
         package: RasmPackage {
@@ -1020,17 +1549,62 @@ fn get_rasm_config_from_directory(src_path: &Path) -> RasmConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::env;
     use std::path::{Path, PathBuf};
 
+    use linked_hash_map::LinkedHashMap;
     use rasm_parser::catalog::modules_catalog::ModulesCatalog;
+    use semver::Version;
+    use toml::Value;
 
     use crate::codegen::c::options::COptions;
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enh_ast::EnhModuleId;
-    use crate::project::RasmProjectRunType;
+    use crate::pm::repository::PackageManager;
+    use crate::project::{RasmConfig, RasmPackage, RasmProjectRunType};
 
     use super::RasmProject;
+
+    struct PackageManagerMock {
+        projects: HashMap<String, Vec<RasmProject>>,
+    }
+
+    impl PackageManager for PackageManagerMock {
+        fn get_package(&self, name: &str, version: &Version) -> Option<RasmProject> {
+            self.projects
+                .get(name)
+                .and_then(|projects| {
+                    projects
+                        .iter()
+                        .find(|p| p.config.package.version == version.to_string())
+                })
+                .cloned()
+        }
+
+        fn install_package(
+            &self,
+            repository_id: Option<&str>,
+            project: &RasmProject,
+            command_line_options: &crate::commandline::CommandLineOptions,
+        ) -> Result<(), String> {
+            todo!()
+        }
+
+        fn versions(&self, lib: &str) -> Vec<Version> {
+            self.projects
+                .get(lib)
+                .map_or(Ok(Vec::new()), |packages| {
+                    packages
+                        .iter()
+                        .map(|p| {
+                            Version::parse(&p.config.package.version).map_err(|e| e.to_string())
+                        })
+                        .collect::<Result<Vec<Version>, String>>()
+                })
+                .unwrap()
+        }
+    }
 
     #[test]
     fn test_canonilize() {
@@ -1064,5 +1638,111 @@ mod tests {
             "helloworld_helloworld",
             format!("{}", info.unwrap().namespace())
         );
+    }
+
+    #[test]
+    pub fn tree() {
+        let sut = test_project("main", "1.0.0", vec![("A", "1.0"), ("B", "1.0")]);
+
+        let mut projects = HashMap::new();
+        projects.insert(
+            "A".to_owned(),
+            vec![
+                test_project("A", "1.0.0", vec![("C", "1.0")]),
+                test_project("A", "1.0.1", vec![("C", "1.1")]),
+            ],
+        );
+        projects.insert(
+            "B".to_owned(),
+            vec![
+                test_project("B", "1.0.0", vec![("C", "1.1")]),
+                test_project("B", "1.1.0", vec![("C", "2.0")]),
+            ],
+        );
+        projects.insert(
+            "C".to_owned(),
+            vec![
+                test_project("C", "1.0.0", vec![]),
+                test_project("C", "1.1.0", vec![]),
+                test_project("C", "2.0.0", vec![]),
+            ],
+        );
+
+        let package_manager = PackageManagerMock { projects };
+
+        let tree = sut.tree(&package_manager).unwrap();
+
+        for (lib, nodes) in tree.iter() {
+            println!("{lib}");
+            for node in nodes {
+                node.print(1);
+            }
+        }
+        assert_eq!(tree.len(), 2);
+    }
+
+    #[test]
+    fn resolved_dependencies() {
+        let sut = test_project("main", "1.0.0", vec![("A", "1.0"), ("B", "1.0")]);
+
+        let mut projects = HashMap::new();
+        projects.insert(
+            "A".to_owned(),
+            vec![
+                test_project("A", "1.0.0", vec![("C", "1.0")]),
+                test_project("A", "1.0.1", vec![("C", "1.1")]),
+            ],
+        );
+        projects.insert(
+            "B".to_owned(),
+            vec![
+                test_project("B", "1.0.0", vec![("C", "1.1")]),
+                test_project("B", "1.1.0", vec![("C", "2.0")]),
+            ],
+        );
+        projects.insert(
+            "C".to_owned(),
+            vec![
+                test_project("C", "1.0.0", vec![]),
+                test_project("C", "1.1.0", vec![]),
+                test_project("C", "2.0.0", vec![]),
+            ],
+        );
+
+        let package_manager = PackageManagerMock { projects };
+
+        let rows = sut.all_rows(&package_manager).unwrap();
+
+        println!("Resolved dependencies");
+        for row in rows.iter() {
+            for (lib, version) in row {
+                print!("{} {}, ", lib, version);
+            }
+            println!();
+        }
+    }
+
+    fn test_project(name: &str, version: &str, dependencies: Vec<(&str, &str)>) -> RasmProject {
+        let config = RasmConfig {
+            package: RasmPackage {
+                name: name.to_owned(),
+                version: version.to_owned(),
+                main: None,
+                source_folder: None,
+            },
+            dependencies: Some(
+                dependencies
+                    .into_iter()
+                    .map(|(d, v)| (d.to_owned(), Value::String(v.to_owned())))
+                    .collect(),
+            ),
+            targets: None,
+        };
+        RasmProject {
+            root: PathBuf::new(),
+            config: config,
+            from_file: false,
+            in_memory_files: LinkedHashMap::new(),
+        }
     }
 }

@@ -4,5 +4,5 @@ version = "1.0.0"
 main = "breakout.rasm"
 
 [dependencies]
-stdlib = { path = "../../../../stdlib" }
-sdl = { path = "../sdl" }
+stdlib = "0.1"
+sdl = "0.1"

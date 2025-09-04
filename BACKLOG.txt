@@ -2,6 +2,7 @@ Doing
 ------
 - install library
   - in ~/.rasm/repository/library-name/library-version
+- package manager
 
 Bug
 ----

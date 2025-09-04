@@ -3,7 +3,7 @@ name = "sdl"
 version = "0.1.0-alpha.0"
 
 [dependencies]
-stdlib = { path = "../../../../stdlib" }
+stdlib = "0.1"
 
 [targets.nasmi386]
 requires = ["libc", "SDL2", "SDL2_ttf", "SDL2_image"]

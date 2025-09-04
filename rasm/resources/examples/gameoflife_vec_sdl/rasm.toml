@@ -4,5 +4,5 @@ version = "1.0.0"
 main = "gameoflife_vec_sdl.rasm"
 
 [dependencies]
-stdlib = { path = "../../../../stdlib" }
-sdl = { path = "../sdl" }
+stdlib = "0.1"
+sdl = "0.1"

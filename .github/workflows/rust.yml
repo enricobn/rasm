@@ -20,5 +20,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-multilib g++-multilib libc++-dev nasm libsdl2-dev libsdl2-ttf-dev libsdl2-image-dev
+      - name: Install libs
+        run: RUST_BACKTRACE=full ./install_libs.sh
       - name: Run tests
         run: RUST_BACKTRACE=full cargo test --verbose --workspace

@@ -1543,7 +1543,7 @@ mod tests {
     fn simple() {
         let (project, helper) = get_helper("resources/test/simple.rasm");
 
-        let std_lib_project = stdlib_project();
+        let std_lib_project = stdlib_project(&project);
 
         assert_eq!(
             vec_selectable_item_to_vec_target_index(helper.find(&get_index(
@@ -1610,7 +1610,7 @@ mod tests {
     fn types() {
         let (project, helper) = get_helper("resources/test/types.rasm");
 
-        let std_lib_project = stdlib_project();
+        let std_lib_project = stdlib_project(&project);
 
         assert_eq!(
             vec_selectable_item_to_vec_target_index(helper.find(&get_index(
@@ -1898,9 +1898,9 @@ mod tests {
 
     #[test]
     fn types_flatten() {
-        let (_project, helper) = get_helper("resources/test/types.rasm");
+        let (project, helper) = get_helper("resources/test/types.rasm");
 
-        let stdlib_project = stdlib_project();
+        let stdlib_project = stdlib_project(&project);
 
         let mut selectable_items = helper.find(&get_index(
             &stdlib_project,
@@ -2696,8 +2696,15 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         )
     }
 
-    fn stdlib_project() -> RasmProject {
-        RasmProject::new(Path::new("../stdlib").to_path_buf())
+    fn stdlib_project(project: &RasmProject) -> RasmProject {
+        project
+            .get_all_dependencies()
+            .into_iter()
+            .filter(|p| p.config.package.name == "stdlib")
+            .collect::<Vec<_>>()
+            .first()
+            .cloned()
+            .unwrap()
     }
 
     fn test_references(

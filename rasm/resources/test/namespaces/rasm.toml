@@ -4,4 +4,4 @@ version = "1.0.0"
 main = "namespaces.rasm"
 
 [dependencies]
-stdlib = { path = "../../../../stdlib" }
+stdlib = "0.1"
