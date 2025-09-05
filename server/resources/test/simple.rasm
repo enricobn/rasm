@@ -1,6 +1,6 @@
-let anI32 = 10;
+let anInt = 10;
 
-doSomething(anI32);
+doSomething(anInt);
 
 fn doSomething(aValue: int) {
     println(aValue);

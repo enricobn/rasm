@@ -1,5 +1,5 @@
 struct AStruct {
-    anI32: int
+    anInt: int
 }
 
 let anEnum = Option::Some(10);
@@ -9,7 +9,7 @@ let aVec = vecOf(10);
 doSomething(anEnum);
 doSomething(aStruct);
 doSomething(aVec);
-println(aStruct.anI32);
+println(aStruct.anInt);
 anEnum.match(fn(it){},{});
 
 fn doSomething(value: Option<int>) {
@@ -33,7 +33,7 @@ fn lambda(structVec: Vec<AStruct>) -> Vec<AStruct> {
 }
 
 fn property() -> int {
-    AStruct(10).anI32;
+    AStruct(10).anInt;
 }
 
 fn string() -> int {

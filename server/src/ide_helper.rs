@@ -1751,7 +1751,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(3, values.into_iter().filter(|it| it == "anI32").count());
+        assert_eq!(3, values.into_iter().filter(|it| it == "anInt").count());
     }
 
     #[test]
@@ -1778,7 +1778,7 @@ mod tests {
             CompletionTrigger::Character('.'),
         )
         .unwrap();
-        assert_eq!(3, values.into_iter().filter(|it| it == "anI32").count());
+        assert_eq!(3, values.into_iter().filter(|it| it == "anInt").count());
     }
 
     #[test]

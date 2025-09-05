@@ -513,7 +513,7 @@ mod tests {
                 Bracket(Brace, Open),
                 EndOfLine,
                 WhiteSpaces("    ".into()),
-                AlphaNumeric("I32".into()),
+                AlphaNumeric("AType".into()),
                 Punctuation(Colon),
                 Punctuation(Colon),
                 AlphaNumeric("add".into()),

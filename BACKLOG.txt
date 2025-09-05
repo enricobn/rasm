@@ -1,8 +1,5 @@
 Doing
 ------
-- install library
-  - in ~/.rasm/repository/library-name/library-version
-- package manager
 
 Bug
 ----
@@ -29,11 +26,6 @@ Road to language version 1.0.0 (not compiler)
   
 Major
 -----
-- in type check, try to evaluate in opposite order:
-  fa(fb(p1, p2), fc(p3, p4)) => p1.fb(p2).fa(p3.fc(p4))
-  we should evaluate the type of p1 and p2, so we have the type of fb
-  then we evaluate p3 and p4, so we have the type of fc
-  then we have the type of fa
 - command line tool:
   - add "new" for creating a new project
   - add "init" for creating a new project in the current folder
@@ -112,5 +104,9 @@ Ideas
 - string and number literals (array?) should be specific types (strLit, intLit, decLit) that have a string representation,
   and let i64,i32,f64,f32 etc. be native types, that can be constructed with those literals, but we 
   need a way to check, at compile time, if the literal can be stored in that particular native type
-
 - stdlib: print and prinln go to stdout, the ones with file as input must be called writeln and write
+- in type check, try to evaluate in opposite order:
+  fa(fb(p1, p2), fc(p3, p4)) => p1.fb(p2).fa(p3.fc(p4))
+  we should evaluate the type of p1 and p2, so we have the type of fb
+  then we evaluate p3 and p4, so we have the type of fc
+  then we have the type of fa

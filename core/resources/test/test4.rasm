@@ -1,4 +1,4 @@
 // test4.rasm file
 fn add(a: int, b: int) -> int {
-    I32::add(a, b)
+    AType::add(a, b)
 }

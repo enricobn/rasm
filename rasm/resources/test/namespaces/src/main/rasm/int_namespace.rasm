@@ -1,0 +1,19 @@
+struct TestModel {
+    value: int
+}
+
+fn getInt() -> Result<TestModel,str> {
+    Ok(TestModel(20));
+}
+
+pub fn printInt() {
+    getInt().match(fn(v) {println("int ok");}, fn(error) { println("int error");});
+}
+
+fn getInt2() -> Result<TestModel,str> {
+    if(true, { Ok(TestModel(20));}).else({ Error("Error");}).call();
+}
+
+pub fn printInt2() {
+    getInt2().match( fn(v) { println("int ok");}, fn(error) { println("int ".add(error));});
+}

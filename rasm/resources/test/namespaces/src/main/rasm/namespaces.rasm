@@ -1,5 +1,5 @@
 printstr();
-printi32();
+printInt();
 
 printstr2();
-printi322();
+printInt2();
