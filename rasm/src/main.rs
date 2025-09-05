@@ -10,7 +10,7 @@ use env_logger::Builder;
 use log::info;
 use rasm_core::{
     codegen::compile_target::{CompileTarget, C, NASMI386},
-    pm::repository::{PackageManager, PackageManagerImpl},
+    pm::repository::PackageManager,
 };
 use rasm_utils::debug_i;
 
@@ -182,8 +182,10 @@ fn main() {
     } else if command_line_options.action == CommandLineAction::UI {
         UI::show(project, target).unwrap();
     } else if command_line_options.action == CommandLineAction::Install {
-        PackageManagerImpl::new()
-            .install_package(None, &project, &command_line_options)
+        let package_manager = project.package_manager();
+
+        package_manager
+            .install_package("_local", &project, &command_line_options)
             .unwrap();
     } else {
         debug_i!("project {:?}", project);

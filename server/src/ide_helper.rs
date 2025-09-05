@@ -2671,7 +2671,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
 
     fn stdlib_project(project: &RasmProject) -> RasmProject {
         project
-            .get_all_dependencies()
+            .all_projects()
             .into_iter()
             .filter(|p| p.config.package.name == "stdlib")
             .collect::<Vec<_>>()

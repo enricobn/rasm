@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     fs::{self, DirBuilder},
     io::{self, stdout, Write},
     path::{Path, PathBuf},
@@ -20,6 +21,17 @@ pub enum VersionFilter {
     Compatible(u64, u64),
 }
 
+impl Display for VersionFilter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VersionFilter::Exact(v) => write!(f, "Exact {}", v),
+            VersionFilter::Compatible(major, minor) => {
+                write!(f, "Compatible with {}.{}", major, minor)
+            }
+        }
+    }
+}
+
 impl VersionFilter {
     pub fn parse(version: &str) -> Result<VersionFilter, String> {
         if let Ok(version) = Version::parse(version) {
@@ -38,9 +50,7 @@ impl VersionFilter {
             Err(format!("Invalid version: {}", version))
         }
     }
-}
 
-impl VersionFilter {
     pub fn matches(&self, version: &Version) -> bool {
         match self {
             VersionFilter::Exact(v) => v == version,
@@ -84,7 +94,7 @@ pub trait PackageManager {
 
     fn install_package(
         &self,
-        repository_id: Option<&str>,
+        repository_id: &str,
         project: &RasmProject,
         command_line_options: &CommandLineOptions,
     ) -> Result<(), String>;
@@ -96,7 +106,7 @@ pub trait PackageManager {
     fn versions(&self, lib: &str) -> Vec<Version>;
 }
 
-struct LocalPackageRepository {}
+pub struct LocalPackageRepository {}
 
 impl PackageRepository for LocalPackageRepository {
     fn package(&self, name: &str, version: &Version) -> Result<RasmProject, String> {
@@ -261,19 +271,15 @@ impl PackageManager for PackageManagerImpl {
 
     fn install_package(
         &self,
-        repository_id: Option<&str>,
+        repository_id: &str,
         project: &RasmProject,
         command_line_options: &CommandLineOptions,
     ) -> Result<(), String> {
-        let id = if let Some(id) = repository_id {
-            id
-        } else {
-            "_local"
-        };
-        let (repository, authentication) = if let Some(value) = self.repositories.get(id) {
+        let (repository, authentication) = if let Some(value) = self.repositories.get(repository_id)
+        {
             value
         } else {
-            return Err(format!("repository {} not found", id));
+            return Err(format!("repository {} not found", repository_id));
         };
         if !authentication.write {
             return Err("not authorized to write".to_owned());
@@ -338,10 +344,12 @@ impl PackageManagerImpl {
                 authorization,
             ),
         );
-        Self { repositories }
+        Self {
+            repositories: LinkedHashMap::new(),
+        }
     }
 
-    fn register_repository(
+    pub fn register_repository(
         &mut self,
         id: String,
         repository: impl PackageRepository + 'static,

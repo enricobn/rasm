@@ -27,7 +27,10 @@ use std::path::{Path, PathBuf};
 use crate::codegen::compile_target::{CompileTarget, C, NASMI386};
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 use crate::commandline::CommandLineOptions;
-use crate::pm::repository::{PackageManager, PackageManagerImpl, VersionFilter};
+use crate::pm::repository::{
+    LocalPackageRepository, PackageManager, PackageManagerImpl, RepositoryAuthentication,
+    VersionFilter,
+};
 use crate::project_catalog::RasmProjectCatalog;
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use itertools::Itertools;
@@ -389,7 +392,7 @@ impl RasmProject {
 
         pairs.append(
             &mut self
-                .get_all_dependencies()
+                .all_projects()
                 .into_par_iter()
                 .map(|dependency| {
                     enable_log(log_enabled);
@@ -799,11 +802,11 @@ impl RasmProject {
         Ok(result)
     }
 
-    fn self_rows(
+    fn possible_dependencies(
         &self,
         package_manager: &dyn PackageManager,
     ) -> Result<Vec<HashMap<String, Version>>, String> {
-        let mut self_rows: Vec<HashMap<String, Version>> = Vec::new();
+        let mut result: Vec<HashMap<String, Version>> = Vec::new();
 
         for (lib, filter) in self.dependencies()? {
             let valid_versions = package_manager
@@ -811,15 +814,23 @@ impl RasmProject {
                 .into_iter()
                 .filter(|v| filter.matches(v))
                 .collect_vec();
+
+            if valid_versions.is_empty() {
+                return Err(format!(
+                    "No version of {} that matches {} in project {}",
+                    lib, filter, self.config.package.name
+                ));
+            }
+
             let mut new_result = Vec::new();
-            //let mut children = Vec::new();
+
             for version in valid_versions.iter() {
-                if self_rows.is_empty() {
+                if result.is_empty() {
                     let mut row = HashMap::new();
                     row.insert(lib.clone(), version.clone());
                     new_result.push(row);
                 } else {
-                    for row in self_rows.iter() {
+                    for row in result.iter() {
                         let mut new_row = row.clone();
                         new_row.insert(lib.clone(), version.clone());
                         new_result.push(new_row);
@@ -827,29 +838,30 @@ impl RasmProject {
                 }
             }
 
-            self_rows = new_result;
+            result = new_result;
         }
 
-        Ok(self_rows)
+        Ok(result)
     }
 
-    fn all_rows(
+    fn all_possible_dependencies(
         &self,
         package_manager: &dyn PackageManager,
     ) -> Result<Vec<BTreeMap<String, Version>>, String> {
         let mut result = Vec::new();
-        for row in self.self_rows(package_manager)?.into_iter() {
+
+        for row in self.possible_dependencies(package_manager)?.into_iter() {
             for (lib, version) in row.iter() {
                 let project = package_manager.get_package(&lib, &version).unwrap();
-                let lib_rows = project.self_rows(package_manager)?;
+                let lib_possible_dependencies = project.possible_dependencies(package_manager)?;
 
-                if lib_rows.is_empty() {
+                if lib_possible_dependencies.is_empty() {
                     let mut new_row = BTreeMap::new();
                     new_row.extend(row.clone());
                     result.push(new_row);
                     continue;
                 }
-                for lib_row in lib_rows {
+                for lib_row in lib_possible_dependencies {
                     let mut new_row = BTreeMap::new();
                     new_row.extend(row.clone());
                     new_row.extend(lib_row);
@@ -873,7 +885,6 @@ impl RasmProject {
                         row.get(lib_dependency).is_some_and(|v| filter.matches(v))
                     })
                 {
-                    warn!("dep {} {} is not valid", lib, version);
                     is_valid = false;
                 }
             }
@@ -883,13 +894,34 @@ impl RasmProject {
             }
         }
 
+        if !self.dependencies()?.is_empty() {
+            if filtered_result.is_empty() {
+                return Err(format!(
+                    "No valid dependencies found for {}",
+                    self.config.package.name
+                ));
+            }
+        }
+
         Ok(filtered_result)
     }
 
-    pub fn get_all_dependencies(&self) -> Vec<RasmProject> {
-        let package_manager = PackageManagerImpl::new();
+    pub fn package_manager(&self) -> impl PackageManager {
+        let mut package_manager = PackageManagerImpl::new();
+        package_manager
+            .register_repository(
+                "_local".to_owned(),
+                LocalPackageRepository::new(),
+                RepositoryAuthentication::None,
+            )
+            .unwrap();
+        package_manager
+    }
 
-        let rows = self.all_rows(&package_manager).unwrap();
+    pub fn all_projects(&self) -> Vec<RasmProject> {
+        let package_manager = self.package_manager();
+
+        let rows = self.all_possible_dependencies(&package_manager).unwrap();
 
         let mut result = Vec::new();
 
@@ -903,68 +935,6 @@ impl RasmProject {
         }
 
         result
-
-        /*
-        let mut result = Vec::new();
-
-        if let Some(dependencies) = &self.config.dependencies {
-            for (dependency_name, dependency) in dependencies {
-                if let Value::Table(table) = dependency {
-                    if let Some(path_value) = table.get("path") {
-                        if let Value::String(path) = path_value {
-                            let path_buf = if Path::new(path).is_absolute() {
-                                PathBuf::from(path)
-                            } else {
-                                let path_from_relative_to_root =
-                                    self.from_relative_to_root(Path::new(path));
-
-                                if !path_from_relative_to_root.exists() {
-                                    panic!(
-                                        "Cannot find path of dependency {dependency} in project {}",
-                                        self.config.package.name
-                                    );
-                                }
-
-                                path_from_relative_to_root
-                                .canonicalize()
-                                .unwrap_or_else(|_| {
-                                    panic!(
-                                        "error canonicalizing {path}, path_from_relative_to_root {}, root {}",
-                                        path_from_relative_to_root.to_string_lossy(),
-                                        self.root.to_string_lossy()
-                                    )
-                                })
-                            };
-
-                            let dependency_project = RasmProject::new(path_buf);
-                            result.append(&mut dependency_project.get_all_dependencies());
-                            result.push(dependency_project);
-                        } else {
-                            panic!("Unsupported path value for {dependency} : {path_value}");
-                        }
-                    } else {
-                        panic!("Cannot find path for {dependency}");
-                    }
-                } else if let Value::String(v) = dependency {
-                    if let Some(project) = package_manager
-                        .get_package(&dependency_name, &VersionFilter::parse(v).unwrap())
-                    {
-                        result.append(&mut project.get_all_dependencies());
-                        result.push(project);
-                    } else {
-                        panic!("Cannot find package {} with version {}", dependency_name, v);
-                    }
-                } else {
-                    panic!("Unsupported dependency type {dependency}");
-                }
-            }
-        }
-
-        result.sort_by(|a, b| a.root.cmp(&b.root));
-        result.dedup_by(|a, b| a.root.cmp(&b.root) == Ordering::Equal);
-
-        result
-        */
     }
 
     fn get_dependencies(&self) -> Vec<RasmProject> {
@@ -1160,11 +1130,8 @@ fn get_rasm_config_from_directory(src_path: &Path) -> RasmConfig {
         if let Ok(_size) = file.read_to_string(&mut s) {
             match toml::from_str::<RasmConfig>(&s) {
                 Ok(config) => {
-                    match semver::Version::parse(&config.package.version) {
-                        Ok(version) => {
-                            info!("project version: {}", version);
-                        }
-                        Err(msg) => panic!("Invalid semver version in rasm.toml: {}", msg),
+                    if let Err(msg) = semver::Version::parse(&config.package.version) {
+                        panic!("Invalid semver version in rasm.toml: {}", msg);
                     }
                     config
                 }
@@ -1215,7 +1182,7 @@ mod tests {
 
         fn install_package(
             &self,
-            _repository_id: Option<&str>,
+            _repository_id: &str,
             _project: &RasmProject,
             _command_line_options: &crate::commandline::CommandLineOptions,
         ) -> Result<(), String> {
@@ -1300,7 +1267,7 @@ mod tests {
 
         let package_manager = PackageManagerMock { projects };
 
-        let rows = sut.all_rows(&package_manager).unwrap();
+        let rows = sut.all_possible_dependencies(&package_manager).unwrap();
 
         println!("Resolved dependencies");
         for row in rows.iter() {

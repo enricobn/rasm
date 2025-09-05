@@ -1254,33 +1254,30 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     }
 
     fn add_statics(&self, project: &RasmProject, statics: &mut Statics, out_folder: &Path) {
-        project
-            .get_all_dependencies()
-            .iter()
-            .for_each(|dependency| {
-                if let Some(native_source_folder) = dependency.main_native_source_folder("c") {
-                    if native_source_folder.exists() {
-                        WalkDir::new(native_source_folder)
-                            .into_iter()
-                            .filter_map(Result::ok)
-                            .filter(|it| it.file_name().to_string_lossy().ends_with(".h"))
-                            .for_each(|it| {
-                                CInclude::add_to_statics(
-                                    statics,
-                                    format!("\"{}\"", it.clone().file_name().to_string_lossy()),
-                                );
+        project.all_projects().iter().for_each(|dependency| {
+            if let Some(native_source_folder) = dependency.main_native_source_folder("c") {
+                if native_source_folder.exists() {
+                    WalkDir::new(native_source_folder)
+                        .into_iter()
+                        .filter_map(Result::ok)
+                        .filter(|it| it.file_name().to_string_lossy().ends_with(".h"))
+                        .for_each(|it| {
+                            CInclude::add_to_statics(
+                                statics,
+                                format!("\"{}\"", it.clone().file_name().to_string_lossy()),
+                            );
 
-                                let dest = out_folder
-                                    .to_path_buf()
-                                    .join(Path::new(it.file_name().to_string_lossy().as_ref()));
+                            let dest = out_folder
+                                .to_path_buf()
+                                .join(Path::new(it.file_name().to_string_lossy().as_ref()));
 
-                                info!("including file {}", it.path().to_string_lossy());
+                            info!("including file {}", it.path().to_string_lossy());
 
-                                fs::copy(it.clone().into_path(), dest).unwrap();
-                            });
-                    }
+                            fs::copy(it.clone().into_path(), dest).unwrap();
+                        });
                 }
-            });
+            }
+        });
 
         CLibAssets::iter()
             .filter(|it| it.ends_with(".h"))
@@ -1349,7 +1346,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     fn split_source(&self) -> usize {
         num_cpus::get_physical() - 2
     }
-    
+
     fn include_file(&self, file: &str) -> String {
         format!("#include \"{file}\"")
     }
