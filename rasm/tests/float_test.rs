@@ -3,44 +3,44 @@ use rand::Rng;
 
 #[cfg(test)]
 #[test]
-fn test_f32() {
+fn test_float() {
     let _ = env_logger::builder().is_test(true).try_init();
 
-    test_print_f32(10.0);
-    test_print_f32(15.0);
+    test_print_float(10.0);
+    test_print_float(15.0);
 
-    test_print_f32(-7.375);
-    test_print_f32(-7.4);
-    test_print_f32(-1.375);
+    test_print_float(-7.375);
+    test_print_float(-7.4);
+    test_print_float(-1.375);
 
-    test_print_f32(-1.3754321);
-    test_print_f32(-1.1234567);
-    test_print_f32(-0.375);
-    test_print_f32(-0.4);
-    test_print_f32(-0.3754321);
+    test_print_float(-1.3754321);
+    test_print_float(-1.1234567);
+    test_print_float(-0.375);
+    test_print_float(-0.4);
+    test_print_float(-0.3754321);
 
-    test_print_f32(0.0);
-    test_print_f32(10.0);
-    test_print_f32(20.1);
-    test_print_f32(20.001);
-    test_print_f32(-0.0);
-    test_print_f32(-10.0);
-    test_print_f32(-20.1);
-    test_print_f32(-20.001);
+    test_print_float(0.0);
+    test_print_float(10.0);
+    test_print_float(20.1);
+    test_print_float(20.001);
+    test_print_float(-0.0);
+    test_print_float(-10.0);
+    test_print_float(-20.1);
+    test_print_float(-20.001);
 
-    test_print_f32(f32::INFINITY);
-    test_print_f32(f32::NEG_INFINITY);
-    test_print_f32(f32::NAN);
+    test_print_float(f32::INFINITY);
+    test_print_float(f32::NEG_INFINITY);
+    test_print_float(f32::NAN);
 
     let mut rng = rand::thread_rng();
 
     for _ in 0..1000 {
         let n = rng.gen::<f64>() * 1_000f64 - 500f64;
-        test_print_f32(n as f32);
+        test_print_float(n as f32);
     }
 }
 
-fn test_print_f32(n: f32) {
+fn test_print_float(n: f32) {
     debug!("{n}");
     let expected = format!("expected {n}");
     debug!("{:width$}got ", expected, width = 25);
