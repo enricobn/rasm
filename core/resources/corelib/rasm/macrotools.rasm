@@ -1,5 +1,14 @@
 /**
- *  creates an expression as a funcrion call to build that expression
+ *  creates an expression as a funcrion call to build that expression.
+ *
+ *  For example if you have this expression:
+ *  add(1, 2)
+ *
+ *  then it returns: 
+ *      ASTFunctionCallExpression("add", vecOf(
+ *          ASTValueExpression(ASTIntegerValue(1)), 
+ *          ASTValueExpression(ASTIntegerValue(2))
+ *      ));
  *
  */
 pub fn unwind(e: ASTExpression) -> ASTExpression {
@@ -7,7 +16,7 @@ pub fn unwind(e: ASTExpression) -> ASTExpression {
         fn(call) { unwind(call); },
         fn(name) { simpleASTCall("ASTValueRefExpression", vecOf(stringASTValue(name))); },
         fn(value) { unwind(value); },
-        fn(lambda) { unwind(lambda);}
+        fn(lambda) { unwind(lambda); }
     );
 }
 
@@ -47,7 +56,7 @@ pub fn unwind(s: ASTStatement) -> ASTExpression {
     s.match(
         fn(expr) { simpleASTCall("ASTExpressionStatement", vecOf(unwind(expr))); },
         fn(name, expr) { simpleASTCall("ASTLetStatement", vecOf(stringASTValue(name), unwind(expr))); },
-        fn(name, expr, modifiers) { simpleASTCall("", vecOf(
+        fn(name, expr, modifiers) { simpleASTCall("ASTConstStatement", vecOf(
             stringASTValue(name),
             unwind(expr),
             simpleASTCall("ASTModifiers", vecOf(booleanASTValue(modifiers.public)))
