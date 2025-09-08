@@ -132,7 +132,11 @@ pub fn extract_macro_calls(
         }
     }
 
-    info!("end extracting macro calls");
+    info!(
+        "end extracting macro calls, found {} calls, {} attribute macros",
+        calls.len(),
+        attribute_macros.len()
+    );
     MacroCallExtractor {
         calls,
         attribute_macros,
