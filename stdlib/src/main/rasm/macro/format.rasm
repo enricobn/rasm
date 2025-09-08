@@ -6,7 +6,7 @@ pub fn format(s: str, exprs: Vec<ASTExpression>) -> MacroExpressionResult {
         let prefix = s.substr(prev.first, charIndex.sub(prev.first)).orEmpty;
         let newExpressions = 
             prev.second
-            .push(ASTValueExpression(ASTStringValue(prefix)))
+            .push(stringASTValue(prefix))
             .push(e.second);
         Pair(charIndex.add(2), newExpressions);
     });
@@ -16,17 +16,17 @@ pub fn format(s: str, exprs: Vec<ASTExpression>) -> MacroExpressionResult {
             {expressions.second;}, 
             {
                 let end = s.substr(expressions.first, s.len.sub(expressions.first)).orEmpty;
-                expressions.second.push(stringValue(end));
+                expressions.second.push(stringASTValue(end));
             });
 
-    let result = finalExpressions.foldLeft(stringValue(""), fn(prev, act) {
+    let result = finalExpressions.foldLeft(stringASTValue(""), fn(prev, act) {
         prev.append(act);
     });
 
     if(indexes.len.eq(exprs.len), {
         MacroExpression(result);
     }, {
-        MacroExpressionResult::MacroError("Expected ".append(exprs.len).add(" parameters, got ".append(indexes.len.toString()));
+        MacroExpressionResult::MacroError("Expected ".append(exprs.len).add(" parameters, got ".append(indexes.len.toString())));
     });
 }
 
@@ -45,14 +45,6 @@ fn find(s: str, v: str) -> Vec<int> {
     .map(fn(it) { it.first; });
 }
 
-fn simpleCall(name: str, expressions: Vec<ASTExpression>) -> ASTExpression {
-    ASTFunctionCallExpression(ASTFunctionCall(name, expressions, Vec(), None(), false));
-}
-
 fn append(a: ASTExpression, b: ASTExpression) -> ASTExpression {
-    simpleCall("append", vecOf(a, b));
-}
-
-fn stringValue(s: str) -> ASTExpression {
-    ASTValueExpression(ASTStringValue(s));
+    simpleASTCall("append", vecOf(a, b));
 }

@@ -2,10 +2,10 @@ pub fn toString(s: ASTStructDef) -> MacroModuleResult {
     let structRef = ASTValueRefExpression("s");
     
     let parameters = s.properties.map(fn(p) {
-        simpleCall(p.name, vecOf(structRef));
+        simpleASTCall(p.name, vecOf(structRef));
     });
 
-    let basePropertyExpression = stringValue(s.name).add("(");
+    let basePropertyExpression = stringASTValue(s.name).add("(");
 
     let propertiesExpression = 
         parameters.enumerate.foldLeft(
@@ -42,7 +42,7 @@ pub fn toString(s: ASTStructDef) -> MacroModuleResult {
 pub fn toString(e: ASTEnumDef) -> -> MacroModuleResult {
     let enumRef = ASTValueRefExpression("value");
 
-    let propertiesExpression = stringValue(e.name).add("(");
+    let propertiesExpression = stringASTValue(e.name).add("(");
 
     let variantsExpressions = e.variants.map(fn(variant) {
         let variantParamNames = if(variant.parameters.len.eq(0), {
@@ -52,7 +52,7 @@ pub fn toString(e: ASTEnumDef) -> -> MacroModuleResult {
         });
 
         let expr = variantParamNames.enumerate.foldLeft(
-            stringValue(variant.name).add("("), 
+            stringASTValue(variant.name).add("("), 
             fn(prev, act) { 
                 let propertyValue = prev.append(ASTValueRefExpression(act.value));
                 if (act.index.less(variantParamNames.len.sub(1)), propertyValue.add(", "), propertyValue);
@@ -64,7 +64,7 @@ pub fn toString(e: ASTEnumDef) -> -> MacroModuleResult {
     });
 
     let exprs = propertiesExpression
-        .add(simpleCall("match", vecOf(enumRef).add(variantsExpressions)))
+        .add(simpleASTCall("match", vecOf(enumRef).add(variantsExpressions)))
         .add(")";
 
     let function = ASTFunctionDef(
@@ -90,22 +90,14 @@ pub fn toString(e: ASTEnumDef) -> -> MacroModuleResult {
     MacroModule(module);
 }
 
-fn simpleCall(name: str, expressions: Vec<ASTExpression>) -> ASTExpression {
-    ASTFunctionCallExpression(ASTFunctionCall(name, expressions, Vec(), None(), false));
-}
-
 fn add(a: ASTExpression, s: str) -> ASTExpression {
-    simpleCall("add", vecOf(a, ASTValueExpression(ASTStringValue(s))));
+    simpleASTCall("add", vecOf(a, ASTValueExpression(ASTStringValue(s))));
 }
 
 fn add(a: ASTExpression, s: ASTExpression) -> ASTExpression {
-    simpleCall("add", vecOf(a, s));
+    simpleASTCall("add", vecOf(a, s));
 }
 
 fn append(a: ASTExpression, b: ASTExpression) -> ASTExpression {
-    simpleCall("append", vecOf(a, b));
-}
-
-fn stringValue(s: str) -> ASTExpression {
-    ASTValueExpression(ASTStringValue(s));
+    simpleASTCall("append", vecOf(a, b));
 }

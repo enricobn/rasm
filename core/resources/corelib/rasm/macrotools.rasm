@@ -1,0 +1,80 @@
+/**
+ *  creates an expression as a funcrion call to build that expression
+ *
+ */
+pub fn unwind(e: ASTExpression) -> ASTExpression {
+    e.match(
+        fn(call) { unwind(call); },
+        fn(name) { simpleASTCall("ASTValueRefExpression", vecOf(stringASTValue(name))); },
+        fn(value) { unwind(value); },
+        fn(lambda) { unwind(lambda);}
+    );
+}
+
+pub fn unwind(call: ASTFunctionCall) -> ASTExpression {
+    let result = simpleASTCall("ASTFunctionCall", vecOf(
+        stringASTValue(call.functionName), 
+        simpleASTCall("vecOf", call.parameters.map(fn(e) { unwind(e);})), 
+        simpleASTCall("Vec", Vec()), // TODO
+        simpleASTCall("None", Vec()), // TODO
+        booleanASTValue(false)
+    ));
+
+    simpleASTCall("ASTFunctionCallExpression", vecOf(result));
+}
+
+pub fn unwind(astValue: ASTValue) -> ASTExpression {
+    let result = astValue.match(
+        fn(value) { simpleASTCall("ASTStringValue", vecOf(stringASTValue(value))); },
+        fn(value) { simpleASTCall("ASTBooleanValue", vecOf(booleanASTValue(value))); },
+        fn(value) { simpleASTCall("ASTIntegerValue", vecOf(integerASTValue(value))); },
+        fn(value) { simpleASTCall("ASTCharValue", vecOf(charASTValue(value))); },
+        fn(value) { simpleASTCall("ASTFloatValue", vecOf(floatASTValue(value))); },
+    );
+    simpleASTCall("ASTValueExpression", vecOf(result));
+}
+
+pub fn unwind(lambda: ASTLambdaDef) -> ASTExpression {
+    let result = simpleASTCall("ASTLambdaDef", vecOf(
+        simpleASTCall("vecOf", lambda.parameterNames.map(fn(p) { stringASTValue(p); })),
+        simpleASTCall("vecOf", lambda.body.map(fn(s) { unwind(s); }))
+    ));
+
+    simpleASTCall("ASTLambdaExpression", vecOf(result));
+}
+
+pub fn unwind(s: ASTStatement) -> ASTExpression {
+    s.match(
+        fn(expr) { simpleASTCall("ASTExpressionStatement", vecOf(unwind(expr))); },
+        fn(name, expr) { simpleASTCall("ASTLetStatement", vecOf(stringASTValue(name), unwind(expr))); },
+        fn(name, expr, modifiers) { simpleASTCall("", vecOf(
+            stringASTValue(name),
+            unwind(expr),
+            simpleASTCall("ASTModifiers", vecOf(booleanASTValue(modifiers.public)))
+        ));}
+    );
+}
+
+pub fn stringASTValue(v: str) -> ASTExpression {
+    ASTValueExpression(ASTStringValue(v));
+}
+
+pub fn booleanASTValue(v: bool) -> ASTExpression {
+    ASTValueExpression(ASTBooleanValue(v));
+}
+
+pub fn integerASTValue(v: int) -> ASTExpression {
+    ASTValueExpression(ASTIntegerValue(v));
+}
+
+pub fn charASTValue(v: str) -> ASTExpression {
+    ASTValueExpression(ASTCharValue(v));
+}
+
+pub fn floatASTValue(v: float) -> ASTExpression {
+    ASTValueExpression(ASTFloatValue(v));
+}
+
+pub fn simpleASTCall(name: str, expressions: Vec<ASTExpression>) -> ASTExpression {
+    ASTFunctionCallExpression(ASTFunctionCall(name, expressions, Vec(), None(), false));
+}

@@ -6,15 +6,11 @@ pub fn print(s: str, exprs: Vec<ASTExpression>) -> MacroModuleResult {
     printLike(s, exprs, "print");
 }
 
-fn simpleCall(f: str, parameters: Vec<ASTExpression>) -> ASTExpression {
-    ASTFunctionCallExpression(ASTFunctionCall(f, parameters, Vec(), None(), false));
-}
-
 fn printLike(s: str, exprs: Vec<ASTExpression>, functionToCall: str) -> MacroModuleResult {
-    let parameters = vecOf(ASTValueExpression(ASTStringValue(s))).add(exprs);
+    let parameters = vecOf(stringASTValue(s)).add(exprs);
     let f = format(s, exprs);
     f.match(fn(e) {
-        let statement = ASTExpressionStatement(simpleCall(functionToCall, vecOf(e)));
+        let statement = ASTExpressionStatement(simpleASTCall(functionToCall, vecOf(e)));
         MacroModule(ASTModule(
             vecOf(statement), Vec(), Vec(), Vec(), Vec()
         ));
