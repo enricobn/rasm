@@ -13,6 +13,7 @@ pub fn parse_properties(
     generic_types: &[String],
     n: usize,
     end_of_expression_kind: TokenKind,
+    can_be_empty: bool,
 ) -> (Vec<ASTStructPropertyDef>, Vec<ParserError>, usize) {
     let mut properties = Vec::new();
     let mut errors = Vec::new();
@@ -43,6 +44,16 @@ pub fn parse_properties(
                 }
             }
         }
+
+        if can_be_empty {
+            if let Some(kind) = parser.get_token_kind_n(new_n) {
+                if kind == &end_of_expression_kind {
+                    new_n += 1;
+                    break;
+                }
+            }
+        }
+
         let (p, es, nn) = parse_property(parser, generic_types, new_n);
         errors.extend(es);
         if nn == new_n {
@@ -195,6 +206,7 @@ mod tests {
             &[],
             0,
             TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close),
+            true,
         );
 
         assert_eq!(properties.len(), 1);
@@ -211,6 +223,7 @@ mod tests {
             &[],
             0,
             TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close),
+            true,
         );
 
         println!("errors {}", SliceDisplay(&errors));
@@ -230,6 +243,7 @@ mod tests {
             &[],
             0,
             TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close),
+            true,
         );
 
         assert_eq!(properties.len(), 2);
@@ -248,6 +262,7 @@ mod tests {
             &[],
             0,
             TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close),
+            true,
         );
 
         assert_eq!(properties.len(), 2);

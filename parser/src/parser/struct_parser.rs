@@ -67,6 +67,7 @@ mod tests {
                         &type_parameters,
                         next_i - parser.get_i(),
                         TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close),
+                        true,
                     );
                     return Some((
                         ASTStructDef {

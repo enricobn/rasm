@@ -377,11 +377,8 @@ impl Parser {
                             &def.type_parameters,
                             0,
                             TokenKind::Bracket(BracketKind::Brace, BracketStatus::Close),
+                            true,
                         );
-
-                        if properties.is_empty() {
-                            self.add_error("Expected properties".to_owned());
-                        }
 
                         self.errors.extend(errors);
 
