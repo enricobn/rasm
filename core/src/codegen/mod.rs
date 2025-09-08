@@ -497,9 +497,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         let used_functions =
             self.get_used_functions(&functions_generated_code, &generated_code, typed_module);
 
-        if self.split_source() > 0 {
+        if self.split_source() > 0 && !used_functions.is_empty() {
             let mut i = 0;
-            for partition in used_functions.chunks(used_functions.len() / self.split_source()) {
+            let chunk_size = (used_functions.len() / self.split_source()).max(1);
+            for partition in used_functions.chunks(chunk_size) {
                 let file_name = format!(
                     "{}_{}.{}",
                     project.main_out_file_name(command_line_options),
