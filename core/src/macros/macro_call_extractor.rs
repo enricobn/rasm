@@ -3,7 +3,8 @@ use rasm_parser::{
     catalog::{modules_catalog::ModulesCatalog, ASTIndex, ModuleId, ModuleNamespace},
     parser::ast::{
         ASTBuiltinTypeKind, ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall,
-        ASTModifiers, ASTPosition, ASTStatement, ASTStructDef, ASTType, ASTValue,
+        ASTFunctionSignature, ASTModifiers, ASTPosition, ASTStatement, ASTStructDef, ASTType,
+        ASTValue,
     },
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -40,6 +41,7 @@ pub struct MacroCall {
     pub position: ASTPosition,
     pub transformed_macro: ASTFunctionCall,
     pub macro_result_type: MacroResultType,
+    pub function_signature: ASTFunctionSignature,
 }
 
 impl MacroCall {
@@ -421,7 +423,23 @@ fn get_macro_call(
                 simple_call("ASTEnumDef", parameters, call.position().copy(), None),
             )]
         }
-        MacroType::Standard => Vec::new(),
+        MacroType::Standard => {
+            if is_ast_module_first_parameter(&function.signature) {
+                vec![(
+                    ASTType::ASTCustomType {
+                        name: "ASTModule".to_owned(),
+                        param_types: Vec::new(),
+                        position: call.position().copy(),
+                    },
+                    ASTExpression::ASTValueRefExpression(
+                        "moduleAST".to_owned(),
+                        call.position().copy(),
+                    ),
+                )]
+            } else {
+                Vec::new()
+            }
+        }
     };
 
     let mut custom_parameters = Vec::new();
@@ -546,6 +564,19 @@ fn get_macro_call(
         position: call.position().clone(),
         transformed_macro,
         macro_result_type: macro_result_type.unwrap(),
+        function_signature: function.signature.clone(),
+    }
+}
+
+pub fn is_ast_module_first_parameter(function: &ASTFunctionSignature) -> bool {
+    if let Some(param) = function.parameters_types.first() {
+        if let ASTType::ASTCustomType { name, .. } = param {
+            name == "ASTModule"
+        } else {
+            false
+        }
+    } else {
+        false
     }
 }
 

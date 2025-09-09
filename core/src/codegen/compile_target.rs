@@ -393,7 +393,7 @@ impl CompileTarget {
                 out_file,
             )
         } else {
-            let macro_module_body = create_macro_module(&extractor);
+            let macro_module_body = create_macro_module(&container, &extractor);
 
             // println!("macro module:\n{macro_module_body}");
 
