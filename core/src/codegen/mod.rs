@@ -1049,6 +1049,23 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         (String::new(), String::new(), vec![], vec![]),
                         index.clone(),
                     )
+                    /*
+                    } else if let Some(typed_val_kind) = statics.get_const(val_name, namespace) {
+                        let typed_type = self.set_let_for_value_ref(
+                            code_gen_context,
+                            before,
+                            val_name,
+                            TypedValKind::LetRef((), ()),
+                            statics,
+                            name,
+                        );
+
+                        (
+                            typed_type,
+                            (String::new(), String::new(), vec![], vec![]),
+                            index.clone(),
+                        )
+                        */
                 } else {
                     panic!("Cannot find {name} in context");
                 }

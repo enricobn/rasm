@@ -1,3 +1,5 @@
+use std::{collections::HashMap, sync::atomic::AtomicUsize};
+
 use rasm_parser::parser::ast::{
     ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
     ASTLambdaDef, ASTModule, ASTParameterDef, ASTStatement, ASTType, ASTValue,
@@ -10,10 +12,17 @@ use crate::{
     type_check::ast_modules_container::ASTModulesContainer,
 };
 
+const ID: AtomicUsize = AtomicUsize::new(0);
+
 /// Creates a new module from a macro call extractor, with a function for each macro call and a body
 /// that gets a number as an argument, that is the macro id, then calls the related function and
 /// prints the result.
 pub fn create_macro_module(container: &ASTModulesContainer, mce: &MacroCallExtractor) -> String {
+    let mut constants = String::new();
+
+    let mut modules = HashMap::new();
+    let mut modules_ids = HashMap::new();
+
     let mut body = String::new();
     body.push_str("let id = argv(1).fmap(fn(it) { it.toInt(); }).getOrElse(-1);\n");
     body.push_str("let functionToCall = \n");
@@ -36,7 +45,23 @@ pub fn create_macro_module(container: &ASTModulesContainer, mce: &MacroCallExtra
 
         if is_ast_module_first_parameter(&call.function_signature) {
             if let Some(module) = container.module(&call.module_id) {
-                body.push_str(&format!("let moduleAST = {};\n", ast_module(module)));
+                let ast_module_string = modules
+                    .entry(&call.module_id)
+                    .or_insert_with(|| ast_module(module));
+
+                let id = modules_ids
+                    .entry(call.module_id.clone())
+                    .or_insert_with(|| {
+                        let new_id = ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        constants.push_str(&format!(
+                            "const moduleAST{} = {};\n",
+                            new_id, ast_module_string
+                        ));
+                        new_id
+                    });
+
+                // TODO it's a trick since for now we cannot directly point to a const in a let
+                body.push_str(&format!("let moduleAST = moduleAST{id}.selfASTModule;\n",));
             }
         }
 
@@ -62,8 +87,12 @@ pub fn create_macro_module(container: &ASTModulesContainer, mce: &MacroCallExtra
     }
 
     body.push_str("pub fn macroEmpty() -> str {\"\";}");
+    // TODO it's a trick since for now we cannot directly point to a const in a let
+    body.push_str("fn selfASTModule(module: ASTModule) -> ASTModule {module;}");
 
-    body
+    // println!("body:\n{}", constants.clone() + &body);
+
+    constants + &body
 }
 
 fn ast_module(module: &ASTModule) -> String {
