@@ -1,11 +1,15 @@
 use std::{collections::HashMap, sync::atomic::AtomicUsize};
 
-use rasm_parser::parser::ast::{
-    ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-    ASTLambdaDef, ASTModule, ASTParameterDef, ASTStatement, ASTType, ASTValue,
+use rasm_parser::{
+    catalog::modules_catalog::ModulesCatalog,
+    parser::ast::{
+        ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
+        ASTLambdaDef, ASTModule, ASTParameterDef, ASTStatement, ASTType, ASTValue,
+    },
 };
 
 use crate::{
+    codegen::enh_ast::{EnhASTNameSpace, EnhModuleId},
     macros::macro_call_extractor::{
         is_ast_module_first_parameter, MacroCallExtractor, MacroResultType,
     },
@@ -17,10 +21,13 @@ const ID: AtomicUsize = AtomicUsize::new(0);
 /// Creates a new module from a macro call extractor, with a function for each macro call and a body
 /// that gets a number as an argument, that is the macro id, then calls the related function and
 /// prints the result.
-pub fn create_macro_module(container: &ASTModulesContainer, mce: &MacroCallExtractor) -> String {
+pub fn create_macro_module(
+    container: &ASTModulesContainer,
+    catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    mce: &MacroCallExtractor,
+) -> String {
     let mut constants = String::new();
 
-    let mut modules = HashMap::new();
     let mut modules_ids = HashMap::new();
 
     let mut body = String::new();
@@ -44,23 +51,27 @@ pub fn create_macro_module(container: &ASTModulesContainer, mce: &MacroCallExtra
         body.push_str(&format!("pub fn {function_name}() -> str {{\n"));
 
         if is_ast_module_first_parameter(&call.function_signature) {
-            if let Some(module) = container.module(&call.module_id) {
-                let ast_module_string = modules
-                    .entry(&call.module_id)
-                    .or_insert_with(|| ast_module(module));
+            if let Some((_enh_id, enh_namespace)) = catalog.catalog_info(&call.module_id) {
+                let id = modules_ids.entry(enh_namespace).or_insert_with(|| {
+                    let mut module_for_namespace = ASTModule::empty();
 
-                let id = modules_ids
-                    .entry(call.module_id.clone())
-                    .or_insert_with(|| {
-                        let new_id = ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                        constants.push_str(&format!(
-                            "const moduleAST{} = {};\n",
-                            new_id, ast_module_string
-                        ));
-                        new_id
-                    });
+                    catalog
+                        .ids_by_namespace(enh_namespace)
+                        .iter()
+                        .for_each(|(_id, module_id)| {
+                            if let Some(module) = container.module(module_id) {
+                                module_for_namespace.add(module.clone());
+                            }
+                        });
 
-                // TODO it's a trick since for now we cannot directly point to a const in a let
+                    let new_id = ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    constants.push_str(&format!(
+                        "const moduleAST{} = {};\n",
+                        new_id,
+                        ast_module(&module_for_namespace)
+                    ));
+                    new_id
+                });
                 body.push_str(&format!("let moduleAST = moduleAST{id}.selfASTModule;\n",));
             }
         }
@@ -96,6 +107,8 @@ pub fn create_macro_module(container: &ASTModulesContainer, mce: &MacroCallExtra
 }
 
 fn ast_module(module: &ASTModule) -> String {
+    // println!("create ast_module");
+
     format!(
         "ASTModule({}, {}, Vec(), Vec(), Vec())",
         ast_body(&module.body),
@@ -163,7 +176,7 @@ fn ast_type(at: &ASTType) -> String {
             "ASTCustomType(\"{name}\", {})",
             vec_of(param_types.iter().map(ast_type).collect())
         ),
-        ASTType::ASTUnitType => "()".to_string(),
+        ASTType::ASTUnitType => "ASTUnitType()".to_string(),
     }
 }
 
@@ -243,17 +256,25 @@ fn ast_function_call(function_call: &ASTFunctionCall) -> String {
         .map(|e| ast_expression(e))
         .collect::<Vec<String>>();
     format!(
-        "ASTFunctionCall(\"{}\", {}, Vec(), None(), false)",
+        "ASTFunctionCall(\"{}\", {}, Vec(), None(), {})", // TODO generics, target
         function_call.function_name(),
-        vec_of(parameters)
+        vec_of(parameters),
+        function_call.is_macro()
     )
 }
 
 fn vec_of(parameters: Vec<String>) -> String {
     if parameters.is_empty() {
         return "Vec()".to_string();
+    } else if parameters.len() <= 5 {
+        format!("vecOf({})", parameters.join(", "))
+    } else {
+        let mut result = format!("vecOf({})", parameters[0]);
+        for partition in parameters[1..].chunks(5) {
+            result += &format!(".add({})", vec_of(partition.to_vec()));
+        }
+        result
     }
-    format!("vecOf({})", parameters.join(", "))
 }
 
 fn ast_value(value: &ASTValue) -> String {
@@ -273,7 +294,10 @@ mod tests {
         parser::ast::{ASTFunctionCall, ASTFunctionSignature, ASTModifiers, ASTPosition},
     };
 
-    use crate::macros::macro_call_extractor::{MacroCall, MacroResultType};
+    use crate::{
+        macros::macro_call_extractor::{MacroCall, MacroResultType},
+        project_catalog::RasmProjectCatalog,
+    };
 
     use super::*;
 
@@ -307,6 +331,9 @@ mod tests {
 
         let container = ASTModulesContainer::new();
 
-        println!("{}", create_macro_module(&container, &mce));
+        println!(
+            "{}",
+            create_macro_module(&container, &RasmProjectCatalog::new(), &mce)
+        );
     }
 }

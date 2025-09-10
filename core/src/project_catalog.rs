@@ -105,4 +105,12 @@ impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> for RasmProjectCatalog {
     fn clone_catalog(&self) -> Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>> {
         Box::new(self.clone())
     }
+
+    fn ids_by_namespace(&self, namespace: &EnhASTNameSpace) -> Vec<(&EnhModuleId, &ModuleId)> {
+        self.enh_map
+            .iter()
+            .filter(|(_, info)| &info.namespace == namespace)
+            .map(|(id, info)| (&info.id, id))
+            .collect()
+    }
 }
