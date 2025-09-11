@@ -496,13 +496,11 @@ impl CompileTarget {
                     for (call, (new_module, _)) in value {
                         match call.macro_result_type {
                             MacroResultType::Module => {
-                                if !new_module.body.is_empty() {
-                                    self.replace_statements_in_module(
-                                        &mut module,
-                                        &call.position,
-                                        new_module.body,
-                                    );
-                                }
+                                self.replace_statements_in_module(
+                                    &mut module,
+                                    &call.position,
+                                    new_module.body,
+                                );
                                 module.functions.extend(new_module.functions);
                             }
                             MacroResultType::Expression => {
