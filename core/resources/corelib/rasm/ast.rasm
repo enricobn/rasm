@@ -167,8 +167,11 @@ pub fn toString(def: ASTFunctionDef) -> str {
     let returnType = def.returnType.match(
         fn(builtin) { " -> ".append(builtin); },
         fn(name, types) { " -> ".add(name); },
-        fn(name, generics) { " -> ".add(name); },
-        { "()"; }
+        fn(name, generics) { 
+            " -> ".add(name)
+            .add(if(generics.len.greater(0), "<".add(generics.join(",")).add(">"), "")); 
+        },
+        { ""; }
     );
 
     let body = def.body.match(
@@ -177,10 +180,12 @@ pub fn toString(def: ASTFunctionDef) -> str {
     );
 
     let parameters = def.parameters.join(", ");
+    let genericTypes = def.genericTypes.join(", ");
 
     if(def.modifiers.public, "pub ", "")
     .add("fn ")
     .add(def.name)
+    .add(if(genericTypes.len.greater(0), "<".add(genericTypes).add(">"), ""))
     .add("(")
     .add(parameters)
     .add(") ")
