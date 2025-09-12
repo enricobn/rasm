@@ -411,12 +411,12 @@ impl Parser {
                             self.parser_data.push(ParserData::Statement(if is_const {
                                 ASTStatement::ASTConstStatement(
                                     name,
-                                    expr.clone(),
+                                    expr,
                                     index,
                                     modifiers.unwrap(),
                                 )
                             } else {
-                                ASTStatement::ASTLetStatement(name, expr.clone(), index)
+                                ASTStatement::ASTLetStatement(name, expr, index)
                             }));
                             self.i += 1;
                             continue;
@@ -471,11 +471,11 @@ impl Parser {
 
     fn get_return(self) -> (ASTModule, Vec<ParserError>) {
         let module = ASTModule {
-            body: self.body.clone(),
-            functions: self.functions.clone(),
-            enums: self.enums.clone(),
-            structs: self.structs.clone(),
-            types: self.types.clone(),
+            body: self.body,
+            functions: self.functions,
+            enums: self.enums,
+            structs: self.structs,
+            types: self.types,
         };
 
         (module, self.errors)
