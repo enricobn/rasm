@@ -41,7 +41,7 @@ fn main() {
             Arg::new("ACTION")
                 .help("the action to perform")
                 .required(true)
-                .value_parser(["build", "install", "run", "test", "server", "ui"])
+                .value_parser(["build", "install", "run", "buildtest", "test", "server", "ui"])
                 .required(true)
                 .index(1),
         )
@@ -144,6 +144,7 @@ fn main() {
         "install" => CommandLineAction::Install,
         "run" => CommandLineAction::Run,
         "server" => CommandLineAction::Server,
+        "buildtest" => CommandLineAction::BuildTest,
         "test" => CommandLineAction::Test,
         "ui" => CommandLineAction::UI,
         it => panic!("Unsupported action {it}"),

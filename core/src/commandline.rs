@@ -21,6 +21,7 @@ use strum_macros::Display;
 #[derive(PartialEq, Display, Clone)]
 pub enum CommandLineAction {
     Build,
+    BuildTest,
     Install,
     Run,
     Server,

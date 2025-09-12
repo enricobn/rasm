@@ -346,7 +346,8 @@ impl RasmProject {
 
     pub fn main_out_file_name(&self, command_line_options: &CommandLineOptions) -> String {
         match command_line_options.action {
-            crate::commandline::CommandLineAction::Test => {
+            crate::commandline::CommandLineAction::Test
+            | crate::commandline::CommandLineAction::BuildTest => {
                 format!("{}_test", self.config.package.name)
             }
             _ => self.config.package.name.clone(),

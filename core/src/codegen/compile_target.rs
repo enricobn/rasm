@@ -264,12 +264,14 @@ impl CompileTarget {
                 vec![
                     CommandLineAction::Build,
                     CommandLineAction::Run,
+                    CommandLineAction::BuildTest,
                     CommandLineAction::Test,
                 ]
             }
             CompileTarget::C(_) => vec![
                 CommandLineAction::Build,
                 CommandLineAction::Run,
+                CommandLineAction::BuildTest,
                 CommandLineAction::Test,
             ],
         }
@@ -300,7 +302,9 @@ impl CompileTarget {
 
         let start = Instant::now();
 
-        let run_type = if command_line_options.action == CommandLineAction::Test {
+        let run_type = if command_line_options.action == CommandLineAction::Test
+            || command_line_options.action == CommandLineAction::BuildTest
+        {
             RasmProjectRunType::Test
         } else {
             RasmProjectRunType::Main
@@ -375,10 +379,10 @@ impl CompileTarget {
 
         for call in extractor.calls().into_iter() {
             if let Some(in_function) = &call.in_function {
-                if let Some(f) = extractor
+                if extractor
                     .calls()
                     .iter()
-                    .find(|it| &it.function_signature == in_function)
+                    .any(|it| &it.function_signature == in_function)
                 {
                     dependent_macro_calls.push(call);
                     continue;
@@ -915,7 +919,7 @@ impl CompileTarget {
 
         match self {
             CompileTarget::Nasmi386(options) => match command_line_options.action {
-                CommandLineAction::Build | CommandLineAction::Test | CommandLineAction::Run => {
+                CommandLineAction::Build | CommandLineAction::BuildTest |CommandLineAction::Test | CommandLineAction::Run => {
                     if out_paths.len() != 1 {
                         panic!("Only one native file to compile is supported!");
                     }
