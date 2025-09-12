@@ -5,7 +5,7 @@ pub fn copyFunction(module: ASTModule, name: str, newName:str, originalCallName:
                 fn(rasmBody) {
                     let newBody = 
                         rasmBody.map(fn(statement) {
-                            changeCall(statement, originalCallName, newCallName);
+                            changeCall(originalCallName, newCallName, statement);
                         });
                     
                     RASMBody(newBody);
@@ -20,8 +20,8 @@ pub fn copyFunction(module: ASTModule, name: str, newName:str, originalCallName:
         });
 }
 
-fn changeCall(stmt: ASTStatement, originalCallName: str, newCallName: str) -> ASTStatement {
-    stmt.expr(fn(e) { e.changeCall(originalCallName, newCallName); });
+fn changeCall(originalCallName: str, newCallName: str, stmt: ASTStatement) -> ASTStatement {
+    stmt.expr(fn(e) { changeCall(originalCallName, newCallName,e); });
 }
 
 fn expr(stmt: ASTStatement, mapFunction: fn(ASTExpression) -> ASTExpression) -> ASTStatement {
@@ -34,7 +34,7 @@ fn expr(stmt: ASTStatement, mapFunction: fn(ASTExpression) -> ASTExpression) -> 
     );
 }
 
-fn changeCall(expr: ASTExpression, originalCallName: str, newCallName: str) -> ASTExpression {
+fn changeCall(originalCallName: str, newCallName: str, expr: ASTExpression) -> ASTExpression {
     expr.match(
         fn(call) {  
             let newCall = 
@@ -42,14 +42,14 @@ fn changeCall(expr: ASTExpression, originalCallName: str, newCallName: str) -> A
                     { call.functionName(newCallName);}, 
                     {call;}
                 )
-                .parameters(call.parameters.map(fn(p) { p.changeCall(originalCallName, newCallName); }));
+                .parameters(call.parameters.map(fn(p) { changeCall(originalCallName, newCallName, p); }));
             ASTFunctionCallExpression(newCall);
         }, 
         fn(s) { expr; }, 
         fn(value) { expr; }, 
         fn(lambda) { 
             ASTLambdaExpression(lambda.body(lambda.body.map(fn(statement) {
-                changeCall(statement, originalCallName, newCallName);
+                changeCall(originalCallName, newCallName, statement);
             }))); 
         });
 }
