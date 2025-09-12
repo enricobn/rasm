@@ -137,7 +137,7 @@ pub struct ASTFunctionDef {
     pub target: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ASTFunctionSignature {
     pub name: String,
     pub generics: Vec<String>,

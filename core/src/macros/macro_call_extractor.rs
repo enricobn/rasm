@@ -42,6 +42,7 @@ pub struct MacroCall {
     pub transformed_macro: ASTFunctionCall,
     pub macro_result_type: MacroResultType,
     pub function_signature: ASTFunctionSignature,
+    pub in_function: Option<ASTFunctionSignature>,
 }
 
 impl MacroCall {
@@ -84,7 +85,13 @@ pub fn extract_macro_calls(
             for function in module.functions.iter() {
                 if let ASTFunctionBody::RASMBody(ref body) = function.body {
                     extract_macro_calls_in_body(
-                        &container, catalog, &namespace, &id, body, &mut calls,
+                        &container,
+                        catalog,
+                        &namespace,
+                        &id,
+                        body,
+                        &mut calls,
+                        Some(&function.signature()),
                     );
                 }
             }
@@ -96,6 +103,7 @@ pub fn extract_macro_calls(
                 &id,
                 &module.body,
                 &mut calls,
+                None,
             );
             (id, namespace, calls)
         })
@@ -115,6 +123,7 @@ pub fn extract_macro_calls(
                 catalog,
                 info.namespace(),
                 info.id(),
+                None,
             );
             attribute_macros.push(macro_call);
         }
@@ -129,6 +138,7 @@ pub fn extract_macro_calls(
                 catalog,
                 info.namespace(),
                 info.id(),
+                None,
             );
             attribute_macros.push(macro_call);
         }
@@ -160,6 +170,7 @@ fn extract_macro_calls_in_body(
     module_id: &ModuleId,
     body: &Vec<ASTStatement>,
     calls: &mut Vec<MacroCall>,
+    in_function: Option<&ASTFunctionSignature>,
 ) {
     for statement in body.iter() {
         match statement {
@@ -171,6 +182,7 @@ fn extract_macro_calls_in_body(
                     module_id,
                     expression,
                     calls,
+                    in_function,
                 )
             }
             ASTStatement::ASTLetStatement(_, expression, _) => extract_macro_calls_in_expression(
@@ -180,6 +192,7 @@ fn extract_macro_calls_in_body(
                 module_id,
                 expression,
                 calls,
+                in_function,
             ),
             ASTStatement::ASTConstStatement(_, expression, _, _) => {
                 extract_macro_calls_in_expression(
@@ -189,6 +202,7 @@ fn extract_macro_calls_in_body(
                     module_id,
                     expression,
                     calls,
+                    in_function,
                 )
             }
         }
@@ -202,6 +216,7 @@ fn extract_macro_calls_in_expression(
     module_id: &ModuleId,
     expression: &ASTExpression,
     calls: &mut Vec<MacroCall>,
+    in_function: Option<&ASTFunctionSignature>,
 ) {
     match expression {
         ASTExpression::ASTFunctionCallExpression(function_call) => {
@@ -213,6 +228,7 @@ fn extract_macro_calls_in_expression(
                     catalog,
                     module_namespace,
                     module_id,
+                    in_function,
                 ));
             } else {
                 function_call.parameters().iter().for_each(|it| {
@@ -223,6 +239,7 @@ fn extract_macro_calls_in_expression(
                         module_id,
                         it,
                         calls,
+                        in_function,
                     )
                 });
             }
@@ -234,6 +251,7 @@ fn extract_macro_calls_in_expression(
             module_id,
             &lambda_def.body,
             calls,
+            in_function,
         ),
         _ => (),
     }
@@ -246,6 +264,7 @@ fn get_macro_call(
     catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     module_namespace: &ModuleNamespace,
     module_id: &ModuleId,
+    in_function: Option<&ASTFunctionSignature>,
 ) -> MacroCall {
     let functions_vec = container
         .signatures()
@@ -565,6 +584,7 @@ fn get_macro_call(
         transformed_macro,
         macro_result_type: macro_result_type.unwrap(),
         function_signature: function.signature.clone(),
+        in_function: in_function.cloned(),
     }
 }
 

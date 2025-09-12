@@ -10,9 +10,7 @@ use rasm_parser::{
 
 use crate::{
     codegen::enh_ast::{EnhASTNameSpace, EnhModuleId},
-    macros::macro_call_extractor::{
-        is_ast_module_first_parameter, MacroCallExtractor, MacroResultType,
-    },
+    macros::macro_call_extractor::{is_ast_module_first_parameter, MacroCall, MacroResultType},
     type_check::ast_modules_container::ASTModulesContainer,
 };
 
@@ -24,7 +22,7 @@ const ID: AtomicUsize = AtomicUsize::new(0);
 pub fn create_macro_module(
     container: &ASTModulesContainer,
     catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
-    mce: &MacroCallExtractor,
+    calls: &Vec<&MacroCall>,
 ) -> String {
     let mut constants = String::new();
 
@@ -34,7 +32,7 @@ pub fn create_macro_module(
     body.push_str("let id = argv(1).fmap(fn(it) { it.toInt(); }).getOrElse(-1);\n");
     body.push_str("let functionToCall = \n");
 
-    for (i, call) in mce.calls().iter().enumerate() {
+    for (i, call) in calls.iter().enumerate() {
         let function_name = format!("macroCall{}", call.id());
         let conditional = if i == 0 { "if" } else { ".elseIf" };
         body.push_str(&format!(
@@ -45,7 +43,7 @@ pub fn create_macro_module(
     body.push_str(".else(macroEmpty);\n");
     body.push_str("print(functionToCall());\n");
 
-    for call in mce.calls().iter() {
+    for call in calls.iter() {
         let function_name = format!("macroCall{}", call.id());
 
         body.push_str(&format!("pub fn {function_name}() -> str {{\n"));
@@ -295,7 +293,7 @@ mod tests {
     };
 
     use crate::{
-        macros::macro_call_extractor::{MacroCall, MacroResultType},
+        macros::macro_call_extractor::{MacroCall, MacroCallExtractor, MacroResultType},
         project_catalog::RasmProjectCatalog,
     };
 
@@ -325,6 +323,7 @@ mod tests {
                     generics: vec![],
                     modifiers: ASTModifiers::public(),
                 },
+                in_function: None,
             }],
             attribute_macros: Vec::new(),
         };
@@ -333,7 +332,7 @@ mod tests {
 
         println!(
             "{}",
-            create_macro_module(&container, &RasmProjectCatalog::new(), &mce)
+            create_macro_module(&container, &RasmProjectCatalog::new(), &mce.calls())
         );
     }
 }

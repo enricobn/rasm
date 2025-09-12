@@ -369,18 +369,23 @@ impl CompileTarget {
             )]);
         }
         let extractor = extract_macro_calls(&container, catalog);
+        // macro calls tha are inside a macro function
+        let mut dependent_macro_calls = Vec::new();
+        let mut independent_macro_calls = Vec::new();
 
-        /*
-        println!("extracted {} macro calls", extractor.calls().len());
-
-        for call in extractor.calls() {
-            println!(
-                "transformed macro {} : {}",
-                call.position(),
-                call.transformed_macro
-            );
+        for call in extractor.calls().into_iter() {
+            if let Some(in_function) = &call.in_function {
+                if let Some(f) = extractor
+                    .calls()
+                    .iter()
+                    .find(|it| &it.function_signature == in_function)
+                {
+                    dependent_macro_calls.push(call);
+                    continue;
+                }
+            }
+            independent_macro_calls.push(call);
         }
-        */
 
         if extractor.calls().is_empty() {
             self.compile(
@@ -393,7 +398,12 @@ impl CompileTarget {
                 out_file,
             )
         } else {
-            let macro_module_body = create_macro_module(&container, catalog, &extractor);
+            let calls = if dependent_macro_calls.is_empty() {
+                independent_macro_calls
+            } else {
+                dependent_macro_calls
+            };
+            let macro_module_body = create_macro_module(&container, catalog, &calls);
 
             // println!("macro module:\n{macro_module_body}");
 
@@ -420,6 +430,9 @@ impl CompileTarget {
                 project.config.package.name.clone(),
                 COUNT_MACRO_ID.fetch_add(1, Ordering::SeqCst)
             );
+
+            // println!("macro module");
+            // macro_module.print();
 
             container.add(
                 macro_module,
@@ -454,8 +467,7 @@ impl CompileTarget {
 
             // TODO move code in macro module
 
-            let macro_modules = extractor
-                .calls()
+            let macro_modules = calls
                 .par_iter()
                 .map(|it| {
                     (
