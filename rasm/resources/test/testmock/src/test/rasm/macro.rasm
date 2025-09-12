@@ -21,12 +21,16 @@ pub fn copyFunction(module: ASTModule, name: str, newName:str, originalCallName:
 }
 
 fn changeCall(stmt: ASTStatement, originalCallName: str, newCallName: str) -> ASTStatement {
+    stmt.expr(fn(e) { e.changeCall(originalCallName, newCallName); });
+}
+
+fn expr(stmt: ASTStatement, mapFunction: fn(ASTExpression) -> ASTExpression) -> ASTStatement {
     stmt.match(
         fn(expr) {  
-            ASTExpressionStatement(expr.changeCall(originalCallName, newCallName));
+            ASTExpressionStatement(mapFunction(expr));
         }, 
-        fn(s, expr) { ASTLetStatement(s, expr.changeCall(originalCallName, newCallName)); }, 
-        fn(s, expr, modifiers) { ASTConstStatement(s, expr.changeCall(originalCallName, newCallName), modifiers); }
+        fn(s, expr) { ASTLetStatement(s, mapFunction(expr)); }, 
+        fn(s, expr, modifiers) { ASTConstStatement(s, mapFunction(expr), modifiers); }
     );
 }
 
