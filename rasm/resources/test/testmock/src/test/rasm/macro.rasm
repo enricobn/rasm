@@ -5,22 +5,14 @@ pub fn copyFunction(module: ASTModule, name: str, newName:str, originalCallName:
                 fn(rasmBody) {
                     let newBody = 
                         rasmBody.map(fn(statement) {
-                            // TODO let
-                            statement.matchASTExpressionStatement(
-                                fn(expr) {
-                                    ASTExpressionStatement(expr.changeCall(originalCallName, newCallName));
-                                }, {
-                                    statement;
-                                });
-                            });
+                            changeCall(statement, originalCallName, newCallName);
+                        });
                     
                     RASMBody(newBody);
                 },
                 fn(nativeBody) { it.body; }
             );
             let newModule = ASTModule(Vec(), vecOf(it.name(newName).body(newBody)), Vec(), Vec(), Vec());
-            // let newModule = ASTModule(Vec(), vecOf(it.name(format!("new{}", it.name))), Vec(), Vec(), Vec());
-            // let newModule = ASTModule(Vec(), vecOf(it.name(newName)), Vec(), Vec(), Vec());
         
             MacroModule(newModule);
         }, {
@@ -28,10 +20,19 @@ pub fn copyFunction(module: ASTModule, name: str, newName:str, originalCallName:
         });
 }
 
+fn changeCall(stmt: ASTStatement, originalCallName: str, newCallName: str) -> ASTStatement {
+    stmt.match(
+        fn(expr) {  
+            ASTExpressionStatement(expr.changeCall(originalCallName, newCallName));
+        }, 
+        fn(s, expr) { ASTLetStatement(s, expr.changeCall(originalCallName, newCallName)); }, 
+        fn(s, expr, modifiers) { ASTConstStatement(s, expr.changeCall(originalCallName, newCallName), modifiers); }
+    );
+}
+
 fn changeCall(expr: ASTExpression, originalCallName: str, newCallName: str) -> ASTExpression {
-    // TODO lambda
-    expr.matchASTFunctionCallExpression(
-        fn(call) {
+    expr.match(
+        fn(call) {  
             let newCall = 
                 if(call.functionName.eq(originalCallName), 
                     { call.functionName(newCallName);}, 
@@ -39,10 +40,14 @@ fn changeCall(expr: ASTExpression, originalCallName: str, newCallName: str) -> A
                 )
                 .parameters(call.parameters.map(fn(p) { p.changeCall(originalCallName, newCallName); }));
             ASTFunctionCallExpression(newCall);
-        }, {
-            expr;
-        }
-    );
+        }, 
+        fn(s) { expr; }, 
+        fn(value) { expr; }, 
+        fn(lambda) { 
+            ASTLambdaExpression(lambda.body(lambda.body.map(fn(statement) {
+                changeCall(statement, originalCallName, newCallName);
+            }))); 
+        });
 }
 
 pub fn evaluate(expr: ASTExpression) -> MacroExpressionResult {
