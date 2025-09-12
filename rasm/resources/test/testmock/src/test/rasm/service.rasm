@@ -1,0 +1,19 @@
+struct MockedConnection {}
+
+pub fn testService() {
+    /*
+    printFunctions!();
+    printFunctions!();
+    printFunctions!();
+    printFunctions!();
+    printFunctions!();
+    */
+
+    copyFunction!("save", "newSave", "findUser", "findUserMocked");
+
+    println(newSave(Connection(), "aUser", 10).match(fn(amount) { "saved ".append(amount); }, fn(err) { err;}));
+}
+
+fn findUserMocked(conn: Connection, userName: str) -> Result<User,str> {
+    Ok(User("mocked user"));
+}

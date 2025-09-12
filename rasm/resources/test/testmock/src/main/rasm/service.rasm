@@ -1,0 +1,27 @@
+
+struct Connection {}
+
+@toString()
+struct User {
+    name: str
+}
+
+@toString()
+struct Amount {
+    user: User,
+    amount: int
+}
+
+fn save<T>(conn: T, userName: str, amount: int) -> Result<Amount,str> {
+    conn.findUser(userName)
+    .map(fn(user) { Amount(user, amount); });
+}
+
+fn findUser<T>(conn: T, userName: str) -> Result<User,str> {
+    panic("It should not be called");
+    Ok(User(userName));
+}
+
+fn pippo() {
+    println("Pippo");
+}

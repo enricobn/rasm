@@ -727,6 +727,16 @@ fn test_vec_macro() {
     );
 }
 
+#[test]
+fn test_testmock() {
+    run_test_with_action(
+        "testmock",
+        vec![],
+        "saved Amount(User(mocked user), 10)\n",
+        CommandLineAction::BuildTest,
+    );
+}
+
 // Compile tests
 
 #[test]
@@ -785,6 +795,28 @@ fn run_test(test_name: &str, args: Vec<&str>, expected_output: &str) {
     );
 }
 
+fn run_test_with_action(
+    test_name: &str,
+    args: Vec<&str>,
+    expected_output: &str,
+    action: CommandLineAction,
+) {
+    run_test_with_target_with_action(
+        test_name,
+        args.clone(),
+        expected_output,
+        CompileTarget::Nasmi386(AsmOptions::default()),
+        action.clone(),
+    );
+    run_test_with_target_with_action(
+        test_name,
+        args,
+        expected_output,
+        CompileTarget::C(COptions::default()),
+        action,
+    );
+}
+
 fn run_test_with_target(
     test_name: &str,
     args: Vec<&str>,
@@ -800,6 +832,25 @@ fn run_test_with_target(
     }
 
     let executable = compile_with_target(&dir, &main, false, target);
+    execute(&executable, args, Some(expected_output));
+}
+
+fn run_test_with_target_with_action(
+    test_name: &str,
+    args: Vec<&str>,
+    expected_output: &str,
+    target: CompileTarget,
+    action: CommandLineAction,
+) {
+    let dir = TempDir::new("rasm_int_test").unwrap();
+
+    let mut main = format!("resources/test/{}", test_name);
+
+    if !Path::new(&main).is_dir() {
+        main = format!("{main}.rasm");
+    }
+
+    let executable = compile_with_target_with_action(&dir, &main, false, target, action);
     execute(&executable, args, Some(expected_output));
 }
 
@@ -897,7 +948,13 @@ fn compile_with_target_with_action(
 
     assert!(output.status.success());
 
-    format!("{dest}/{file_name}")
+    if action == CommandLineAction::Build {
+        format!("{dest}/{file_name}")
+    } else if action == CommandLineAction::BuildTest {
+        format!("{dest}/{file_name}_test")
+    } else {
+        panic!("unexpected action")
+    }
 }
 
 fn execute(executable: &str, args: Vec<&str>, expected_output: Option<&str>) {

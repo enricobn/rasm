@@ -1,0 +1,69 @@
+pub fn copyFunction(module: ASTModule, name: str, newName:str, originalCallName: str, newCallName: str) -> MacroModuleResult {
+    module.functions.findOne(fn(it) { it.name.eq(name); })
+        .match(fn(it) {
+            let newBody = it.body.match(
+                fn(rasmBody) {
+                    let newBody = 
+                        rasmBody.map(fn(statement) {
+                            // TODO let
+                            statement.matchASTExpressionStatement(
+                                fn(expr) {
+                                    ASTExpressionStatement(expr.changeCall(originalCallName, newCallName));
+                                }, {
+                                    statement;
+                                });
+                            });
+                    
+                    RASMBody(newBody);
+                },
+                fn(nativeBody) { it.body; }
+            );
+            let newModule = ASTModule(Vec(), vecOf(it.name(newName).body(newBody)), Vec(), Vec(), Vec());
+            // let newModule = ASTModule(Vec(), vecOf(it.name(format!("new{}", it.name))), Vec(), Vec(), Vec());
+            // let newModule = ASTModule(Vec(), vecOf(it.name(newName)), Vec(), Vec(), Vec());
+        
+            MacroModule(newModule);
+        }, {
+            MacroError("cannot find unique function");
+        });
+}
+
+fn changeCall(expr: ASTExpression, originalCallName: str, newCallName: str) -> ASTExpression {
+    // TODO lambda
+    expr.matchASTFunctionCallExpression(
+        fn(call) {
+            let newCall = 
+                if(call.functionName.eq(originalCallName), 
+                    { call.functionName(newCallName);}, 
+                    {call;}
+                )
+                .parameters(call.parameters.map(fn(p) { p.changeCall(originalCallName, newCallName); }));
+            ASTFunctionCallExpression(newCall);
+        }, {
+            expr;
+        }
+    );
+}
+
+pub fn evaluate(expr: ASTExpression) -> MacroExpressionResult {
+    MacroExpression(expr);
+}
+
+fn findOne<T>(v: Vec<T>, condition: fn(T) -> bool) -> Option<T> {
+    let elements = v.filter(condition);
+    if(elements.len.eq(1), {
+        elements.first();
+    }, {
+        None<T>();
+    });
+}
+
+pub fn printFunctions(module: ASTModule) -> MacroModuleResult {
+    let functions = module.functions.map(fn(it) { it.name; });
+
+    let statement = ASTExpressionStatement(simpleASTCall("println", vecOf(stringASTValue(functions.toString))));
+
+    let newModule = ASTModule(vecOf(statement), Vec(), Vec(), Vec(), Vec());
+    
+    MacroModule(newModule);
+}

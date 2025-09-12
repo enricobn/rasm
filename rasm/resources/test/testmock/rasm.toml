@@ -1,0 +1,6 @@
+[package]
+name = "testmock"
+version = "1.0.0"
+
+[dependencies]
+stdlib = "0.1"
