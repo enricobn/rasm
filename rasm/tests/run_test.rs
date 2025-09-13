@@ -737,6 +737,15 @@ fn test_testmock() {
     );
 }
 
+#[test]
+fn test_recursion() {
+    run_test(
+        "recursion",
+        vec![],
+        "\n",
+    );
+}
+
 // Compile tests
 
 #[test]
