@@ -1,3 +1,5 @@
+use core::panic;
+use std::collections::HashMap;
 use std::iter::zip;
 use std::ops::Deref;
 use std::path::Path;
@@ -407,6 +409,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         let mut before = String::new();
 
         let main_body = &typed_module.body;
+        let mut function_reference_lambdas = HashMap::new();
 
         self.generate_function_body(
             &code_gen_context,
@@ -424,18 +427,28 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             4,
             &EnhASTNameSpace::root_namespace(&project),
             true,
+            &mut function_reference_lambdas,
         );
 
         body.push_str(&self.transform_before_in_function_def(&code_gen_context, before));
         body.push_str(&after);
 
-        let mut functions_generated_code =
-            self.create_lambdas(lambdas.clone(), 0, &mut id, &mut statics, typed_module);
+        let mut functions_generated_code = self.create_lambdas(
+            lambdas.clone(),
+            0,
+            &mut id,
+            &mut statics,
+            typed_module,
+            &code_gen_context,
+            &mut function_reference_lambdas,
+        );
 
         functions_generated_code.extend(self.create_all_functions(
             &mut id,
             &mut statics,
             typed_module,
+            &code_gen_context,
+            &mut function_reference_lambdas,
         ));
 
         let mut generated_code = String::new();
@@ -578,6 +591,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         is_last: bool,
         is_inner_call: bool,
         lambda_in_stack: bool,
+        function_reference_lambdas: &mut HashMap<String, LambdaCall>,
     ) -> Vec<LambdaCall> {
         let mut lambda_calls = Vec::new();
 
@@ -669,6 +683,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             false,
                             true,
                             lambda_in_stack,
+                            function_reference_lambdas,
                         );
 
                         call_parameters.add_on_top_of_after(&af.join("\n"));
@@ -707,6 +722,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             &mut lambda_calls,
                             namespace,
                             lambda_in_stack,
+                            function_reference_lambdas,
                         );
                     }
                     ASTTypedExpression::Lambda(lambda_def) => {
@@ -916,6 +932,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         typed_module: &ASTTypedModule,
         modifiers: Option<&ASTModifiers>,
         lambda_in_stack: bool,
+        function_reference_lambdas: &mut HashMap<String, LambdaCall>,
     ) -> Vec<LambdaCall> {
         self.define_let(code_gen_context, name, is_const, statics, namespace);
 
@@ -960,6 +977,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             false,
                             false,
                             lambda_in_stack,
+                            function_reference_lambdas,
                         ),
                         call.index.clone(),
                     )
@@ -983,6 +1001,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             false,
                             false,
                             lambda_in_stack,
+                            function_reference_lambdas,
                         ),
                         call.index.clone(),
                     )
@@ -1169,6 +1188,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         lambda_calls: &mut Vec<LambdaCall>,
         namespace: &EnhASTNameSpace,
         lambda_in_stack: bool,
+        function_reference_lambdas: &mut HashMap<String, LambdaCall>,
     ) {
         if let Some(val_kind) = context.get(val_name) {
             match val_kind {
@@ -1215,6 +1235,32 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 .unwrap()
                 .clone();
 
+            if let Some(l) = function_reference_lambdas.get(val_name) {
+                let lambda_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                    parameters: l
+                        .def
+                        .parameters
+                        .iter()
+                        .map(|it| it.ast_type.clone())
+                        .collect::<Vec<_>>(),
+                    return_type: Box::new(l.def.return_type.clone()),
+                });
+
+                call_parameters.add_lambda(
+                    &mut l.def.clone(), // original def must not be changed
+                    None,
+                    &TypedValContext::new(None),
+                    Some(&format!("reference to function {val_name}")),
+                    statics,
+                    typed_module,
+                    code_gen_context,
+                    lambda_in_stack,
+                    &lambda_type,
+                    &l.def.name,
+                );
+                return;
+            }
+
             let name = format!("lambda_{}", id);
             def.name = name.clone();
 
@@ -1244,6 +1290,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 space: lambda_space,
             };
 
+            function_reference_lambdas.insert(val_name.to_owned(), lambda_call.clone());
+
             lambda_calls.push(lambda_call);
 
             *id += 1;
@@ -1264,6 +1312,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         statics: &mut Statics,
         body: &mut String,
         typed_module: &ASTTypedModule,
+        function_reference_lambdas: &mut HashMap<String, LambdaCall>,
     ) -> Vec<LambdaCall> {
         debug!(
             "{}Adding function def {}",
@@ -1344,6 +1393,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     indent,
                     &function_def.namespace,
                     lambda_in_stack,
+                    function_reference_lambdas,
                 );
             }
             ASTTypedFunctionBody::NativeBody(body) => {
@@ -1400,6 +1450,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         indent: usize,
         namespace: &EnhASTNameSpace,
         lambda_in_stack: bool,
+        function_reference_lambdas: &mut HashMap<String, LambdaCall>,
     ) {
         let inline = function_def
             .map(|it| InlineRegistry::is_inline(statics, it))
@@ -1413,8 +1464,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 ASTTypedStatement::Expression(expr) => {
                     match expr {
                         ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                            //info!("{}function call {call:?}", " ".repeat(0 * 4));
                             let (bf, cur, af, mut lambda_calls_) = self.generate_call_function(
-                                &code_gen_context,
+                                code_gen_context,
                                 None,
                                 namespace,
                                 call,
@@ -1429,6 +1481,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 i == len - 1,
                                 false,
                                 lambda_in_stack,
+                                function_reference_lambdas,
                             );
 
                             before.push_str(&bf);
@@ -1439,8 +1492,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             lambda_calls.append(&mut lambda_calls_);
                         }
                         ASTTypedExpression::ValueRef(val, index, namespace) => {
-                            // TODO I don't like to use FunctionCallParameters to do this, probably I need another struct to do only the calculation of the address to get
-
+                            // TODO I don't like to use FunctionCallParameters to do this,
+                            // probably I need another struct to do only the calculation of the address to get
                             let mut parameters = self.function_call_parameters(
                                 &code_gen_context,
                                 None,
@@ -1453,7 +1506,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             *id += 1;
 
                             self.add_val(
-                                &code_gen_context,
+                                code_gen_context,
                                 &context,
                                 &lambda_space,
                                 &indent,
@@ -1468,6 +1521,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 lambda_calls,
                                 namespace,
                                 lambda_in_stack,
+                                function_reference_lambdas,
                             );
 
                             before.push_str(&parameters.before());
@@ -1571,6 +1625,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         typed_module,
                         None,
                         lambda_in_stack,
+                        function_reference_lambdas,
                     );
                     lambda_calls.append(&mut new_lambda_calls);
                 }
@@ -1593,6 +1648,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         typed_module,
                         Some(modifiers),
                         lambda_in_stack,
+                        function_reference_lambdas,
                     );
                     lambda_calls.append(&mut new_lambda_calls);
                 }
@@ -1623,6 +1679,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         is_last: bool,
         is_inner_call: bool,
         lambda_in_stack: bool,
+        function_reference_lambdas: &mut HashMap<String, LambdaCall>,
     ) -> (String, String, Vec<String>, Vec<LambdaCall>) {
         // before, after, lambda calls
         let mut before = String::new();
@@ -1672,6 +1729,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 is_last,
                 is_inner_call,
                 lambda_in_stack,
+                function_reference_lambdas,
             )
         } else if let Some(kind) = context.get(&function_call.function_name) {
             let ast_type = kind.typed_type();
@@ -1745,6 +1803,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     is_last,
                     is_inner_call,
                     lambda_in_stack,
+                    function_reference_lambdas,
                 )
             } else {
                 panic!("Cannot find function, there's a parameter with name '{}', but it's not a lambda", function_call.function_name);
@@ -1767,6 +1826,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         id: &mut usize,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
+        code_gen_context: &CTX,
+        function_reference_lambdas: &mut HashMap<String, LambdaCall>,
     ) -> LinkedHashMap<String, (String, String)> {
         let mut result = LinkedHashMap::new();
 
@@ -1787,6 +1848,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 statics,
                 &mut body,
                 typed_module,
+                function_reference_lambdas,
             ));
 
             result.insert(lambda_call.def.name.clone(), (definitions, body));
@@ -1812,6 +1874,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             statics,
                             &mut body,
                             typed_module,
+                            function_reference_lambdas,
                         );
 
                         result.insert(it.name.clone(), (definitions, body));
@@ -1822,7 +1885,15 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             );
         }
         if !lambda_calls.is_empty() {
-            result.extend(self.create_lambdas(lambda_calls, indent + 1, id, statics, typed_module));
+            result.extend(self.create_lambdas(
+                lambda_calls,
+                indent + 1,
+                id,
+                statics,
+                typed_module,
+                code_gen_context,
+                function_reference_lambdas,
+            ));
         }
 
         result
@@ -1833,6 +1904,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         id: &mut usize,
         statics: &mut Statics,
         typed_module: &ASTTypedModule,
+        code_gen_context: &CTX,
+        function_reference_lambdas: &mut HashMap<String, LambdaCall>,
     ) -> LinkedHashMap<String, (String, String)> {
         let mut result = LinkedHashMap::new();
         let mut lambdas = LinkedHashMap::new();
@@ -1855,8 +1928,17 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     statics,
                     &mut body,
                     typed_module,
+                    function_reference_lambdas,
                 );
-                lambdas.extend(self.create_lambdas(lambda_calls, 0, id, statics, typed_module));
+                lambdas.extend(self.create_lambdas(
+                    lambda_calls,
+                    0,
+                    id,
+                    statics,
+                    typed_module,
+                    code_gen_context,
+                    function_reference_lambdas,
+                ));
 
                 result.insert(function_def.name.clone(), (definitions, body));
             }
