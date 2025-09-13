@@ -77,7 +77,7 @@ enum UIPane {
 impl UI {
     pub fn show(project: RasmProject, target: CompileTarget) -> iced::Result {
         let (container, catalog, _errors) =
-            project.container_and_catalog(&RasmProjectRunType::Main, &target);
+            project.container_and_catalog(&RasmProjectRunType::Test, &target);
 
         let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
 
@@ -234,7 +234,7 @@ impl UI {
     ) -> SelectedModule {
         let module_info = catalog
             .info(&EnhModuleId::Path(PathBuf::from(path)))
-            .unwrap();
+            .expect(&format!("module {} not found", path));
         let (enh_id, enh_ns) = catalog.catalog_info(module_info.id()).unwrap();
         let info = EnhModuleInfo::new(enh_id.clone(), enh_ns.clone());
 
