@@ -435,9 +435,6 @@ impl CompileTarget {
                 COUNT_MACRO_ID.fetch_add(1, Ordering::SeqCst)
             );
 
-            // println!("macro module");
-            // macro_module.print();
-
             container.add(
                 macro_module,
                 ModuleNamespace("".to_owned()),
@@ -919,7 +916,10 @@ impl CompileTarget {
 
         match self {
             CompileTarget::Nasmi386(options) => match command_line_options.action {
-                CommandLineAction::Build | CommandLineAction::BuildTest |CommandLineAction::Test | CommandLineAction::Run => {
+                CommandLineAction::Build
+                | CommandLineAction::BuildTest
+                | CommandLineAction::Test
+                | CommandLineAction::Run => {
                     if out_paths.len() != 1 {
                         panic!("Only one native file to compile is supported!");
                     }
