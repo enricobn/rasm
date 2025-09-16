@@ -175,6 +175,7 @@ pub native nextChar(s: str, offset: int) -> int /{
 pub native eq(s1: str, s2: str) -> bool /{
     push   ebx
     push   ecx
+    push   edx
 
     mov    eax, 1
     mov    ebx, $s1
@@ -195,6 +196,7 @@ pub native eq(s1: str, s2: str) -> bool /{
 .false:
     mov     eax,0
 .end:
+    pop   edx
     pop   ecx
     pop   ebx
 }/
