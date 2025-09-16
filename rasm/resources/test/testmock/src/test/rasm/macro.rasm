@@ -4,9 +4,7 @@ pub fn copyFunction(module: ASTModule, name: str, newName:str, originalCallName:
             let newBody = it.body.match(
                 fn(rasmBody) {
                     let newBody = 
-                        rasmBody.map(fn(statement) {
-                            changeCall(originalCallName, newCallName, statement);
-                        });
+                        rasmBody.map(changeCall.curry(originalCallName, newCallName));
                     
                     RASMBody(newBody);
                 },
@@ -21,7 +19,7 @@ pub fn copyFunction(module: ASTModule, name: str, newName:str, originalCallName:
 }
 
 fn changeCall(originalCallName: str, newCallName: str, stmt: ASTStatement) -> ASTStatement {
-    stmt.expr(fn(e) { changeCall(originalCallName, newCallName,e); });
+    stmt.expr(changeCall.curry(originalCallName, newCallName));
 }
 
 fn expr(stmt: ASTStatement, mapFunction: fn(ASTExpression) -> ASTExpression) -> ASTStatement {
@@ -40,17 +38,17 @@ fn changeCall(originalCallName: str, newCallName: str, expr: ASTExpression) -> A
             let newCall = 
                 if(call.functionName.eq(originalCallName), 
                     { call.functionName(newCallName);}, 
-                    {call;}
+                    { call; }
                 )
-                .parameters(call.parameters.map(fn(p) { changeCall(originalCallName, newCallName, p); }));
+                .parameters(call.parameters.map(changeCall.curry(originalCallName, newCallName)));
             ASTFunctionCallExpression(newCall);
         }, 
         fn(s) { expr; }, 
         fn(value) { expr; }, 
         fn(lambda) { 
-            ASTLambdaExpression(lambda.body(lambda.body.map(fn(statement) {
-                changeCall(originalCallName, newCallName, statement);
-            }))); 
+            ASTLambdaExpression(lambda.body(lambda.body.map(
+                changeCall.curry(originalCallName, newCallName)
+            ))); 
         });
 }
 
