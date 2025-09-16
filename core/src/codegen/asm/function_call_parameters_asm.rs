@@ -389,7 +389,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
             );
         }
 
-        if !context.is_empty() && !lambda_in_stack && self.dereference {
+        if !self.immediate && !context.is_empty() && !lambda_in_stack && self.dereference {
             // we don't need a "deep" reference / dereference here
             self.code_gen.call_add_ref_simple(
                 &mut self.before,
