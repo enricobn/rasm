@@ -25,3 +25,7 @@ pub fn curry<PT1,PT2,T>(lambda: fn(PT1,PT2) -> T, v1: PT1) -> fn(PT2) -> T {
 pub fn curry<PT1,PT2,PT3,T>(lambda: fn(PT1,PT2,PT3) -> T, v1: PT1, v2: PT2) -> fn(PT3) -> T {
     fn(v3) { lambda(v1, v2, v3); };
 }
+
+pub fn curryRight<PT1,PT2,T>(lambda: fn(PT1,PT2) -> T, v2: PT2) -> fn(PT1) -> T {
+    fn(v1) { lambda(v1, v2); };
+}
