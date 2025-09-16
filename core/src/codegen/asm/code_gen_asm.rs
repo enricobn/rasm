@@ -168,7 +168,7 @@ impl CodeGenAsm {
                 true,
             );
             self.add(out, &format!("call     {ws} [eax + {wl}]"), None, true);
-            // wl * 3 because we get reed even of the temp value in the stack
+            // wl * 3 because we count even the temp value in the stack
             self.add(out, &format!("add      esp,{}", 3 * wl), None, true);
             self.add(out, &format!("pop      {ws} eax"), None, true);
         } else if has_references {
@@ -656,6 +656,7 @@ impl CodeGenAsm {
                 if let Some(type_name) =
                     get_reference_type_name(ast_typed_type, &TypeDefBodyTarget::Asm)
                 {
+                    self.add_comment(&mut body, &format!("lambda space val {}", val_name), true);
                     if !initialized {
                         self.add(&mut body, "push   ebx", None, true);
                         self.add(&mut body, &format!("mov {ws} ebx, $address"), None, true);
@@ -683,7 +684,9 @@ impl CodeGenAsm {
                     }
                 }
             }
-            self.add(&mut body, "pop   ebx", None, true);
+            if initialized {
+                self.add(&mut body, "pop   ebx", None, true);
+            }
         }
 
         if !initialized {
