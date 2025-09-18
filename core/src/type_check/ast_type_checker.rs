@@ -83,6 +83,7 @@ impl Display for ASTTypeCheckError {
 pub enum ASTTypeCheckInfo {
     Call(String, Vec<(ASTFunctionSignature, ASTIndex)>),
     LambdaCall(ASTFunctionSignature, ASTIndex),
+    ReferenceToFunction(ASTFunctionSignature, ASTIndex),
     Ref(String, ASTIndex),
     Let(String),
     Const(String),
@@ -106,14 +107,17 @@ impl Display for ASTTypeCheckInfo {
                 Result::Ok(())
             }
             ASTTypeCheckInfo::LambdaCall(function_signature, _) => {
-                write!(f, "lambda call to {function_signature}")
+                write!(f, "call to lambda {}", function_signature.name)
             }
-            ASTTypeCheckInfo::Ref(_, _) => f.write_str("ref"),
+            ASTTypeCheckInfo::Ref(name, _) => f.write_str(&format!("ref to {name}")),
             ASTTypeCheckInfo::Value(_) => f.write_str("value"),
             ASTTypeCheckInfo::Let(_) => f.write_str("let"),
             ASTTypeCheckInfo::Const(_) => f.write_str("const"),
             ASTTypeCheckInfo::Param(_) => f.write_str("param"),
             ASTTypeCheckInfo::Lambda => f.write_str("lambda"),
+            ASTTypeCheckInfo::ReferenceToFunction(function_signature, _) => {
+                write!(f, "reference to function {}", function_signature.name)
+            }
         }
     }
 }
@@ -257,6 +261,14 @@ impl ASTTypeChecker {
     }
 
     fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) {
+        if self.errors.iter().any(|e| e.index() == &index) {
+            self.errors = self
+                .errors
+                .iter()
+                .filter(|e| e.index() != &index)
+                .cloned()
+                .collect_vec();
+        }
         self.result.insert(index, entry);
     }
 
@@ -424,10 +436,10 @@ impl ASTTypeChecker {
                                 function,
                             );
                         }
-                        if let Some(rt) = self.result.get_by_index(&index).cloned() {
+                        if let Some(rt) = self.result.get_by_index(&index) {
                             // can I do something when is generic? Take in account that it can be generic on something different
                             if !rt.is_generic() {
-                                return_type = Some(rt);
+                                return_type = Some(rt.clone());
                             }
                         }
                     } else {
@@ -710,27 +722,33 @@ impl ASTTypeChecker {
 
                         self.insert(
                             index.clone(),
-                            ASTTypeCheckEntry::reference(
+                            ASTTypeCheckEntry::new(
                                 index.clone(),
-                                ASTTypeFilter::exact(
+                                Some(ASTTypeFilter::exact(
                                     ASTType::ASTBuiltinType(lambda),
                                     module_namespace,
                                     module_id,
-                                ),
-                                name.to_owned(),
-                                ASTIndex::new(
-                                    fun_entry.namespace.clone(),
-                                    fun_entry.module_id.clone(),
-                                    fun_entry.position.clone(),
+                                )),
+                                ASTTypeCheckInfo::ReferenceToFunction(
+                                    fun_entry.signature.clone(),
+                                    fun_entry.index().clone(),
                                 ),
                             ),
                         );
-                    } else if expected_expression_type.is_some() {
-                        self.errors.push(ASTTypeCheckError::new(
-                            ASTTypeCheckErroKind::Error,
-                            index.clone(),
-                            format!("Cannot find value referencing {name}"),
-                        ));
+                    } else {
+                        if function_references.len() > 1 {
+                            self.errors.push(ASTTypeCheckError::new(
+                                ASTTypeCheckErroKind::Error,
+                                index.clone(),
+                                format!("Cannot find unique function {name}"),
+                            ));
+                        } else {
+                            self.errors.push(ASTTypeCheckError::new(
+                                ASTTypeCheckErroKind::Error,
+                                index.clone(),
+                                format!("Cannot find function {name}"),
+                            ));
+                        }
                     }
                 }
             }

@@ -386,6 +386,17 @@ impl IDEHelper {
                         )),
                     ))
                 }
+                ASTTypeCheckInfo::ReferenceToFunction(function_signature, ref_index) => {
+                    Some(IDESelectableItem::new(
+                        entry.index().clone(),
+                        function_signature.name.len(),
+                        Some(IDESelectableItemTarget::Function(
+                            ref_index.clone(),
+                            function_signature.return_type.clone(),
+                            format!("{function_signature}"),
+                        )),
+                    ))
+                }
                 ASTTypeCheckInfo::Ref(name, ref_index) => Some(IDESelectableItem::new(
                     entry.index().clone(),
                     name.len(),

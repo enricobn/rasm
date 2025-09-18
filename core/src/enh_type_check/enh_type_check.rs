@@ -328,6 +328,36 @@ impl<'a> EnhTypeCheck<'a> {
                     index,
                 );
 
+                if function_references.len() > 0 {
+                    if let Some(et) = expected_type {
+                        if let EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+                            parameters,
+                            return_type,
+                        }) = et
+                        {
+                            let filter = EnhTypeFilter::Exact(*return_type.clone());
+                            let paraameters_filters = parameters
+                                .iter()
+                                .map(|it| EnhTypeFilter::Exact(it.clone()))
+                                .collect_vec();
+
+                            function_references = function_references
+                                .into_iter()
+                                .filter(|it| {
+                                    filter
+                                        .almost_equal(&it.return_type, module)
+                                        .unwrap_or(false)
+                                        && it.parameters.iter().zip(paraameters_filters.iter()).all(
+                                            |(p, f)| {
+                                                f.almost_equal(&p.ast_type, module).unwrap_or(false)
+                                            },
+                                        )
+                                })
+                                .collect_vec();
+                        }
+                    }
+                }
+
                 if function_references.len() == 1 {
                     let new_function_def = function_references.remove(0);
                     let mut function_parameters = new_function_def.parameters.clone();
@@ -342,52 +372,48 @@ impl<'a> EnhTypeCheck<'a> {
                             return_type,
                         }) = et
                         {
-                            let mut unresolved_generic_types = false;
-                            let new_parameters = zip(&new_function_def.parameters, parameters)
+                            zip(&new_function_def.parameters, parameters)
                                 .map(|(p, t)| {
-                                    if p.ast_type.is_generic() && !t.is_generic() {
-                                        self.resolve_generic_types_from_effective_type_and_append(
-                                            &p.ast_type,
-                                            &t,
-                                            module,
-                                            &mut resolved_generic_types,
-                                            index,
-                                        )?;
-                                        let mut new_p = p.clone();
-                                        new_p.ast_type = t.clone();
-                                        Ok(new_p)
-                                    } else {
-                                        if p.ast_type.is_generic() {
-                                            unresolved_generic_types = true;
-                                        }
-                                        Ok(p.clone())
-                                    }
+                                    self.resolve_generic_types_from_effective_type_and_append(
+                                        &p.ast_type,
+                                        &t,
+                                        module,
+                                        &mut resolved_generic_types,
+                                        index,
+                                    )
                                 })
-                                .collect::<Vec<_>>();
+                                .collect::<Result<Vec<_>, EnhTypeCheckError>>()?;
 
-                            let result = new_parameters
+                            self.resolve_generic_types_from_effective_type_and_append(
+                                &new_function_def.return_type,
+                                &return_type,
+                                module,
+                                &mut resolved_generic_types,
+                                index,
+                            )?;
+
+                            function_parameters = new_function_def
+                                .parameters
+                                .clone()
                                 .into_iter()
-                                .collect::<Result<Vec<_>, EnhTypeCheckError>>();
+                                .map(|mut it| {
+                                    let new_ast_type =
+                                        substitute(&it.ast_type, &resolved_generic_types)
+                                            .unwrap_or(it.ast_type);
+                                    it.ast_type = new_ast_type;
+                                    it
+                                })
+                                .collect_vec();
 
-                            function_parameters = result?;
+                            function_return_type =
+                                substitute(&new_function_def.return_type, &resolved_generic_types)
+                                    .unwrap_or(new_function_def.return_type.clone());
 
-                            if new_function_def.return_type.is_generic()
-                                && !return_type.is_generic()
-                            {
-                                // TODO resolve parameters and try to share the same code that is used elsewhere in this
-                                //      file
+                            let unresolved_generic_types = function_parameters
+                                .iter()
+                                .any(|it| it.ast_type.is_generic())
+                                || function_return_type.is_generic();
 
-                                self.resolve_generic_types_from_effective_type_and_append(
-                                    &new_function_def.return_type,
-                                    &return_type,
-                                    module,
-                                    &mut resolved_generic_types,
-                                    index,
-                                )?;
-                                function_return_type = return_type.as_ref().clone();
-                            } else if new_function_def.return_type.is_generic() {
-                                unresolved_generic_types = true;
-                            }
                             if unresolved_generic_types {
                                 return Err(EnhTypeCheckError::new_with_kind(
                                     index.clone(),
@@ -2159,13 +2185,12 @@ impl<'a> EnhTypeCheck<'a> {
                     })
                     .collect::<Vec<_>>(),
             );
-
             if let Some(t) = self.get_type_check_entry(index) {
-                if let ASTTypeCheckInfo::Ref(_, ref_index) = t.info() {
+                if let ASTTypeCheckInfo::ReferenceToFunction(_, ref_index) = t.info() {
                     function_references = function_references
                         .into_iter()
                         .filter(|it| it.index.position.id == ref_index.position().id)
-                        .collect::<Vec<_>>();
+                        .collect_vec();
 
                     if function_references.len() == 1 {
                         return function_references;

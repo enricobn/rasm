@@ -40,13 +40,13 @@ fn changeCall(originalCallName: str, newCallName: str, expr: ASTExpression) -> A
                     { call.functionName(newCallName);}, 
                     { call; }
                 )
-                .parameters(call.parameters.map(changeCall.curry(originalCallName, newCallName)));
+                .parameters(map.curryRight(changeCall.curry(originalCallName, newCallName)));
             ASTFunctionCallExpression(newCall);
         }, 
         fn(s) { expr; }, 
         fn(value) { expr; }, 
         fn(lambda) { 
-            ASTLambdaExpression(lambda.body(lambda.body.map(
+            ASTLambdaExpression(lambda.body(map.curryRight(
                 changeCall.curry(originalCallName, newCallName)
             ))); 
         });
@@ -61,7 +61,7 @@ fn findOne<T>(v: Vec<T>, condition: fn(T) -> bool) -> Option<T> {
     if(elements.len.eq(1), {
         elements.first();
     }, {
-        None<T>();
+        None();
     });
 }
 
