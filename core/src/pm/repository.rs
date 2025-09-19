@@ -155,7 +155,7 @@ impl PackageRepository for LocalPackageRepository {
         if project.main_test_src_file().is_some() {
             let mut test_command_line_options = command_line_options.clone();
             test_command_line_options.action = CommandLineAction::Test;
-            for native in project.targets() {
+            for native in project.all_targets() {
                 info!("running tests for native {}", native);
                 let native_target =
                     CompileTarget::from(native.clone(), &project, &command_line_options);

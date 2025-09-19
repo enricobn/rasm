@@ -561,19 +561,23 @@ impl RasmProject {
         None
     }
 
-    pub fn targets(&self) -> Vec<String> {
+    fn targets(&self) -> Vec<String> {
         let targets = vec![NASMI386.to_owned(), C.to_owned()]
             .into_iter()
             .filter(|it| self.main_native_source_folder(it).is_some())
             .collect_vec();
 
-        let mut targets = if targets.is_empty() {
+        if targets.is_empty() {
             vec![NASMI386.to_owned(), C.to_owned()]
         } else {
             targets
-        };
+        }
+    }
 
-        for dep in self.get_dependencies().iter() {
+    pub fn all_targets(&self) -> Vec<String> {
+        let mut targets = self.targets();
+
+        for dep in self.all_projects().iter() {
             let dep_targets = dep.targets();
             let mut new_targets = Vec::new();
             for target in targets {
@@ -684,11 +688,7 @@ impl RasmProject {
                 }
                 (native_source_folder, false)
             } else {
-                return self
-                    .get_dependencies()
-                    .iter()
-                    .filter_map(|project| project.get_module(path, target))
-                    .next();
+                return None;
             }
         };
 
@@ -803,6 +803,15 @@ impl RasmProject {
         Ok(result)
     }
 
+    /// Given a package manager, this function returns all the possible versions of the project's dependencies.
+    ///
+    /// It returns a vector of hash maps, where each hash map represents a combination of dependencies
+    /// that can be used to build the project.
+    /// The keys of the hash map are the names of the dependencies, and the values are the versions of the dependencies.
+    ///
+    /// If there is no version of a dependency that matches the filter, it returns an error.
+    ///
+    /// The error message will contain the name of the dependency, the filter, and the name of the project.
     fn possible_dependencies(
         &self,
         package_manager: &dyn PackageManager,
@@ -935,42 +944,6 @@ impl RasmProject {
             result.push(project);
         }
 
-        result
-    }
-
-    fn get_dependencies(&self) -> Vec<RasmProject> {
-        let mut result = Vec::new();
-
-        if let Some(dependencies) = &self.config.dependencies {
-            for dependency in dependencies.values() {
-                if let Value::Table(table) = dependency {
-                    if let Some(path_value) = table.get("path") {
-                        if let Value::String(path) = path_value {
-                            let path_from_relative_to_root =
-                                self.from_relative_to_root(Path::new(path));
-                            let path_buf = path_from_relative_to_root
-                                .canonicalize()
-                                .unwrap_or_else(|_| {
-                                    panic!(
-                                        "error canonicalizing {path}, path_from_relative_to_root {}, root {}",
-                                        path_from_relative_to_root.to_string_lossy(),
-                                        self.root.to_string_lossy()
-                                    )
-                                });
-
-                            let dependency_project = RasmProject::new(path_buf);
-                            result.push(dependency_project);
-                        } else {
-                            panic!("Unsupported path value for {dependency} : {path_value}");
-                        }
-                    } else {
-                        panic!("Cannot find path for {dependency}");
-                    }
-                } else {
-                    panic!("Unsupported dependency type {dependency}");
-                }
-            }
-        }
         result
     }
 
