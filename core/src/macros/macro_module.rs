@@ -80,15 +80,20 @@ pub fn create_macro_module(
         ));
 
         match &call.macro_result_type {
-            MacroResultType::Module => {
+            MacroResultType::Statement => {
                 body.push_str(
-            "macroResult.match(fn (module) { \"Module\\n\".append(module); }, fn (message) { \"Error\\n\".add(message); });\n",
-        );
+                    "macroResult.match(fn (statements, functions) { \"Statement\\n\".add(statements.join(\"\\n\")).add(\"\\n\").add(functions.join(\"\\n\")); }, fn (message) { \"Error\\n\".add(message); });\n",
+                );
             }
             MacroResultType::Expression => {
                 body.push_str(
-            "macroResult.match(fn (expr) { \"Expression\\n\".append(expr); }, fn (message) { \"Error\\n\".add(message); });\n",
-        );
+                    "macroResult.match(fn (expr) { \"Expression\\n\".append(expr); }, fn (message) { \"Error\\n\".add(message); });\n",
+                );
+            }
+            MacroResultType::Attribute => {
+                body.push_str(
+                    "macroResult.match(fn (functions) { \"Attribute\\n\".add(functions.join(\"\\n\")); }, fn (message) { \"Error\\n\".add(message); });\n",
+                );
             }
         }
 
@@ -315,7 +320,7 @@ mod tests {
                     None,
                     false,
                 ),
-                macro_result_type: MacroResultType::Module,
+                macro_result_type: MacroResultType::Statement,
                 function_signature: ASTFunctionSignature {
                     parameters_types: vec![],
                     return_type: ASTType::ASTUnitType,

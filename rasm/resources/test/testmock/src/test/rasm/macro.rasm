@@ -1,4 +1,4 @@
-pub fn copyFunction(module: ASTModule, name: str, newName:str, originalCallName: str, newCallName: str) -> MacroModuleResult {
+pub fn copyFunction(module: ASTModule, name: str, newName:str, originalCallName: str, newCallName: str) -> MacroStatementResult {
     module.functions.findOne(fn(it) { it.name.eq(name); })
         .match(fn(it) {
             let newBody = it.body.match(
@@ -10,9 +10,7 @@ pub fn copyFunction(module: ASTModule, name: str, newName:str, originalCallName:
                 },
                 fn(nativeBody) { it.body; }
             );
-            let newModule = ASTModule(Vec(), vecOf(it.name(newName).body(newBody)), Vec(), Vec(), Vec());
-        
-            MacroModule(newModule);
+            MacroStatementOk(Vec(), vecOf(it.name(newName).body(newBody)));
         }, {
             MacroError("cannot find unique function");
         });
@@ -65,12 +63,10 @@ fn findOne<T>(v: Vec<T>, condition: fn(T) -> bool) -> Option<T> {
     });
 }
 
-pub fn printFunctions(module: ASTModule) -> MacroModuleResult {
+pub fn printFunctions(module: ASTModule) -> MacroStatementResult {
     let functions = module.functions.map(fn(it) { it.name; });
 
     let statement = ASTExpressionStatement(simpleASTCall("println", vecOf(stringASTValue(functions.toString))));
 
-    let newModule = ASTModule(vecOf(statement), Vec(), Vec(), Vec(), Vec());
-    
-    MacroModule(newModule);
+    MacroStatementOk(vecOf(statement), Vec());
 }

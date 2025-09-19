@@ -1,4 +1,4 @@
-pub fn toString(s: ASTStructDef) -> MacroModuleResult {
+pub fn toString(s: ASTStructDef) -> MacroAttributeResult {
     let structRef = ASTValueRefExpression("s");
     
     let parameters = s.properties.map(fn(p) {
@@ -28,18 +28,10 @@ pub fn toString(s: ASTStructDef) -> MacroModuleResult {
         None()
     );
 
-    let module = ASTModule(
-        Vec(), // body
-        vecOf(function), // functions
-        Vec(), // enums
-        Vec(), // structs
-        Vec()  // types
-    );
-
-    MacroModule(module);
+    MacroAttributeOk(vecOf(function));
 }
 
-pub fn toString(e: ASTEnumDef) -> -> MacroModuleResult {
+pub fn toString(e: ASTEnumDef) -> -> MacroAttributeResult {
     let enumRef = ASTValueRefExpression("value");
 
     let propertiesExpression = stringASTValue(e.name).add("(");
@@ -79,15 +71,7 @@ pub fn toString(e: ASTEnumDef) -> -> MacroModuleResult {
         None()
     );
 
-    let module = ASTModule(
-        Vec(), // body
-        vecOf(function), // functions
-        Vec(), // enums
-        Vec(), // structs
-        Vec()  // types
-    );
-
-    MacroModule(module);
+    MacroAttributeOk(vecOf(function));
 }
 
 fn add(a: ASTExpression, s: str) -> ASTExpression {

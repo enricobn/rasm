@@ -31,7 +31,8 @@ impl MacroCallExtractor {
 pub enum MacroType {
     StructAttribute(ASTStructDef),
     EnumAttribute(ASTEnumDef),
-    Standard,
+    Expression,
+    Statement,
 }
 
 pub struct MacroCall {
@@ -183,6 +184,7 @@ fn extract_macro_calls_in_body(
                     expression,
                     calls,
                     in_function,
+                    MacroType::Statement,
                 )
             }
             ASTStatement::ASTLetStatement(_, expression, _) => extract_macro_calls_in_expression(
@@ -193,6 +195,7 @@ fn extract_macro_calls_in_body(
                 expression,
                 calls,
                 in_function,
+                MacroType::Expression,
             ),
             ASTStatement::ASTConstStatement(_, expression, _, _) => {
                 extract_macro_calls_in_expression(
@@ -203,6 +206,7 @@ fn extract_macro_calls_in_body(
                     expression,
                     calls,
                     in_function,
+                    MacroType::Expression,
                 )
             }
         }
@@ -217,12 +221,13 @@ fn extract_macro_calls_in_expression(
     expression: &ASTExpression,
     calls: &mut Vec<MacroCall>,
     in_function: Option<&ASTFunctionSignature>,
+    macro_type: MacroType,
 ) {
     match expression {
         ASTExpression::ASTFunctionCallExpression(function_call) => {
             if function_call.is_macro() {
                 calls.push(get_macro_call(
-                    MacroType::Standard,
+                    macro_type,
                     function_call,
                     container,
                     catalog,
@@ -240,6 +245,7 @@ fn extract_macro_calls_in_expression(
                         it,
                         calls,
                         in_function,
+                        MacroType::Expression,
                     )
                 });
             }
@@ -271,22 +277,26 @@ fn get_macro_call(
         .into_iter()
         .filter(|it| &it.signature.name == call.function_name())
         .map(|it| (it, get_macro_result_type(&it.signature.return_type)))
-        .filter(|(entry, result_type)| {
+        .filter(|(entry, macro_result_type)| {
             (entry.signature.modifiers.public
                 || entry.module_info().namespace() == module_namespace)
-                && result_type.is_some()
+                && macro_result_type.is_some()
         })
-        .filter(|it| match &macro_type {
-            MacroType::Standard => true,
+        .filter(|(entry, macro_result_type)| match &macro_type {
+            MacroType::Expression => macro_result_type.unwrap() == MacroResultType::Expression,
+            MacroType::Statement => macro_result_type.unwrap() == MacroResultType::Statement,
             MacroType::StructAttribute(_) => {
-                if it.0.signature.parameters_types.len() == 0 {
+                if macro_result_type.unwrap() != MacroResultType::Attribute {
+                    return false;
+                }
+                if entry.signature.parameters_types.len() == 0 {
                     return false;
                 }
                 if let ASTType::ASTCustomType {
                     name,
                     param_types: _,
                     position: _,
-                } = &it.0.signature.parameters_types[0]
+                } = &entry.signature.parameters_types[0]
                 {
                     name == "ASTStructDef"
                 } else {
@@ -294,14 +304,17 @@ fn get_macro_call(
                 }
             }
             MacroType::EnumAttribute(_) => {
-                if it.0.signature.parameters_types.len() == 0 {
+                if macro_result_type.unwrap() != MacroResultType::Attribute {
+                    return false;
+                }
+                if entry.signature.parameters_types.len() == 0 {
                     return false;
                 }
                 if let ASTType::ASTCustomType {
                     name,
                     param_types: _,
                     position: _,
-                } = &it.0.signature.parameters_types[0]
+                } = &entry.signature.parameters_types[0]
                 {
                     name == "ASTEnumDef"
                 } else {
@@ -442,7 +455,7 @@ fn get_macro_call(
                 simple_call("ASTEnumDef", parameters, call.position().copy(), None),
             )]
         }
-        MacroType::Standard => {
+        MacroType::Expression | MacroType::Statement => {
             if is_ast_module_first_parameter(&function.signature) {
                 vec![(
                     ASTType::ASTCustomType {
@@ -772,10 +785,11 @@ fn error(
     format!("{} : {}:{}", message, enh_module_id, position)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum MacroResultType {
-    Module,
+    Statement,
     Expression,
+    Attribute,
 }
 
 fn get_macro_result_type(ast_type: &ASTType) -> Option<MacroResultType> {
@@ -785,10 +799,12 @@ fn get_macro_result_type(ast_type: &ASTType) -> Option<MacroResultType> {
             param_types: _,
             position: _,
         } => {
-            if name == "MacroModuleResult" {
-                Some(MacroResultType::Module)
+            if name == "MacroStatementResult" {
+                Some(MacroResultType::Statement)
             } else if name == "MacroExpressionResult" {
                 Some(MacroResultType::Expression)
+            } else if name == "MacroAttributeResult" {
+                Some(MacroResultType::Attribute)
             } else {
                 None
             }

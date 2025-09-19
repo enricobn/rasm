@@ -1,10 +1,15 @@
-pub enum MacroModuleResult {
-    MacroModule(module: ASTModule),
+pub enum MacroStatementResult {
+    MacroStatementOk(statements: Vec<ASTStatement>, functions: Vec<ASTFunctionDef>),
     MacroError(message: str)
 }
 
 pub enum MacroExpressionResult {
-    MacroExpression(expr: ASTExpression),
+    MacroExpressionOk(expr: ASTExpression),
+    MacroError(message: str)
+}
+
+pub enum MacroAttributeResult {
+    MacroAttributeOk(functions: Vec<ASTFunctionDef>),
     MacroError(message: str)
 }
 

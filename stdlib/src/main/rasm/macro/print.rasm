@@ -1,20 +1,18 @@
-pub fn println(s: str, exprs: Vec<ASTExpression>) -> MacroModuleResult {
+pub fn println(s: str, exprs: Vec<ASTExpression>) -> MacroStatementResult {
     printLike(s, exprs, "println");
 }
 
-pub fn print(s: str, exprs: Vec<ASTExpression>) -> MacroModuleResult {
+pub fn print(s: str, exprs: Vec<ASTExpression>) -> MacroStatementResult {
     printLike(s, exprs, "print");
 }
 
-fn printLike(s: str, exprs: Vec<ASTExpression>, functionToCall: str) -> MacroModuleResult {
+fn printLike(s: str, exprs: Vec<ASTExpression>, functionToCall: str) -> MacroStatementResult {
     let parameters = vecOf(stringASTValue(s)).add(exprs);
     let f = format(s, exprs);
     f.match(fn(e) {
         let statement = ASTExpressionStatement(simpleASTCall(functionToCall, vecOf(e)));
-        MacroModule(ASTModule(
-            vecOf(statement), Vec(), Vec(), Vec(), Vec()
-        ));
+        MacroStatementOk(vecOf(statement), Vec());
     }, fn(e) {
-        MacroModuleResult::MacroError(e);
+        MacroStatementResult::MacroError(e);
     });
 }

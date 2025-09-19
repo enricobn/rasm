@@ -508,7 +508,7 @@ impl CompileTarget {
                 {
                     for (call, (new_module, _)) in value {
                         match call.macro_result_type {
-                            MacroResultType::Module => {
+                            MacroResultType::Statement => {
                                 self.replace_statements_in_module(
                                     &mut module,
                                     &call.position,
@@ -542,6 +542,9 @@ impl CompileTarget {
                                     &call.position,
                                     &expression,
                                 );
+                            }
+                            MacroResultType::Attribute => {
+                                module.functions.extend(new_module.functions);
                             }
                         }
                     }
