@@ -231,3 +231,11 @@ type check ended in 91.345788ms
 code generation ended in 52.855415ms
 compiler ended in 530.732426ms
 finished in 723.371174ms
+
+more on C target: source split
+parse ended in 29.504479ms
+AST type check ended in 16.710323ms
+type check ended in 93.493062ms
+code generation ended in 49.325568ms
+compiler ended in 473.808981ms
+finished in 668.436647ms
