@@ -8,7 +8,7 @@ pub fn vec(exprs: Vec<ASTExpression>) -> MacroExpressionResult {
                         simpleASTCall("push", vecOf(prev, act.value));
                     });
 
-            MacroExpressionOk(result);
+            MacroExpressionOk(result, Vec());
         }, {
             MacroExpressionResult::MacroError("No values, use Vec()");
         }

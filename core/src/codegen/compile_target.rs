@@ -642,8 +642,6 @@ impl CompileTarget {
                 } else {
                     panic!("{} in {}", output_string, call.position());
                 }
-            } else if first == "Expression" {
-                output_string.push(';');
             }
 
             let lexer = Lexer::new(output_string);

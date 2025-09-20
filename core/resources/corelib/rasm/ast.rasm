@@ -4,7 +4,7 @@ pub enum MacroStatementResult {
 }
 
 pub enum MacroExpressionResult {
-    MacroExpressionOk(expr: ASTExpression),
+    MacroExpressionOk(expr: ASTExpression, functions: Vec<ASTFunctionDef>),
     MacroError(message: str)
 }
 

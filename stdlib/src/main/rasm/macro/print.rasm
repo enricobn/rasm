@@ -9,10 +9,10 @@ pub fn print(s: str, exprs: Vec<ASTExpression>) -> MacroStatementResult {
 fn printLike(s: str, exprs: Vec<ASTExpression>, functionToCall: str) -> MacroStatementResult {
     let parameters = vecOf(stringASTValue(s)).add(exprs);
     let f = format(s, exprs);
-    f.match(fn(e) {
-        let statement = ASTExpressionStatement(simpleASTCall(functionToCall, vecOf(e)));
-        MacroStatementOk(vecOf(statement), Vec());
-    }, fn(e) {
-        MacroStatementResult::MacroError(e);
+    f.match(fn(expr, functions) {
+        let statement = ASTExpressionStatement(simpleASTCall(functionToCall, vecOf(expr)));
+        MacroStatementOk(vecOf(statement), functions);
+    }, fn(error) {
+        MacroStatementResult::MacroError(error);
     });
 }

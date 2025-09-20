@@ -24,7 +24,7 @@ pub fn format(s: str, exprs: Vec<ASTExpression>) -> MacroExpressionResult {
     });
 
     if(indexes.len.eq(exprs.len), {
-        MacroExpressionOk(result);
+        MacroExpressionOk(result, Vec());
     }, {
         MacroExpressionResult::MacroError("Expected ".append(exprs.len).add(" parameters, got ".append(indexes.len.toString())));
     });

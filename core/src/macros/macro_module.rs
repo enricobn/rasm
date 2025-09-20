@@ -87,7 +87,7 @@ pub fn create_macro_module(
             }
             MacroResultType::Expression => {
                 body.push_str(
-                    "macroResult.match(fn (expr) { \"Expression\\n\".append(expr); }, fn (message) { \"Error\\n\".add(message); });\n",
+                    "macroResult.match(fn (expr, functions) { \"Expression\\n\".append(expr).add(\";\\n\").add(functions.join(\"\\n\")); }, fn (message) { \"Error\\n\".add(message); });\n",
                 );
             }
             MacroResultType::Attribute => {
