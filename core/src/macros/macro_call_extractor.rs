@@ -843,7 +843,7 @@ fn convert_to_rasm_expression(
             ));
             fcp.push(call_none(function_call.position().copy()));
             fcp.push(ASTExpression::ASTValueExpression(
-                ASTValue::ASTBooleanValue(false),
+                ASTValue::ASTBooleanValue(function_call.is_macro()),
                 function_call.position().copy(),
             ));
             simple_call(
