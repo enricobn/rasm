@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use log::info;
 use rasm_parser::{
     catalog::{modules_catalog::ModulesCatalog, ASTIndex, ModuleId, ModuleNamespace},
@@ -728,7 +729,7 @@ fn vec_or_vec_of(
     ast_type: ASTType,
 ) -> ASTExpression {
     if parameters.is_empty() {
-        call_empty_vec(position.copy(), ast_type)
+        simple_call("Vec", Vec::new(), position.copy(), None)
     } else {
         let start = call_empty_vec(position.copy(), ast_type);
 
@@ -833,13 +834,14 @@ fn convert_to_rasm_expression(
                 function_call.parameters(),
                 function_call.position().copy(),
             ));
-            fcp.push(call_empty_vec(
+            fcp.push(vec_or_vec_of(
+                function_call
+                    .generics()
+                    .iter()
+                    .map(|it| to_ast_type(it, function_call.position().copy()))
+                    .collect_vec(),
                 function_call.position().copy(),
-                ASTType::ASTCustomType {
-                    name: "ASTType".to_owned(),
-                    param_types: Vec::new(),
-                    position: function_call.position().copy(),
-                },
+                ast_custom_type("ASTType"),
             ));
             fcp.push(call_none(function_call.position().copy()));
             fcp.push(ASTExpression::ASTValueExpression(

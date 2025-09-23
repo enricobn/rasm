@@ -634,7 +634,7 @@ impl CompileTarget {
 
         let mut output_lines = output_stdout.lines();
         if let Some(first) = output_lines.next() {
-            let mut output_string = output_lines.collect::<Vec<_>>().join("\n");
+            let output_string = output_lines.collect::<Vec<_>>().join("\n");
             if first == "Error" {
                 if let Some(info) = catalog.catalog_info(call.module_id()) {
                     let index = EnhASTIndex::new(info.0.path(), call.position().clone());
