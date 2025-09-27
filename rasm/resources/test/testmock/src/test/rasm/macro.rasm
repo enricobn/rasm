@@ -54,19 +54,11 @@ pub fn evaluate(expr: ASTExpression) -> MacroExpressionResult {
     MacroExpression(expr);
 }
 
-fn findOne<T>(v: Vec<T>, condition: fn(T) -> bool) -> Option<T> {
+pub fn findOne<T>(v: Vec<T>, condition: fn(T) -> bool) -> Option<T> {
     let elements = v.filter(condition);
     if(elements.len.eq(1), {
         elements.first();
     }, {
         None();
     });
-}
-
-pub fn printFunctions(module: ASTModule) -> MacroStatementResult {
-    let functions = module.functions.map(fn(it) { it.name; });
-
-    let statement = ASTExpressionStatement(simpleASTCall("println", vecOf(stringASTValue(functions.toString))));
-
-    MacroStatementOk(vecOf(statement), Vec());
 }

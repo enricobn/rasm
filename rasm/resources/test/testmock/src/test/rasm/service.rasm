@@ -1,19 +1,99 @@
 struct MockedConnection {}
 
 pub fn testService() {
-    /*
-    printFunctions!();
-    printFunctions!();
-    printFunctions!();
-    printFunctions!();
-    printFunctions!();
-    */
+    when!("save", "findUser", eq!("aUser"), Ok<User,str>(User("mocked user")));
+    
+    // .call!("save", Connection(), "aUser", 10);
 
-    copyFunction!("save", "newSave", "findUser", "findUserMocked");
+    // copyFunction!("save", "newSave", "findUser", "findUserMocked");
 
-    println(newSave(Connection(), "aUser", 10).match(fn(amount) { "saved ".append(amount); }, fn(err) { err;}));
+    //println(newSave(Connection(), "aUser", 10).match(fn(amount) { "saved ".append(amount); }, fn(err) { err;}));
+    println(saveMock(Connection(), "aUser", 10).match(fn(amount) { "saved ".append(amount); }, fn(err) { err;}));
+
 }
 
 fn findUserMocked(conn: Connection, userName: str) -> Result<User,str> {
     Ok(User("mocked user"));
+}
+
+pub fn eq(e: ASTExpression) -> MacroExpressionResult {
+    MacroExpressionOk(simpleASTCall("eq", vecOf(ASTValueRefExpression("whenParameter"), e)), Vec());
+}
+
+pub fn when(module: ASTModule, functionToCopy: str, functionName: str, params: Vec<ASTExpression>) -> MacroStatementResult {
+    params.last.match(fn(returnValue) {
+        let functionParameters = params.take(params.len.sub(1));
+
+        subCall(module, functionToCopy, functionName, functionParameters, returnValue)
+        .match(fn(newFunction) {
+            MacroStatementOk(vecOf(ASTExpressionStatement(simpleASTCall("println", vecOf(stringASTValue("OK"))))), vecOf(newFunction));
+        }, {
+            MacroStatementResult::MacroError("cannot find a function ".add(functionToCopy).add(" calling ").add(functionName));
+        });        
+    }, {
+        MacroStatementResult::MacroError("cannot find the return value");
+    });    
+}
+
+fn subCall(module: ASTModule, name: str, functionCallName: str, params: Vec<ASTExpression>, returnValue: ASTExpression) -> Option<ASTFunctionDef> {
+    let newName = name.add("Mock");
+    module.functions.findOne(fn(it) { it.name.eq(name); })
+        .match(fn(function) {
+            let newBody = function.body.match(
+                fn(rasmBody) {
+                    let newBody = 
+                        rasmBody.map(fn(it) { changeCall(it, functionCallName, params, returnValue);});
+                    RASMBody(newBody);
+                },
+                fn(nativeBody) { function.body; }
+            );
+            Some(function.name(newName).body(newBody));
+        }, {
+            None();
+        });
+}
+
+fn changeCall(stmt: ASTStatement, functionCallName: str, params: Vec<ASTExpression>, returnValue: ASTExpression) -> ASTStatement {
+    stmt.match(
+        fn(expr) {  
+            ASTExpressionStatement(changeCall(expr, functionCallName, params, returnValue));
+        }, 
+        fn(s, expr) { ASTLetStatement(s, changeCall(expr, functionCallName, params, returnValue)); }, 
+        fn(s, expr, modifiers) { ASTConstStatement(s, changeCall(expr, functionCallName, params, returnValue), modifiers); }
+    );
+}
+
+fn changeCall(expr: ASTExpression, functionCallName: str, params: Vec<ASTExpression>, returnValue: ASTExpression) -> ASTExpression {
+    expr.match(
+        fn(call) {
+            if (call.functionName.eq(functionCallName).and(params.len.eq(call.parameters.len)), {
+                returnValue; // TODO
+            }, {expr;});
+        }, 
+        fn(s) { if(s.eq("whenParameter"), returnValue, expr); }, 
+        fn(value) { expr; }, 
+        fn(lambda) { // TODO
+            expr;
+        });
+}
+
+fn changePar(expr: ASTExpression, newExpr: ASTExpression) -> ASTExpression {
+    expr.match(
+        fn(call) {  
+            let newCall = 
+                call.parameters.map(changePar.curryRight(newExpr));
+            ASTFunctionCallExpression(newCall);
+        }, 
+        fn(s) { if(s.eq("whenParameter"), newExpr, expr); }, 
+        fn(value) { expr; }, 
+        fn(lambda) { 
+            expr;
+        });
+}
+
+pub fn toString<T,E>(result: Result<T,E>) -> str {
+    result.match(
+        fn(value) { "OK(".append(value).add(")");},
+        fn(error) { "Error(".append(error).add(")");
+    });
 }
