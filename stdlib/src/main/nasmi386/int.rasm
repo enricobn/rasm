@@ -50,14 +50,19 @@ pub native toString(n: int) -> str /{
     mov     dword esi,[eax]
 
     add     esi,19
-
-    mov     eax,$n ; integer value to convert
     mov     byte [esi],0    ; String terminator
 
+    mov     eax,$n ; integer value to convert
+    mov     dword ecx,eax
+    and     dword ecx,0x80000000
+    jz      .positive
+    xor     dword eax,0xFFFFFFFF
+    inc     dword eax
+.positive:
     mov ebx,10
     xor ecx,ecx         ; initialize length
 .next_digit:
-    xor edx,edx         ; Clear edx prior to dividing edx:eax by ebx
+    xor edx,edx         ; Clear edx prior to dividing eax by ebx
     div ebx             ; eax /= 10
     add dl,'0'          ; Convert the remainder to ASCII
     dec esi             ; store characters in reverse order
@@ -67,6 +72,13 @@ pub native toString(n: int) -> str /{
     test eax,eax
     jnz .next_digit     ; Repeat until eax==0
 
+    mov     dword edx,$n
+    and     dword edx,0x80000000
+    jz      .positive1
+    dec     esi
+    inc     ecx
+    mov     byte [esi],'-'
+.positive1:
     inc    ecx          ; The length + 1, I think the 0 at the end...
     $call(rasmalloc, ecx, " for toString(int)")
 
