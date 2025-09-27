@@ -1,7 +1,7 @@
 struct MockedConnection {}
 
 pub fn testService() {
-    when!("save", "findUser", eq!("aUser"), Ok<User,str>(User("mocked user")));
+    when!("save", "findUser", any!(), eq!("aUser"), Ok<User,str>(User("mocked user")));
     
     // .call!("save", Connection(), "aUser", 10);
 
@@ -20,7 +20,12 @@ pub fn eq(e: ASTExpression) -> MacroExpressionResult {
     MacroExpressionOk(simpleASTCall("eq", vecOf(ASTValueRefExpression("whenParameter"), e)), Vec());
 }
 
+pub fn any() -> MacroExpressionResult {
+    MacroExpressionOk(booleanASTValue(true), Vec());
+}
+
 pub fn when(module: ASTModule, functionToCopy: str, functionName: str, params: Vec<ASTExpression>) -> MacroStatementResult {
+    delete("testmock.log");
     params.last.match(fn(returnValue) {
         let functionParameters = params.take(params.len.sub(1));
 
@@ -39,6 +44,7 @@ fn subCall(module: ASTModule, name: str, functionCallName: str, params: Vec<ASTE
     let newName = name.add("Mock");
     module.functions.findOne(fn(it) { it.name.eq(name); })
         .match(fn(function) {
+            log("found function ".add(name));
             let newBody = function.body.match(
                 fn(rasmBody) {
                     let newBody = 
@@ -66,14 +72,20 @@ fn changeCall(stmt: ASTStatement, functionCallName: str, params: Vec<ASTExpressi
 fn changeCall(expr: ASTExpression, functionCallName: str, params: Vec<ASTExpression>, returnValue: ASTExpression) -> ASTExpression {
     expr.match(
         fn(call) {
+            log("found call ".add(call.functionName));
             if (call.functionName.eq(functionCallName).and(params.len.eq(call.parameters.len)), {
+                log("found ".add(functionCallName));
                 returnValue; // TODO
-            }, {expr;});
+            }, {
+                let newParameters = call.parameters.map(fn(it) { changeCall(it, functionCallName, params, returnValue);});
+                ASTFunctionCallExpression(call.parameters(newParameters));
+            });
         }, 
-        fn(s) { if(s.eq("whenParameter"), returnValue, expr); }, 
+        fn(s) { expr; }, 
         fn(value) { expr; }, 
-        fn(lambda) { // TODO
-            expr;
+        fn(lambda) {
+            let newBody = lambda.body.map(fn(it) { changeCall(it, functionCallName, params, returnValue);});
+            ASTLambdaExpression(lambda.body(newBody));
         });
 }
 
@@ -96,4 +108,15 @@ pub fn toString<T,E>(result: Result<T,E>) -> str {
         fn(value) { "OK(".append(value).add(")");},
         fn(error) { "Error(".append(error).add(")");
     });
+}
+
+fn log(message: str) {
+    let actual = if(fileExists("testmock.log"), {
+        readFile("testmock.log");
+    }, { ""; });
+
+    let f = createFile("testmock.log");
+    print(f, actual).or(println(f, message)).toUnit;
+    
+    f.close();
 }
