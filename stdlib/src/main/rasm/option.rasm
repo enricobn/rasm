@@ -7,10 +7,6 @@ pub fn toList<T>(o: Option<T>) -> List<T> {
     match(o, fn(v) {listOf(v);}, {Empty();});
 }
 
-pub fn print<T>(file: File, o: Option<T>) -> Option<IOError> {
-    match(o, fn(v) { print(file, "Some(").or(print(file, v)).or(print(file, ")"));}, {print(file, "None");});
-}
-
 pub fn getOrElse<T>(o: Option<T>, defaultValue: T) -> T {
     match(o, fn(v) {v;}, {defaultValue;});
 }
