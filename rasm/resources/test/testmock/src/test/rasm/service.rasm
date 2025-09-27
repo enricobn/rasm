@@ -74,6 +74,15 @@ fn changeCall(expr: ASTExpression, functionCallName: str, params: Vec<ASTExpress
         fn(call) {
             log("found call ".add(call.functionName));
             if (call.functionName.eq(functionCallName).and(params.len.eq(call.parameters.len)), {
+                let parameterLambdas = call.parameters.zip(params, fn(cp, p) {
+                    let body = vecOf(
+                        ASTLetStatement("whenParameter", cp), 
+                        ASTExpressionStatement(p)
+                    );
+                    ASTLambdaExpression(ASTLambdaDef(Vec(), body));
+                });
+
+
                 log("found ".add(functionCallName));
                 returnValue; // TODO
             }, {
@@ -87,6 +96,20 @@ fn changeCall(expr: ASTExpression, functionCallName: str, params: Vec<ASTExpress
             let newBody = lambda.body.map(fn(it) { changeCall(it, functionCallName, params, returnValue);});
             ASTLambdaExpression(lambda.body(newBody));
         });
+}
+
+/*
+    if(allTrue(vecOf({
+        let whenParameter = conn;
+        true;
+    },{
+        let whenParameter = userName;
+        eq(whenParameter, "aUser");
+    })), returnValue, call());
+*/
+
+pub fn allTrue(vec: Vec<fn() -> bool>) -> bool {
+    vec.foldLeft(true, fn(prev,actual) { prev.and(actual.call);});
 }
 
 fn changePar(expr: ASTExpression, newExpr: ASTExpression) -> ASTExpression {
