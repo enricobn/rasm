@@ -242,15 +242,13 @@ pub trait TypeDefProvider {
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))
                 }
                 EnhBuiltinTypeKind::Lambda {
-                    parameters: _,
-                    return_type: _,
+                    parameters,
+                    return_type,
                 } => {
-                    None
-                    /*
                     let new_parameters = parameters
                         .iter()
                         .map(|it| self.get_ast_typed_type_from_ast_type(it).unwrap())
-                        .collect_vec();
+                        .collect::<Vec<ASTTypedType>>();
                     let new_return_type = self
                         .get_ast_typed_type_from_ast_type(&return_type)
                         .expect(&format!("Cannot find typed type for {return_type}"));
@@ -258,7 +256,6 @@ pub trait TypeDefProvider {
                         parameters: new_parameters,
                         return_type: Box::new(new_return_type),
                     }))
-                    */
                 }
             },
             EnhASTType::Generic(_, _, _) => None,

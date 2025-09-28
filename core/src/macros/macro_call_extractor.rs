@@ -36,6 +36,17 @@ pub enum MacroType {
     Statement,
 }
 
+impl Display for MacroType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MacroType::StructAttribute(s) => write!(f, "StructAttribute({})", s.name),
+            MacroType::EnumAttribute(e) => write!(f, "EnumAttribute({})", e.name),
+            MacroType::Expression => write!(f, "Expression"),
+            MacroType::Statement => write!(f, "Statement"),
+        }
+    }
+}
+
 pub struct MacroCall {
     pub id: usize,
     pub module_namespace: ModuleNamespace,
@@ -157,7 +168,10 @@ pub fn extract_macro_calls(
     }
 }
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+    fmt::Display,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 static MACRO_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -791,6 +805,16 @@ pub enum MacroResultType {
     Statement,
     Expression,
     Attribute,
+}
+
+impl Display for MacroResultType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MacroResultType::Statement => write!(f, "Statement"),
+            MacroResultType::Expression => write!(f, "Expression"),
+            MacroResultType::Attribute => write!(f, "Attribute"),
+        }
+    }
 }
 
 fn get_macro_result_type(ast_type: &ASTType) -> Option<MacroResultType> {

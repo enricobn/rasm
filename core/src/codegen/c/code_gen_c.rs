@@ -244,8 +244,8 @@ impl CodeGenC {
         } else {
             if "_fn" == type_name {
                 code_manipulator.add(out, &source, None, true);
-            // TODO handle str, for now it's not possible since there's no difference,
-            //   between heap and static allocated strings
+                // TODO handle str, for now it's not possible since there's no difference,
+                //   between heap and static allocated strings
             } else if "str" != type_name && !is_static {
                 Self::call_add_ref_simple(code_manipulator, out, source, descr_for_debug);
             }
@@ -325,8 +325,8 @@ impl CodeGenC {
         } else {
             if "_fn" == type_name {
                 code_manipulator.add(out, &source, None, true);
-            // TODO handle str, for now it's not possible since there's no difference,
-            //   between heap and static allocated strings
+                // TODO handle str, for now it's not possible since there's no difference,
+                //   between heap and static allocated strings
             } else if "str" != type_name && !is_static {
                 Self::call_deref_simple(code_manipulator, out, source, descr_for_debug);
             }

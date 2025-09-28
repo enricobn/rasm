@@ -19,6 +19,7 @@
 use rasm_utils::OptionDisplay;
 
 use crate::codegen::c::any::CInclude;
+use crate::codegen::c::typed_function_creator_c::TypedFunctionsCreatorC;
 use crate::codegen::enh_ast::EnhASTType;
 use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
@@ -363,7 +364,7 @@ impl CAddRefMacro {
 impl TextMacroEval for CAddRefMacro {
     fn eval_macro(
         &self,
-        _statics: &mut Statics,
+        statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
@@ -398,26 +399,53 @@ impl TextMacroEval for CAddRefMacro {
             {
                 let descr = &format!("addref macro type {type_name}");
 
-                match self.ref_type {
-                    RefType::Deref => {
-                        CodeGenC::call_deref(
-                            &self.code_manipulator,
-                            &mut result,
-                            address,
-                            &type_name,
-                            descr,
-                            type_def_provider,
-                        );
+                if type_name == "_fn" {
+                    match self.ref_type {
+                        RefType::Deref => {
+                            TypedFunctionsCreatorC::addref_deref_lambda(
+                                &self.code_manipulator,
+                                &mut result,
+                                "deref",
+                                &address,
+                                ast_typed_type,
+                                type_def_provider,
+                                statics,
+                            );
+                        }
+                        RefType::AddRef => {
+                            TypedFunctionsCreatorC::addref_deref_lambda(
+                                &self.code_manipulator,
+                                &mut result,
+                                "addref",
+                                &address,
+                                ast_typed_type,
+                                type_def_provider,
+                                statics,
+                            );
+                        }
                     }
-                    RefType::AddRef => {
-                        CodeGenC::call_add_ref(
-                            &self.code_manipulator,
-                            &mut result,
-                            address,
-                            &type_name,
-                            descr,
-                            type_def_provider,
-                        );
+                } else {
+                    match self.ref_type {
+                        RefType::Deref => {
+                            CodeGenC::call_deref(
+                                &self.code_manipulator,
+                                &mut result,
+                                address,
+                                &type_name,
+                                descr,
+                                type_def_provider,
+                            );
+                        }
+                        RefType::AddRef => {
+                            CodeGenC::call_add_ref(
+                                &self.code_manipulator,
+                                &mut result,
+                                address,
+                                &type_name,
+                                descr,
+                                type_def_provider,
+                            );
+                        }
                     }
                 }
             }

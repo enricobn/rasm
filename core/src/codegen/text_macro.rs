@@ -540,8 +540,6 @@ impl TextMacroEvaluator {
                 )
             } else {
                 let parser = TypeParserHelper::new(par_type_name);
-                // Parser::new(lexer, None);
-
                 let type_parser = TypeParser::new(&parser);
 
                 match type_parser.try_parse_ast_type(0, context_generic_types)? {
@@ -549,16 +547,6 @@ impl TextMacroEvaluator {
                         panic!("Unsupported type {par_type_name}")
                     }
                     Some((ref ast_type, _)) => {
-                        /*
-                        if FOUND_THE_FUNCTION.load(std::sync::atomic::Ordering::Relaxed) {
-                            println!("parse_typed_argument {ast_type}");
-                            println!(
-                                "function_name_for_fix_generics {}",
-                                OptionDisplay(&function_name_for_fix_generics)
-                            );
-                        }
-                        */
-
                         let eh_ast_type = EnhASTType::from_ast(
                             namespace,
                             id,
