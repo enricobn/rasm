@@ -38,8 +38,8 @@ pub enum ASTStatement {
 pub fn toString(stmt: ASTStatement) -> str {
     stmt.match(
         fn (expr) { toString(expr);}, 
-        fn (name, expr) { "let ".add(name).append(expr); },
-        fn (name, expr, modifiers) { "const ".add(name).append(expr); }
+        fn (name, expr) { "let ".add(name).add(" = ").append(expr); },
+        fn (name, expr, modifiers) { "const ".add(name).add(" = ").append(expr); }
     ).add(";");
 }
 
