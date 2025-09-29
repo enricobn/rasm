@@ -1901,13 +1901,13 @@ mod tests {
         let mut selectable_items = helper.find(&get_index(
             &stdlib_project,
             "src/main/rasm/result.rasm",
-            11,
+            18,
             9,
         ));
 
         if selectable_items.len() == 1 {
             let selectable_item = selectable_items.remove(0);
-            let expected_index = get_index(&stdlib_project, "src/main/rasm/result.rasm", 14, 8);
+            let expected_index = get_index(&stdlib_project, "src/main/rasm/result.rasm", 10, 8);
             if let Some(IDESelectableItemTarget::Function(index, _, _)) = selectable_item.target {
                 assert_eq!(index, expected_index);
             } else {
