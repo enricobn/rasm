@@ -1350,6 +1350,27 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     fn include_file(&self, file: &str) -> String {
         format!("#include \"{file}\"")
     }
+
+    fn set_let_for_ref_in_lambda_space(
+        &self,
+        _code_gen_context: &CodeGenCContext,
+        _index_in_lambda_space: usize,
+        before: &mut String,
+        val_name: &String,
+        typed_val_kind: &TypedValKind,
+        statics: &Statics,
+        name: &str,
+    ) {
+        self.code_manipulator.add(
+            before,
+            &format!(
+                "{} {name} = lambda_space->{val_name};",
+                Self::type_to_string(typed_val_kind.typed_type(), statics)
+            ),
+            None,
+            true,
+        );
+    }
 }
 
 pub fn value_type_to_enh_type(value_type: &ASTValue) -> EnhASTType {

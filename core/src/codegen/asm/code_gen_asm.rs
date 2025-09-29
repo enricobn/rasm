@@ -1782,4 +1782,50 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
     fn include_file(&self, file: &str) -> String {
         format!("include '{}'", file)
     }
+
+    fn set_let_for_ref_in_lambda_space(
+        &self,
+        code_gen_context: &CodeGenAsmContext,
+        index_in_lambda_space: usize,
+        before: &mut String,
+        val_name: &String,
+        _typed_val_kind: &TypedValKind,
+        _statics: &Statics,
+        name: &str,
+    ) {
+        let address_relative_to_bp = code_gen_context
+            .stack_vals
+            .find_local_val_relative_to_bp(name)
+            .unwrap();
+
+        let bp = self.backend.stack_base_pointer();
+        let wl = self.backend.word_len();
+
+        if let Some(ref address) = code_gen_context
+            .stack_vals
+            .find_tmp_register("lambda_space_address")
+        {
+            let tmp_register = code_gen_context.stack_vals.reserve_tmp_register(
+                before,
+                "set_let_for_ref_in_lambda_space",
+                self,
+            );
+
+            self.indirect_mov(
+                before,
+                &format!("{address} + {}", (index_in_lambda_space + 2) * wl),
+                &format!("{}+{}", bp, -((address_relative_to_bp * wl) as i32)),
+                &tmp_register,
+                Some(&format!("context parameter {} in {}", val_name, name)),
+            );
+
+            code_gen_context.stack_vals.release_tmp_register(
+                self,
+                before,
+                "set_let_for_ref_in_lambda_space",
+            );
+        } else {
+            panic!()
+        }
+    }
 }

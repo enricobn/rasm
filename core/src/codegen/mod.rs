@@ -248,6 +248,17 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         name: &str,
     ) -> ASTTypedType;
 
+    fn set_let_for_ref_in_lambda_space(
+        &self,
+        code_gen_context: &CTX,
+        index_in_lambda_space: usize,
+        before: &mut String,
+        val_name: &String,
+        typed_val_kind: &TypedValKind,
+        statics: &Statics,
+        name: &str,
+    );
+
     fn set_let_for_string_literal(
         &self,
         code_gen_context: &CTX,
@@ -1053,7 +1064,24 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 }
             }
             ASTTypedExpression::ValueRef(val_name, index, _) => {
-                if let Some(typed_val_kind) = context.get(val_name) {
+                if let Some(typed_val_kind) =
+                    lambda_space.and_then(|it| it.get_context().get(val_name))
+                {
+                    self.set_let_for_ref_in_lambda_space(
+                        code_gen_context,
+                        lambda_space.unwrap().get_index(val_name).unwrap(),
+                        before,
+                        val_name,
+                        typed_val_kind,
+                        statics,
+                        name,
+                    );
+                    (
+                        typed_val_kind.typed_type().clone(),
+                        (String::new(), String::new(), vec![], vec![]),
+                        index.clone(),
+                    )
+                } else if let Some(typed_val_kind) = context.get(val_name) {
                     let typed_type = self.set_let_for_value_ref(
                         code_gen_context,
                         before,
