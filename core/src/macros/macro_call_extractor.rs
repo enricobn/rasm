@@ -240,29 +240,32 @@ fn extract_macro_calls_in_expression(
 ) {
     match expression {
         ASTExpression::ASTFunctionCallExpression(function_call) => {
-            if function_call.is_macro() {
-                calls.push(get_macro_call(
-                    macro_type,
-                    function_call,
+            let call_n = calls.len();
+            function_call.parameters().iter().for_each(|it| {
+                extract_macro_calls_in_expression(
                     container,
                     catalog,
                     module_namespace,
                     module_id,
+                    it,
+                    calls,
                     in_function,
-                ));
-            } else {
-                function_call.parameters().iter().for_each(|it| {
-                    extract_macro_calls_in_expression(
+                    MacroType::Expression,
+                )
+            });
+
+            if calls.len() == call_n {
+                if function_call.is_macro() {
+                    calls.push(get_macro_call(
+                        macro_type,
+                        function_call,
                         container,
                         catalog,
                         module_namespace,
                         module_id,
-                        it,
-                        calls,
                         in_function,
-                        MacroType::Expression,
-                    )
-                });
+                    ));
+                }
             }
         }
         ASTExpression::ASTLambdaExpression(lambda_def) => extract_macro_calls_in_body(
