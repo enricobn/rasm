@@ -1,15 +1,9 @@
 struct MockedConnection {}
 
 pub fn testService() {
-    when!("save", "findUser", any!(), eq!("aUser"), Ok<User,str>(User("mocked user")));
+    when!("save", "findUser", any!(), eq!("aUser"), Ok(User("mocked user")));
     
-    // .call!("save", Connection(), "aUser", 10);
-
-    // copyFunction!("save", "newSave", "findUser", "findUserMocked");
-
-    //println(newSave(Connection(), "aUser", 10).match(fn(amount) { "saved ".append(amount); }, fn(err) { err;}));
     println(saveMock(Connection(), "aUser", 10).match(fn(amount) { "saved ".append(amount); }, fn(err) { err;}));
-
 }
 
 fn findUserMocked(conn: Connection, userName: str) -> Result<User,str> {
@@ -25,13 +19,13 @@ pub fn any() -> MacroExpressionResult {
 }
 
 pub fn when(module: ASTModule, functionToCopy: str, functionName: str, params: Vec<ASTExpression>) -> MacroStatementResult {
-    delete("testmock.log");
+    // delete("testmock.log");
     params.last.match(fn(returnValue) {
         let functionParameters = params.take(params.len.sub(1));
 
         subCall(module, functionToCopy, functionName, functionParameters, returnValue)
         .match(fn(newFunction) {
-            MacroStatementOk(vecOf(ASTExpressionStatement(simpleASTCall("println", vecOf(stringASTValue("OK"))))), vecOf(newFunction));
+            MacroStatementOk(Vec(), vecOf(newFunction));
         }, {
             MacroStatementResult::MacroError("cannot find a function ".add(functionToCopy).add(" calling ").add(functionName));
         });        
@@ -44,7 +38,6 @@ fn subCall(module: ASTModule, name: str, functionCallName: str, params: Vec<ASTE
     let newName = name.add("Mock");
     module.functions.findOne(fn(it) { it.name.eq(name); })
         .match(fn(function) {
-            log("found function ".add(name));
             let newBody = function.body.match(
                 fn(rasmBody) {
                     let newBody = 
@@ -72,19 +65,23 @@ fn changeCall(stmt: ASTStatement, functionCallName: str, params: Vec<ASTExpressi
 fn changeCall(expr: ASTExpression, functionCallName: str, params: Vec<ASTExpression>, returnValue: ASTExpression) -> ASTExpression {
     expr.match(
         fn(call) {
-            log("found call ".add(call.functionName));
             if (call.functionName.eq(functionCallName).and(params.len.eq(call.parameters.len)), {
                 let parameterLambdas = call.parameters.zip(params, fn(cp, p) {
                     let body = vecOf(
                         ASTLetStatement("whenParameter", cp), 
-                        ASTExpressionStatement(p)
+                        ASTLetStatement("whenParameterResult", p),
+                        ASTExpressionStatement(ASTValueRefExpression("whenParameterResult"))
                     );
                     ASTLambdaExpression(ASTLambdaDef(Vec(), body));
                 });
 
+                let newCall = simpleASTCall("if", vecOf(
+                    simpleASTCall("allTrue", vecOf(simpleASTCall("vecOf", parameterLambdas))), 
+                    simpleLambda(returnValue), 
+                    simpleLambda(expr)
+                ));
 
-                log("found ".add(functionCallName));
-                returnValue; // TODO
+                newCall;
             }, {
                 let newParameters = call.parameters.map(fn(it) { changeCall(it, functionCallName, params, returnValue);});
                 ASTFunctionCallExpression(call.parameters(newParameters));
@@ -96,6 +93,10 @@ fn changeCall(expr: ASTExpression, functionCallName: str, params: Vec<ASTExpress
             let newBody = lambda.body.map(fn(it) { changeCall(it, functionCallName, params, returnValue);});
             ASTLambdaExpression(lambda.body(newBody));
         });
+}
+
+fn simpleLambda(expr: ASTExpression) -> ASTExpression {
+    ASTLambdaExpression(ASTLambdaDef(Vec(), vecOf(ASTExpressionStatement(expr))));
 }
 
 /*
