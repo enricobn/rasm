@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::Path,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -13,7 +14,7 @@ use crate::{
         enh_ast::{EnhASTIndex, EnhASTNameSpace},
         enh_val_context::TypedValContext,
         get_reference_type_name,
-        lambda::LambdaSpace,
+        lambda::{LambdaCall, LambdaSpace},
         stack::{StackEntryType, StackVals},
         statics::{MemoryUnit, MemoryValue, Statics},
         text_macro::{AddRefMacro, InlineMacro, InlineRegistry, RefType, TextMacroEvaluator},
@@ -1827,5 +1828,21 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         } else {
             panic!()
         }
+    }
+
+    fn set_let_for_function_ref(
+        &self,
+        code_gen_context: &CodeGenAsmContext,
+        before: &mut String,
+        val_name: &String,
+        def: &mut ASTTypedFunctionDef,
+        statics: &mut Statics,
+        name: &str,
+        id: &mut usize,
+        function_reference_lambdas: &mut HashMap<String, LambdaCall>,
+        typed_module: &ASTTypedModule,
+        lambda_calls: &mut Vec<LambdaCall>,
+    ) -> ASTTypedType {
+        todo!()
     }
 }

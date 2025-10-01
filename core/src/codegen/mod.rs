@@ -248,6 +248,20 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         name: &str,
     ) -> ASTTypedType;
 
+    fn set_let_for_function_ref(
+        &self,
+        code_gen_context: &CTX,
+        before: &mut String,
+        val_name: &String,
+        def: &mut ASTTypedFunctionDef,
+        statics: &mut Statics,
+        name: &str,
+        id: &mut usize,
+        function_reference_lambdas: &mut HashMap<String, LambdaCall>,
+        typed_module: &ASTTypedModule,
+        lambda_calls: &mut Vec<LambdaCall>,
+    ) -> ASTTypedType;
+
     fn set_let_for_ref_in_lambda_space(
         &self,
         code_gen_context: &CTX,
@@ -1113,8 +1127,27 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             index.clone(),
                         )
                         */
+                } else if let Some(function) = typed_module.functions_by_name.get(val_name) {
+                    let mut lambda_calls = Vec::new();
+                    let typed_type = self.set_let_for_function_ref(
+                        code_gen_context,
+                        before,
+                        val_name,
+                        &mut function.clone(),
+                        statics,
+                        name,
+                        id,
+                        function_reference_lambdas,
+                        typed_module,
+                        &mut lambda_calls,
+                    );
+                    (
+                        typed_type,
+                        (String::new(), String::new(), vec![], lambda_calls),
+                        index.clone(),
+                    )
                 } else {
-                    panic!("Cannot find {name} in context");
+                    panic!("Cannot find {val_name} in context");
                 }
             }
 

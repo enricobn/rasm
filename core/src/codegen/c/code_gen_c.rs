@@ -17,7 +17,7 @@
  */
 
 use core::panic;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
@@ -32,7 +32,7 @@ use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
-use crate::codegen::lambda::LambdaSpace;
+use crate::codegen::lambda::{LambdaCall, LambdaSpace};
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{InlineMacro, InlineRegistry, RefType, TextMacroEvaluator};
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
@@ -1370,6 +1370,107 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             None,
             true,
         );
+    }
+
+    fn set_let_for_function_ref(
+        &self,
+        code_gen_context: &CodeGenCContext,
+        before: &mut String,
+        val_name: &String,
+        def: &mut ASTTypedFunctionDef,
+        statics: &mut Statics,
+        name: &str,
+        id: &mut usize,
+        function_reference_lambdas: &mut HashMap<String, LambdaCall>,
+        typed_module: &ASTTypedModule,
+        lambda_calls: &mut Vec<LambdaCall>,
+    ) -> ASTTypedType {
+        let mut fcp =
+            self.function_call_parameters(code_gen_context, None, &Vec::new(), false, false, *id);
+        if let Some(l) = function_reference_lambdas.get(val_name) {
+            let lambda_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                parameters: l
+                    .def
+                    .parameters
+                    .iter()
+                    .map(|it| it.ast_type.clone())
+                    .collect::<Vec<_>>(),
+                return_type: Box::new(l.def.return_type.clone()),
+            });
+
+            fcp.add_lambda(
+                &mut l.def.clone(), // original def must not be changed
+                None,
+                &TypedValContext::new(None),
+                Some(&format!("reference to function {val_name}")),
+                statics,
+                typed_module,
+                code_gen_context,
+                true, // TODO
+                &lambda_type,
+                &l.def.name,
+            );
+
+            before.push_str(&fcp.before());
+
+            let lambda_var = fcp
+                .parameters_values()
+                .iter()
+                .find(|it| it.0 == &def.name)
+                .map(|it| it.1)
+                .unwrap();
+
+            before.push_str(&format!("struct RasmPointer_ *{name} = {lambda_var};"));
+
+            return lambda_type;
+        }
+
+        let lambda_name = format!("lambda_{}", id);
+        def.name = lambda_name.clone();
+        *id += 1;
+
+        let lambda_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+            parameters: def
+                .parameters
+                .iter()
+                .map(|it| it.ast_type.clone())
+                .collect::<Vec<_>>(),
+            return_type: Box::new(def.return_type.clone()),
+        });
+
+        let lambda_space = fcp.add_lambda(
+            def,
+            None,
+            &TypedValContext::new(None),
+            Some(&format!("reference to function {val_name}")),
+            statics,
+            typed_module,
+            code_gen_context,
+            true, // TODO
+            &lambda_type,
+            &lambda_name,
+        );
+        let lambda_call = LambdaCall {
+            def: def.clone(),
+            space: lambda_space,
+        };
+
+        function_reference_lambdas.insert(val_name.to_owned(), lambda_call.clone());
+
+        before.push_str(&fcp.before());
+
+        let lambda_var = fcp
+            .parameters_values()
+            .iter()
+            .find(|it| it.0 == &def.name)
+            .map(|it| it.1)
+            .unwrap();
+
+        before.push_str(&format!("struct RasmPointer_ *{name} = {lambda_var};"));
+
+        lambda_calls.push(lambda_call);
+
+        lambda_type
     }
 }
 
