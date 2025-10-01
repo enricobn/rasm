@@ -542,6 +542,7 @@ impl CompileTarget {
                                     &call.position,
                                     &expression,
                                 );
+                                module.functions.extend(new_module.functions);
                             }
                             MacroResultType::Attribute => {
                                 module.functions.extend(new_module.functions);
@@ -557,7 +558,7 @@ impl CompileTarget {
                         e.attribute_macros.clear();
                     }
 
-                    // println!("new module:\n{module}");
+                    println!("new module:\n{module}");
 
                     original_container.add(
                         module,
