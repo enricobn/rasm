@@ -1456,6 +1456,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         };
 
         function_reference_lambdas.insert(val_name.to_owned(), lambda_call.clone());
+        lambda_calls.push(lambda_call);
 
         before.push_str(&fcp.before());
 
@@ -1467,8 +1468,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             .unwrap();
 
         before.push_str(&format!("struct RasmPointer_ *{name} = {lambda_var};"));
-
-        lambda_calls.push(lambda_call);
 
         lambda_type
     }
