@@ -3,18 +3,20 @@ pub native initRandom() /{
 }/
 
 pub native random() -> int /{
-    $call(rasmalloc, 4, "random")
     push    dword ebx
     push    dword ecx
     push    dword edx
 
+    sub     esp, 4                ; reserve 4 bytes on stack
+    mov     ebx, esp              ; EBX points to the buffer
+
     mov     dword edx, 0          ; flags
     mov     dword ecx, 4          ; bytes
-    mov     dword ebx, eax
-    mov     dword ebx, [ebx]      ; mem address
     mov     eax, 0x163            ; Syscall number
     int     0x80
     mov     dword eax,[ebx]
+    and     eax, 0x7FFFFFFF       ; always positive
+    add     esp, 4
     pop edx
     pop ecx
     pop ebx
