@@ -598,28 +598,37 @@ impl CodeGenAsm {
         temporary_register: &str,
         comment: Option<&str>,
     ) {
+        let ws = self.backend.word_size();
         self.add(
             out,
-            &format!(
-                "mov  {} {}, [{}]",
-                self.backend.word_size(),
-                temporary_register,
-                source
-            ),
+            &format!("mov  {ws} {temporary_register}, [{source}]"),
             comment,
             true,
         );
         self.add(
             out,
-            &format!(
-                "mov  {} [{}], {}",
-                self.backend.word_size(),
-                dest,
-                temporary_register
-            ),
+            &format!("mov  {ws} [{dest}], {temporary_register}"),
             comment,
             true,
         );
+    }
+
+    fn indirect_move_with_tmp(
+        &self,
+        out: &mut String,
+        source: &str,
+        dest: &str,
+        comment: Option<&str>,
+        code_gen_context: &CodeGenAsmContext,
+    ) {
+        let tmp =
+            code_gen_context
+                .stack_vals
+                .reserve_tmp_register(out, "indirect_move_with_tmp", &self);
+        self.indirect_mov(out, source, dest, &tmp, comment);
+        code_gen_context
+            .stack_vals
+            .release_tmp_register(&self, out, "indirect_move_with_tmp");
     }
 
     pub fn return_register(&self) -> &str {
@@ -1194,14 +1203,14 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         _statics: &Statics,
         name: &str,
     ) -> ASTTypedType {
+        let ws = self.backend.word_size();
+        let bp = self.backend.stack_base_pointer();
+        let wl = self.backend.word_len();
+
         let address_relative_to_bp = code_gen_context
             .stack_vals
             .find_local_val_relative_to_bp(name)
             .unwrap();
-
-        let ws = self.backend.word_size();
-        let bp = self.backend.stack_base_pointer();
-        let wl = self.backend.word_len();
 
         let (i, typed_type, descr) = match typed_val_kind {
             TypedValKind::ParameterRef(i, def) => (
@@ -1228,7 +1237,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
             before,
             &format!(
                 "mov {tmp_register}, [{} + {}]",
-                self.backend.stack_base_pointer(),
+                bp,
                 i * self.backend.word_len() as i32
             ),
             Some(&format!("let reference to {descr}")),
@@ -1843,6 +1852,104 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         typed_module: &ASTTypedModule,
         lambda_calls: &mut Vec<LambdaCall>,
     ) -> ASTTypedType {
-        todo!()
+        let ws = self.backend.word_size();
+        let bp = self.backend.stack_base_pointer();
+        let wl = self.backend.word_len();
+        let sp = self.backend.stack_pointer();
+
+        let def_name = def.original_name.clone();
+
+        let address_relative_to_bp = code_gen_context
+            .stack_vals
+            .find_local_val_relative_to_bp(name)
+            .unwrap();
+
+        let mut fcp =
+            self.function_call_parameters(code_gen_context, None, &Vec::new(), false, false, *id);
+        if let Some(l) = function_reference_lambdas.get(val_name) {
+            let lambda_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                parameters: l
+                    .def
+                    .parameters
+                    .iter()
+                    .map(|it| it.ast_type.clone())
+                    .collect::<Vec<_>>(),
+                return_type: Box::new(l.def.return_type.clone()),
+            });
+
+            fcp.add_lambda(
+                &mut l.def.clone(), // original def must not be changed
+                None,
+                &TypedValContext::new(None),
+                Some(&format!("reference to function {val_name}")),
+                statics,
+                typed_module,
+                code_gen_context,
+                true, // TODO
+                &lambda_type,
+                &l.def.name,
+            );
+
+            before.push_str(&fcp.before());
+
+            self.indirect_move_with_tmp(
+                before,
+                &format!("{} + {}", sp, wl),
+                &format!("{bp} + {}", -((address_relative_to_bp * wl) as i32),),
+                Some(&format!("let reference to {def_name}")),
+                code_gen_context,
+            );
+
+            self.add(before, &format!("sub esp, {wl}"), None, true);
+
+            return lambda_type;
+        }
+
+        let lambda_name = format!("lambda_{}", id);
+        def.name = lambda_name.clone();
+        *id += 1;
+
+        let lambda_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+            parameters: def
+                .parameters
+                .iter()
+                .map(|it| it.ast_type.clone())
+                .collect::<Vec<_>>(),
+            return_type: Box::new(def.return_type.clone()),
+        });
+
+        let lambda_space = fcp.add_lambda(
+            def,
+            None,
+            &TypedValContext::new(None),
+            Some(&format!("reference to function {val_name}")),
+            statics,
+            typed_module,
+            code_gen_context,
+            true, // TODO
+            &lambda_type,
+            &lambda_name,
+        );
+        let lambda_call = LambdaCall {
+            def: def.clone(),
+            space: lambda_space,
+        };
+
+        function_reference_lambdas.insert(val_name.to_owned(), lambda_call.clone());
+        lambda_calls.push(lambda_call);
+
+        before.push_str(&fcp.before());
+
+        self.indirect_move_with_tmp(
+            before,
+            &format!("{} + {}", sp, wl),
+            &format!("{bp} + {}", -((address_relative_to_bp * wl) as i32),),
+            Some(&format!("let reference to {def_name}")),
+            code_gen_context,
+        );
+
+        self.add(before, &format!("sub esp, {wl}"), None, true);
+
+        lambda_type
     }
 }
