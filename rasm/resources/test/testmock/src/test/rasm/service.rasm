@@ -1,13 +1,10 @@
 struct MockedConnection {}
 
 pub fn testService() {
-    when!("save", "findUser", any!(), eq!("aUser"), Ok(User("mocked user")));
+    let saveMock = when!("save", "findUser", any!(), eq!("aUser"), Ok<User,str>(User("mocked user")));
+    // whenCopy!("save", "findUser", any!(), eq!("aUser"), Ok<User,str>(User("mocked user")));
     
     println(saveMock(Connection(), "aUser", 10).match(fn(amount) { "saved ".append(amount); }, fn(err) { err;}));
-}
-
-fn findUserMocked(conn: Connection, userName: str) -> Result<User,str> {
-    Ok(User("mocked user"));
 }
 
 pub fn eq(e: ASTExpression) -> MacroExpressionResult {
@@ -18,12 +15,25 @@ pub fn any() -> MacroExpressionResult {
     MacroExpressionOk(booleanASTValue(true), Vec());
 }
 
-pub fn when(module: ASTModule, functionToCopy: str, functionName: str, params: Vec<ASTExpression>) -> MacroStatementResult {
+/**
+    it copies the function with name functionToCopy, to functionToCopy+"Mock", and substitutes the call to functionName,
+    matching the parameters with the given expressions, but not the last which is the expression of the result.
+    It does not return nothing. It works even with generic funtions.
+
+    For example given this macro call:
+    
+    whenCopy!("save", "findUser", any!(), eq!("aUser"), Ok<User,str>(User("mocked user")));
+
+    a saveMock function will be created and if there's a call to findUser, with two parameters, the first any, the second
+    the string "aUser", then Ok<User,str>(User("mocked user")) is returned instead.
+*/
+pub fn whenCopy(module: ASTModule, functionToCopy: str, functionName: str, params: Vec<ASTExpression>) -> MacroStatementResult {
     // delete("testmock.log");
     params.last.match(fn(returnValue) {
         let functionParameters = params.take(params.len.sub(1));
+        let newName = functionToCopy.add("Mock");
 
-        subCall(module, functionToCopy, functionName, functionParameters, returnValue)
+        subCall(module, functionToCopy, functionName, functionParameters, returnValue, newName)
         .match(fn(newFunction) {
             MacroStatementOk(Vec(), vecOf(newFunction));
         }, {
@@ -34,8 +44,40 @@ pub fn when(module: ASTModule, functionToCopy: str, functionName: str, params: V
     });    
 }
 
-fn subCall(module: ASTModule, name: str, functionCallName: str, params: Vec<ASTExpression>, returnValue: ASTExpression) -> Option<ASTFunctionDef> {
-    let newName = name.add("Mock");
+/**
+    it copies the function with name functionToCopy, to functionToCopy+"Mock"+random, and substitutes the call to functionName,
+    matching the parameters with the given expressions, but not the last which is the expression of the result.
+    It returns a reference to the new function. It does NOT work with generic funtions.
+
+    For example given this macro call:
+    
+    whenCopy!("save", "findUser", any!(), eq!("aUser"), Ok<User,str>(User("mocked user")));
+
+    a saveMock+random function will be created and if there's a call to findUser, with two parameters, the first any, the second
+    the string "aUser", then Ok<User,str>(User("mocked user")) is returned insted. 
+    A reference to the saveMock+random function is returned.
+*/
+pub fn when(module: ASTModule, functionToCopy: str, functionName: str, params: Vec<ASTExpression>) -> MacroExpressionResult {
+    // delete("testmock.log");
+    params.last.match(fn(returnValue) {
+        let functionParameters = params.take(params.len.sub(1));
+
+        initRandom();
+
+        let newName = functionToCopy.add("Mock").append(random(100000));
+
+        subCall(module, functionToCopy, functionName, functionParameters, returnValue, newName)
+        .match(fn(newFunction) {
+            MacroExpressionOk(ASTValueRefExpression(newFunction.name), vecOf(newFunction));
+        }, {
+            MacroExpressionResult::MacroError("cannot find a function ".add(functionToCopy).add(" calling ").add(functionName));
+        });        
+    }, {
+        MacroExpressionResult::MacroError("cannot find the return value");
+    });    
+}
+
+fn subCall(module: ASTModule, name: str, functionCallName: str, params: Vec<ASTExpression>, returnValue: ASTExpression, newName: str) -> Option<ASTFunctionDef> {
     module.functions.findOne(fn(it) { it.name.eq(name); })
         .match(fn(function) {
             let newBody = function.body.match(
@@ -98,16 +140,6 @@ fn changeCall(expr: ASTExpression, functionCallName: str, params: Vec<ASTExpress
 fn simpleLambda(expr: ASTExpression) -> ASTExpression {
     ASTLambdaExpression(ASTLambdaDef(Vec(), vecOf(ASTExpressionStatement(expr))));
 }
-
-/*
-    if(allTrue(vecOf({
-        let whenParameter = conn;
-        true;
-    },{
-        let whenParameter = userName;
-        eq(whenParameter, "aUser");
-    })), returnValue, call());
-*/
 
 pub fn allTrue(vec: Vec<fn() -> bool>) -> bool {
     vec.foldLeft(true, fn(prev,actual) { prev.and(actual.call);});
