@@ -1281,46 +1281,22 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         let label = statics.add_str(value);
 
         if is_const {
-            let tmp_reg = code_gen_context.stack_vals.reserve_tmp_register(
-                body,
-                "set_let_for_string_literal",
-                self,
-            );
-
             let key = Statics::const_key(name, namespace, modifiers.unwrap());
 
-            self.indirect_mov(
+            self.indirect_move_with_tmp(
                 body,
                 &label,
                 &key,
-                &tmp_reg,
                 Some(&format!("const {name} string value")),
-            );
-
-            code_gen_context.stack_vals.release_tmp_register(
-                self,
-                body,
-                "set_let_for_string_literal",
+                code_gen_context,
             );
         } else {
-            let tmp_reg = code_gen_context.stack_vals.reserve_tmp_register(
-                before,
-                "set_let_for_string_literal",
-                self,
-            );
-
-            self.indirect_mov(
+            self.indirect_move_with_tmp(
                 before,
                 &label,
                 &format!("{bp} + {}", -((address_relative_to_bp * wl) as i32),),
-                &tmp_reg,
                 None,
-            );
-
-            code_gen_context.stack_vals.release_tmp_register(
-                self,
-                before,
-                "set_let_for_string_literal",
+                code_gen_context,
             );
         }
     }
@@ -1815,24 +1791,12 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
             .stack_vals
             .find_tmp_register("lambda_space_address")
         {
-            let tmp_register = code_gen_context.stack_vals.reserve_tmp_register(
-                before,
-                "set_let_for_ref_in_lambda_space",
-                self,
-            );
-
-            self.indirect_mov(
+            self.indirect_move_with_tmp(
                 before,
                 &format!("{address} + {}", (index_in_lambda_space + 2) * wl),
                 &format!("{}+{}", bp, -((address_relative_to_bp * wl) as i32)),
-                &tmp_register,
                 Some(&format!("context parameter {} in {}", val_name, name)),
-            );
-
-            code_gen_context.stack_vals.release_tmp_register(
-                self,
-                before,
-                "set_let_for_ref_in_lambda_space",
+                code_gen_context,
             );
         } else {
             panic!()
