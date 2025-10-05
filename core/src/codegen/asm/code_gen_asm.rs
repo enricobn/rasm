@@ -1852,7 +1852,6 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         typed_module: &ASTTypedModule,
         lambda_calls: &mut Vec<LambdaCall>,
     ) -> ASTTypedType {
-        let ws = self.backend.word_size();
         let bp = self.backend.stack_base_pointer();
         let wl = self.backend.word_len();
         let sp = self.backend.stack_pointer();
