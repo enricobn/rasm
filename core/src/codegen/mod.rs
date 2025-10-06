@@ -146,7 +146,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         statics: &Statics,
     );
 
-    fn call_lambda(
+    fn call_lambda_from_lambda_space(
         &self,
         code_gen_context: &CTX,
         function_call: &ASTTypedFunctionCall,
@@ -852,7 +852,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             if let Some(index_in_lambda_space) =
                 lambda_space_opt.and_then(|it| it.get_index(&function_call.function_name))
             {
-                self.call_lambda(
+                self.call_lambda_from_lambda_space(
                     code_gen_context,
                     function_call,
                     current,

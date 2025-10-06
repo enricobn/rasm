@@ -970,7 +970,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         );
     }
 
-    fn call_lambda(
+    fn call_lambda_from_lambda_space(
         &self,
         code_gen_context: &CodeGenAsmContext,
         function_call: &ASTTypedFunctionCall,

@@ -413,7 +413,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         );
     }
 
-    fn call_lambda(
+    fn call_lambda_from_lambda_space(
         &self,
         _code_gen_context: &CodeGenCContext,
         function_call: &ASTTypedFunctionCall,
