@@ -21,7 +21,9 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
-use crate::codegen::c::any::{CConsts, CFunctionsDeclarations, CInclude, CLambdas, CStructs};
+use crate::codegen::c::any::{
+    CConsts, CFunctionsDeclarations, CInclude, CLambdas, CStrings, CStructs,
+};
 use crate::codegen::c::function_call_parameters_c::CFunctionCallParameters;
 use crate::codegen::c::options::COptions;
 use crate::codegen::c::text_macro_c::{
@@ -637,12 +639,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                 )),
             );
         } else {
+            let string_const = CStrings::add_to_statics(statics, value.to_owned());
             self.add(
                 before,
-                &format!(
-                    "struct RasmPointer_* {name} = addStaticStringToHeap(\"{}\");",
-                    Self::escape_string(value)
-                ),
+                &format!("struct RasmPointer_* {name} = {string_const};"),
                 None,
                 true,
             );
@@ -662,7 +662,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         namespace: &EnhASTNameSpace,
         _modifiers: Option<&ASTModifiers>,
     ) {
-        let value = self.value_to_string(value_type);
+        let value = self.value_to_string(statics, value_type);
 
         if is_const {
             let entry = statics.get_typed_const(name, namespace).unwrap();
@@ -783,7 +783,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         if let ASTValue::ASTStringValue(s) = value_type {
             self.string_literal_return(statics, before, s);
         } else {
-            let v = self.value_to_string(value_type);
+            let v = self.value_to_string(statics, value_type);
             let t = value_type_to_typed_type(value_type);
             self.code_manipulator.add(
                 before,
@@ -794,10 +794,11 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         }
     }
 
-    fn string_literal_return(&self, _statics: &mut Statics, before: &mut String, value: &String) {
+    fn string_literal_return(&self, statics: &mut Statics, before: &mut String, value: &String) {
+        let string_const = CStrings::add_to_statics(statics, value.to_owned());
         self.code_manipulator.add(
             before,
-            &format!("struct RasmPointer_ *return_value_ = addStaticStringToHeap(\"{value}\");"),
+            &format!("struct RasmPointer_ *return_value_ = {string_const};"),
             None,
             true,
         );
@@ -955,6 +956,34 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                 }
             }
             self.add_empty_line(&mut include);
+        }
+
+        if let Some(strings) = statics.any::<CStrings>() {
+            for (value, name) in strings.map.iter() {
+                self.add(
+                    &mut before,
+                    &format!("struct RasmPointer_* {name};"),
+                    None,
+                    false,
+                );
+                self.add(
+                    &mut after,
+                    &format!(
+                        "{name} = addStaticStringToHeap(\"{}\");",
+                        Self::escape_string(value)
+                    ),
+                    None,
+                    true,
+                );
+                CodeGenC::call_add_ref(
+                    &self.code_manipulator,
+                    &mut after,
+                    &name,
+                    "str",
+                    "",
+                    typed_module,
+                );
+            }
         }
 
         let mut variant_consts = HashSet::new();
@@ -1263,11 +1292,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             });
     }
 
-    fn value_to_string(&self, value_type: &ASTValue) -> String {
+    fn value_to_string(&self, statics: &mut Statics, value_type: &ASTValue) -> String {
         match value_type {
-            ASTValue::ASTStringValue(v) => {
-                format!("addStaticStringToHeap(\"{}\")", CodeGenC::escape_string(&v))
-            }
+            ASTValue::ASTStringValue(v) => CStrings::add_to_statics(statics, v.to_owned()),
             ASTValue::ASTBooleanValue(b) => if *b { "1" } else { "0" }.to_string(),
             ASTValue::ASTIntegerValue(v) => format!("{v}"),
             ASTValue::ASTCharValue(v) => {

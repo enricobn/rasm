@@ -497,8 +497,8 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         }
     }
 
-    fn add_value_type(&mut self, name: &str, value_type: &ASTValue) {
-        let v = self.code_gen.value_to_string(value_type);
+    fn add_value_type(&mut self, statics: &mut Statics, name: &str, value_type: &ASTValue) {
+        let v = self.code_gen.value_to_string(statics, value_type);
         self.add_number(name, v, None);
     }
 

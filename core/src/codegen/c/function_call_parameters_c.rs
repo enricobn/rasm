@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::c::any::{CInclude, CLambda, CLambdas};
+use crate::codegen::c::any::{CInclude, CLambda, CLambdas, CStrings};
 use crate::codegen::c::code_gen_c::{CCodeManipulator, CodeGenC};
 use crate::codegen::c::options::COptions;
 use crate::codegen::code_manipulator::CodeManipulator;
@@ -157,42 +157,10 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         param_name: &str,
         value: &str,
         _comment: Option<&str>,
-        _statics: &mut Statics,
-        module: &ASTTypedModule,
+        statics: &mut Statics,
+        _module: &ASTTypedModule,
     ) {
-        // TODO I would like to use the statics here
-        let tmp_val_name = format!("str_{}_", ID.fetch_add(1, Ordering::SeqCst));
-        self.code_manipulator.add(
-            &mut self.before,
-            &format!(
-                "struct RasmPointer_* {tmp_val_name} = addStaticStringToHeap(\"{}\");",
-                CodeGenC::escape_string(value)
-            ),
-            None,
-            true,
-        );
-
-        CodeGenC::call_add_ref(
-            &self.code_manipulator,
-            &mut self.before,
-            &tmp_val_name,
-            "str",
-            "",
-            module,
-        );
-
-        let mut deref_code = String::new();
-
-        CodeGenC::call_deref(
-            &self.code_manipulator,
-            &mut deref_code,
-            &tmp_val_name,
-            "str",
-            "",
-            module,
-        );
-
-        self.add_on_top_of_after(&deref_code);
+        let tmp_val_name = CStrings::add_to_statics(statics, value.to_owned());
 
         self.parameters_values
             .insert(param_name.to_string(), tmp_val_name);
@@ -663,8 +631,8 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         }
     }
 
-    fn add_value_type(&mut self, name: &str, value_type: &ASTValue) {
-        let value = self.code_gen_c.value_to_string(value_type);
+    fn add_value_type(&mut self, statics: &mut Statics, name: &str, value_type: &ASTValue) {
+        let value = self.code_gen_c.value_to_string(statics, value_type);
 
         self.parameters_values.insert(name.to_string(), value);
     }

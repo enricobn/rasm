@@ -23,6 +23,7 @@ use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
 use crate::enh_type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -297,6 +298,35 @@ impl CStructs {
         let name = format!("LambdaSpace_{}", ID.fetch_add(1, Ordering::SeqCst));
         Self::add_struct_to_statics(statics, name.clone(), map);
         name
+    }
+}
+
+pub struct CStrings {
+    pub map: HashMap<String, String>,
+}
+
+impl CStrings {
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+
+    fn add(&mut self, value: String) -> &str {
+        self.map
+            .entry(value)
+            .or_insert(format!("string_{}", ID.fetch_add(1, Ordering::SeqCst)))
+    }
+
+    pub fn add_to_statics(statics: &mut Statics, value: String) -> String {
+        if let Some(c) = statics.any_mut::<CStrings>() {
+            c.add(value).to_owned()
+        } else {
+            let mut c = CStrings::new();
+            let result = c.add(value).to_owned();
+            statics.add_any(c);
+            result
+        }
     }
 }
 

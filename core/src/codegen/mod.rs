@@ -388,7 +388,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn add_statics(&self, project: &RasmProject, statics: &mut Statics, out_folder: &Path);
 
-    fn value_to_string(&self, value_type: &ASTValue) -> String;
+    fn value_to_string(&self, statics: &mut Statics, value_type: &ASTValue) -> String;
 
     fn create_function_definition(
         &self,
@@ -694,7 +694,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 typed_module,
                             );
                         } else {
-                            call_parameters.add_value_type(&param_name, value_type)
+                            call_parameters.add_value_type(statics, &param_name, value_type)
                         }
                     }
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {

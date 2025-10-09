@@ -89,7 +89,7 @@ pub trait FunctionCallParameters<CTX> {
         typed_type: &ASTTypedType,
     );
 
-    fn add_value_type(&mut self, name: &str, value_type: &ASTValue);
+    fn add_value_type(&mut self, statics: &mut Statics, name: &str, value_type: &ASTValue);
 
     fn push(&mut self, s: &str);
 

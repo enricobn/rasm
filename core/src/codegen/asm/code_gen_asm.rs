@@ -1307,7 +1307,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         before: &mut String,
         name: &str,
         is_const: bool,
-        _statics: &mut Statics,
+        statics: &mut Statics,
         body: &mut String,
         value_type: &ASTValue,
         _typed_type: &ASTTypedType,
@@ -1319,7 +1319,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
         let bp = self.backend.stack_base_pointer();
         let ws = self.backend.word_size();
-        let value = self.value_to_string(value_type);
+        let value = self.value_to_string(statics, value_type);
         let wl = self.backend.word_len();
 
         if is_const {
@@ -1395,7 +1395,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         } else {
             let ws = self.backend.word_size();
             let rr = self.return_register();
-            let v = self.value_to_string(value_type);
+            let v = self.value_to_string(statics, value_type);
             self.add(before, &format!("mov     {ws} {rr}, {v}"), None, true);
         }
     }
@@ -1665,7 +1665,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         );
     }
 
-    fn value_to_string(&self, value_type: &ASTValue) -> String {
+    fn value_to_string(&self, _statics: &mut Statics, value_type: &ASTValue) -> String {
         match value_type {
             ASTValue::ASTBooleanValue(b) => if *b { "1" } else { "0" }.into(),
             ASTValue::ASTIntegerValue(n) => (*n as i32).to_string(),
