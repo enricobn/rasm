@@ -1,12 +1,14 @@
-pub native chars(s: str) -> List<str> /{
+pub native chars(s: str) -> List<char> /{
     $enumSimple(result,Empty)
-    $addRef(result:List<str>)
+    $addRef(result:List<char>)
 
-    int len = strlen(s);
+    char* s_ = (char*)$s->address;
+
+    int len = strlen(s_);
     int i = 0;
 
     while (i < len) {
-        char lb = $s[i];
+        char lb = s_[i];
         char *c;
         if (( lb & 0x80 ) == 0 ) {         // lead bit is zero, must be a single ascii
            c = malloc(sizeof(char) * 2);
@@ -16,40 +18,39 @@ pub native chars(s: str) -> List<str> /{
         } else if (( lb & 0xE0 ) == 0xC0 ) { // 110x xxxx
           c = malloc(sizeof(char) * 3);
           c[0] = lb;
-          c[1] = $s[i + 1];
+          c[1] = s_[i + 1];
           c[2] = 0;
           i += 2;
         } else if (( lb & 0xF0 ) == 0xE0 ) { // 1110 xxxx
           c = malloc(sizeof(char) * 4);
           c[0] = lb;
-          c[1] = $s[i + 1];
-          c[2] = $s[i + 2];
+          c[1] = s_[i + 1];
+          c[2] = s_[i + 2];
           c[3] = 0;
           i += 3;
         } else if (( lb & 0xF8 ) == 0xF0 ) { // 1111 0xxx
           c = malloc(sizeof(char) * 5);
           c[0] = lb;
-          c[1] = $s[i + 1];
-          c[2] = $s[i + 2];
-          c[3] = $s[i + 3];
+          c[1] = s_[i + 1];
+          c[2] = s_[i + 2];
+          c[3] = s_[i + 3];
           c[4] = 0;
           i += 4;
         } else {
            printf( "Unrecognized lead byte (%02x)\n", lb );
            return result;
        }
-       $addRef(c:str)
+       $addRef(c:char)
        void *tmp = 
-          $call(push, result: List<str>, c: str)
+          $call(push, result: List<char>, c: char)
        ;
-       $addRef(tmp:List<str>)
-       $deref(line:str)
-       $deref(result:List<str>)
+       $addRef(tmp:List<char>)
+       $deref(result:List<char>)
 
        result = tmp;
        
     }
-    $deref(result:List<str>)
+    $deref(result:List<char>)
     return result;
 }/
 
@@ -57,17 +58,20 @@ pub native lines(s: str) -> List<str> /{
     $enumSimple(result,Empty)
     $addRef(result:List<str>)
 
-    int len = strlen(s);
+    char* s_ = (char*)$s->address;
+
+    int len = strlen(s_);
     int i = 0;
     int line_pos = 0;
 
     while (i <= len) {
-        char lb = $s[i];
+        char lb = s_[i];
 
         if (lb == '\n' || i == len) {
-           char *line = malloc(sizeof(char) * (i - line_pos + 1));
-           strncpy(line, s + line_pos, i - line_pos);
-           line[i - line_pos] = 0;
+           struct RasmPointer_ *line = rasmMalloc(sizeof(char) * (i - line_pos + 1));
+           char *line_ = (char *)line->address;
+           strncpy(line_, s_ + line_pos, i - line_pos);
+           line_[i - line_pos] = 0;
            $addRef(line:str)
            void *tmp = 
               $call(push, result: List<str>, line: str)

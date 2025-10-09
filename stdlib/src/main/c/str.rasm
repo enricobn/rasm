@@ -10,13 +10,16 @@ pub native add(s1: str, s2: str) -> str /{
     $include(<stdlib.h>)
     $include(<string.h>)
 
-    int len_ = strlen($s1) + strlen($s2);
+    char* s1_ = (char *)$s1->address;
+    char* s2_ = (char *)$s2->address;
 
-    char *result = malloc(sizeof(char) * (len_ + 1)); // +1 for the null-terminator
+    int len_ = strlen(s1_) + strlen(s2_);
+
+    struct RasmPointer_ *result = rasmMalloc(sizeof(char) * (len_ + 1)); // +1 for the null-terminator
     // in real code you would check for errors in malloc here
-    strcpy(result, $s1);
-    strcat(result, $s2);
-    result[len_] = 0;
+    strcpy(result->address, s1_);
+    strcat(result->address, s2_);
+    ((char *)result->address)[len_] = 0;
     return result;
 }/
 
@@ -24,13 +27,15 @@ pub native add(s: str, c: char) -> str /{
     $include(<stdlib.h>)
     $include(<string.h>)
 
-    int len_ = strlen($s) + strlen($c);
+    char* s_ = (char *)$s->address;
 
-    char *result = malloc(sizeof(char) * (len_ + 1)); // +1 for the null-terminator
+    int len_ = strlen(s_) + strlen($c);
+
+    struct RasmPointer_ *result = rasmMalloc(sizeof(char) * (len_ + 1)); // +1 for the null-terminator
     // in real code you would check for errors in malloc here
-    strcpy(result, $s);
-    strcat(result, $c);
-    result[len_] = 0;
+    strcpy(result->address, s_);
+    strcat(result->address, $c);
+    ((char *)result->address)[len_] = 0;
     return result;
 }/
 
@@ -39,11 +44,12 @@ pub native toInt(s: str) -> Option<int> /{
     $include(<errno.h>)
 
     char *end = NULL;
+    char* s_ = (char *)$s->address;
 
     errno = 0;
-    int result = (int) strtol($s, &end, 10);
+    int result = (int) strtol(s_, &end, 10);
 
-    if (errno == 0 && $s && !*end) {
+    if (errno == 0 && s_ && !*end) {
         return
         $call(Some, result)
         ;
@@ -54,37 +60,48 @@ pub native toInt(s: str) -> Option<int> /{
     }
 }/
 
-pub native eq(a: str, b: str) -> bool /{
+pub native eq(s1: str, s2: str) -> bool /{
     $include(<string.h>)
     $inline()
 
-    return (strcmp($a, $b) == 0);
+    char* s1_ = (char *)$s1->address;
+    char* s2_ = (char *)$s2->address;
+
+    return (strcmp(s1_, s2_) == 0);
 }/
 
 // TODO does it work for UTF-8?
-pub native less(a: str, b: str) -> bool /{
+pub native less(s1: str, s2: str) -> bool /{
     $include(<string.h>)
     $inline()
 
-    return (strcmp($a, $b) < 0);
+    char* s1_ = (char *)$s1->address;
+    char* s2_ = (char *)$s2->address;
+
+    return (strcmp(s1_, s2_) < 0);
 }/
 
 // TODO does it work for UTF-8?
-pub native greater(a: str, b: str) -> bool /{
+pub native greater(s1: str, s2: str) -> bool /{
     $include(<string.h>)
     $inline()
 
-    return (strcmp($a, $b) > 0);
+    char* s1_ = (char *)$s1->address;
+    char* s2_ = (char *)$s2->address;
+
+    return (strcmp(s1_, s2_) > 0);
 }/
 
 pub native len(s: str) -> int /{
     $include(<string.h>)
 
-    int len_ = strlen($s);
+    char* s_ = (char *)$s->address;
+
+    int len_ = strlen(s_);
     int i = 0;
     int count = 0;
     while (i < len_) {
-        char lb = $s[i];
+        char lb = s_[i];
         if (( lb & 0x80 ) == 0 ) {         // lead bit is zero, must be a single ascii
            i += 1;
            count += 1;
@@ -111,7 +128,9 @@ pub native substr(s: str, pos: int, len: int) -> Option<str> /{
     $include(<stdlib.h>)
     $include(<string.h>)
 
-    int input_len = strlen ($s);
+    char* s_ = (char *)$s->address;
+
+    int input_len = strlen (s_);
 
     if (pos + len > input_len)
     {
@@ -120,10 +139,10 @@ pub native substr(s: str, pos: int, len: int) -> Option<str> /{
         return result;
     }
 
-    char *dest = malloc((sizeof(char)) * len + 1);
+    struct RasmPointer_ *dest = rasmMalloc((sizeof(char)) * len + 1);
 
-    strncpy(dest, $s + pos, len);
-    dest[len] = '\0'; // place the null terminator
+    strncpy(dest->address, s_ + pos, len);
+    ((char *)dest->address)[len] = 0;
 
     return $call(Some, dest:str);
 }/

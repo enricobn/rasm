@@ -148,7 +148,7 @@ impl CodeGenC {
     pub fn real_type_to_string(ast_type: &ASTTypedType) -> String {
         match ast_type {
             ASTTypedType::Builtin(kind) => match kind {
-                BuiltinTypedTypeKind::String => "char*".to_string(),
+                BuiltinTypedTypeKind::String => "struct RasmPointer_*".to_string(),
                 BuiltinTypedTypeKind::Integer => "long".to_string(),
                 BuiltinTypedTypeKind::Boolean => "char".to_string(),
                 BuiltinTypedTypeKind::Char => "char*".to_string(),
@@ -197,56 +197,38 @@ impl CodeGenC {
         descr_for_debug: &str,
         type_def_provider: &dyn TypeDefProvider,
     ) {
-        let (has_references, is_type, is_static) = if let Some(struct_def) =
+        let (has_references, is_static) = if let Some(struct_def) =
             type_def_provider.get_struct_def_by_name(type_name)
         {
             (
                 struct_has_references(struct_def, TypeDefBodyTarget::C),
                 false,
-                false,
             )
         } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
             let enum_has_parametric_variants = Self::enum_has_parametric_variants(enum_def);
-            (
-                enum_has_parametric_variants,
-                false,
-                !enum_has_parametric_variants,
-            )
+            (enum_has_parametric_variants, !enum_has_parametric_variants)
         } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
             (
                 TypeDefBodyCache::type_body_has_references(&type_def.body, &TypeDefBodyTarget::C),
-                true,
                 false,
             )
         } else if "str" == type_name || "_fn" == type_name {
-            (false, false, false)
+            (false, false)
         } else {
             panic!("call_add_ref, cannot find type {type_name}");
         };
 
         if has_references {
-            if is_type {
-                // it has an extra argument for description
-                code_manipulator.add(
-                    out,
-                    &format!("{type_name}_addRef({source}, \"\");"),
-                    Some(descr_for_debug),
-                    true,
-                );
-            } else {
-                code_manipulator.add(
-                    out,
-                    &format!("{type_name}_addRef({source});"),
-                    Some(descr_for_debug),
-                    true,
-                );
-            }
+            code_manipulator.add(
+                out,
+                &format!("{type_name}_addRef({source});"),
+                Some(descr_for_debug),
+                true,
+            );
         } else {
             if "_fn" == type_name {
                 code_manipulator.add(out, &source, None, true);
-                // TODO handle str, for now it's not possible since there's no difference,
-                //   between heap and static allocated strings
-            } else if "str" != type_name && !is_static {
+            } else if !is_static {
                 Self::call_add_ref_simple(code_manipulator, out, source, descr_for_debug);
             }
         }
@@ -278,56 +260,38 @@ impl CodeGenC {
         descr_for_debug: &str,
         type_def_provider: &dyn TypeDefProvider,
     ) {
-        let (has_references, is_type, is_static) = if let Some(struct_def) =
+        let (has_references, is_static) = if let Some(struct_def) =
             type_def_provider.get_struct_def_by_name(type_name)
         {
             (
                 struct_has_references(struct_def, TypeDefBodyTarget::C),
                 false,
-                false,
             )
         } else if let Some(enum_def) = type_def_provider.get_enum_def_by_name(type_name) {
             let enum_has_parametric_variants = Self::enum_has_parametric_variants(enum_def);
-            (
-                enum_has_parametric_variants,
-                false,
-                !enum_has_parametric_variants,
-            )
+            (enum_has_parametric_variants, !enum_has_parametric_variants)
         } else if let Some(type_def) = type_def_provider.get_type_def_by_name(type_name) {
             (
                 TypeDefBodyCache::type_body_has_references(&type_def.body, &TypeDefBodyTarget::C),
-                true,
                 false,
             )
         } else if "str" == type_name || "_fn" == type_name {
-            (false, false, false)
+            (false, false)
         } else {
             panic!("call_add_ref, cannot find type {type_name}");
         };
 
         if has_references {
-            if is_type {
-                // it has an extra argument for description
-                code_manipulator.add(
-                    out,
-                    &format!("{type_name}_deref({source}, \"\");"),
-                    Some(descr_for_debug),
-                    true,
-                );
-            } else {
-                code_manipulator.add(
-                    out,
-                    &format!("{type_name}_deref({source});"),
-                    Some(descr_for_debug),
-                    true,
-                );
-            }
+            code_manipulator.add(
+                out,
+                &format!("{type_name}_deref({source});"),
+                Some(descr_for_debug),
+                true,
+            );
         } else {
             if "_fn" == type_name {
                 code_manipulator.add(out, &source, None, true);
-                // TODO handle str, for now it's not possible since there's no difference,
-                //   between heap and static allocated strings
-            } else if "str" != type_name && !is_static {
+            } else if !is_static {
                 Self::call_deref_simple(code_manipulator, out, source, descr_for_debug);
             }
         }
@@ -666,13 +630,19 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             CConsts::add_to_statics(
                 statics,
                 entry.key.clone(),
-                format!("char* {}", entry.key),
-                Some(format!("\"{}\"", Self::escape_string(value))),
+                format!("struct RasmPointer_* {}", &entry.key),
+                Some(format!(
+                    "addStaticStringToHeap(\"{}\")",
+                    Self::escape_string(value)
+                )),
             );
         } else {
             self.add(
                 before,
-                &format!("char* {name} = \"{}\";", Self::escape_string(value)),
+                &format!(
+                    "struct RasmPointer_* {name} = addStaticStringToHeap(\"{}\");",
+                    Self::escape_string(value)
+                ),
                 None,
                 true,
             );
@@ -827,7 +797,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     fn string_literal_return(&self, _statics: &mut Statics, before: &mut String, value: &String) {
         self.code_manipulator.add(
             before,
-            &format!("char* return_value_ = \"{value}\";"),
+            &format!("struct RasmPointer_ *return_value_ = addStaticStringToHeap(\"{value}\");"),
             None,
             true,
         );
@@ -1295,7 +1265,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
     fn value_to_string(&self, value_type: &ASTValue) -> String {
         match value_type {
-            ASTValue::ASTStringValue(v) => format!("\"{}\"", CodeGenC::escape_string(&v)),
+            ASTValue::ASTStringValue(v) => {
+                format!("addStaticStringToHeap(\"{}\")", CodeGenC::escape_string(&v))
+            }
             ASTValue::ASTBooleanValue(b) => if *b { "1" } else { "0" }.to_string(),
             ASTValue::ASTIntegerValue(v) => format!("{v}"),
             ASTValue::ASTCharValue(v) => {
@@ -1344,7 +1316,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     }
 
     fn split_source(&self) -> usize {
-        num_cpus::get_physical() - 2
+        //num_cpus::get_physical() - 2
+        0
     }
 
     fn include_file(&self, file: &str) -> String {

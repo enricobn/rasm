@@ -16,8 +16,10 @@ pub native argv(i: int) -> Option<str> /{
         $enumSimple(result, None)
         return result;
     } else {
+        struct RasmPointer_ *argv = addStaticStringToHeap(argv_[$i]);
+        $addRef(argv:str)
         return
-        $call(Some, argv_[$i]:str)
+        $call(Some, argv:str)
         ;
     }
 

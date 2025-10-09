@@ -8,7 +8,7 @@ pub native readFile(path: str) -> str /{
 
     char * buffer = 0;
     long length;
-    FILE * f = fopen (path, "rb");
+    FILE * f = fopen (path->address, "rb");
 
     if (f)
     {
@@ -24,13 +24,13 @@ pub native readFile(path: str) -> str /{
       buffer[length] = 0;
     }
 
-    return buffer;
+    return addStaticStringToHeap(buffer);
 }/
 
 pub native createFile(path: str) -> File /{
     $include(<stdio.h>)
 
-    return fopen(path ,"w");
+    return fopen(path->address, "w");
 }/
 
 pub native close(file: File) /{
@@ -48,12 +48,12 @@ pub native close(file: File) /{
 pub native delete(path: str) /{
     $include(<stdio.h>)
 
-    remove(path);
+    remove(path->address);
 }/
 
 pub native fileExists(path: str) -> bool /{
     // TODO it's UNIX
     $include(<unistd.h>)
 
-    return access(path, F_OK) == 0
+    return access(path->address, F_OK) == 0
 }/

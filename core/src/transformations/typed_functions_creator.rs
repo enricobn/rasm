@@ -234,9 +234,11 @@ pub trait TypedFunctionsCreator {
             body,
             function_name,
             &typed_type_def.name,
-            true,
+            self.addref_with_descr(),
         );
     }
+
+    fn addref_with_descr(&self) -> bool;
 
     fn create_struct_free_body(
         &self,

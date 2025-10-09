@@ -88,6 +88,12 @@ pub native lines(s: str) -> List<str> /{
     add  esp, 8
 }/
 
+// TODO it should be native
+pub fn chars(s: str) -> List<char> {
+    s.charsVec.toList;
+}
+
+/*
 pub native chars(s: str) -> List<str> /{
     push ebx
     push ecx
@@ -127,3 +133,4 @@ pub native chars(s: str) -> List<str> /{
     pop ecx
     pop ebx
 }/
+*/

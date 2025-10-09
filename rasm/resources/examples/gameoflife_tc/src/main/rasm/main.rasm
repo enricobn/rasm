@@ -33,15 +33,15 @@ pub fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
     let lineStr = value(line);
 
     map(filter(listEnumerate(chars(lineStr)), fn(cell) {
-        let cellStr = value(cell);
+        let c = value(cell);
 
-        match(chars(cellStr), fn(head, tail) { eq(head, "O"); }, { false;});
+        c.eq('O');
     }), fn(cell) { Cell(index(cell), y); });
 }
 
 pub fn filterLines(lines: List<str>) -> List<str> {
     filter(lines, fn(line) {
-        match(chars(line), fn(head, tail) { not(eq(head, "!")); }, { false;});
+        match(chars(line), fn(head, tail) { not(eq(head, '!')); }, { false;});
     });
 }
 

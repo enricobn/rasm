@@ -302,4 +302,8 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
     fn type_def_body_target(&self) -> TypeDefBodyTarget {
         TypeDefBodyTarget::Asm
     }
+
+    fn addref_with_descr(&self) -> bool {
+        true
+    }
 }

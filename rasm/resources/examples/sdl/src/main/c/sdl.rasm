@@ -10,7 +10,7 @@ native isSDLNull<T>(value: T) -> bool /{
 }/
 
 native sdlFailure(message: str) /{
-    printf(message, SDL_GetError());
+    printf(message->address, SDL_GetError());
     SDL_Quit();
     exit(1);
 }/
@@ -22,7 +22,7 @@ pub native sdlInit() /{
 }/
 
 pub native sdlCreateWindow(title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
-    return SDL_CreateWindow(title, x, y, width, height, 4);
+    return SDL_CreateWindow(title->address, x, y, width, height, 4);
 }/
 
 pub native sdlDelay(millis: int) /{
@@ -37,13 +37,13 @@ pub native sdlCreateRenderer(win: SDLWindow) -> SDLRenderer /{
 }/
 
 pub native sdlLoadBMP(file: str) -> SDLSurface /{
-    SDL_RWops* rw = SDL_RWFromFile(file, "rb");
+    SDL_RWops* rw = SDL_RWFromFile(file->address, "rb");
     return SDL_LoadBMP_RW(rw, 1);
 }/
 
 pub native sdlLoadSVG(file: str) -> SDLSurface /{
     $include(<SDL_image.h>)
-    SDL_RWops* rw = SDL_RWFromFile(file, "rb");
+    SDL_RWops* rw = SDL_RWFromFile(file->address, "rb");
     return IMG_LoadSVG_RW(rw);
 }/
 
@@ -80,7 +80,7 @@ pub native sdlDestroyWindow(win: SDLWindow) /{
 }/
 
 native sdlGetError() -> str /{
-    return SDL_GetError();
+    return addStaticStringToHeap(SDL_GetError());
 }/
 
 pub native sdlQuit() /{
@@ -208,18 +208,18 @@ pub native sdlTTFInit() -> int /{
 }/
 
 pub native sdlOpenFont(file: str, size: int) -> SDLFont /{
-    return TTF_OpenFont(file, size);
+    return TTF_OpenFont(file->address, size);
 }/
 
 native sdlRenderTextSolid(font: SDLFont, message: str, r: int, g: int, b: int, a: int) -> SDLSurface /{
     SDL_Color color = {r, g, b};
-    return TTF_RenderText_Solid(font, message, color);
+    return TTF_RenderText_Solid(font, message->address, color);
 }/
 
 pub native sdlRenderTextSolid(font: SDLFont, message: str, c: SDLColor) -> SDLSurface /{
     SDL_Color color = {$castAddress($c)->r, $castAddress($c)->g, $castAddress($c)->b};
 
-    return TTF_RenderText_Solid(font, message, color);
+    return TTF_RenderText_Solid(font, message->address, color);
 }/
 
 pub native sdlRenderText(ren: SDLRenderer, message: SDLTexture, rect: SDLRect) /{

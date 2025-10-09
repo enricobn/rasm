@@ -34,6 +34,7 @@ pub trait FunctionCallParameters<CTX> {
         value: &str,
         comment: Option<&str>,
         statics: &mut Statics,
+        module: &ASTTypedModule,
     );
 
     fn add_function_call(

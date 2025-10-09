@@ -13,8 +13,8 @@ native optIOError() -> Option<IOError> /{
         $enumSimple(result,None)
         return result;
     } else {
-        char *message = strerror(errno);
-        void *error = $call(IOError, message: str); //"Error writing to file.");
+        struct RasmPointer_ *message = addStaticStringToHeap(strerror(errno));
+        void *error = $call(IOError, message: str); //"Error writing to file.";
         return $call(Some, error: IOError);
     }
 }/
@@ -27,7 +27,7 @@ pub native print(file: File, s: str) -> Option<IOError> /{
     if (file == NULL) {
         errno = 9;
     } else {
-        fprintf(file, "%s", $s);
+        fprintf(file, "%s", (char *)$s->address);
     }
 
     return $call(optIOError);

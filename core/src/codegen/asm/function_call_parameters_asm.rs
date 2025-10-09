@@ -106,6 +106,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         value: &str,
         comment: Option<&str>,
         statics: &mut Statics,
+        _module: &ASTTypedModule,
     ) {
         let label = statics.add_str(value);
         self.add_label(

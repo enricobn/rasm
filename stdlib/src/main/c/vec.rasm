@@ -467,12 +467,14 @@ pub native charsVec(s: str) -> Vec<char> /{
     struct RasmPointer_ *result_values = result_vec->values;
     void **result_array = (void **)result_values->address;
 
-    int len = strlen(s);
+    char *s_ = (char *)$s->address;
+
+    int len = strlen(s_);
     int i = 0;
     int count = 0;
 
     while (i < len) {
-        char lb = s[i];
+        char lb = s_[i];
         char *c;
         struct RasmPointer_ *c_;
         if (( lb & 0x80 ) == 0 ) {         // lead bit is zero, must be a single ascii
@@ -485,24 +487,24 @@ pub native charsVec(s: str) -> Vec<char> /{
           c_ = rasmMalloc(sizeof(char) * 3);
           c = (char*)c_->address;
           c[0] = lb;
-          c[1] = s[i + 1];
+          c[1] = s_[i + 1];
           c[2] = 0;
           i += 2;
         } else if (( lb & 0xF0 ) == 0xE0 ) { // 1110 xxxx
           c_ = rasmMalloc(sizeof(char) * 4);
           c = (char*)c_->address;
           c[0] = lb;
-          c[1] = s[i + 1];
-          c[2] = s[i + 2];
+          c[1] = s_[i + 1];
+          c[2] = s_[i + 2];
           c[3] = 0;
           i += 3;
         } else if (( lb & 0xF8 ) == 0xF0 ) { // 1111 0xxx
           c_ = rasmMalloc(sizeof(char) * 5);
           c = (char*)c_->address;
           c[0] = lb;
-          c[1] = s[i + 1];
-          c[2] = s[i + 2];
-          c[3] = s[i + 3];
+          c[1] = s_[i + 1];
+          c[2] = s_[i + 2];
+          c[3] = s_[i + 3];
           c[4] = 0;
           i += 4;
         } else {

@@ -686,7 +686,13 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     }*/
                     ASTTypedExpression::Value(value_type, _) => {
                         if let ASTValue::ASTStringValue(s) = value_type {
-                            call_parameters.add_string_constant(&param_name, s, None, statics);
+                            call_parameters.add_string_constant(
+                                &param_name,
+                                s,
+                                None,
+                                statics,
+                                typed_module,
+                            );
                         } else {
                             call_parameters.add_value_type(&param_name, value_type)
                         }

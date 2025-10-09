@@ -158,11 +158,44 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         value: &str,
         _comment: Option<&str>,
         _statics: &mut Statics,
+        module: &ASTTypedModule,
     ) {
-        self.parameters_values.insert(
-            param_name.to_string(),
-            format!("\"{}\"", CodeGenC::escape_string(value)),
+        // TODO I would like to use the statics here
+        let tmp_val_name = format!("str_{}_", ID.fetch_add(1, Ordering::SeqCst));
+        self.code_manipulator.add(
+            &mut self.before,
+            &format!(
+                "struct RasmPointer_* {tmp_val_name} = addStaticStringToHeap(\"{}\");",
+                CodeGenC::escape_string(value)
+            ),
+            None,
+            true,
         );
+
+        CodeGenC::call_add_ref(
+            &self.code_manipulator,
+            &mut self.before,
+            &tmp_val_name,
+            "str",
+            "",
+            module,
+        );
+
+        let mut deref_code = String::new();
+
+        CodeGenC::call_deref(
+            &self.code_manipulator,
+            &mut deref_code,
+            &tmp_val_name,
+            "str",
+            "",
+            module,
+        );
+
+        self.add_on_top_of_after(&deref_code);
+
+        self.parameters_values
+            .insert(param_name.to_string(), tmp_val_name);
     }
 
     fn add_function_call(

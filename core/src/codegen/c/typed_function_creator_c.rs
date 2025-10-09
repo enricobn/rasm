@@ -737,4 +737,8 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
     fn type_def_body_target(&self) -> TypeDefBodyTarget {
         TypeDefBodyTarget::C
     }
+
+    fn addref_with_descr(&self) -> bool {
+        false
+    }
 }

@@ -48,3 +48,9 @@ void initRasmReferences() {
   enum_max_mem = (void *)((unsigned long)fs_allocator_enum->mem +
                           fs_allocator_enum->count * fs_allocator_enum->size);
 }
+
+struct RasmPointer_ *addStaticStringToHeap(char *s) {
+  struct RasmPointer_ *result = rasmMalloc(strlen(s) + 1);
+  strcpy((char *)result->address, s);
+  return result;
+}

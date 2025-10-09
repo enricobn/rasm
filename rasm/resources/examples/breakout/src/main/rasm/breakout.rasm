@@ -114,7 +114,7 @@ fn loadHighScores() -> Vec<HighScore> {
         let scores = readFile("scores.txt");
         let lines = scores.lines;
         lines.fmap(fn(line) {
-            let splitted = line.splitToList(",");
+            let splitted = line.splitToList(',');
             splitted.map3(fn(score, sec, nano) {
                 score.toInt.fmap(fn(sc) {
                     sec.toInt.fmap(fn(s) {
@@ -154,7 +154,7 @@ fn writeHighScores(highScores: Vec<HighScore>) {
     close(file);
 }
 
-fn splitToList(s: str, separator: str) -> List<str> {
+fn splitToList(s: str, separator: char) -> List<str> {
     let chars = listEnumerate(chars(s));
 
     let separatorIndex = chars.indexOf(separator);
