@@ -1039,15 +1039,21 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 } else {
                     if !bf.is_empty() || !cur.is_empty() {
                         self.store_function_result(code_gen_context, &mut cur, name, &return_type);
-                        before.push_str(&bf);
-                        before.push_str(&cur);
+                        if !bf.is_empty() {
+                            before.push_str(&bf);
+                        }
+                        if !cur.is_empty() {
+                            before.push_str(&cur);
+                        }
                     }
                 }
                 let not_empty_after_lines = af
                     .into_iter()
                     .filter(|it| !it.is_empty())
                     .collect::<Vec<String>>();
-                self.insert_on_top(&not_empty_after_lines.join("\n"), after);
+                if !not_empty_after_lines.is_empty() {
+                    self.insert_on_top(&not_empty_after_lines.join("\n"), after);
+                }
 
                 (return_type, new_lambda_calls, index)
             }
