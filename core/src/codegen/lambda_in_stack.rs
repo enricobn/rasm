@@ -111,6 +111,8 @@ mod tests {
 
     #[test]
     fn test_can_lambda_be_in_stack() {
+        GLOBAL_LAMBDA_IN_STACK.write().unwrap().clear();
+
         let mut structs = Vec::new();
 
         let ast_typed_type = ASTTypedType::Struct {
@@ -139,6 +141,8 @@ mod tests {
 
     #[test]
     fn test_can_lambda_be_in_stack_recurse() {
+        GLOBAL_LAMBDA_IN_STACK.write().unwrap().clear();
+
         let mut structs = Vec::new();
 
         let inner_struct = ASTTypedType::Struct {
