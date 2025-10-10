@@ -970,74 +970,51 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         let (return_type, new_lambda_calls, index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 let (return_type, (bf, mut cur, af, new_lambda_calls), index) = {
-                    if let Some(kind) = context.get(&call.function_name) {
+                    let return_type = if let Some(kind) = context.get(&call.function_name) {
                         let typed_type = kind.typed_type();
 
-                        let typed_type: ASTTypedType =
-                            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                                parameters: _,
-                                return_type,
-                            }) = typed_type
-                            {
-                                if return_type.deref() != &ASTTypedType::Unit {
-                                    return_type.deref().clone()
-                                } else {
-                                    panic!(
-                                        "Expected a return type from lambda but got None: {}",
-                                        call.index
-                                    );
-                                }
-                            } else {
-                                panic!("Expected lambda but got {typed_type}: {}", call.index);
-                            };
-
-                        (
-                            typed_type,
-                            self.generate_call_function(
-                                code_gen_context,
-                                parent_fcp,
-                                namespace,
-                                call,
-                                context,
-                                function_def,
-                                lambda_space,
-                                0,
-                                false,
-                                id,
-                                statics,
-                                typed_module,
-                                false,
-                                false,
-                                lambda_in_stack,
-                                function_reference_lambdas,
-                            ),
-                            call.index.clone(),
-                        )
-                    } else {
-                        let return_type = call.return_type(context, typed_module);
-                        (
+                        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                            parameters: _,
                             return_type,
-                            self.generate_call_function(
-                                code_gen_context,
-                                parent_fcp,
-                                namespace,
-                                call,
-                                context,
-                                function_def,
-                                lambda_space,
-                                0,
-                                false,
-                                id,
-                                statics,
-                                typed_module,
-                                false,
-                                false,
-                                lambda_in_stack,
-                                function_reference_lambdas,
-                            ),
-                            call.index.clone(),
-                        )
-                    }
+                        }) = typed_type
+                        {
+                            if return_type.deref() != &ASTTypedType::Unit {
+                                return_type.deref().clone()
+                            } else {
+                                panic!(
+                                    "Expected a return type from lambda but got None: {}",
+                                    call.index
+                                );
+                            }
+                        } else {
+                            panic!("Expected lambda but got {typed_type}: {}", call.index);
+                        }
+                    } else {
+                        call.return_type(context, typed_module)
+                    };
+
+                    (
+                        return_type,
+                        self.generate_call_function(
+                            code_gen_context,
+                            parent_fcp,
+                            namespace,
+                            call,
+                            context,
+                            function_def,
+                            lambda_space,
+                            0,
+                            false,
+                            id,
+                            statics,
+                            typed_module,
+                            false,
+                            false,
+                            lambda_in_stack,
+                            function_reference_lambdas,
+                        ),
+                        call.index.clone(),
+                    )
                 };
 
                 if is_const {
