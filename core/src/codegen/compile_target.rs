@@ -278,6 +278,8 @@ impl CompileTarget {
     }
 
     pub fn run(&self, project: RasmProject, command_line_options: CommandLineOptions) {
+        let start = Instant::now();
+
         if !self
             .supported_actions()
             .contains(&command_line_options.action)
@@ -300,8 +302,6 @@ impl CompileTarget {
             info!("out folder: {}", out_folder.to_string_lossy());
         }
 
-        let mut start = Instant::now();
-
         let run_type = if command_line_options.action == CommandLineAction::Test
             || command_line_options.action == CommandLineAction::BuildTest
         {
@@ -313,7 +313,6 @@ impl CompileTarget {
         let (container, catalog, errors) = project.container_and_catalog(&run_type, self);
 
         info!("parse ended in {:?}", start.elapsed());
-        start = Instant::now();
 
         if !errors.is_empty() {
             for error in errors {
@@ -328,7 +327,6 @@ impl CompileTarget {
             &project,
             container,
             &catalog,
-            start,
             &command_line_options,
             out_folder,
             out_file.clone(),
@@ -365,7 +363,6 @@ impl CompileTarget {
         project: &RasmProject,
         mut container: ASTModulesContainer,
         catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
-        start: Instant,
         command_line_options: &CommandLineOptions,
         out_folder: PathBuf,
         out_file: PathBuf,
@@ -583,7 +580,6 @@ impl CompileTarget {
                 &project,
                 original_container,
                 orig_catalog.as_ref(),
-                start,
                 &command_line_options,
                 out_folder,
                 out_file.clone(),

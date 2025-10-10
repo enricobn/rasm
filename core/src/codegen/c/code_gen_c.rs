@@ -948,11 +948,11 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
         if let Some(consts) = statics.any::<CConsts>() {
             for (name, def, value) in consts.vec.iter() {
-                self.add(&mut include, &format!("extern {def};"), None, false);
-                self.add(&mut before, &format!("{def};"), None, false);
+                self.add(&mut include, &format!("extern {def};"), None, true);
+                self.add(&mut before, &format!("{def};"), None, true);
 
                 if let Some(v) = value {
-                    self.add(&mut after, &format!("{name} = {v};"), None, false);
+                    self.add(&mut after, &format!("{name} = {v};"), None, true);
                 }
             }
             self.add_empty_line(&mut include);
