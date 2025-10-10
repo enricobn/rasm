@@ -967,76 +967,111 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
     ) -> Vec<LambdaCall> {
         self.define_let(code_gen_context, name, is_const, statics, namespace);
 
-        let (return_type, (bf, mut cur, af, new_lambda_calls), index) = match expr {
+        let (return_type, new_lambda_calls, index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
-                if let Some(kind) = context.get(&call.function_name) {
-                    let typed_type = kind.typed_type();
+                let (return_type, (bf, mut cur, af, new_lambda_calls), index) = {
+                    if let Some(kind) = context.get(&call.function_name) {
+                        let typed_type = kind.typed_type();
 
-                    let typed_type: ASTTypedType =
-                        if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
-                            parameters: _,
-                            return_type,
-                        }) = typed_type
-                        {
-                            if return_type.deref() != &ASTTypedType::Unit {
-                                return_type.deref().clone()
+                        let typed_type: ASTTypedType =
+                            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                                parameters: _,
+                                return_type,
+                            }) = typed_type
+                            {
+                                if return_type.deref() != &ASTTypedType::Unit {
+                                    return_type.deref().clone()
+                                } else {
+                                    panic!(
+                                        "Expected a return type from lambda but got None: {}",
+                                        call.index
+                                    );
+                                }
                             } else {
-                                panic!(
-                                    "Expected a return type from lambda but got None: {}",
-                                    call.index
-                                );
-                            }
-                        } else {
-                            panic!("Expected lambda but got {typed_type}: {}", call.index);
-                        };
+                                panic!("Expected lambda but got {typed_type}: {}", call.index);
+                            };
 
-                    (
-                        typed_type,
-                        self.generate_call_function(
-                            code_gen_context,
-                            parent_fcp,
-                            namespace,
-                            call,
-                            context,
-                            function_def,
-                            lambda_space,
-                            0,
-                            false,
-                            id,
+                        (
+                            typed_type,
+                            self.generate_call_function(
+                                code_gen_context,
+                                parent_fcp,
+                                namespace,
+                                call,
+                                context,
+                                function_def,
+                                lambda_space,
+                                0,
+                                false,
+                                id,
+                                statics,
+                                typed_module,
+                                false,
+                                false,
+                                lambda_in_stack,
+                                function_reference_lambdas,
+                            ),
+                            call.index.clone(),
+                        )
+                    } else {
+                        let return_type = call.return_type(context, typed_module);
+                        (
+                            return_type,
+                            self.generate_call_function(
+                                code_gen_context,
+                                parent_fcp,
+                                namespace,
+                                call,
+                                context,
+                                function_def,
+                                lambda_space,
+                                0,
+                                false,
+                                id,
+                                statics,
+                                typed_module,
+                                false,
+                                false,
+                                lambda_in_stack,
+                                function_reference_lambdas,
+                            ),
+                            call.index.clone(),
+                        )
+                    }
+                };
+
+                if is_const {
+                    if !bf.is_empty() || !cur.is_empty() {
+                        body.push_str(&bf);
+
+                        let key = Statics::const_key(name, namespace, modifiers.unwrap());
+
+                        self.set_let_const_for_function_call_result(
+                            &key,
+                            body,
+                            &mut cur,
+                            name,
+                            &return_type,
                             statics,
-                            typed_module,
-                            false,
-                            false,
-                            lambda_in_stack,
-                            function_reference_lambdas,
-                        ),
-                        call.index.clone(),
-                    )
+                        );
+                        body.push_str(&cur);
+                    } else {
+                        panic!("Expected a return type from lambda but got None: {}", index);
+                    }
                 } else {
-                    let return_type = call.return_type(context, typed_module);
-                    (
-                        return_type,
-                        self.generate_call_function(
-                            code_gen_context,
-                            parent_fcp,
-                            namespace,
-                            call,
-                            context,
-                            function_def,
-                            lambda_space,
-                            0,
-                            false,
-                            id,
-                            statics,
-                            typed_module,
-                            false,
-                            false,
-                            lambda_in_stack,
-                            function_reference_lambdas,
-                        ),
-                        call.index.clone(),
-                    )
+                    if !bf.is_empty() || !cur.is_empty() {
+                        self.store_function_result(code_gen_context, &mut cur, name, &return_type);
+                        before.push_str(&bf);
+                        before.push_str(&cur);
+                    }
+
+                    let not_empty_after_lines = af
+                        .into_iter()
+                        .filter(|it| !it.is_empty())
+                        .collect::<Vec<String>>();
+                    self.insert_on_top(&not_empty_after_lines.join("\n"), after);
                 }
+                (return_type, new_lambda_calls, index)
             }
             ASTTypedExpression::Value(value_type, index) => {
                 if let ASTValue::ASTStringValue(s) = value_type {
@@ -1054,11 +1089,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         namespace,
                         modifiers,
                     );
-                    (
-                        typed_type,
-                        (String::new(), String::new(), vec![], vec![]),
-                        EnhASTIndex::none(),
-                    )
+                    (typed_type, vec![], EnhASTIndex::none())
                 } else {
                     let typed_type =
                         get_type_of_typed_expression(typed_module, context, expr, None, statics)
@@ -1076,11 +1107,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         namespace,
                         modifiers,
                     );
-                    (
-                        typed_type,
-                        (String::new(), String::new(), vec![], vec![]),
-                        index.clone(),
-                    )
+                    (typed_type, vec![], index.clone())
                 }
             }
             ASTTypedExpression::ValueRef(val_name, index, _) => {
@@ -1096,11 +1123,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         statics,
                         name,
                     );
-                    (
-                        typed_val_kind.typed_type().clone(),
-                        (String::new(), String::new(), vec![], vec![]),
-                        index.clone(),
-                    )
+                    (typed_val_kind.typed_type().clone(), vec![], index.clone())
                 } else if let Some(typed_val_kind) = context.get(val_name) {
                     let typed_type = self.set_let_for_value_ref(
                         code_gen_context,
@@ -1111,11 +1134,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         name,
                     );
 
-                    (
-                        typed_type,
-                        (String::new(), String::new(), vec![], vec![]),
-                        index.clone(),
-                    )
+                    (typed_type, vec![], index.clone())
                     /*
                     } else if let Some(typed_val_kind) = statics.get_const(val_name, namespace) {
                         let typed_type = self.set_let_for_value_ref(
@@ -1147,11 +1166,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         typed_module,
                         &mut lambda_calls,
                     );
-                    (
-                        typed_type,
-                        (String::new(), String::new(), vec![], lambda_calls),
-                        index.clone(),
-                    )
+                    (typed_type, lambda_calls, index.clone())
                 } else {
                     panic!("Cannot find {val_name} in context");
                 }
@@ -1161,22 +1176,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         };
 
         if is_const {
-            if !bf.is_empty() || !cur.is_empty() {
-                body.push_str(&bf);
-
-                let key = Statics::const_key(name, namespace, modifiers.unwrap());
-
-                self.set_let_const_for_function_call_result(
-                    &key,
-                    body,
-                    &mut cur,
-                    name,
-                    &return_type,
-                    statics,
-                );
-                body.push_str(&cur);
-            }
-
             if self.options().dereference() {
                 if let Some(type_name) =
                     get_reference_type_name(&return_type, &self.type_def_body_target())
@@ -1195,17 +1194,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             }
         } else {
             self.insert_let_in_context(code_gen_context, context, name, &return_type);
-            if !bf.is_empty() || !cur.is_empty() {
-                self.store_function_result(code_gen_context, &mut cur, name, &return_type);
-                before.push_str(&bf);
-                before.push_str(&cur);
-            }
-
-            let not_empty_after_lines = af
-                .into_iter()
-                .filter(|it| !it.is_empty())
-                .collect::<Vec<String>>();
-            self.insert_on_top(&not_empty_after_lines.join("\n"), after);
 
             if self.options().dereference() {
                 if let Some(type_name) =
