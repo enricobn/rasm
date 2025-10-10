@@ -1018,22 +1018,23 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 };
 
                 if is_const {
-                    if !bf.is_empty() || !cur.is_empty() {
+                    if !bf.is_empty() {
                         body.push_str(&bf);
+                    }
 
-                        let key = Statics::const_key(name, namespace, modifiers.unwrap());
+                    let key = Statics::const_key(name, namespace, modifiers.unwrap());
 
-                        self.set_let_const_for_function_call_result(
-                            &key,
-                            body,
-                            &mut cur,
-                            name,
-                            &return_type,
-                            statics,
-                        );
+                    self.set_let_const_for_function_call_result(
+                        &key,
+                        body,
+                        &mut cur,
+                        name,
+                        &return_type,
+                        statics,
+                    );
+
+                    if !cur.is_empty() {
                         body.push_str(&cur);
-                    } else {
-                        panic!("Expected a return type from lambda but got None: {}", index);
                     }
                 } else {
                     if !bf.is_empty() || !cur.is_empty() {
@@ -1041,13 +1042,13 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         before.push_str(&bf);
                         before.push_str(&cur);
                     }
-
-                    let not_empty_after_lines = af
-                        .into_iter()
-                        .filter(|it| !it.is_empty())
-                        .collect::<Vec<String>>();
-                    self.insert_on_top(&not_empty_after_lines.join("\n"), after);
                 }
+                let not_empty_after_lines = af
+                    .into_iter()
+                    .filter(|it| !it.is_empty())
+                    .collect::<Vec<String>>();
+                self.insert_on_top(&not_empty_after_lines.join("\n"), after);
+
                 (return_type, new_lambda_calls, index)
             }
             ASTTypedExpression::Value(value_type, index) => {
