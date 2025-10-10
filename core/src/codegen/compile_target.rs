@@ -300,7 +300,7 @@ impl CompileTarget {
             info!("out folder: {}", out_folder.to_string_lossy());
         }
 
-        let start = Instant::now();
+        let mut start = Instant::now();
 
         let run_type = if command_line_options.action == CommandLineAction::Test
             || command_line_options.action == CommandLineAction::BuildTest
@@ -311,6 +311,9 @@ impl CompileTarget {
         };
 
         let (container, catalog, errors) = project.container_and_catalog(&run_type, self);
+
+        info!("parse ended in {:?}", start.elapsed());
+        start = Instant::now();
 
         if !errors.is_empty() {
             for error in errors {
@@ -396,7 +399,6 @@ impl CompileTarget {
                 &project,
                 container,
                 catalog,
-                start,
                 &command_line_options,
                 out_folder,
                 out_file,
@@ -456,7 +458,6 @@ impl CompileTarget {
                 &project,
                 container,
                 new_catalog.as_ref(),
-                start,
                 &command_line_options,
                 out_folder.clone(),
                 macro_out_file.clone(),
@@ -830,11 +831,12 @@ impl CompileTarget {
         project: &RasmProject,
         container: ASTModulesContainer,
         catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
-        start: Instant,
         command_line_options: &CommandLineOptions,
         out_folder: PathBuf,
         out_file: PathBuf,
     ) -> Result<(), Vec<CompilationError>> {
+        let start = Instant::now();
+
         let mut statics = Statics::new();
 
         let enriched_container = enrich_container(
@@ -853,10 +855,6 @@ impl CompileTarget {
                 (m.clone(), EnhModuleInfo::new(eh_id.clone(), eh_ns.clone()))
             })
             .collect::<Vec<_>>();
-
-        info!("parse ended in {:?}", start.elapsed());
-
-        let start = Instant::now();
 
         let (ast_type_check, _) = ASTTypeChecker::from_modules_container(&enriched_container);
 
