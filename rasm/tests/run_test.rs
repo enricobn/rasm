@@ -661,14 +661,14 @@ fn test_function_reference() {
     run_test_with_target(
         "function_reference",
         vec![],
-        "101.200000000,102.200000000\n101,102\nint: 1\nint: 2\nfloat: 1.100000000\nfloat: 2.100000000\n",
+        "101.200000000,102.200000000\n101,102\nint: 1\nint: 2\nfloat: 1.100000000\nfloat: 2.100000000\n2\n2\n",
         CompileTarget::C(COptions::default()),
     );
 
     run_test_with_target(
         "function_reference",
         vec![],
-        "101.199996946,102.199996946\n101,102\nint: 1\nint: 2\nfloat: 1.100000020\nfloat: 2.099999901\n",
+        "101.199996946,102.199996946\n101,102\nint: 1\nint: 2\nfloat: 1.100000020\nfloat: 2.099999901\n2\n2\n",
         CompileTarget::Nasmi386(AsmOptions::default()),
     );
 }

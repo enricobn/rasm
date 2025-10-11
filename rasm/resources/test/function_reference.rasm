@@ -8,3 +8,6 @@ println(l1.map(add.curry(100)));
 
 l1.forEach(println.curry("int: "));
 l.forEach(println.curry("float: "));
+
+println(l1.filter(eq.compose(not).curry(1)));
+println(l1.filter(eq.curry(1).compose(not)));

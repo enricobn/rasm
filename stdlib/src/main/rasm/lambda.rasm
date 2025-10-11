@@ -29,3 +29,11 @@ pub fn curry<PT1,PT2,PT3,T>(lambda: fn(PT1,PT2,PT3) -> T, v1: PT1, v2: PT2) -> f
 pub fn curryRight<PT1,PT2,T>(lambda: fn(PT1,PT2) -> T, v2: PT2) -> fn(PT1) -> T {
     fn(v1) { lambda(v1, v2); };
 }
+
+pub fn compose<T1,T2,T3>(f1: fn(T1) -> T2, f2: fn(T2) -> T3) -> fn(T1) -> T3 {
+    fn(v1) {f2(f1(v1));};
+}
+
+pub fn compose<T1,T2,T3,T4>(f1: fn(T1,T2) -> T3, f2: fn(T3) -> T4) -> fn(T1,T2) -> T4 {
+    fn(v1, v2) {f2(f1(v1, v2));};
+}
