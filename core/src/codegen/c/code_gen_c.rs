@@ -621,7 +621,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         name: &str,
         is_const: bool,
         statics: &mut Statics,
-        _body: &mut String,
+        body: &mut String,
         value: &String,
         _typed_type: &ASTTypedType,
         namespace: &EnhASTNameSpace,
@@ -629,14 +629,22 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     ) {
         if is_const {
             let entry = statics.get_typed_const(name, namespace).unwrap();
+            let key = entry.key.clone();
             CConsts::add_to_statics(
                 statics,
-                entry.key.clone(),
-                format!("struct RasmPointer_* {}", &entry.key),
-                Some(format!(
-                    "addStaticStringToHeap(\"{}\")",
+                key.clone(),
+                format!("struct RasmPointer_* {}", &key),
+                None,
+            );
+            self.add(
+                body,
+                &format!(
+                    "{} = addStaticStringToHeap(\"{}\");",
+                    &key,
                     Self::escape_string(value)
-                )),
+                ),
+                None,
+                true,
             );
         } else {
             let string_const = CStrings::add_to_statics(statics, value.to_owned());
@@ -948,8 +956,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
         if let Some(consts) = statics.any::<CConsts>() {
             for (name, def, value) in consts.vec.iter() {
-                self.add(&mut include, &format!("extern {def};"), None, true);
-                self.add(&mut before, &format!("{def};"), None, true);
+                self.add(&mut include, &format!("extern {def};"), None, false);
+                self.add(&mut before, &format!("{def};"), None, false);
 
                 if let Some(v) = value {
                     self.add(&mut after, &format!("{name} = {v};"), None, true);

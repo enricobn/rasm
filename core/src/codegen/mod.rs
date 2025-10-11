@@ -1119,23 +1119,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     );
 
                     (typed_type, vec![], index.clone())
-                    /*
-                    } else if let Some(typed_val_kind) = statics.get_const(val_name, namespace) {
-                        let typed_type = self.set_let_for_value_ref(
-                            code_gen_context,
-                            before,
-                            val_name,
-                            TypedValKind::LetRef((), ()),
-                            statics,
-                            name,
-                        );
-
-                        (
-                            typed_type,
-                            (String::new(), String::new(), vec![], vec![]),
-                            index.clone(),
-                        )
-                        */
                 } else if let Some(function) = typed_module.functions_by_name.get(val_name) {
                     let mut lambda_calls = Vec::new();
                     let typed_type = self.set_let_for_function_ref(
