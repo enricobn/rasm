@@ -9,32 +9,37 @@ pub native chars(s: str) -> List<char> /{
 
     while (i < len) {
         char lb = s_[i];
-        char *c;
+        char *c_;
+        struct RasmPointer_ *c;
         if (( lb & 0x80 ) == 0 ) {         // lead bit is zero, must be a single ascii
-           c = malloc(sizeof(char) * 2);
-           c[0] = lb;
-           c[1] = 0;
+           c = rasmMalloc(sizeof(char) * 2);
+           c_ = (char *) c->address;
+           c_[0] = lb;
+           c_[1] = 0;
            i += 1;
         } else if (( lb & 0xE0 ) == 0xC0 ) { // 110x xxxx
-          c = malloc(sizeof(char) * 3);
-          c[0] = lb;
-          c[1] = s_[i + 1];
-          c[2] = 0;
+          c = rasmMalloc(sizeof(char) * 3);
+          c_ = (char *) c->address;
+          c_[0] = lb;
+          c_[1] = s_[i + 1];
+          c_[2] = 0;
           i += 2;
         } else if (( lb & 0xF0 ) == 0xE0 ) { // 1110 xxxx
-          c = malloc(sizeof(char) * 4);
-          c[0] = lb;
-          c[1] = s_[i + 1];
-          c[2] = s_[i + 2];
-          c[3] = 0;
+          c = rasmMalloc(sizeof(char) * 4);
+          c_ = (char *) c->address;
+          c_[0] = lb;
+          c_[1] = s_[i + 1];
+          c_[2] = s_[i + 2];
+          c_[3] = 0;
           i += 3;
         } else if (( lb & 0xF8 ) == 0xF0 ) { // 1111 0xxx
-          c = malloc(sizeof(char) * 5);
-          c[0] = lb;
-          c[1] = s_[i + 1];
-          c[2] = s_[i + 2];
-          c[3] = s_[i + 3];
-          c[4] = 0;
+          c = rasmMalloc(sizeof(char) * 5);
+          c_ = (char *) c->address;
+          c_[0] = lb;
+          c_[1] = s_[i + 1];
+          c_[2] = s_[i + 2];
+          c_[3] = s_[i + 3];
+          c_[4] = 0;
           i += 4;
         } else {
            printf( "Unrecognized lead byte (%02x)\n", lb );

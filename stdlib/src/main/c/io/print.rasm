@@ -80,7 +80,7 @@ pub native print(file: File, c: char) -> Option<IOError> /{
     if (file == NULL) {
         errno = 9;
     } else {
-        fprintf(file, "%s", c);
+        fprintf(file, "%s", (char *)c->address);
     }
     return $call(optIOError);
 }/

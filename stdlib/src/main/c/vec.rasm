@@ -511,10 +511,8 @@ pub native charsVec(s: str) -> Vec<char> /{
            printf( "Unrecognized lead byte (%02x)\n", lb );
            return result;
        }
-       // TODO for now char and string are an array of C char, NULL terminated, and are not taken in account for reference counting,
-       // so the use of RasmAlloc is pointless, but in the future they should be, so we let the code create a RasmPointer (c_), 
-       // but we put the inner address (c)
-       result_array[count++] = c;
+       $addRef(c_:char)
+       result_array[count++] = c_;
     }
     return result;
 }/

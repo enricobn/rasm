@@ -153,7 +153,7 @@ impl CodeGenC {
                 BuiltinTypedTypeKind::String => "struct RasmPointer_*".to_string(),
                 BuiltinTypedTypeKind::Integer => "long".to_string(),
                 BuiltinTypedTypeKind::Boolean => "char".to_string(),
-                BuiltinTypedTypeKind::Char => "char*".to_string(),
+                BuiltinTypedTypeKind::Char => "struct RasmPointer_*".to_string(),
                 BuiltinTypedTypeKind::Float => "double".to_string(),
                 BuiltinTypedTypeKind::Lambda {
                     parameters: _,
@@ -214,7 +214,7 @@ impl CodeGenC {
                 TypeDefBodyCache::type_body_has_references(&type_def.body, &TypeDefBodyTarget::C),
                 false,
             )
-        } else if "str" == type_name || "_fn" == type_name {
+        } else if "char" == type_name || "str" == type_name || "_fn" == type_name {
             (false, false)
         } else {
             panic!("call_add_ref, cannot find type {type_name}");
@@ -277,7 +277,7 @@ impl CodeGenC {
                 TypeDefBodyCache::type_body_has_references(&type_def.body, &TypeDefBodyTarget::C),
                 false,
             )
-        } else if "str" == type_name || "_fn" == type_name {
+        } else if "char" == type_name || "str" == type_name || "_fn" == type_name {
             (false, false)
         } else {
             panic!("call_add_ref, cannot find type {type_name}");
@@ -679,7 +679,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                 entry.key.clone(),
                 format!(
                     "{} {}",
-                    CodeGenC::type_to_string(typed_type, statics),
+                    CodeGenC::real_type_to_string(typed_type),
                     entry.key
                 ),
                 Some(value),
@@ -689,7 +689,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                 before,
                 &format!(
                     "{} {name} = {};",
-                    CodeGenC::type_to_string(typed_type, statics),
+                    CodeGenC::real_type_to_string(typed_type),
                     value
                 ),
                 None,
@@ -954,18 +954,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             self.add(&mut include, "#define __RASM_DEBUG__", None, false);
         }
 
-        if let Some(consts) = statics.any::<CConsts>() {
-            for (name, def, value) in consts.vec.iter() {
-                self.add(&mut include, &format!("extern {def};"), None, false);
-                self.add(&mut before, &format!("{def};"), None, false);
-
-                if let Some(v) = value {
-                    self.add(&mut after, &format!("{name} = {v};"), None, true);
-                }
-            }
-            self.add_empty_line(&mut include);
-        }
-
         if let Some(strings) = statics.any::<CStrings>() {
             for (value, name) in strings.map.iter() {
                 self.add(
@@ -992,6 +980,18 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                     typed_module,
                 );
             }
+        }
+
+        if let Some(consts) = statics.any::<CConsts>() {
+            for (name, def, value) in consts.vec.iter() {
+                self.add(&mut include, &format!("extern {def};"), None, false);
+                self.add(&mut before, &format!("{def};"), None, false);
+
+                if let Some(v) = value {
+                    self.add(&mut after, &format!("{name} = {v};"), None, true);
+                }
+            }
+            self.add_empty_line(&mut include);
         }
 
         let mut variant_consts = HashSet::new();
@@ -1305,9 +1305,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             ASTValue::ASTStringValue(v) => CStrings::add_to_statics(statics, v.to_owned()),
             ASTValue::ASTBooleanValue(b) => if *b { "1" } else { "0" }.to_string(),
             ASTValue::ASTIntegerValue(v) => format!("{v}"),
-            ASTValue::ASTCharValue(v) => {
-                format!("\"{}\"", CodeGenC::escape_string(&v.to_string()))
-            }
+            ASTValue::ASTCharValue(v) => CStrings::add_to_statics(statics, v.to_owned()),
             ASTValue::ASTFloatValue(v) => format!("{v}"),
         }
     }

@@ -6,7 +6,7 @@ pub type File /{
 pub native readFile(path: str) -> str /{
     $include(<stdio.h>)
 
-    char * buffer = 0;
+    struct RasmPointer_ *buffer = 0;
     long length;
     FILE * f = fopen (path->address, "rb");
 
@@ -15,16 +15,14 @@ pub native readFile(path: str) -> str /{
       fseek (f, 0, SEEK_END);
       length = ftell (f);
       fseek (f, 0, SEEK_SET);
-      buffer = malloc (length + sizeof(char));
-      if (buffer)
-      {
-        fread (buffer, 1, length, f);
-      }
+      buffer = rasmMalloc (length + sizeof(char));
+      char *buffer_ = (char *) buffer->address;
+      fread (buffer_, 1, length, f);
       fclose (f);
-      buffer[length] = 0;
+      buffer_[length] = 0;
     }
 
-    return addStaticStringToHeap(buffer);
+    return buffer;
 }/
 
 pub native createFile(path: str) -> File /{
