@@ -14,7 +14,7 @@ pub fn lineCells(line: EnumerateEntry<str>) -> List<Cell> {
     }), fn(cell) { Cell(index(cell), y); });
 }
 
-pub fn filterLines(lines: List<str>) -> List<str> {
+pub fn filterLines<M>(lines: M<str>) -> M<str> {
     filter(lines, fn(line) {
         match(chars(line), fn(head, tail) { not(eq(head, '!')); }, { false;});
     });
@@ -29,5 +29,5 @@ pub fn moveUp(count: int) {
 }
 
 pub fn toString(cell : Cell) -> str {
-    "Cell(".add(cell.x).add(",").add(cell.y).add(")");
+    "Cell(".append(cell.x).add(",").append(cell.y).add(")");
 }

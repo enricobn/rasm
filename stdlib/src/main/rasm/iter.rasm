@@ -27,12 +27,6 @@ pub fn map<T,T1>(l: Iter<T>, f: fn(T) -> T1) -> Iter<T1> {
     Iter({
         l.callNext.map(fn(it) { IterValue(f(it.value), it.next.map(f)); });
     });
-
-/*
-    l.next.match(fn(it) { 
-        Iter({ Some(IterValue(f(it.value), it.next.map(f)));}); 
-    }, { emptyIter();});
-*/
 }
 
 pub fn forEach<T>(l: Iter<T>, f: fn(T) -> ()) {
@@ -45,6 +39,10 @@ pub fn anyMatch<T>(l: Iter<T>, predicate: fn(T) -> bool) -> bool {
 
 pub fn count<T>(l: Iter<T>, predicate: fn(T) -> bool) -> int {
     l.callNext.match(fn(it) { add(it.next.count(predicate), if(predicate(it.value), 1, 0)); }, {0;});
+}
+
+pub fn count<T>(l: Iter<T>) -> int {
+    l.callNext.match(fn(it) { add(it.next.count, 1); }, {0;});
 }
 
 pub fn foldLeft<T,T1>(iter: Iter<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
@@ -61,12 +59,6 @@ pub fn filter<T>(l: Iter<T>, f: fn(T) -> bool) -> Iter<T> {
             if(f(it.value), { Some(IterValue(it.value, it.next.filter(f))); }, { it.next.filter(f).callNext; });
         }, { None(); });
     });
-
-/*
-    l.next.match(fn(it) {
-        if(f(it.value), { Iter({ Some(IterValue(it.value, it.next.filter(f))); }); }, { it.next.filter(f);});
-    }, { emptyIter<T>(); });
-*/
 }
 
 
@@ -105,12 +97,6 @@ pub fn emptyIter<T>() -> Iter<T> {
 
 pub fn print<T>(i: Iter<T>) {
     i.forEach(fn(it) { print(it); print(','); });
-}
-
-pub fn toVec<T>(iter: Iter<T>) -> Vec<T> {
-    iter.foldLeft(Vec<T>(), fn(result,actual) {
-        result.push(actual);
-    });
 }
 
 pub fn toList<T>(iter: Iter<T>) -> List<T> {

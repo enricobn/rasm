@@ -31,7 +31,7 @@ value of the functions
 ### Enum
 
 The value of an enum is a pointer to a location in memory where, in the first slot there's the variant order number
-which is 0 for the first variant, 1 for the second and so on, the there is the list of the parameter of that enum
+which is 0 for the first variant, 1 for the second and so on, then there is the list of the parameter of that enum
 
 ### Alloc
 

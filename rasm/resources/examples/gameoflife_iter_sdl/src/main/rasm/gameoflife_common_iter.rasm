@@ -13,8 +13,8 @@ pub fn readCellFile(file: str) -> List<Cell> {
     result;
 }
 
-pub fn allCells(width: int, height: int) -> List<FullCell> {
-    cartesianProduct(range(0, height), range(0, width), fn(y, x) {
+pub fn allCells(width: int, height: int) -> Vec<FullCell> {
+    cartesianProduct(vecRange(0, height), vecRange(0, width), fn(y, x) {
         let cell = Cell(x, y);
 
         FullCell(cell, cell.adjacents);
@@ -22,17 +22,22 @@ pub fn allCells(width: int, height: int) -> List<FullCell> {
 }
 
 pub fn moveCells(cells: Iter<Cell>, d: int) -> Iter<Cell> {
-    cells.map(fn(it) { Cell(it.x.add(d), it.y.add(d)); });
+    cells.map(fn(it) { Cell(it.x.add(d), it.y.add(d)); }).toVec.iter;
 }
 
 pub fn next(cells: Iter<Cell>, allCells: Iter<FullCell>) -> Iter<Cell> {
-    allCells.filter(fn(it) {
+    let r = allCells.filter(fn(it) {
         let adjsAlive = it.adjacents.count(fn(a) { isAlive(cells, a); });
         if(isAlive(cells, cell(it)),
             adjsAlive.eq(2).or(adjsAlive.eq(3)),
             adjsAlive.eq(3)
         );
-    }).map(fn(it) { it.cell; }).toList.iter;
+    }).map(fn(it) { it.cell; });
+    let now = now();
+    let v = r.toVec; 
+    let et = elapsedTime(now(), now);
+    println(et);
+    v.iter;
 }
 
 pub fn adjacents(cell: Cell) -> List<Cell> {
@@ -58,10 +63,16 @@ pub fn adjacents(cell: Cell) -> List<Cell> {
 
 /** false = 0 true = any other value **/
 pub fn isAlive(cells: Iter<Cell>, cell: Cell) -> bool {
+    // println("isAlive ", cell);
+
     let x = cell.x;
     let y = cell.y;
 
-    cells.anyMatch(fn(it) {
+    let result = cells.anyMatch(fn(it) {
         x.eq(it.x).and(y.eq(it.y));
     });
+
+    // println("isAlive end ", result);
+
+    result;
 }

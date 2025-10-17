@@ -254,6 +254,53 @@ impl TextMacroEval for CEnumVariantAssignmentMacro {
     }
 }
 
+pub struct CEnumVariantMacro;
+
+impl TextMacroEval for CEnumVariantMacro {
+    fn eval_macro(
+        &self,
+        _statics: &mut Statics,
+        text_macro: &TextMacro,
+        function_def: Option<&ASTTypedFunctionDef>,
+        _type_def_provider: &dyn TypeDefProvider,
+    ) -> Result<String, String> {
+        if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {
+            if let Some(MacroParam::Plain(variant_name, _, _)) = text_macro.parameters.get(1) {
+                if let Some(MacroParam::Plain(value, _, Some(t))) = text_macro.parameters.get(2) {
+                    if let ASTTypedType::Enum { namespace, name } = t {
+                        let safe_name =
+                            format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
+                        let value_address_as_enum = format!("((struct Enum*){value}->address)");
+                        Ok(format!("struct {safe_name}* {var_name} = (struct {safe_name}*)((struct RasmPointer_*){value_address_as_enum}->variant)->address;"))
+                    } else {
+                        panic!(
+                            "Error in enumVariant macro. Function does not return an enum {}",
+                            text_macro.index
+                        )
+                    }
+                } else {
+                    panic!(
+                        "Error in enumVariant macro. Function not present {}",
+                        text_macro.index
+                    )
+                }
+            } else {
+                panic!("Error in enumVariantDeclaration macro. Expected the thirs plain parameter as the name of the variant {}", text_macro.index)
+            }
+        } else {
+            panic!("Error in enumVariantDeclaration macro. Expected the secont plain parameter as the name of the var to declare {}", text_macro.index)
+        }
+    }
+
+    fn is_pre_macro(&self) -> bool {
+        true
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
+    }
+}
+
 pub struct CEnumDeclarationMacro;
 
 impl TextMacroEval for CEnumDeclarationMacro {

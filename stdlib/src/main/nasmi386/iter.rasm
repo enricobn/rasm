@@ -1,0 +1,15 @@
+pub fn toVec<T>(iter: Iter<T>) -> Vec<T> {
+    iter.foldLeft(Vec<T>(), fn(result,actual) {
+        result.push(actual);
+    });
+}
+
+pub fn iter<T>(o: Vec<T>) -> Iter<T> {
+    iter(o, 0);
+}
+
+fn iter<T>(o: Vec<T>, index: int) -> Iter<T> {
+    o.get(index).match(fn(it) {
+        Iter({Some(IterValue(it, iter(o, index.add(1))));});
+    }, { emptyIter();});
+}

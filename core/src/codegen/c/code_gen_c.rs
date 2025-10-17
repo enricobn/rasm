@@ -28,7 +28,8 @@ use crate::codegen::c::function_call_parameters_c::CFunctionCallParameters;
 use crate::codegen::c::options::COptions;
 use crate::codegen::c::text_macro_c::{
     CCallMacro, CEnumDeclarationMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
-    CIncludeMacro, CRealTypeNameMacro, CStructDeclarationMacro, CStructTypeMacro,
+    CEnumVariantMacro, CIncludeMacro, CRealTypeNameMacro, CStructDeclarationMacro,
+    CStructTypeMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
@@ -821,6 +822,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         evaluator.add("enumVariantDeclaration", CEnumVariantDeclarationMacro);
         evaluator.add("enumDeclaration", CEnumDeclarationMacro);
         evaluator.add("enumVariantAssignment", CEnumVariantAssignmentMacro);
+        evaluator.add("enumVariant", CEnumVariantMacro);
         evaluator.add(
             "addRef",
             CAddRefMacro::new(

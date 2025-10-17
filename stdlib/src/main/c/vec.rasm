@@ -126,6 +126,65 @@ pub native vecOf<T>(o: T) -> Vec<T> /{
     return result;
 }/
 
+pub native toVec<T>(iter: Iter<T>) -> Vec<T> /{
+    long chunkSize = 50;
+    size_t t_size = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec,chunkSize,t_size:int);
+    long size = chunkSize;
+    addRef(result);
+    struct RasmPointer_ *iter_ = $iter;
+    // $addRef(iter_:Iter<T>)
+    long i = 0;
+    while (1) {
+        struct RasmPointer_ *optValue =
+            $call(callNext, iter_:Iter<T>)
+        ;
+        $addRef(optValue:Option<IterValue<T>>)
+        struct Enum *e = (struct Enum *) optValue->address;
+        if (e->variant_num == 0) {
+            $enumVariant(s,Some,optValue:Option<IterValue<T>>)
+            struct RasmPointer_ *iterValue = s->value;
+            struct RasmPointer_ *tmp_iter = 
+                $call(next, iterValue:IterValue<T>)
+            ;
+            // $deref(iter_:Iter<T>)
+            iter_ = tmp_iter;
+            // $addRef(iter_:Iter<T>)
+            if (i == size) {
+                size += chunkSize;
+                struct RasmPointer_ *newResult = $call(Vec,size,t_size:int);
+                addRef(newResult);
+
+                struct Vector *result_vec = (struct Vector*)result->address;
+                struct Vector *newResult_vec = (struct Vector*)newResult->address;
+
+                memcpy(newResult_vec->values->address, result_vec->values->address, (size - chunkSize) * t_size);
+
+                deref(result);
+
+                result = newResult;
+            }
+            struct Vector *result_vec = (struct Vector*)result->address;
+            $realTypeName(T) *result_array = ($realTypeName(T) *)result_vec->values->address;
+            $realTypeName(T) v = 
+                $call(value, iterValue:IterValue<T>)
+            ;
+            result_array[i] = v;
+            $addRef(v:T)
+            i++;
+        } else {
+            break;
+        }
+        $deref(optValue:Option<IterValue<T>>);
+    }
+    // $deref(iter_:Iter<T>)
+    //$deref(result:Vec<T>);
+    deref(result);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    result_vec->length = i;
+    return result;
+}/
+
 pub native vecOf<T>(o1: T, o2: T) -> Vec<T> /{
     size_t s = sizeof($realTypeName(T));
     struct RasmPointer_ *result = $call(Vec,2,s);
@@ -529,7 +588,7 @@ pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
 
 pub native get<T>(vec: Vec<T>, i: int) -> Option<T> /{
     int l = $castAddress($vec)->length;
-    if (i >= l) {
+    if (i >= l || i < 0) {
         $enumSimple(result,None);
         return result;
     } else {
@@ -537,7 +596,24 @@ pub native get<T>(vec: Vec<T>, i: int) -> Option<T> /{
         $realTypeName(T) *array = ($realTypeName(T) *)array_values->address;     \
         $realTypeName(T) value = array[i];
 
-        $addRef(value:T)
+        //$addRef(value:T)
         return $call(Some, value: T);
     }
 }/
+
+native getUnsafe<T>(vec: Vec<T>, i: int) -> T /{
+    struct RasmPointer_ *array_values = $castAddress($vec)->values;           \
+    $realTypeName(T) *array = ($realTypeName(T) *)array_values->address;     \
+    return array[i];
+}/
+
+pub fn iter<T>(o: Vec<T>) -> Iter<T> {
+    iter(o, 0);
+}
+
+fn iter<T>(o: Vec<T>, index: int) -> Iter<T> {
+    if(o.len.greater(index),
+        Iter({ Some(IterValue(o.getUnsafe(index), iter(o, index.add(1)))); }),
+        emptyIter()
+    );
+}
