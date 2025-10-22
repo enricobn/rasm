@@ -1,0 +1,18 @@
+pub struct FPS {
+    frameCount: int,
+    lastFPSUpdate: TimeVal,
+    fps: int
+}
+
+pub fn update(fps: FPS) -> FPS {
+    let now = now();
+    let et = elapsedTime(now, fps.lastFPSUpdate);
+
+    if (greater(et, 1000000),
+        {
+            let newFps = fps.frameCount.divf(et).mul(1000000).toInt.getOrElse(fps.fps);
+            FPS(0, now, newFps);
+        },
+        { fps.frameCount(fps.frameCount.add(1));}
+    );
+}

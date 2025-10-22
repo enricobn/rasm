@@ -1997,7 +1997,7 @@ mod tests {
     #[test]
     fn rename_reference_to_function_breakout() {
         test_rename(
-            "../rasm/resources/examples/breakout",
+            "resources/test/breakout",
             "newFunctionName",
             55,
             7,
@@ -2113,7 +2113,7 @@ mod tests {
     #[test]
     fn rename_in_multiple_modules() {
         test_rename_with_module_ns(
-            "../rasm/resources/examples/breakout",
+            "resources/test/breakout",
             "aName",
             49,
             30,
@@ -2272,7 +2272,7 @@ mod tests {
     #[test]
     #[ignore]
     fn duplicated_signatures_in_breakout() {
-        let (_project, helper) = get_helper("../rasm/resources/examples/breakout");
+        let (_project, helper) = get_helper("resources/test/breakout");
 
         let container = helper.container();
 
@@ -2456,10 +2456,10 @@ mod tests {
 
     #[test]
     fn test_statement_start_position_breakout() {
-        let (project, helper) = get_helper("../rasm/resources/examples/breakout");
+        let (project, helper) = get_helper("resources/test/breakout");
 
         if let Some((_, _, info)) = project.get_module(
-            Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
+            Path::new("resources/test/breakout/src/main/rasm/breakout.rasm"),
             &CompileTarget::C(COptions::default()),
         ) {
             let index = ASTIndex::new(
@@ -2479,9 +2479,9 @@ mod tests {
 
     #[test]
     fn test_extract_function_breakout() {
-        let (project, helper) = get_helper("../rasm/resources/examples/breakout");
+        let (project, helper) = get_helper("resources/test/breakout");
 
-        let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
+        let path = Path::new("resources/test/breakout/src/main/rasm/breakout.rasm");
 
         if let Some((_, _, info)) = project.get_module(path, &CompileTarget::C(COptions::default()))
         {
@@ -2523,9 +2523,9 @@ let newHighScores = highScores.add(score);
 
     #[test]
     fn test_extract_function_breakout_1() {
-        let (project, helper) = get_helper("../rasm/resources/examples/breakout");
+        let (project, helper) = get_helper("resources/test/breakout");
 
-        let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
+        let path = Path::new("resources/test/breakout/src/main/rasm/breakout.rasm");
         if let Some((_, _, info)) = project.get_module(path, &CompileTarget::C(COptions::default()))
         {
             let start_index = ASTIndex::new(
@@ -2562,9 +2562,9 @@ Menu(MenuState(newHighScores));
 
     #[test]
     fn test_extract_function_breakout_2() {
-        let (project, helper) = get_helper("../rasm/resources/examples/breakout");
+        let (project, helper) = get_helper("resources/test/breakout");
 
-        let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
+        let path = Path::new("resources/test/breakout/src/main/rasm/breakout.rasm");
         if let Some((_, _, info)) = project.get_module(path, &CompileTarget::C(COptions::default()))
         {
             let start_index = ASTIndex::new(
@@ -2600,10 +2600,10 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
 
     #[test]
     fn test_signature_help_breakout() {
-        let (project, helper) = get_helper("../rasm/resources/examples/breakout");
+        let (project, helper) = get_helper("resources/test/breakout");
 
         if let Some((_, _, info)) = project.get_module(
-            Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm"),
+            Path::new("resources/test/breakout/src/main/rasm/breakout.rasm"),
             &CompileTarget::C(COptions::default()),
         ) {
             let index = ASTIndex::new(

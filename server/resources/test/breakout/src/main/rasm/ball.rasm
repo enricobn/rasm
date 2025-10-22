@@ -1,0 +1,79 @@
+pub struct Ball {
+    x: float,
+    y: float,
+    xDir: XDirection,
+    yDir: YDirection,
+    lastUpdate: TimeVal
+}
+
+pub fn initialBall(now: TimeVal) -> Ball {
+    Ball(WIDTH.div(2).toFloat, HEIGHT.div(4).toFloat, if(random(2).eq(0), Right(), Left()), Down(), now);
+}
+
+pub fn update(ball: Ball, actualTime: TimeVal) -> Ball {
+    let elapsed = actualTime.elapsedTime(ball.lastUpdate);
+
+    let diff = elapsed.divf(3000);
+
+    let updatedX = update(ball.x, ball.xDir, diff);
+    let newX = updatedX.first;
+    let newXDir = updatedX.second;
+
+    let updatedY = update(ball.y, ball.yDir, diff);
+    let newY = updatedY.first;
+    let newYDir = updatedY.second;
+
+    Ball(newX, newY, newXDir, newYDir, actualTime);
+}
+
+fn update(x: float, xDir: XDirection, diff: float) -> Pair<float,XDirection> {
+    let newX = x.move(xDir, diff);
+    let rightMargin = WIDTH.sub(BALLSIZE);
+
+    if (newX.greater(rightMargin),
+        { Pair(rightMargin.sub(newX.sub(rightMargin)), xDir.flip); },
+        less(newX, 0),
+        { Pair(sub(0.0, newX), xDir.flip); },
+        { Pair(newX, xDir);}
+    );
+}
+
+fn update(y: float, yDir: YDirection, diff: float) -> Pair<float,YDirection> {
+    let newY = y.move(yDir, diff);
+    if(newY.less(HEADERHEIGHT),
+        { Pair(HEADERHEIGHT.toFloat.add(HEADERHEIGHT.toFloat.sub(newY)), yDir.flip);},
+        { Pair(newY, yDir);}
+    );
+}
+
+pub fn collides(ball: Ball, brick: Brick) -> bool {
+    let bx = brick.x;
+    let by = brick.y;
+
+    let xColl = ball.x.add(BALLSIZE).greater(bx).and(ball.x.less(bx.add(BRICKWIDTH)));
+    let yColl = ball.y.add(BALLSIZE).greater(by).and(ball.y.less(by.add(BRICKHEIGHT)));
+
+    xColl.and(yColl);
+}
+
+pub fn collides(ball: Ball, barPos: float) -> bool {
+    let bx = barPos;
+    let by = HEIGHT.sub(BARHEIGHT);
+
+    let xColl = ball.x.add(BALLSIZE).greater(bx).and(ball.x.less(bx.add(BARWIDTH)));
+    let yColl = ball.y.add(BALLSIZE).greater(by);
+
+    xColl.and(yColl);
+}
+
+pub fn afterCollision(ball: Ball, brick: Brick) -> Ball {
+    let xDiff1 = ball.x.sub(brick.x);
+    let xDiff2 = brick.x.add(BRICKWIDTH).sub(ball.x);
+    let yDiff1 = ball.y.sub(brick.y);
+    let yDiff2 = brick.y.add(BRICKHEIGHT).sub(ball.y);
+
+    let xDiff = xDiff1.min(xDiff2);
+    let yDiff = yDiff1.min(yDiff2);
+
+    if(xDiff.less(yDiff), { ball.xDir(ball.xDir.flip);}, { ball.yDir(ball.yDir.flip);});
+}

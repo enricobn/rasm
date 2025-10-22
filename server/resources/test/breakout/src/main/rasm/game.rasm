@@ -1,0 +1,122 @@
+pub struct GameState {
+    stage: GameStage,
+    world: World,
+    fps: FPS
+}
+
+pub struct World {
+    bricks: Vec<Brick>,
+    ball: Ball,
+    bar: Bar,
+    score: int,
+    lives: int
+}
+
+enum GameStage {
+    RunBall,
+    Run
+}
+
+pub fn initialGameState() -> GameState {
+    GameState(Run(), initialWorld(), FPS(0, now(), 0));
+}
+
+fn initialWorld() -> World {
+    let bricks = cartesianProduct(vecRange(0, 30), vecRange(0, 10), fn(x, y) { Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , RED); });
+
+    let now = now();
+
+    World(bricks, initialBall(now), Bar(500.0, 0, now), 0, 3);
+}
+
+pub fn update(resources: Resources, keys: Vec<int>, gameState: GameState) -> GameResult {
+    let stage = gameState.stage;
+    let fps = gameState.fps.update();
+
+    let newGameState = stage.match(
+        { gameState.fps(fps); }, 
+        {
+            let newWorld = update(resources, keys, gameState.world);
+
+            // range(0, 100); // wait...
+            GameState(stage, newWorld, fps);
+        }
+    );
+
+    let newWorld = newGameState.world;
+    let lives = newWorld.lives;
+    let score = newWorld.score;
+
+    if(lives.eq(0), { End(score);}, { Play(newGameState);});
+}
+
+fn update(resources: Resources, keys: Vec<int>, world: World) -> World {
+    // println(time());
+    // sleep(0, 1500);
+    let actualTime = now();
+    let lives = world.lives;
+    let ball = world.ball;
+    let bricks = world.bricks;
+
+    let newBar = world.bar.update(actualTime, keys);
+    let newBall = ball.update(actualTime);
+    let collision = bricks.collision(newBall);
+    let newScore = collision.match(fn(b) { world.score.add(10);}, { world.score;});
+    let newBricks = collision.match(fn(b1) { bricks.filter(neq.curry(b1)); }, { bricks; });
+
+    if(newBall.collides(newBar.x), {
+        let ballAfterCollision = Ball(ball.x, ball.y, ball.xDir, ball.yDir.flip(), actualTime);
+        let newBall2 = ballAfterCollision.update(actualTime);
+        World(newBricks, newBall2, newBar, newScore, lives);
+    }, {
+        collision.match(fn(brick) {
+            let ballAfterCollision = ball.afterCollision(brick).lastUpdate(actualTime);
+             World(newBricks, ballAfterCollision, newBar, newScore, lives);
+        },
+        {
+            if(ball.y.greater(HEIGHT.sub(BALLSIZE)), {
+                World(newBricks, initialBall(actualTime), newBar, newScore, lives.sub(1));
+            }, {
+                World(newBricks, newBall, newBar, newScore, lives);
+            });
+        });
+    });
+}
+
+fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
+    bricks.filter(collides.curry(ball)).first;
+}
+
+pub fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
+    gameState.stage.match(
+        { }, 
+        { render(ren, resources, gameState.world, gameState.fps.fps); }
+    );
+}
+
+fn render(ren: SDLRenderer, resources: Resources, world: World, fps: int) {
+    let font = resources.font;
+
+    world.bricks.forEach(fn(brick) {
+        sdlSetRenderDrawColor(ren, brick.color);
+        sdlRenderFillRect(ren, SDLRect(brick.x.add(1), brick.y.add(1), BRICKWIDTH.sub(2), BRICKHEIGHT.sub(2)));
+    });
+
+    sdlSetRenderDrawColor(ren, WHITE);
+
+    sdlRenderFillRect(ren, SDLRect(world.bar.x.toInt(0), HEIGHT.sub(BARHEIGHT), BARWIDTH, BARHEIGHT));
+
+    sdlRenderFillRect(ren, SDLRect(world.ball.x.toInt(0), world.ball.y.toInt(0), BALLSIZE, BALLSIZE));
+
+    sdlSetRenderDrawColor(ren, BLUE);
+    sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
+
+    let scoreText = createSDLText(ren, font, "Score: ".append(world.score), GREEN);
+    renderAndRelease(ren, scoreText, SDLRect(2, 2, 100, 24));
+
+    let livesText = createSDLText(ren, font, "Lives: ".append(world.lives), GREEN);
+    renderAndRelease(ren, livesText, SDLRect(200, 2, 100, 24));
+
+    let fpsText = createSDLText(ren, font, "FPS: ".append(fps), GREEN);
+    renderAndRelease(ren, fpsText, SDLRect(400, 2, 100, 24));
+}

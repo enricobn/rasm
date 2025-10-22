@@ -1,0 +1,185 @@
+pub enum GameResult {
+    Play(state: GameState),
+    End(score: int)
+}
+
+pub struct Resources {
+    font: SDLFont
+}
+
+pub struct HighScore {
+    score: int,
+    time: TimeVal
+}
+
+struct State {
+    resources: Resources,
+    keys: Vec<int>,
+    stage: Stage,
+    highScores: Vec<HighScore>
+}
+
+pub enum Stage {
+    Menu(menuState: MenuState),
+    Game(gameState: GameState)
+}
+
+pub const WIDTH = 1024;
+pub const HEIGHT = 768;
+pub const BRICKWIDTH = 34;
+pub const BRICKHEIGHT = 10;
+pub const BARWIDTH = 80;
+pub const BARHEIGHT = 10;
+pub const HEADERHEIGHT = 25;
+pub const BALLSIZE = 5;
+pub const BLACK = SDLColor(0, 0, 0, 255);
+pub const WHITE = SDLColor(255, 255, 255, 255);
+pub const RED = SDLColor(255, 0, 0, 255);
+pub const GREEN = SDLColor(0, 255, 0, 255);
+pub const BLUE = SDLColor(0, 0, 255, 255);
+pub const YELLOW = SDLColor(255, 255, 0, 255);
+
+sdlInit();
+if(sdlTTFInit().eq(1), { panic("TTFInit error."); }, { });
+
+let font = sdlOpenFont(resource("DejaVuSerif.ttf"), 24);
+
+let highScores = loadHighScores();
+
+let initialState = State(Resources(font), Vec(), Menu(MenuState(highScores)), highScores);
+
+let win = sdlErrorIfNull(sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
+let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
+
+sdlLoop(ren, initialState,
+    update,
+    render
+);
+
+sdlDestroyRenderer(ren);
+sdlDestroyWindow(win);
+
+// TODO keys are not as expected, space is 44 but should be 32!
+fn update(event: Option<KeyEvent>, state: State) -> State {
+    let resources = state.resources;
+    let keys = state.keys;
+    let stage = state.stage;
+    let highScores = state.highScores;
+
+    let newKeys = event.match(fn(e) {
+          let key = e.key;
+          let keyState = e.state;
+
+          keyState.match({
+            vecOf(key);
+          }, {
+            keys.filter(neq.curry(key));
+          });
+      }, { keys; });
+
+    match(stage, fn(menuState) {
+        let newStage = update(resources, newKeys, menuState);
+        State(resources, newKeys, newStage, highScores);
+    }, fn(gameState) {
+        let gameResult = update(resources, newKeys, gameState);
+        gameResult.match(fn(newGameState) {
+            State(resources, newKeys, Game(newGameState), highScores);
+        }, fn(score) {
+            let newHighScores = highScores.add(score);
+            writeHighScores(newHighScores);
+            State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
+        });
+
+    });
+}
+
+fn add(highScores: Vec<HighScore>, score: int) -> Vec<HighScore> {
+    highScores.push(HighScore(score, now()));
+}
+
+fn render(ren: SDLRenderer, state: State) {
+    sdlSetRenderDrawColor(ren, BLACK);
+    sdlRenderClear(ren);
+
+    let resources = state.resources;
+    let stage = state.stage;
+
+    stage.match(fn(menuState) { render(ren, resources, menuState);}, fn(gameState) { render(ren, resources, gameState);});
+
+    sdlRenderPresent(ren);
+}
+
+fn loadHighScores() -> Vec<HighScore> {
+    if(fileExists("scores.txt"), {
+        let scores = readFile("scores.txt");
+        let lines = scores.lines;
+        lines.fmap(fn(line) {
+            let splitted = line.splitToList(',');
+            splitted.map3(fn(score, sec, nano) {
+                score.toInt.fmap(fn(sc) {
+                    sec.toInt.fmap(fn(s) {
+                        nano.toInt.map(fn(n) {
+                            HighScore(sc, TimeVal(s, n));
+                        });
+                    });
+                });
+            }).flatten.toList;
+        }).toVec;
+    }, Vec);
+}
+
+fn printHighScores(highScores: Vec<HighScore>) {
+    forEach(highScores, fn(highScore) {
+        print("high score ", highScore.score);
+        print(", ");
+        println(highScore.time);
+    });
+}
+
+fn writeHighScores(highScores: Vec<HighScore>) {
+    let file = createFile("scores.txt");
+
+    forEach(highScores, fn(it) {
+        print(file, it.score)
+        .orElse({print(file, ",");})
+        .orElse({print(file, it.time.sec);})
+        .orElse({print(file, ",");})
+        .orElse({println(file, it.time.nano);})
+        .forEach(fn(error) {
+            println(error);
+            exitMain(1);
+        });
+    });
+
+    close(file);
+}
+
+fn splitToList(s: str, separator: char) -> List<str> {
+    let chars = listEnumerate(chars(s));
+
+    let separatorIndex = chars.indexOf(separator);
+
+    match(separatorIndex,
+        fn(index) {
+            let item = s.substr(0, index);
+            let remainder = s.substr(index.add(1), s.len.sub(index).sub(1));
+            match(item,
+                fn(f) {
+                    match(remainder,
+                        fn(r) { listAppend(listOf(f), splitToList(r, separator));},
+                        { listOf(f);}
+                    );
+                },
+                Empty
+            );
+        },
+        { listOf(s);}
+    );
+}
+
+fn indexOf<T>(list: List<EnumerateEntry<T>>, what: T) -> Option<int> {
+    list
+        .filter(fn(entry) { entry.value.eq(what); })
+        .first
+        .map(index);
+}

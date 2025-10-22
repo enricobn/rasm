@@ -1,0 +1,3 @@
+pub fn toInt(f: float, defaultValue: int) -> int {
+    f.toInt.getOrElse(defaultValue);
+}
