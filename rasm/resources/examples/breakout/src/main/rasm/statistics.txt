@@ -239,3 +239,11 @@ type check ended in 93.493062ms
 code generation ended in 49.325568ms
 compiler ended in 473.808981ms
 finished in 668.436647ms
+
+added lens 
+parse ended in 17.888693ms
+AST type check ended in 29.924075ms
+type check ended in 92.534796ms
+code generation ended in 52.00233ms
+compiler ended in 519.559841ms
+finished in 717.481836ms

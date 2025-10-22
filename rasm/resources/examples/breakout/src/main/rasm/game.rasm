@@ -47,15 +47,13 @@ pub fn update(keys: Vec<int>, gameState: GameState) -> GameResult {
     let newGameState = stage.match(
         fn(time) {
             if(actualTime.elapsedTime(time).greater(RESTARTTIME), {
-                gameState
-                    // we must update the ball lastUpdate, because the movement of the ball depends on it
-                    .world(fn(w) { w.ball(fn(b) { b.lastUpdate(actualTime);});})
+                // we must update the ball lastUpdate, because the movement of the ball depends on it
+                gameState.lens(world, ball, fn(ball) { ball.lastUpdate(actualTime);})
                     .stage(Run())
                     .fps(fps);
             }, {
-                gameState
                 // we want the player to move
-                .world(fn(w) { w.bar(fn(b) { b.update(actualTime, keys);});})
+                gameState.lens(world, bar, fn(bar) { bar.update(actualTime, keys);})
                 .fps(fps);
             });
         }, 
