@@ -739,10 +739,15 @@ fn test_testmock() {
 
 #[test]
 fn test_recursion() {
+    run_test("recursion", vec![], "\n");
+}
+
+#[test]
+fn test_lens() {
     run_test(
-        "recursion",
+        "lens",
         vec![],
-        "\n",
+        "Circle(Point(3, 3), 10)\nShape(Circle(Point(3, 3), 10))\nShapes(Shape(Circle(Point(3, 3), 10)))\n",
     );
 }
 

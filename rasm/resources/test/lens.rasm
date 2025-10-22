@@ -1,0 +1,33 @@
+@toString()
+struct Point {
+    x: int,
+    y: int
+}
+
+@toString()
+struct Circle {
+    center: Point,
+    radius: int
+}
+
+@toString()
+struct Shape {
+    circle: Circle
+}
+
+@toString()
+struct Shapes {
+    shape: Shape
+}
+
+let c = Circle(Point(2, 3), 10);
+let c1 = c.lens(center, x, add.curry(1));
+println(c1);
+
+let s = Shape(Circle(Point(2, 3), 10));
+let s1 = s.lens(circle, center, x, add.curry(1));
+println(s1);
+
+let ss = Shapes(Shape(Circle(Point(2, 3), 10)));
+let ss1 = ss.lens(shape, circle, center, x, add.curry(1));
+println(ss1);
