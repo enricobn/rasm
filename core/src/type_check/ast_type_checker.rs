@@ -1260,6 +1260,21 @@ impl ASTTypeChecker {
 
         let mut resolved_generic_types = ASTResolvedGenericTypes::new();
 
+        if function_signature.parameters_types.len() != parameter_types_filters.len() {
+            self.errors.push(ASTTypeCheckError::new(
+                ASTTypeCheckErroKind::Error,
+                index.clone(),
+                format!(
+                    "function {} expected {} parameters but got {}",
+                    function_signature.name,
+                    function_signature.parameters_types.len(),
+                    parameter_types_filters.len()
+                ),
+            ));
+            dedent!();
+            return;
+        }
+
         for (i, parameter) in function_signature.parameters_types.iter().enumerate() {
             if parameter.is_generic() {
                 let calculated_type_filter = parameter_types_filters.get(i).unwrap();
