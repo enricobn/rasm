@@ -981,6 +981,12 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                     "",
                     typed_module,
                 );
+                self.add(
+                    &mut include,
+                    &format!("extern struct RasmPointer_ *{name};"),
+                    None,
+                    false,
+                );
             }
         }
 
@@ -1351,8 +1357,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     }
 
     fn split_source(&self) -> usize {
-        //num_cpus::get_physical() - 2
-        0
+        num_cpus::get_physical() - 2
     }
 
     fn include_file(&self, file: &str) -> String {
