@@ -58,10 +58,9 @@ pub fn collides(ball: Ball, brick: Brick) -> bool {
 
 pub fn collides(ball: Ball, barPos: float) -> bool {
     let bx = barPos;
-    let by = HEIGHT.sub(BARHEIGHT);
 
     let xColl = ball.x.add(BALLSIZE).greater(bx).and(ball.x.less(bx.add(BARWIDTH)));
-    let yColl = ball.y.add(BALLSIZE).greater(by);
+    let yColl = ball.y.add(BALLSIZE).greater(BARY);
 
     xColl.and(yColl);
 }

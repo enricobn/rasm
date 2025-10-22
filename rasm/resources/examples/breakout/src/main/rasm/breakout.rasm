@@ -24,20 +24,36 @@ pub enum Stage {
     Game(gameState: GameState)
 }
 
+pub struct Colors {
+    black: SDLColor,
+    blue: SDLColor,
+    green: SDLColor,
+    red: SDLColor,
+    yellow: SDLColor,
+    white: SDLColor
+}
+
+pub fn Colors() -> Colors {
+    Colors(
+        SDLColor(0, 0, 0, 255),
+        SDLColor(0, 0, 255, 255),
+        SDLColor(0, 255, 0, 255),
+        SDLColor(255, 0, 0, 255),
+        SDLColor(255, 255, 0, 255),
+        SDLColor(255, 255, 255, 255)
+    );
+}
+
 pub const WIDTH = 1024;
 pub const HEIGHT = 768;
 pub const BRICKWIDTH = 34;
 pub const BRICKHEIGHT = 10;
 pub const BARWIDTH = 80;
 pub const BARHEIGHT = 10;
+pub const BARY = HEIGHT.sub(BARHEIGHT);
 pub const HEADERHEIGHT = 25;
 pub const BALLSIZE = 5;
-pub const BLACK = SDLColor(0, 0, 0, 255);
-pub const WHITE = SDLColor(255, 255, 255, 255);
-pub const RED = SDLColor(255, 0, 0, 255);
-pub const GREEN = SDLColor(0, 255, 0, 255);
-pub const BLUE = SDLColor(0, 0, 255, 255);
-pub const YELLOW = SDLColor(255, 255, 0, 255);
+pub const COLORS = Colors();
 
 sdlInit();
 if(sdlTTFInit().eq(1), { panic("TTFInit error."); }, { });
@@ -81,7 +97,7 @@ fn update(event: Option<KeyEvent>, state: State) -> State {
         let newStage = update(resources, newKeys, menuState);
         State(resources, newKeys, newStage, highScores);
     }, fn(gameState) {
-        let gameResult = update(resources, newKeys, gameState);
+        let gameResult = update(newKeys, gameState);
         gameResult.match(fn(newGameState) {
             State(resources, newKeys, Game(newGameState), highScores);
         }, fn(score) {
@@ -98,7 +114,7 @@ fn add(highScores: Vec<HighScore>, score: int) -> Vec<HighScore> {
 }
 
 fn render(ren: SDLRenderer, state: State) {
-    sdlSetRenderDrawColor(ren, BLACK);
+    sdlSetRenderDrawColor(ren, COLORS.black);
     sdlRenderClear(ren);
 
     let resources = state.resources;

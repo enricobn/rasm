@@ -1,6 +1,6 @@
 pub struct Bar {
     x: float,
-    velocity: int,
+    velocity: float,
     lastUpdate: TimeVal
 }
 
@@ -13,12 +13,12 @@ pub fn update(bar: Bar, actualTime: TimeVal, keys: Vec<int>) -> Bar {
     let leftOrRight = left.add(right);
 
     let newVelocity = if(eq(leftOrRight, 0), {
-        bar.velocity.toFloat.div(1.03).toInt(0);
+        bar.velocity.div(1.03);
     }, {
         bar.velocity.add(leftOrRight.mul(30));
     });
 
-    let realVelocity = between(newVelocity, -1000, 1000);
+    let realVelocity = between(newVelocity, -1000.0, 1000.0);
 
     let seconds = elapsed.toFloat.div(1000000);
 

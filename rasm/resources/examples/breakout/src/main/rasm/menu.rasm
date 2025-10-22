@@ -15,7 +15,7 @@ pub fn update(resources: Resources, keys: Vec<int>, menuState: MenuState) -> Sta
 pub fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
     let font = resources.font;
 
-    let title = createSDLText(ren, font, "Rasm BREAKOUT", GREEN);
+    let title = createSDLText(ren, font, "Rasm BREAKOUT", COLORS.green);
     renderAndRelease(ren, title, SDLRect(380, 200, 200, 24));
 
     let highScores = take(sort(highScores(menuState), fn(h1, h2) {
@@ -37,8 +37,8 @@ pub fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
         let time = highScore.time;
 
         let color = match(last, fn(h) {
-            if(eq(h.time, time), YELLOW, BLUE);
-        }, { BLUE;});
+            if(eq(h.time, time), COLORS.yellow, COLORS.blue);
+        }, { COLORS.blue;});
 
         let sScore = padLeft(toString(score), 10);
         let scoreText = createSDLText(ren, font, sScore, color);
@@ -46,6 +46,6 @@ pub fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
         renderAndRelease(ren, scoreText, SDLRect(380, y, mul(len(sScore), 24), 24));
     });
 
-    let footer = createSDLText(ren, font, "Press SPACE to start", RED);
+    let footer = createSDLText(ren, font, "Press SPACE to start", COLORS.red);
     renderAndRelease(ren, footer, SDLRect(380, 700, 200, 24));
 }
