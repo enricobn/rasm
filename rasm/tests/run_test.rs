@@ -747,7 +747,15 @@ fn test_lens() {
     run_test(
         "lens",
         vec![],
-        "Circle(Point(3, 3), 10)\nShape(Circle(Point(3, 3), 10))\nShapes(Shape(Circle(Point(3, 3), 10)))\n",
+        r#"Circle(Point(3, 3), 10)
+Circle(Point(10, 3), 10)
+Shape(Circle(Point(3, 3), 10))
+Shape(Circle(Point(10, 3), 10))
+Shapes(Shape(Circle(Point(3, 3), 10)))
+Shapes(Shape(Circle(Point(10, 3), 10)))
+Circle(Point(3, 3), 10)
+Circle(Point(10, 3), 10)
+"#,
     );
 }
 

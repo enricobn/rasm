@@ -37,3 +37,8 @@ let ss1 = ss.update(shape, circle, center, x, add.curry(1));
 println(ss1);
 let ss2 = ss.set(shape, circle, center, x, 10);
 println(ss2);
+
+let cx = updateLens(center, x);
+println(c.cx(add.curry(1)));
+let cx1 = setLens(center, x);
+println(c.cx1(10));

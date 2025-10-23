@@ -261,7 +261,7 @@ impl TextMacroEval for CEnumVariantMacro {
         &self,
         _statics: &mut Statics,
         text_macro: &TextMacro,
-        function_def: Option<&ASTTypedFunctionDef>,
+        _function_def: Option<&ASTTypedFunctionDef>,
         _type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
         if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {

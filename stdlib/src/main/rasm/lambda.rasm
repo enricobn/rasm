@@ -62,3 +62,21 @@ pub fn set<O,T,T1,T2>(o: O, ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, fn(T1) -> T1)
 pub fn set<O,T,T1,T2,T3>(o: O, ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, fn(T1) -> T1) -> T, ft2: fn(T1, fn(T2) -> T2) -> T1, ft3: fn(T2, T3) -> T2, v: T3) -> O {
     ft(o, fn(t) { t.set(ft1, ft2, ft3, v);});
 }
+
+// TODO naming and if it is useful add other two with more arguments
+pub fn updateLens<O,T,T1>(ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, fn(T1) -> T1) -> T) -> fn(O, fn(T1) -> T1) -> O {
+    fn(o, f) {
+        ft(o, fn(t) { ft1(t, f); });
+    };
+}
+
+// TODO naming and if it is useful add other two with more arguments
+// we cannot use fn(T, T1) -> T as the type of last argument, which should be clearer, because this function should be used 
+// for structs, where there are two "setter" functions for the same property, so with the same name, one is fn(T,PT) -> T 
+// and the other is fn(T,fn(PT) -> PT) -> T and the compiler cannot distinguish between the two, when it tries to resolve 
+// the parameter ft1, because it matches both
+pub fn setLens<O,T,T1>(ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, fn(T1) -> T1) -> T) -> fn(O, T1) -> O {
+    fn(o, v) {
+        ft(o, fn(t) { ft1(t, fn(v1) {v;}); });
+    };
+}
