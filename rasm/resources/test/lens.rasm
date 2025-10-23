@@ -21,13 +21,19 @@ struct Shapes {
 }
 
 let c = Circle(Point(2, 3), 10);
-let c1 = c.lens(center, x, add.curry(1));
+let c1 = c.update(center, x, add.curry(1));
 println(c1);
+let c2 = c.set(center, x, 10);
+println(c2);
 
 let s = Shape(Circle(Point(2, 3), 10));
-let s1 = s.lens(circle, center, x, add.curry(1));
+let s1 = s.update(circle, center, x, add.curry(1));
 println(s1);
+let s2 = s.set(circle, center, x, 10);
+println(s2);
 
 let ss = Shapes(Shape(Circle(Point(2, 3), 10)));
-let ss1 = ss.lens(shape, circle, center, x, add.curry(1));
+let ss1 = ss.update(shape, circle, center, x, add.curry(1));
 println(ss1);
+let ss2 = ss.set(shape, circle, center, x, 10);
+println(ss2);

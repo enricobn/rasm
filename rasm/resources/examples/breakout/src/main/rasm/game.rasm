@@ -18,8 +18,8 @@ enum GameStage {
     Run
 }
 
-// 3 sec.
-const RESTARTTIME = 3000000;
+// 2 sec.
+const RESTARTTIME = 2000000;
 
 pub fn initialGameState() -> GameState {
     GameState(Run(), initialWorld(), FPS(0, now(), 0));
@@ -48,12 +48,12 @@ pub fn update(keys: Vec<int>, gameState: GameState) -> GameResult {
         fn(time) {
             if(actualTime.elapsedTime(time).greater(RESTARTTIME), {
                 // we must update the ball lastUpdate, because the movement of the ball depends on it
-                gameState.lens(world, ball, fn(ball) { ball.lastUpdate(actualTime);})
+                gameState.update(world, ball, fn(ball) { ball.lastUpdate(actualTime);})
                     .stage(Run())
                     .fps(fps);
             }, {
                 // we want the player to move
-                gameState.lens(world, bar, fn(bar) { bar.update(actualTime, keys);})
+                gameState.update(world, bar, fn(bar) { bar.update(actualTime, keys);})
                 .fps(fps);
             });
         }, 
