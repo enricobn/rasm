@@ -1,7 +1,8 @@
 pub struct Brick {
     x: int,
     y: int,
-    color: SDLColor
+    color: SDLColor,
+    value: int
 }
 
 pub fn eq(b1: Brick, b2: Brick) -> bool {

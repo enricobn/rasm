@@ -26,7 +26,13 @@ pub fn initialGameState() -> GameState {
 
 fn initialWorld() -> World {
     let bricks = cartesianProduct(vecRange(0, 30), vecRange(0, 10), 
-        fn(x, y) { Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , COLORS.red); });
+        fn(x, y) {
+            let yellow = random(10).eq(0);
+
+            let color = if(yellow, COLORS.yellow, COLORS.red);
+            let score = if(yellow, 100, 10);
+            Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , color, score); 
+        });
 
     let now = now();
 
@@ -97,7 +103,7 @@ fn update(world: World, keys: Vec<int>) -> World {
         World(bricks, newBall, newBar, world.score, lives);
     }, {
         let collision = bricks.collision(newBall);
-        let newScore = collision.match(fn(b) { world.score.add(10);}, { world.score;});
+        let newScore = collision.match(fn(b) { world.score.add(b.value);}, { world.score;});
         let newBricks = collision.match(fn(b) { bricks.filter(neq.curry(b)); }, { bricks; });
 
         if(newBall.collides(newBar.x), {
