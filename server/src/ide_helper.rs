@@ -545,6 +545,18 @@ impl IDEHelper {
         result
     }
 
+    pub fn find_all(&self, index: &ASTIndex) -> Vec<IDESelectableItem> {
+        let mut result = Vec::new();
+
+        for selectable_item in self.selectable_items.iter() {
+            if selectable_item.contains(index) {
+                result.push(selectable_item.clone());
+            }
+        }
+
+        result
+    }
+
     pub fn get_completions(
         &self,
         module_content: String,
@@ -945,37 +957,20 @@ impl IDEHelper {
     }
 
     pub fn references(&self, index: &ASTIndex) -> Vec<IDESelectableItem> {
-        let mut items = self.find(index);
+        let items = self.find_all(index);
 
-        if items.len() == 1 {
-            let item = items.remove(0);
-            let mut result = Vec::new();
-            for se in self.selectable_items.iter() {
-                if let Some(ref target) = se.target {
-                    if let Some(i) = target.index() {
-                        if i.equals_ignoring_builtin(&item.start) {
-                            result.push(se.clone());
-                        }
+        let mut result = Vec::new();
+        for se in self.selectable_items.iter() {
+            if let Some(ref target) = se.target {
+                if let Some(i) = target.index() {
+                    if items.iter().any(|it| i.equals_ignoring_builtin(&it.start)) {
+                        result.push(se.clone());
                     }
                 }
             }
+        }
 
-            return result;
-        } /*else {
-              for i in items.iter() {
-                  println!(
-                      "references item {i} {}",
-                      OptionDisplay(
-                          &(i.target
-                              .clone()
-                              .and_then(|it| it.index())
-                              .and_then(|it| it.position().clone().builtin))
-                      )
-                  );
-              }
-          }*/
-
-        Vec::new()
+        result
     }
 
     pub fn rename(&self, index: &ASTIndex, new_name: String) -> Result<IDEWorkspaceEdit, String> {
@@ -1979,6 +1974,17 @@ mod tests {
             6,
             7,
             vec![(10, 13), (12, 9)],
+            "types.rasm",
+        );
+    }
+
+    #[test]
+    fn references_types1() {
+        test_references(
+            "resources/test/types.rasm",
+            2,
+            7,
+            vec![(12, 17), (36, 17)],
             "types.rasm",
         );
     }
