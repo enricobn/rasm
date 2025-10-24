@@ -10,7 +10,6 @@ pub struct World {
     bar: Bar,
     score: int,
     lives: int,
-    ballGone: bool
 }
 
 enum GameStage {
@@ -31,7 +30,7 @@ fn initialWorld() -> World {
 
     let now = now();
 
-    World(bricks, initialBall(now), initialBar(now), 0, 3, false);
+    World(bricks, initialBall(now), initialBar(now), 0, 3);
 }
 
 fn initialBar(now: TimeVal) -> Bar {
@@ -47,7 +46,7 @@ pub fn update(keys: Vec<int>, gameState: GameState) -> GameResult {
     let newGameState = stage.match(
         fn(time) {
             if(actualTime.elapsedTime(time).greater(RESTARTTIME), {
-                // we must update the ball lastUpdate, because the movement of the ball depends on it
+                // we must "reset" the ball lastUpdate, because the movement of the ball depends on it
                 gameState.update(world, ball, fn(ball) { ball.lastUpdate(actualTime);})
                     .stage(Run())
                     .fps(fps);
@@ -67,8 +66,7 @@ pub fn update(keys: Vec<int>, gameState: GameState) -> GameResult {
                     gameState.world
                         .ball(initialBall(actualTime))
                         .bar(initialBar(actualTime))
-                        .lives(lives)
-                        .ballGone(false),
+                        .lives(lives),
                     fps
                 );
             }, {
@@ -89,12 +87,14 @@ fn update(world: World, keys: Vec<int>) -> World {
     let lives = world.lives;
     let ball = world.ball;
     let bricks = world.bricks;
-    let ballGone = world.ballGone;
-
+    
     let newBar = world.bar.update(actualTime, keys);
     let newBall = ball.update(actualTime);
+
+    let ballGone = ball.y.add(BALLSIZE).greater(BARY);
+
     if(ballGone, {
-        World(bricks, newBall, newBar, world.score, lives, true);
+        World(bricks, newBall, newBar, world.score, lives);
     }, {
         let collision = bricks.collision(newBall);
         let newScore = collision.match(fn(b) { world.score.add(10);}, { world.score;});
@@ -103,18 +103,14 @@ fn update(world: World, keys: Vec<int>) -> World {
         if(newBall.collides(newBar.x), {
             let ballAfterCollision = Ball(ball.x, ball.y, ball.xDir, ball.yDir.flip(), actualTime);
             let newBall2 = ballAfterCollision.update(actualTime);
-            World(newBricks, newBall2, newBar, newScore, lives, false);
+            World(newBricks, newBall2, newBar, newScore, lives);
         }, {
             collision.match(fn(brick) {
                 let ballAfterCollision = ball.afterCollision(brick).lastUpdate(actualTime);
-                World(newBricks, ballAfterCollision, newBar, newScore, lives, false);
+                World(newBricks, ballAfterCollision, newBar, newScore, lives);
             },
             {
-                if(ball.y.add(BALLSIZE).greater(BARY), {
-                    World(newBricks, newBall, newBar, newScore, lives, true);
-                }, {
-                    World(newBricks, newBall, newBar, newScore, lives, false);
-                });
+                World(newBricks, newBall, newBar, newScore, lives);
             });
         });
 
