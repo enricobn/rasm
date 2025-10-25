@@ -128,25 +128,8 @@ fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
 }
 
 pub fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
-    gameState.stage.match(
-        fn(time) {
-            render(ren, resources, gameState.world, gameState.fps.fps);
-            let restart = RESTARTTIME.sub(now().elapsedTime(time)).divf(1000000);
-            centerAndRelease(ren, resources.font, "Start in ".append(restart.toInt(0).add(1)), HEIGHT.div(2), 
-                COLORS.green);
-        }, 
-        { render(ren, resources, gameState.world, gameState.fps.fps); }
-    );
-}
-
-// TODO put this in the SDL library, but it depends on WIDTH (it can be passed as an argument),
-// and on the size of the Font, which is for now not exposed
-fn centerAndRelease(ren: SDLRenderer, font: SDLFont, text: str, y: int, color: SDLColor) {
-    let sText = sdlCreateText(ren, font, text, color);
-    sdlRenderAndRelease(ren, sText, WIDTH.sub(text.len.mul(12)).div(2), y);
-}
-
-fn render(ren: SDLRenderer, resources: Resources, world: World, fps: int) {
+    let fps = gameState.fps.fps;
+    let world = gameState.world;
     let font = resources.font;
 
     world.bricks.forEach(fn(brick) {
@@ -171,4 +154,20 @@ fn render(ren: SDLRenderer, resources: Resources, world: World, fps: int) {
 
     let fpsText = sdlCreateText(ren, font, "FPS: ".append(fps), COLORS.green);
     sdlRenderAndRelease(ren, fpsText, 400, 2);
+
+    gameState.stage.match(
+        fn(time) {
+            let restart = RESTARTTIME.sub(now().elapsedTime(time)).divf(1000000);
+            centerAndRelease(ren, resources.font, "Start in ".append(restart.toInt(0).add(1)), HEIGHT.div(2), 
+                COLORS.green);
+        }, 
+        {  }
+    );
+}
+
+// TODO put this in the SDL library, but it depends on WIDTH (it can be passed as an argument),
+// and on the size of the Font, which is for now not exposed
+fn centerAndRelease(ren: SDLRenderer, font: SDLFont, text: str, y: int, color: SDLColor) {
+    let sText = sdlCreateText(ren, font, text, color);
+    sdlRenderAndRelease(ren, sText, WIDTH.sub(text.len.mul(12)).div(2), y);
 }
