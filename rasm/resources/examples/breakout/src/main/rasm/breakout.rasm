@@ -51,7 +51,7 @@ pub const BRICKHEIGHT = 10;
 pub const BARWIDTH = 80;
 pub const BARHEIGHT = 10;
 pub const BARY = HEIGHT.sub(BARHEIGHT);
-pub const HEADERHEIGHT = 25;
+pub const HEADERHEIGHT = 30;
 pub const BALLSIZE = 5;
 pub const COLORS = Colors();
 

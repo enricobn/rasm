@@ -142,8 +142,8 @@ pub fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
 // TODO put this in the SDL library, but it depends on WIDTH (it can be passed as an argument),
 // and on the size of the Font, which is for now not exposed
 fn centerAndRelease(ren: SDLRenderer, font: SDLFont, text: str, y: int, color: SDLColor) {
-    let sText = createSDLText(ren, font, text, color);
-    renderAndRelease(ren, sText, SDLRect(WIDTH.sub(text.len.mul(12)).div(2), y, text.len.mul(12), 24));
+    let sText = sdlCreateText(ren, font, text, color);
+    sdlRenderAndRelease(ren, sText, WIDTH.sub(text.len.mul(12)).div(2), y);
 }
 
 fn render(ren: SDLRenderer, resources: Resources, world: World, fps: int) {
@@ -163,12 +163,12 @@ fn render(ren: SDLRenderer, resources: Resources, world: World, fps: int) {
     sdlSetRenderDrawColor(ren, COLORS.blue);
     sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
 
-    let scoreText = createSDLText(ren, font, "Score: ".append(world.score), COLORS.green);
-    renderAndRelease(ren, scoreText, SDLRect(2, 2, 100, 24));
+    let scoreText = sdlCreateText(ren, font, "Score: ".append(world.score), COLORS.green);
+    sdlRenderAndRelease(ren, scoreText, 2, 2);
 
-    let livesText = createSDLText(ren, font, "Lives: ".append(world.lives), COLORS.green);
-    renderAndRelease(ren, livesText, SDLRect(200, 2, 100, 24));
+    let livesText = sdlCreateText(ren, font, "Lives: ".append(world.lives), COLORS.green);
+    sdlRenderAndRelease(ren, livesText, 200, 2);
 
-    let fpsText = createSDLText(ren, font, "FPS: ".append(fps), COLORS.green);
-    renderAndRelease(ren, fpsText, SDLRect(400, 2, 100, 24));
+    let fpsText = sdlCreateText(ren, font, "FPS: ".append(fps), COLORS.green);
+    sdlRenderAndRelease(ren, fpsText, 400, 2);
 }

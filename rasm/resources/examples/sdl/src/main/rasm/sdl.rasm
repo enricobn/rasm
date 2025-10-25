@@ -36,6 +36,7 @@ pub struct KeyEvent {
 
 pub fn print(event: KeyEvent) {
     let key = key(event);
+    let key = key(event);
     let state = state(event);
     print("key=");
     print(key);
@@ -65,21 +66,16 @@ pub struct SDLText {
     texture: SDLTexture
 }
 
-pub fn createSDLText(ren: SDLRenderer, font: SDLFont, text: str, color: SDLColor) -> SDLText {
+pub fn sdlCreateText(ren: SDLRenderer, font: SDLFont, text: str, color: SDLColor) -> SDLText {
     let surface = sdlRenderTextSolid(font, text, color);
     let texture = sdlCreateTextureFromSurface(ren, surface);
 
     SDLText(surface, texture);
 }
 
-pub fn render(ren: SDLRenderer, text: SDLText, rect: SDLRect) {
-    sdlRenderText(ren, text.texture, rect);
-}
-
-pub fn renderAndRelease(ren: SDLRenderer, text: SDLText, rect: SDLRect) {
-    let texture = text.texture;
-    sdlRenderText(ren, texture, rect);
-    sdlDestroyTexture(texture);
+pub fn sdlRenderAndRelease(ren: SDLRenderer, text: SDLText, x: int, y: int) {
+    sdlRender(ren, text, x, y);
+    sdlDestroyTexture(text.texture);
     sdlFreeSurface(text.surface);
 }
 

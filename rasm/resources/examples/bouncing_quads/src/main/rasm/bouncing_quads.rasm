@@ -93,8 +93,8 @@ fn render(ren: SDLRenderer, model: Model) {
         sdlRenderFillRect(ren, SDLRect(quad.x, quad.y, QUADWIDTH, QUADWIDTH));
     });
 
-    let fpsText = createSDLText(ren, model.font, add("FPS: ", toString(model.fps.fps)), WHITE);
-    renderAndRelease(ren, fpsText, SDLRect(400, 2, 100, 24));
+    let fpsText = sdlCreateText(ren, model.font, add("FPS: ", toString(model.fps.fps)), WHITE);
+    sdlRenderAndRelease(ren, fpsText, 400, 2);
 
     sdlRenderPresent(ren);
 }
