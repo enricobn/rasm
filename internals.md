@@ -26,7 +26,21 @@ in the lambda1 to access to the variables it should use [m + 3 *word] (v1) and [
 
 During the calculation of parameters (function_call_parameters) we use ecx to store the actual lambda space,
 edx for add_lambda_param_from_lambda_space and ebx is the "free" register, don't use eax that is used as the return
-value of the functions
+value of the functions.
+
+Note for C call conventions
+
+  Caller-Saved Registers:
+
+    The caller must save them if it needs their values preserved across a function call. The callee is free to modify them.
+
+    Example registers: EAX, ECX, EDX (on x86).
+
+  Callee-Saved Registers:
+
+    The callee must save and restore these registers if it wants to use them. The caller can assume these registers will not be changed by the callee.
+
+    Example registers: EBX, ESI, EDI (on x86).
 
 ### Enum
 

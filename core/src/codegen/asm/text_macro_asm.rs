@@ -130,6 +130,7 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
         // stack 16 bytes alignment
         result.push_str("    and   esp,0xfffffff0\n");
 
+        let tmp_register = "eax";
         result.push_str(
             &text_macro.parameters
                 .iter().enumerate()
@@ -139,11 +140,11 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
                     let i = index - 1;
                     match it {
                         MacroParam::Plain(s, _, _) => {
-                            format!("    mov {ws} ecx, {s}\n    mov {ws} [{sp}+{}], ecx\n", i * wl)
+                            format!("    mov {ws} {tmp_register}, {s}\n    mov {ws} [{sp}+{}], {tmp_register}\n", i * wl)
                         }
                         MacroParam::StringLiteral(s) => {
                             let key = statics.add_str(s);
-                            format!("    mov {ws} ecx, [{key}]\n    mov {ws} ecx,[ecx]\n    mov {ws} [{sp}+{}], ecx\n", i * wl)
+                            format!("    mov {ws} {tmp_register}, [{key}]\n    mov {ws} {tmp_register},[{tmp_register}]\n    mov {ws} [{sp}+{}], {tmp_register}\n", i * wl)
                         }
                         MacroParam::Ref(s, t, _) => {
                             let is_ref =
@@ -154,9 +155,9 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
                             };
 
                             if is_ref {
-                                format!("    mov {ws} ecx, {s}\n    mov {ws} ecx, [ecx]\n   mov {ws} [{sp}+{}], ecx\n", i * wl)
+                                format!("    mov {ws} {tmp_register}, {s}\n    mov {ws} {tmp_register}, [{tmp_register}]\n   mov {ws} [{sp}+{}], {tmp_register}\n", i * wl)
                             } else {
-                                format!("    mov {ws} ecx, {s}\n    mov {ws} [{sp}+{}], ecx\n", i * wl)
+                                format!("    mov {ws} {tmp_register}, {s}\n    mov {ws} [{sp}+{}], {tmp_register}\n", i * wl)
                             }
                         }
                     }
