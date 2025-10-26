@@ -180,44 +180,6 @@ pub native keyEvent() -> Option<KeyEvent> /{
     pop     ebx
 }/
 
-// LOOP
-
-pub native sdlLoop<CTX,MODEL>(ctx: CTX, model: MODEL, update: fn(Option<KeyEvent>, MODEL) -> MODEL, render: fn(CTX, MODEL) -> ()) /{
-    push    ebx
-    push    ecx
-    push    edx
-
-    mov     dword edx, $model
-    mov     dword ebx, $model
-.loop:
-    ; $call(printTotalMemory)
-    ; $call(printAllocated)
-    ; $call(printTableSlotsAllocated)
-    mov     dword ecx, [ebx]
-    $call(sdlSingleLoop,$ctx:CTX,ebx:MODEL,$update,$render)
-    cmp     dword ebx,eax
-    jne     .doRef
-    $call(println, "state is the same")
-    jmp     .skipRef
-.doRef:
-    $addRef(eax: MODEL)
-    ;$call(println, "New state ")
-    ;$printRef(eax:MODEL)
-    cmp     ebx,$model
-    je      .skipRef
-    ;$call(println, "Old state ")
-    ; $printRef(ebx:MODEL)
-    $deref(ebx: MODEL)
-.skipRef:
-    mov     dword edx, ebx
-    mov     dword ebx, eax
-    jmp     .loop
-
-    pop     edx
-    pop     ecx
-    pop     ebx
-}/
-
 // Text
 
 pub native sdlTTFInit() -> int /{

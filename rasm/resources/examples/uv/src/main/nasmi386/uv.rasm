@@ -1,0 +1,36 @@
+pub native run<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MESSAGE, MODEL) -> MODEL, 
+        render: fn(CTX, MODEL) -> (), subscriptions: fn() -> Vec<MESSAGE>) /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword edx, $model
+    mov     dword ebx, $model
+.loop:
+    ; $call(printTotalMemory)
+    ; $call(printAllocated)
+    ; $call(printTableSlotsAllocated)
+    mov     dword ecx, [ebx]
+    $call(singleRun,$ctx:CTX,ebx:MODEL,$update,$render,$subscriptions)
+    cmp     dword ebx,eax
+    jne     .doRef
+    $call(println, "state is the same")
+    jmp     .skipRef
+.doRef:
+    $addRef(eax: MODEL)
+    ;$call(println, "New state ")
+    ;$printRef(eax:MODEL)
+    cmp     ebx,$model
+    je      .skipRef
+    ;$call(println, "Old state ")
+    ; $printRef(ebx:MODEL)
+    $deref(ebx: MODEL)
+.skipRef:
+    mov     dword edx, ebx
+    mov     dword ebx, eax
+    jmp     .loop
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/

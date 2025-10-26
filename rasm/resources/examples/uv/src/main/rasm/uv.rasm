@@ -1,0 +1,17 @@
+fn singleRun<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MESSAGE, MODEL) -> MODEL, 
+    render: fn(CTX, MODEL) -> (), subscriptions: fn() -> Vec<MESSAGE>) -> MODEL {
+
+    let messages = subscriptions();
+
+    if(messages.len.eq(0), {
+        render(ctx, model);
+        model;
+    }, {
+        messages.foldLeft(model, fn(prev,curr) {
+            let nm = update(curr, prev);
+            render(ctx, nm);
+            nm;
+        });
+    });
+
+}

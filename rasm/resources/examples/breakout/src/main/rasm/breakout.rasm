@@ -44,6 +44,11 @@ pub fn Colors() -> Colors {
     );
 }
 
+enum Message {
+    KeyMessage(event: KeyEvent),
+    Tick
+}
+
 pub const WIDTH = 1024;
 pub const HEIGHT = 768;
 pub const BRICKWIDTH = 34;
@@ -67,22 +72,27 @@ let initialState = State(Resources(font), Vec(), Menu(MenuState(highScores)), hi
 let win = sdlErrorIfNull(sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
 
-sdlLoop(ren, initialState,
+run(ren, initialState,
     update,
-    render
+    render,
+    subscriptions
 );
 
 sdlDestroyRenderer(ren);
 sdlDestroyWindow(win);
 
 // TODO keys are not as expected, space is 44 but should be 32!
-fn update(event: Option<KeyEvent>, state: State) -> State {
+fn update(message: Message, state: State) -> State {
+    message.match(fn(keyEvent) {
+        if(eq(keyEvent.key, 41), { sdlQuit(); exitMain(0);}, { }); // 41 -> ESC
+    }, {});
+
     let resources = state.resources;
     let keys = state.keys;
     let stage = state.stage;
     let highScores = state.highScores;
 
-    let newKeys = event.match(fn(e) {
+    let newKeys = message.match(fn(e) {
           let key = e.key;
           let keyState = e.state;
 
@@ -123,6 +133,14 @@ fn render(ren: SDLRenderer, state: State) {
     stage.match(fn(menuState) { render(ren, resources, menuState);}, fn(gameState) { render(ren, resources, gameState);});
 
     sdlRenderPresent(ren);
+}
+
+fn subscriptions() -> Vec<Message> {
+    let event = keyEvent();
+
+    event.match(fn(e) {
+        vecOf(KeyMessage(e));
+    }, { vecOf(Tick()); });
 }
 
 fn loadHighScores() -> Vec<HighScore> {

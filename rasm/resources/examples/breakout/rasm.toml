@@ -6,3 +6,4 @@ main = "breakout.rasm"
 [dependencies]
 stdlib = "0.1"
 sdl = "0.1"
+uv = "0.1"

@@ -171,3 +171,43 @@ fn centerAndRelease(ren: SDLRenderer, font: SDLFont, text: str, y: int, color: S
     let sText = sdlCreateText(ren, font, text, color);
     sdlRenderAndRelease(ren, sText, WIDTH.sub(text.len.mul(12)).div(2), y);
 }
+
+
+
+
+/*
+
+
+
+pub struct SDLTextValue {
+    message: str,
+    value: int,
+    ren: SDLRenderer,
+    font: SDLFont,
+    color: SDLColor,
+    text: SDLText
+}
+
+pub fn SDLTextValue(ren: SDLRenderer, font: SDLFont, message: str, value: int, color: SDLColor) -> SDLTextValue {
+    let text = sdlCreateText(ren, font, message.append(value), color);
+    SDLTextValue(message, value, ren, font, color, text);
+}
+
+pub fn update(textValue: SDLTextValue, value: int) -> SDLTextValue {
+    if (value.eq(textValue.value),{
+        textValue;
+    }, 
+    {
+        let text = sdlCreateText(textValue.ren, textValue.font, textValue.message.append(value), textValue.color);
+        release(textValue.text);
+        textValue.value(value).text(text);
+    });
+}
+
+pub fn render(textValue: SDLTextValue, x: int, y: int) {
+    sdlRender(textValue.ren, textValue.text, x, y);
+}
+
+
+
+*/

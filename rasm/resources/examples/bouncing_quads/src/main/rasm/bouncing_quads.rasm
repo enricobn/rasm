@@ -24,6 +24,11 @@ struct Quad {
     color: SDLColor
 }
 
+enum Message {
+    KeyMessage(event: KeyEvent),
+    Tick
+}
+
 const QUADS = 50000;
 const WIDTH = 1024;
 const HEIGHT = 768;
@@ -55,9 +60,13 @@ let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(toInt).getO
 let win = sdlErrorIfNull(sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
 let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
 
-sdlLoop(ren, initialModel, update, render);
+run(ren, initialModel, update, render, subscriptions);
 
-fn update(event: Option<KeyEvent>, model: Model) -> Model {
+fn update(message: Message, model: Model) -> Model {
+    message.match(fn(keyEvent) {
+        if(eq(keyEvent.key, 41), { sdlQuit(); exitMain(0);}, { }); // 41 -> ESC
+    }, {});
+
     let newModel = model
         .quads(model.quads.map(update))
         .fps(model.fps.update)
@@ -93,8 +102,16 @@ fn render(ren: SDLRenderer, model: Model) {
         sdlRenderFillRect(ren, SDLRect(quad.x, quad.y, QUADWIDTH, QUADWIDTH));
     });
 
-    let fpsText = sdlCreateText(ren, model.font, add("FPS: ", toString(model.fps.fps)), WHITE);
+    let fpsText = sdlCreateText(ren, model.font, "FPS: ".append(model.fps.fps), WHITE);
     sdlRenderAndRelease(ren, fpsText, 400, 2);
 
     sdlRenderPresent(ren);
+}
+
+fn subscriptions() -> Vec<Message> {
+    let event = keyEvent();
+
+    event.match(fn(e) {
+        vecOf(KeyMessage(e));
+    }, { vecOf(Tick()); });
 }

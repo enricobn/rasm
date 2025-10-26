@@ -1,0 +1,18 @@
+pub native run<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MESSAGE, MODEL) -> MODEL, 
+        render: fn(CTX, MODEL) -> (), subscriptions: fn() -> Vec<MESSAGE>) /{
+
+    void *currentModel = model;
+    while (1) {
+        void *newModel =
+            $call(singleRun, $ctx:CTX, currentModel:MODEL, $update, $render, $subscriptions)
+        ;
+
+        if (newModel != currentModel) {
+            $addRef(newModel:MODEL)
+            if (currentModel != model) {
+                $deref(currentModel:MODEL)
+            }
+        }
+        currentModel = newModel;
+    }
+}/

@@ -44,23 +44,6 @@ pub fn print(event: KeyEvent) {
     print(state);
 }
 
-// LOOP
-fn sdlSingleLoop<CTX,MODEL>(ctx: CTX, model: MODEL, updateFun: fn(Option<KeyEvent>, MODEL) -> MODEL, renderFun: fn(CTX, MODEL) -> ()) -> MODEL {
-    // println("State in sdlSingleLoop");
-    // printRef(world);
-    let event = keyEvent();
-
-    match(event, fn(keyEvent) {
-        let key = key(keyEvent);
-        if(eq(key, 41), { exitMain(0);}, { }); // 41 -> ESC
-    }, { });
-
-    let newModel = updateFun(event, model);
-    renderFun(ctx, newModel);
-
-    newModel;
-}
-
 pub struct SDLText {
     surface: SDLSurface,
     texture: SDLTexture
