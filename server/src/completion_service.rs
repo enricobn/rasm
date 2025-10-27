@@ -214,7 +214,11 @@ impl CompletionItem {
             })
             .collect::<Vec<String>>()
             .join(", ");
-        format!("{}({args});", function.name)
+        if args.is_empty() {
+            format!("{}", function.name)
+        } else {
+            format!("{}({args})", function.name)
+        }
     }
 
     fn type_base_name(ast_type: &ASTType) -> String {
