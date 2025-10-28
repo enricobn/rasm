@@ -560,7 +560,7 @@ impl IDEHelper {
     pub fn get_completions(
         &self,
         module_content: String,
-        index: &ASTPosition,
+        position: &ASTPosition,
         trigger: &CompletionTrigger,
         module_info: &ModuleInfo,
     ) -> Result<CompletionResult, io::Error> {
@@ -569,31 +569,51 @@ impl IDEHelper {
         let completion_type = match trigger {
             CompletionTrigger::Invoked => {
                 let mut prefix = String::new();
-                let mut current_index = index.clone();
+                let mut current_position = if let Some(p) = lines.move_left(position) {
+                    p
+                } else {
+                    return Ok(CompletionResult::NotFound("No prev position".to_owned()));
+                };
                 let mut completion_type = None;
 
                 loop {
-                    match lines.char_at_index(&current_index) {
+                    match lines.char_at_index(&current_position) {
                         CharAtResult::Char(c) => {
                             if c == '.' {
-                                // TODO prefix could be a number
+                                if prefix.parse::<i32>().is_ok() {
+                                    return Ok(CompletionResult::NotFound(
+                                        "it's a number".to_owned(),
+                                    ));
+                                }
                                 completion_type = self.dot_completion(
                                     &lines,
-                                    &current_index,
+                                    &current_position.mv_right(1),
                                     Some(prefix),
                                     module_info,
                                 );
                                 break;
                             } else if c == ':' {
-                                return self.colon_completions(&lines, &current_index, module_info);
+                                return self.colon_completions(
+                                    &lines,
+                                    &current_position.mv_right(1),
+                                    module_info,
+                                );
                             } else if c.is_whitespace() {
                                 if !prefix.is_empty() {
-                                    // TODO prefix could be a number
+                                    if prefix.parse::<i32>().is_ok() {
+                                        return Ok(CompletionResult::NotFound(
+                                            "it's a number".to_owned(),
+                                        ));
+                                    }
                                     completion_type = Some(IDECompletionType::Identifier(prefix));
                                     break;
                                 }
                             } else if c == '{' || c == ';' || c == '=' || c == '(' {
-                                // TODO prefix could be a number
+                                if prefix.parse::<i32>().is_ok() {
+                                    return Ok(CompletionResult::NotFound(
+                                        "it's a number".to_owned(),
+                                    ));
+                                }
                                 completion_type = Some(IDECompletionType::Identifier(prefix));
                                 break;
                             } else if c.is_alphanumeric() {
@@ -608,8 +628,8 @@ impl IDEHelper {
                         }
                     }
 
-                    if let Some(i) = lines.move_left(&current_index) {
-                        current_index = i.clone();
+                    if let Some(i) = lines.move_left(&current_position) {
+                        current_position = i.clone();
                     } else {
                         return Ok(CompletionResult::NotFound(
                             "Cannot find a completable expression.".to_string(),
@@ -626,7 +646,8 @@ impl IDEHelper {
                 }
             }
             CompletionTrigger::Character('.') => {
-                if let Some(completion_type) = self.dot_completion(&lines, index, None, module_info)
+                if let Some(completion_type) =
+                    self.dot_completion(&lines, position, None, module_info)
                 {
                     completion_type
                 } else {
@@ -636,7 +657,7 @@ impl IDEHelper {
                 }
             }
             CompletionTrigger::Character(':') => {
-                return self.colon_completions(&lines, index, module_info);
+                return self.colon_completions(&lines, position, module_info);
             }
             CompletionTrigger::Character(c) => {
                 return Ok(CompletionResult::NotFound(format!(
@@ -672,7 +693,7 @@ impl IDEHelper {
                     &ASTIndex::new(
                         module_info.namespace().clone(),
                         module_info.id().clone(),
-                        index.clone(),
+                        position.clone(),
                     ),
                     &prefix,
                     &self.modules_container,
@@ -707,7 +728,8 @@ impl IDEHelper {
         prefix: Option<String>,
         module_info: &ModuleInfo,
     ) -> Option<IDECompletionType> {
-        let left_index = if let Some(i) = lines.move_left(index) {
+        // I move left twice, because the cursor is after the '.'
+        let left_index = if let Some(i) = lines.move_left(index).and_then(|i| lines.move_left(&i)) {
             i
         } else {
             return None;
@@ -744,7 +766,7 @@ impl IDEHelper {
         module_info: &ModuleInfo,
     ) -> Result<CompletionResult, io::Error> {
         let end_index =
-            if let Some(i) = lines.find_char_back_until(&index.mv_left(1), &|it| it != ':') {
+            if let Some(i) = lines.find_char_back_until(&index.mv_left(2), &|it| it != ':') {
                 i.mv_right(1)
             } else {
                 return Ok(CompletionResult::NotFound("Not a double colon.".to_owned()));
@@ -827,7 +849,8 @@ impl IDEHelper {
                 let parameter_type = function.signature.parameters_types.get(0).unwrap();
                 if filter.is_compatible(parameter_type, module_info.namespace(), modules_container)
                 {
-                    if let Some(item) = CompletionItem::for_function_signature(&function.signature)
+                    if let Some(item) =
+                        CompletionItem::for_function_signature(&function.signature, true)
                     {
                         items.push(item);
                     }
@@ -885,7 +908,9 @@ impl IDEHelper {
                 continue;
             }
             if function.signature.name.starts_with(prefix) {
-                if let Some(item) = CompletionItem::for_function_signature(&function.signature) {
+                if let Some(item) =
+                    CompletionItem::for_function_signature(&function.signature, false)
+                {
                     items.push(item);
                 }
             }
@@ -1837,8 +1862,22 @@ mod tests {
             Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
             "types.rasm",
             40,
-            14,
+            15,
             CompletionTrigger::Character('.'),
+        )
+        .unwrap();
+
+        assert_eq!(1, values.into_iter().filter(|it| it == "substr").count());
+    }
+
+    #[test]
+    fn types_completion_invoked_string() {
+        let values = get_completion_values(
+            Some(RasmProject::new(PathBuf::from("resources/test/types.rasm"))),
+            "types.rasm",
+            40,
+            15,
+            CompletionTrigger::Invoked,
         )
         .unwrap();
 
@@ -2181,7 +2220,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(values, vec!["Some(value: T)", "None"]);
+        assert_eq!(values, vec!["None", "Some(value: T)"]);
     }
 
     #[test]
@@ -2892,9 +2931,26 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         ) {
             Ok(CompletionResult::Found(items)) => {
                 let mut sorted = items.clone();
-                sorted.sort_by(|a, b| a.sort.cmp(&b.sort));
+                sorted.sort_by(|a, b| {
+                    let ac = a
+                        .sort
+                        .as_ref()
+                        .map(|it| it.to_lowercase())
+                        .unwrap_or(a.value.clone());
+                    let bc = b
+                        .sort
+                        .as_ref()
+                        .map(|it| it.to_lowercase())
+                        .unwrap_or(b.value.clone());
+                    ac.cmp(&bc)
+                });
 
-                //println!("{}", SliceDisplay(&sorted));
+                /*
+                println!("completions");
+                for c in sorted.iter() {
+                    println!("{} {}", c.value, OptionDisplay(&c.sort));
+                }
+                */
 
                 Ok(sorted.iter().map(|it| it.value.clone()).collect::<Vec<_>>())
             }
