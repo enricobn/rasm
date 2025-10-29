@@ -134,11 +134,6 @@ pub fn listEnumerateInternal<T>(l: List<T>, index: int) -> List<EnumerateEntry<T
     match(l, fn(head,tail) {Full(EnumerateEntry(index, head), listEnumerateInternal(tail, add(index, 1))); }, {Empty();});
 }
 
-pub struct EnumerateEntry<T> {
-    index: int,
-    value: T
-}
-
 pub fn zip<T1,T2,T>(l1: List<T1>, l2: List<T2>, zipFunction: fn(T1, T2) -> T) -> List<T> {
     match(l1, fn(head1,tail1) {
         match(l2, fn(head2,tail2) {Full(zipFunction(head1, head2), zip(tail1, tail2, zipFunction)); }, { Empty();});

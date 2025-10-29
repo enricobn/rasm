@@ -52,3 +52,26 @@ pub fn removeSuffix(s: str, suffix: str) -> str {
         s;
     });
 }
+
+pub fn splitToList(s: str, separator: char) -> List<str> {
+    let chars = listEnumerate(chars(s));
+
+    let separatorIndex = chars.indexOf(separator);
+
+    match(separatorIndex,
+        fn(index) {
+            let item = s.substr(0, index);
+            let remainder = s.substr(index.add(1), s.len.sub(index).sub(1));
+            match(item,
+                fn(f) {
+                    match(remainder,
+                        fn(r) { listAppend(listOf(f), splitToList(r, separator));},
+                        { listOf(f);}
+                    );
+                },
+                Empty
+            );
+        },
+        { listOf(s);}
+    );
+}
