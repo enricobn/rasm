@@ -38,3 +38,7 @@ pub fn isSome<T>(o: Option<T>) -> bool {
 pub fn toString<T>(o: Option<T>) -> str {
     o.match( fn(value) {"Some(".append(value).append(")"); }, {"None"; });
 }
+
+pub fn toVec<T>(o: Option<T>) -> Vec<T> {
+    match(o, fn(v) {vecOf(v);}, {Vec();});
+}
