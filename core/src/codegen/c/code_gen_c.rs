@@ -1275,7 +1275,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                     WalkDir::new(native_source_folder)
                         .into_iter()
                         .filter_map(Result::ok)
-                        .filter(|it| it.file_name().to_string_lossy().ends_with(".h"))
+                        .filter(|it| {
+                            it.file_name().to_string_lossy().ends_with(".h")
+                                || it.file_name().to_string_lossy().ends_with(".c")
+                        })
                         .for_each(|it| {
                             CInclude::add_to_statics(
                                 statics,
@@ -1357,7 +1360,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     }
 
     fn split_source(&self) -> usize {
-        num_cpus::get_physical() - 2
+        0
+        //num_cpus::get_physical() - 2
     }
 
     fn include_file(&self, file: &str) -> String {

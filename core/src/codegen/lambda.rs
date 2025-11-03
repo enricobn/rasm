@@ -73,4 +73,8 @@ impl LambdaSpace {
     pub fn size(&self) -> usize {
         self.values.len()
     }
+
+    pub fn values(&self) -> &LinkedHashMap<String, TypedValKind> {
+        &self.values
+    }
 }

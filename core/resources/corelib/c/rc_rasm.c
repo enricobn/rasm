@@ -1,4 +1,4 @@
-#include "rasm.h"
+#include "rc_rasm.h"
 #include "fs_allocator.h"
 #include "rc_zero_list.h"
 #include <stdlib.h>
@@ -53,4 +53,38 @@ struct RasmPointer_ *addStaticStringToHeap(char *s) {
   struct RasmPointer_ *result = rasmMalloc(strlen(s) + 1);
   strcpy((char *)result->address, s);
   return result;
+}
+
+void deref(struct RasmPointer_ *address) {
+#ifdef __RASM_DEBUG__
+  if (address == NULL) {
+    printf("NULL address\n");
+    return;
+  }
+
+  printf("deref(%p)", address->address);
+#endif
+
+  if (--address->count == 0) {
+    push_zero(address);
+  }
+}
+
+void addRef(struct RasmPointer_ *address) {
+
+#ifdef __RASM_DEBUG__
+  if (address == NULL) {
+    printf("NULL address\n");
+    return;
+  }
+
+  printf("addRef(%p)", address->address);
+#endif
+
+  if (++address->count == 1) {
+    if (address->zero != NULL) {
+      remove_from_zero_list(address->zero);
+      address->zero = NULL;
+    }
+  }
 }

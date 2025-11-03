@@ -450,9 +450,9 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
             } else if !lambda_in_stack || !optimize_lambda_space {
                 let typed_function_creator = TypedFunctionsCreatorC::new(self.code_gen_c.clone());
 
-                let addref_function = typed_function_creator.create_lambda_free(
+                let addref_function = typed_function_creator.create_or_get_lambda_free(
                     &c_lambda_name,
-                    &lambda_space,
+                    &mut lambda_space,
                     "addRef",
                     module,
                     statics,
@@ -460,9 +460,9 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                     optimize_lambda_space,
                 );
 
-                let deref_function = typed_function_creator.create_lambda_free(
+                let deref_function = typed_function_creator.create_or_get_lambda_free(
                     &c_lambda_name,
-                    &lambda_space,
+                    &mut lambda_space,
                     "deref",
                     module,
                     statics,
@@ -470,10 +470,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                     optimize_lambda_space,
                 );
 
-                let result = (addref_function.name.clone(), deref_function.name.clone());
-
-                lambda_space.add_ref_function(addref_function);
-                lambda_space.add_ref_function(deref_function);
+                let result = (addref_function, deref_function);
 
                 result
             } else {

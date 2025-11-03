@@ -807,6 +807,7 @@ pub fn get_type(
     }
 }
 
+#[derive(Clone, Hash, Eq, PartialEq)]
 pub enum RefType {
     Deref,
     AddRef,

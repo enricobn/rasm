@@ -76,7 +76,7 @@ impl EnhValKind {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum TypedValKind {
     ParameterRef(usize, ASTTypedParameterDef),
     LetRef(usize, ASTTypedType),

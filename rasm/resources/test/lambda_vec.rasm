@@ -1,0 +1,19 @@
+let l1 = "lambda1 ";
+let l2 = "lambda2 ";
+
+let f = vecOf(
+    aFunction, 
+    anotherFunction,
+    fn(v) { println(l1, v);}, 
+    fn(v) { println(l2, v);}
+);
+
+f.forEach(fn(ff) {ff(10);});
+
+fn aFunction(v: int) {
+    println("called aFunction ", v);
+}
+
+fn anotherFunction(v: int) {
+    println("called anotherFunction ", v);
+}

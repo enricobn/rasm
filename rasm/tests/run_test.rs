@@ -759,6 +759,12 @@ Circle(Point(10, 3), 10)
     );
 }
 
+#[test]
+fn test_lambda_vec() {
+    run_test("lambda_vec", vec![], 
+    "called aFunction 10\ncalled anotherFunction 10\nlambda1 10\nlambda2 10\n");
+}
+
 // Compile tests
 
 #[test]

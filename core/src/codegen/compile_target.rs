@@ -43,8 +43,7 @@ use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator_c::CFunctionsCreator;
 use crate::codegen::c::options::COptions;
 use crate::codegen::enh_ast::{
-    EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind, EnhModuleId,
-    EnhModuleInfo,
+    EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhBuiltinTypeKind, EnhModuleId, EnhModuleInfo,
 };
 use crate::codegen::enh_val_context::EnhValContext;
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -1057,30 +1056,7 @@ impl CompileTarget {
                     ),
                 ]
             }
-            CompileTarget::C(_) => vec![
-                DefaultFunction {
-                    name: "addRef".to_string(),
-                    param_types: vec![EnhASTType::Custom {
-                        namespace: EnhASTNameSpace::global(),
-                        name: "RasmPointer".to_string(),
-                        param_types: vec![],
-                        index: EnhASTIndex::none(),
-                    }],
-                },
-                DefaultFunction {
-                    name: "deref".to_string(),
-                    param_types: vec![EnhASTType::Custom {
-                        namespace: EnhASTNameSpace::global(),
-                        name: "RasmPointer".to_string(),
-                        param_types: vec![],
-                        index: EnhASTIndex::none(),
-                    }],
-                },
-                /*
-                DefaultFunction::new_0("initRasmReferences"),
-                */
-                DefaultFunction::new_0("freeReferences"),
-            ],
+            CompileTarget::C(_) => vec![DefaultFunction::new_0("freeReferences")],
         };
 
         if print_allocation {

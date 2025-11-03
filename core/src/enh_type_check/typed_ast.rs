@@ -367,7 +367,7 @@ impl Display for ASTTypedType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ASTTypedParameterDef {
     pub name: String,
     pub ast_type: ASTTypedType,
@@ -1586,9 +1586,10 @@ impl DefaultFunction {
                             ASTValue::ASTCharValue("a".to_string()),
                             EnhASTIndex::none(),
                         ),
-                        EnhBuiltinTypeKind::Float => {
-                            EnhASTExpression::Value(ASTValue::ASTFloatValue(1.0), EnhASTIndex::none())
-                        }
+                        EnhBuiltinTypeKind::Float => EnhASTExpression::Value(
+                            ASTValue::ASTFloatValue(1.0),
+                            EnhASTIndex::none(),
+                        ),
                         EnhBuiltinTypeKind::Lambda {
                             parameters: _,
                             return_type: _,

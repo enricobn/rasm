@@ -19,9 +19,13 @@
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 
+use crate::codegen::c::typed_function_creator_c::TypedFunctionsCreatorC;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
+use crate::codegen::text_macro::RefType;
+use crate::codegen::typedef_provider::TypeDefProvider;
+use crate::codegen::TypedValKind;
 use crate::enh_type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -327,6 +331,116 @@ impl CStrings {
             statics.add_any(c);
             result
         }
+    }
+}
+
+#[derive(Clone, Hash, Eq, PartialEq)]
+pub struct CLambdaAddRefDerefFunctionKey {
+    function_type: RefType,
+    lambda_name: String,
+    optimize_lambda: bool,
+    optimize_lambda_space: bool,
+    lambda_refs: LinkedHashMap<String, TypedValKind>,
+}
+
+#[derive(Clone)]
+pub struct CLamdaAddRefDerefFunctions {
+    map: HashMap<CLambdaAddRefDerefFunctionKey, String>,
+}
+
+impl CLamdaAddRefDerefFunctions {
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+
+    fn add(
+        &mut self,
+        statics: &mut Statics,
+        key: CLambdaAddRefDerefFunctionKey,
+        lambda_space: &mut LambdaSpace,
+        type_def_provider: &dyn TypeDefProvider,
+        typed_function_creator: &TypedFunctionsCreatorC,
+    ) -> &str {
+        self.map
+            .entry(key.clone())
+            .or_insert_with(|| match &key.function_type {
+                RefType::Deref => {
+                    let function_def = typed_function_creator.create_lambda_free(
+                        &key.lambda_name,
+                        lambda_space,
+                        "deref",
+                        type_def_provider,
+                        statics,
+                        key.optimize_lambda,
+                        key.optimize_lambda_space,
+                    );
+                    let name = function_def.name.clone();
+                    lambda_space.add_ref_function(function_def);
+                    name
+                }
+                RefType::AddRef => {
+                    let function_def = typed_function_creator.create_lambda_free(
+                        &key.lambda_name,
+                        lambda_space,
+                        "addRef",
+                        type_def_provider,
+                        statics,
+                        key.optimize_lambda,
+                        key.optimize_lambda_space,
+                    );
+                    let name = function_def.name.clone();
+                    lambda_space.add_ref_function(function_def);
+                    name
+                }
+            })
+    }
+
+    pub fn add_to_statics(
+        statics: &mut Statics,
+        function_type: RefType,
+        lambda_name: String,
+        optimize_lambda: bool,
+        optimize_lambda_space: bool,
+        lambda_space: &mut LambdaSpace,
+        type_def_provider: &dyn TypeDefProvider,
+        typed_function_creator: &TypedFunctionsCreatorC,
+    ) -> String {
+        let key = CLambdaAddRefDerefFunctionKey {
+            function_type,
+            lambda_name,
+            optimize_lambda,
+            optimize_lambda_space,
+            lambda_refs: lambda_space.values().clone(),
+        };
+
+        if statics.any::<CLamdaAddRefDerefFunctions>().is_none() {
+            let c = CLamdaAddRefDerefFunctions::new();
+            statics.add_any(c);
+        }
+
+        let c = statics.any::<CLamdaAddRefDerefFunctions>().unwrap();
+
+        if c.map.contains_key(&key) {
+            return c.map.get(&key).unwrap().clone();
+        }
+
+        let mut copy = c.clone();
+
+        let result = copy
+            .add(
+                statics,
+                key,
+                lambda_space,
+                type_def_provider,
+                typed_function_creator,
+            )
+            .to_owned();
+
+        statics.add_any(copy);
+
+        result
     }
 }
 

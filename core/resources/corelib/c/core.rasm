@@ -25,43 +25,6 @@ pub native argv(i: int) -> Option<str> /{
 
 }/
 
-pub native deref(address: RasmPointer) /{
-    $include(<stdlib.h>)
-
-    #ifdef __RASM_DEBUG__
-    if ($address == NULL) {
-        printf("NULL address\n");
-        return;
-    }
-
-    printf("deref(%p)", $address->address);
-    #endif
-
-    if (--$address->count == 0) {
-        push_zero($address);
-    }
-}/
-
-pub native addRef(address: RasmPointer) /{
-    $include(<stdlib.h>)
-
-    #ifdef __RASM_DEBUG__
-    if ($address == NULL) {
-        printf("NULL address\n");
-        return;
-    }
-
-    printf("addRef(%p)", $address->address);
-    #endif
-
-    if (++$address->count == 1) {
-        if ($address->zero != NULL) {
-            remove_from_zero_list($address->zero);
-            $address->zero = NULL;
-        }
-    }
-}/
-
 pub native freeReferences() /{
     free_zero();
 }/
