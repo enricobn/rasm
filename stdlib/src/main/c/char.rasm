@@ -1,0 +1,3 @@
+pub native toString(c: char) -> str /{
+    return c;
+}/

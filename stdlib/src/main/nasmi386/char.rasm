@@ -1,0 +1,4 @@
+// TODO native
+pub fn toString(c: char) -> str {
+    add("", c);
+}
