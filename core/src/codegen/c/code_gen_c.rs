@@ -1360,8 +1360,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     }
 
     fn split_source(&self) -> usize {
-        0
-        //num_cpus::get_physical() - 2
+        num_cpus::get_physical() - 2
     }
 
     fn include_file(&self, file: &str) -> String {
