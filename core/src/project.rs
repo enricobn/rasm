@@ -144,9 +144,13 @@ impl RasmProject {
     }
 
     pub fn main_test_src_file(&self) -> Option<PathBuf> {
-        let result = self.test_rasm_folder().join(Path::new("main.rasm"));
-        if result.exists() {
-            Some(result)
+        if let Some(test_rasm_folder) = self.test_rasm_folder() {
+            let result = test_rasm_folder.join(Path::new("main.rasm"));
+            if result.exists() {
+                Some(result)
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -231,21 +235,23 @@ impl RasmProject {
         }
     }
 
-    pub fn test_rasm_folder(&self) -> PathBuf {
+    pub fn test_rasm_folder(&self) -> Option<PathBuf> {
         if self.is_dir() {
-            Path::new(&self.root).join(
-                Path::new(
-                    &self
-                        .config
-                        .package
-                        .source_folder
-                        .as_ref()
-                        .unwrap_or(&"src".to_string()),
-                )
-                .join("test/rasm"),
+            Some(
+                Path::new(&self.root).join(
+                    Path::new(
+                        &self
+                            .config
+                            .package
+                            .source_folder
+                            .as_ref()
+                            .unwrap_or(&"src".to_string()),
+                    )
+                    .join("test/rasm"),
+                ),
             )
         } else {
-            Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
+            None
         }
     }
 
@@ -337,7 +343,11 @@ impl RasmProject {
             path.canonicalize()
                 .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
             if self.root.is_dir() {
-                self.test_rasm_folder().canonicalize().unwrap()
+                if let Some(test_rasm_folder) = self.test_rasm_folder() {
+                    test_rasm_folder.canonicalize().unwrap()
+                } else {
+                    return None;
+                }
             } else {
                 self.root.parent().unwrap().canonicalize().unwrap()
             },
@@ -363,13 +373,14 @@ impl RasmProject {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
 
-        self.get_modules(self.test_rasm_folder(), target)
-            .into_iter()
-            .for_each(|(module, module_errors, info)| {
-                modules.push((module, info));
-                errors.extend(module_errors);
-            });
-
+        if let Some(test_rasm_folder) = self.test_rasm_folder() {
+            self.get_modules(test_rasm_folder, target)
+                .into_iter()
+                .for_each(|(module, module_errors, info)| {
+                    modules.push((module, info));
+                    errors.extend(module_errors);
+                });
+        }
         (modules, errors)
     }
 
@@ -674,13 +685,17 @@ impl RasmProject {
                 false
             };
             (self.main_rasm_source_folder(), body)
-        } else if path.starts_with(self.test_rasm_folder()) {
+        } else if self
+            .test_rasm_folder()
+            .map(|it| path.starts_with(it))
+            .unwrap_or(false)
+        {
             let body = if let Some(main_src_file) = self.main_test_src_file() {
                 path.canonicalize().unwrap() == main_src_file.as_path().canonicalize().unwrap()
             } else {
                 false
             };
-            (self.test_rasm_folder(), body)
+            (self.test_rasm_folder().unwrap(), body)
         } else {
             if let Some(native_source_folder) = self.main_native_source_folder(target.folder()) {
                 if !native_source_folder.exists() {

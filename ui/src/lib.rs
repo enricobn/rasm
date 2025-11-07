@@ -76,8 +76,13 @@ enum UIPane {
 
 impl UI {
     pub fn show(project: RasmProject, target: CompileTarget) -> iced::Result {
-        let (container, catalog, _errors) =
-            project.container_and_catalog(&RasmProjectRunType::Test, &target);
+        let run_type = if project.test_rasm_folder().is_some() {
+            RasmProjectRunType::Test
+        } else {
+            RasmProjectRunType::Main
+        };
+
+        let (container, catalog, _errors) = project.container_and_catalog(&run_type, &target);
 
         let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
 

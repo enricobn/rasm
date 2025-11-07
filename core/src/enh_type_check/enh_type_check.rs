@@ -467,7 +467,15 @@ impl<'a> EnhTypeCheck<'a> {
                     let message = if function_references.is_empty() {
                         format!("Cannot find reference to {name} transforming {expression}")
                     } else {
-                        format!("More than one reference to {name} transforming {expression}")
+                        format!(
+                            "More than one reference to {name} transforming {expression}: {}",
+                            SliceDisplay(
+                                &function_references
+                                    .iter()
+                                    .map(|f| f.index.clone())
+                                    .collect_vec()
+                            )
+                        )
                     };
 
                     return Err(EnhTypeCheckError::new_with_kind(
