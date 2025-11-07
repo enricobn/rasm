@@ -26,8 +26,6 @@ pub native VecAddRef<T>(address: Vec<T>) /{
         }
     }
     addRef(address);
-    // the C method returns Void_
-    return NULL;
 }/
 
 pub native VecDeref<T>(address: Vec<T>) /{
@@ -47,8 +45,6 @@ pub native VecDeref<T>(address: Vec<T>) /{
     }
 
     deref(address);
-    // the C method returns Void_
-    return NULL;
 }/
 
 pub native Vec<T>() -> Vec<T> /{
