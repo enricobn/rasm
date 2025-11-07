@@ -2210,6 +2210,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
     }
 }
 
+// TODO I don't like to pass the target here, if it depends on target it should be in CodeGen or CompileTarget
 pub fn get_reference_type_name(
     ast_type: &ASTTypedType,
     target: &TypeDefBodyTarget,

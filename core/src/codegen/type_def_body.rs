@@ -60,6 +60,7 @@ impl TypeDefBodyCache {
     }
 }
 
+#[derive(PartialEq, Eq)]
 pub enum TypeDefBodyTarget {
     C,
     Asm,
