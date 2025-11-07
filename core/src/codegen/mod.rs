@@ -2216,6 +2216,13 @@ pub fn get_reference_type_name(
 ) -> Option<String> {
     match ast_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => Some("str".into()),
+        ASTTypedType::Builtin(BuiltinTypedTypeKind::Char) => {
+            if target == &TypeDefBodyTarget::C {
+                Some("char".into())
+            } else {
+                None
+            }
+        }
         ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => Some("_fn".into()),
         ASTTypedType::Enum { namespace: _, name } => Some(name.clone()),
         ASTTypedType::Struct { namespace: _, name } => Some(name.clone()),
