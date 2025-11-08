@@ -279,7 +279,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
             def.return_type.clone(),
         );
 
-        let c_lambda_name = CLambdas::add_to_statics(statics, c_lambda);
+        let lambda_type = CLambdas::add_to_statics(statics, c_lambda);
 
         def.parameters.push(ASTTypedParameterDef::new(
             "_lambda",
@@ -311,113 +311,48 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
             lambda_space.add(name.clone(), kind.clone());
         }
 
-        let lambda_var_name = format!("lambda_var_{}", ID.fetch_add(1, Ordering::SeqCst));
-
-        let (pointer_operator, dereference_operator) = if lambda_in_stack {
-            self.code_manipulator.add_rows(
-                &mut self.before,
-                vec![
-                    &format!("struct {c_lambda_name} {lambda_var_name};"),
-                    &format!("struct RasmPointer_ {lambda_var_name}_;"),
-                    &format!("{lambda_var_name}_.address = &{lambda_var_name};"),
-                ],
-                None,
-                true,
-            );
-            (".", "&")
-        } else {
-            self.code_manipulator.add(
-                &mut self.before,
-                &format!(
-                    "struct RasmPointer_ *{lambda_var_name}_ = rasmMalloc(sizeof(struct {c_lambda_name}));"
-                ),
-                None,
-                true,
-            );
-            self.code_manipulator.add(
-                &mut self.before,
-                &format!(
-                    "struct {c_lambda_name} *{lambda_var_name} = (struct {c_lambda_name}*) {lambda_var_name}_->address;"
-                ),
-                None,
-                true,
-            );
-            ("->", "")
-        };
-
-        self.code_manipulator.add(
-            &mut self.before,
-            &format!("{lambda_var_name}{pointer_operator}functionPtr = &{name};"),
-            None,
-            true,
-        );
-
-        if !no_references {
+        let lambda_space_value = if !no_references {
             let lambda_space_struct_name =
                 CStructs::add_lambda_space_to_statics(statics, &lambda_space);
 
             let lambda_space_name = format!("lambda_space_{}", ID.fetch_add(1, Ordering::SeqCst));
 
-            let lambda_space_pointer_operator = if no_ref_count_for_lambda_space {
-                self.code_manipulator.add(
-                    &mut self.before,
-                    &format!("struct RasmPointer_ {lambda_space_name}_;"),
-                    None,
-                    true,
-                );
+            let (lambda_space_pointer_operator, lambda_dereference_operator) =
+                if no_ref_count_for_lambda_space {
+                    self.code_manipulator.add(
+                        &mut self.before,
+                        &format!("struct {} {lambda_space_name};", lambda_space_struct_name),
+                        None,
+                        true,
+                    );
 
-                self.code_manipulator.add(
-                    &mut self.before,
-                    &format!("struct {} {lambda_space_name};", lambda_space_struct_name),
-                    None,
-                    true,
-                );
+                    self.code_manipulator.add(
+                        &mut self.before,
+                        &format!("struct RasmPointer_ {lambda_space_name}_ = {{&{lambda_space_name}, 0, NULL}};"),
+                        None,
+                        true,
+                    );
+                    (".", "&")
+                } else {
+                    self.code_manipulator.add(
+                        &mut self.before,
+                        &format!(
+                            "struct RasmPointer_ *{lambda_space_name}_ = rasmMalloc(sizeof(struct {lambda_space_struct_name}));",
+                        ),
+                        None,
+                        true,
+                    );
+                    self.code_manipulator.add(
+                        &mut self.before,
+                        &format!(
+                            "struct {lambda_space_struct_name} *{lambda_space_name} = (struct {lambda_space_struct_name}*) {lambda_space_name}_->address;"
+                        ),
+                        None,
+                        true,
+                    );
 
-                self.code_manipulator.add(
-                    &mut self.before,
-                    &format!("{lambda_space_name}_.address = &{lambda_space_name};"),
-                    None,
-                    true,
-                );
-
-                self.code_manipulator.add(
-                    &mut self.before,
-                    &format!(
-                        "{lambda_var_name}{pointer_operator}lambda_space = &{lambda_space_name}_;",
-                    ),
-                    None,
-                    true,
-                );
-                "."
-            } else {
-                self.code_manipulator.add(
-                    &mut self.before,
-                    &format!(
-                        "struct RasmPointer_ *{lambda_space_name}_ = rasmMalloc(sizeof(struct {lambda_space_struct_name}));",
-                    ),
-                    None,
-                    true,
-                );
-
-                self.code_manipulator.add(
-                    &mut self.before,
-                    &format!(
-                        "struct {lambda_space_struct_name} *{lambda_space_name} = (struct {lambda_space_struct_name}*) {lambda_space_name}_->address;"
-                    ),
-                    None,
-                    true,
-                );
-
-                self.code_manipulator.add(
-                    &mut self.before,
-                    &format!(
-                        "{lambda_var_name}{pointer_operator}lambda_space = {lambda_space_name}_;",
-                    ),
-                    None,
-                    true,
-                );
-                "->"
-            };
+                    ("->", "")
+                };
 
             for (name, _kind) in lambda_space.iter() {
                 let value =
@@ -440,7 +375,10 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                     true,
                 );
             }
-        }
+            &format!("{lambda_dereference_operator}{lambda_space_name}_")
+        } else {
+            "NULL"
+        };
 
         let optimize_lambda_space = no_references || no_ref_count_for_lambda_space;
 
@@ -451,7 +389,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                 let typed_function_creator = TypedFunctionsCreatorC::new(self.code_gen_c.clone());
 
                 let addref_function = typed_function_creator.create_or_get_lambda_free(
-                    &c_lambda_name,
+                    &lambda_type,
                     &mut lambda_space,
                     "addRef",
                     module,
@@ -461,7 +399,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                 );
 
                 let deref_function = typed_function_creator.create_or_get_lambda_free(
-                    &c_lambda_name,
+                    &lambda_type,
                     &mut lambda_space,
                     "deref",
                     module,
@@ -477,21 +415,33 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                 ("NULL".to_owned(), "NULL".to_owned())
             };
 
-        self.code_manipulator.add(
-            &mut self.before,
-            &format!(
-                "{lambda_var_name}{pointer_operator}addref_function = {add_ref_function_name};"
-            ),
-            None,
-            true,
-        );
+        let lambda_var_name = format!("lambda_var_{}", ID.fetch_add(1, Ordering::SeqCst));
 
-        self.code_manipulator.add(
-            &mut self.before,
-            &format!("{lambda_var_name}{pointer_operator}deref_function = {deref_function_name};"),
-            None,
-            true,
-        );
+        let dereference_operator = if lambda_in_stack {
+            self.code_manipulator.add_rows(
+                &mut self.before,
+                vec![
+                    &format!("struct {lambda_type} {lambda_var_name} = {{{lambda_space_value}, &{name}, {add_ref_function_name}, {deref_function_name}}};"),
+                    &format!(
+                        "struct RasmPointer_ {lambda_var_name}_ = {{&{lambda_var_name}, 0, NULL}};"
+                    ),
+                ],
+                None,
+                true,
+            );
+            "&"
+        } else {
+            self.code_manipulator.add_rows(&mut self.before, 
+                vec![
+                  &format!("struct RasmPointer_ *{lambda_var_name}_ = rasmMalloc(sizeof(struct {lambda_type}));")
+                , &format!("struct {lambda_type} *{lambda_var_name} = (struct {lambda_type}*) {lambda_var_name}_->address;")
+                , &format!("{lambda_var_name}->lambda_space = {lambda_space_value};")
+                , &format!("{lambda_var_name}->functionPtr = &{name};")
+                , &format!("{lambda_var_name}->addref_function = {add_ref_function_name};")
+                , &format!("{lambda_var_name}->deref_function = {deref_function_name};")]
+                , None, true);
+            ""
+        };
 
         //arg_values.push(format!("lambda{param_index}"));
         if self.immediate {

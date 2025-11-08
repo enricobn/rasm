@@ -247,3 +247,23 @@ type check ended in 92.534796ms
 code generation ended in 52.00233ms
 compiler ended in 519.559841ms
 finished in 717.481836ms
+
+before size and lambda struct creation optimization, one file, no split
+parse ended in 23.152236ms
+AST type check ended in 27.768153ms
+type check ended in 101.595169ms
+code generation ended in 77.601665ms
+compiler ended in 811.737632ms
+finished in 1.04741134s
+.c lines: 15663
+.c size: 813058
+
+after size and lambda struct creation optimization, one file, no split
+parse ended in 22.728043ms
+AST type check ended in 32.899599ms
+type check ended in 103.319995ms
+code generation ended in 73.722047ms
+compiler ended in 781.25552ms
+finished in 1.019161404s
+.c lines: 14770
+.c size: 786198
