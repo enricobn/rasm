@@ -17,13 +17,13 @@ pub native VecAddRef<T>(address: Vec<T>) /{
 
     if (vector->values != NULL) {
         addRef(vector->values);
-        $realTypeName(T) *array = ($realTypeName(T) *)vector->values->address;
 
-        if ($isRef(T)) {
+        $isRef(T, "", "/*")
+            $realTypeName(T) *array = ($realTypeName(T) *)vector->values->address;
             for (int i=0; i < vector->length; i++) {
                 $addRef(array[i]: T)
             }
-        }
+        $isRef(T, "", "*/")
     }
     addRef(address);
 }/
@@ -33,13 +33,13 @@ pub native VecDeref<T>(address: Vec<T>) /{
 
     // TODO remove this optimization, an empty Vec is created with values containing an empty array
     if (vector->values != NULL) {
-        $realTypeName(T) *array = ($realTypeName(T) *)vector->values->address;
 
-        if ($isRef(T)) {
+        $isRef(T, "", "/*")
+            $realTypeName(T) *array = ($realTypeName(T) *)vector->values->address;
             for (int i=0; i < vector->length; i++) {
                 $deref(array[i]: T)
             }
-        }
+        $isRef(T, "", "*/")
 
         deref(vector->values);
     }

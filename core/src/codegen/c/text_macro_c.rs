@@ -780,8 +780,21 @@ impl TextMacroEval for CIsRefMacro {
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
-        let value = text_macro.parameters.get(0).unwrap();
-        if let MacroParam::Ref(_name, ast_type, ast_type_type) = value {
+        let type_param = text_macro.parameters.get(0).unwrap();
+        let true_value = if let MacroParam::StringLiteral(s) = text_macro.parameters.get(1).unwrap()
+        {
+            s
+        } else {
+            return Err("Second parameter should be a string literal".to_owned());
+        };
+        let false_value =
+            if let MacroParam::StringLiteral(s) = text_macro.parameters.get(2).unwrap() {
+                s
+            } else {
+                return Err("Third parameter should be a string literal".to_owned());
+            };
+
+        if let MacroParam::Ref(_name, ast_type, ast_type_type) = type_param {
             let t = ast_type_type.clone().unwrap();
 
             CLambdas::add_to_statics_if_lambda(&t, statics);
@@ -791,11 +804,11 @@ impl TextMacroEval for CIsRefMacro {
                 .unwrap()
                 .is_reference(type_def_provider, TypeDefBodyTarget::C)
             {
-                Ok("1".to_owned())
+                Ok(true_value.clone())
             } else {
-                Ok("0".to_owned())
+                Ok(false_value.clone())
             }
-        } else if let MacroParam::Plain(name, _, _) = value {
+        } else if let MacroParam::Plain(name, _, _) = type_param {
             if let Some(def) = function_def {
                 let resolved_generic_types =
                     def.resolved_generic_types.clone().remove_generics_prefix();
@@ -820,21 +833,23 @@ impl TextMacroEval for CIsRefMacro {
                         false
                     };
                     if is_ref {
-                        Ok("1".to_owned())
+                        Ok(true_value.clone())
                     } else {
-                        Ok("0".to_owned())
+                        Ok(false_value.clone())
                     }
                 } else {
-                    panic!(
+                    Err(format!(
                         "Cannot find generic type {name} : {}",
                         resolved_generic_types
-                    )
+                    ))
                 }
             } else {
-                panic!("Cannot resolve generic type {name} without a function.")
+                Err(format!(
+                    "Cannot resolve generic type {name} without a function."
+                ))
             }
         } else {
-            panic!("First argument should be a reference to a value.")
+            Err(format!("First argument should be a reference to a value."))
         }
     }
 
