@@ -59,23 +59,25 @@ use super::text_macro_c::{
 use super::typed_function_creator_c::TypedFunctionsCreatorC;
 
 #[derive(Clone)]
-pub struct CCodeManipulator;
+pub struct CCodeManipulator {
+    comments: bool,
+}
 
 impl CCodeManipulator {
     pub fn new() -> Self {
-        Self {}
+        Self { comments: true }
     }
 }
 
 impl CodeManipulator for CCodeManipulator {
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
-        if !comment.is_empty() {
+        if self.comments && !comment.is_empty() {
             self.add(out, &format!("// {comment}"), None, indent);
         }
     }
 
     fn push_comment(&self, out: &mut String, comment: &str, indent: bool) {
-        if !comment.is_empty() {
+        if self.comments && !comment.is_empty() {
             self.push(out, &format!("// {comment}"), None, indent);
         }
     }
@@ -103,7 +105,7 @@ pub struct CodeGenC {
 impl CodeGenC {
     pub fn new(options: COptions, debug: bool) -> Self {
         Self {
-            code_manipulator: CCodeManipulator,
+            code_manipulator: CCodeManipulator::new(),
             c_options: options,
             debug,
         }
@@ -1360,7 +1362,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     }
 
     fn split_source(&self) -> usize {
-        num_cpus::get_physical() - 2
+        0
+        //num_cpus::get_physical() - 2
     }
 
     fn include_file(&self, file: &str) -> String {

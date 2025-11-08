@@ -1353,6 +1353,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             &format!("function {}", function_def.original_signature(typed_module)),
             false,
         );
+
         let code_gen_context = self.create_code_gen_context();
 
         self.function_def(&code_gen_context, definitions, function_def, statics);

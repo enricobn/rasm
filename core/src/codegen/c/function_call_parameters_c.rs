@@ -62,7 +62,7 @@ impl CFunctionCallParameters {
             before: String::new(),
             current: String::new(),
             after: Vec::new(),
-            code_manipulator: CCodeManipulator,
+            code_manipulator: CCodeManipulator::new(),
             immediate,
             code_gen_c: CodeGenC::new(COptions::default(), false),
         }
