@@ -317,42 +317,8 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
 
             let lambda_space_name = format!("lambda_space_{}", ID.fetch_add(1, Ordering::SeqCst));
 
-            let (lambda_space_pointer_operator, lambda_dereference_operator) =
-                if no_ref_count_for_lambda_space {
-                    self.code_manipulator.add(
-                        &mut self.before,
-                        &format!("struct {} {lambda_space_name};", lambda_space_struct_name),
-                        None,
-                        true,
-                    );
 
-                    self.code_manipulator.add(
-                        &mut self.before,
-                        &format!("struct RasmPointer_ {lambda_space_name}_ = {{&{lambda_space_name}, 0, NULL}};"),
-                        None,
-                        true,
-                    );
-                    (".", "&")
-                } else {
-                    self.code_manipulator.add(
-                        &mut self.before,
-                        &format!(
-                            "struct RasmPointer_ *{lambda_space_name}_ = rasmMalloc(sizeof(struct {lambda_space_struct_name}));",
-                        ),
-                        None,
-                        true,
-                    );
-                    self.code_manipulator.add(
-                        &mut self.before,
-                        &format!(
-                            "struct {lambda_space_struct_name} *{lambda_space_name} = (struct {lambda_space_struct_name}*) {lambda_space_name}_->address;"
-                        ),
-                        None,
-                        true,
-                    );
-
-                    ("->", "")
-                };
+            let mut values = LinkedHashMap::new();
 
             for (name, _kind) in lambda_space.iter() {
                 let value =
@@ -368,13 +334,44 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                         name.to_string()
                     };
 
-                self.code_manipulator.add(
-                    &mut self.before,
-                    &format!("{lambda_space_name}{lambda_space_pointer_operator}{name} = {value};"),
-                    None,
-                    true,
-                );
+                values.insert(name, value);
             }
+
+            let lambda_dereference_operator =
+                if no_ref_count_for_lambda_space {
+                    let vs = values.values().cloned().collect::<Vec<_>>().join(", ");
+
+                    self.code_manipulator.add_rows(
+                        &mut self.before,
+                        vec![
+                        &format!("struct {} {lambda_space_name} = {{{vs}}};", lambda_space_struct_name),
+                        &format!("struct RasmPointer_ {lambda_space_name}_ = {{&{lambda_space_name}, 0, NULL}};"),    
+                        ], None, true
+                    );
+                    "&"
+                } else {
+                    self.code_manipulator.add_rows(
+                        &mut self.before,
+                        vec![
+                            &format!("struct RasmPointer_ *{lambda_space_name}_ = rasmMalloc(sizeof(struct {lambda_space_struct_name}));"),
+                            &format!("struct {lambda_space_struct_name} *{lambda_space_name} = (struct {lambda_space_struct_name}*) {lambda_space_name}_->address;"),   
+                        ],
+                        None,
+                        true,
+                    );
+
+                    for (name, value) in values {
+                        self.code_manipulator.add(
+                            &mut self.before,
+                            &format!("{lambda_space_name}->{name} = {value};"),
+                            None,
+                            true,
+                        );
+                    }
+
+                    ""
+                };
+
             &format!("{lambda_dereference_operator}{lambda_space_name}_")
         } else {
             "NULL"

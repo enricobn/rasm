@@ -267,3 +267,13 @@ compiler ended in 781.25552ms
 finished in 1.019161404s
 .c lines: 14770
 .c size: 786198
+
+after size and lambda space creation optimization, one file, no split
+parse ended in 20.993849ms
+AST type check ended in 28.481517ms
+type check ended in 110.617689ms
+code generation ended in 75.64629ms
+compiler ended in 783.375234ms
+finished in 1.024118224s
+.c lines: 14748
+.c size: 785528
