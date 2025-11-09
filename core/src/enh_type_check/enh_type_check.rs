@@ -753,19 +753,13 @@ impl<'a> EnhTypeCheck<'a> {
         );
         self.unique_function_names
             .entry(unique_name)
-            .or_insert_with(|| {
-                format!(
-                    "fn_{}_{}",
-                    original_name.replace("::", "_"),
-                    COUNT_FUNCTION_ID.fetch_add(1, Ordering::Relaxed)
-                )
-            })
+            .or_insert_with(|| Self::create_unique_function_name(&original_name))
             .clone()
     }
 
     /// Returns a UniqueFunctionNameEntry which contains the unique name for the given function.
     ///
-    /// If the unique name is already in the unique_function_names map, it returns an Occupied entry with the value from the map.
+    /// If the unique name is already in the unique_function_names map, it returns an Occupied entry with the vnmew name from the map.
     /// Otherwise, it returns a Vacant entry with the unique name and a new name
     ///
     /// It's needed to avoid mutating directly the unique_function_names map, which, in some cases is not possible
@@ -790,13 +784,17 @@ impl<'a> EnhTypeCheck<'a> {
         } else {
             UniqueFunctionNameEntry::Vacant(
                 unique_name,
-                format!(
-                    "fn_{}_{}",
-                    original_name.replace("::", "_"),
-                    COUNT_FUNCTION_ID.fetch_add(1, Ordering::Relaxed)
-                ),
+                Self::create_unique_function_name(&original_name),
             )
         }
+    }
+
+    fn create_unique_function_name(original_name: &str) -> String {
+        format!(
+            "fn_{}_{}",
+            original_name.replace("::", "_"),
+            COUNT_FUNCTION_ID.fetch_add(1, Ordering::Relaxed)
+        )
     }
 
     fn unique_function_name_internal(
