@@ -1,4 +1,9 @@
-use std::{collections::HashMap, iter::zip, ops::Deref};
+use std::{
+    collections::HashMap,
+    iter::zip,
+    ops::Deref,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
@@ -41,6 +46,21 @@ use super::{
     typed_ast::DefaultFunction,
 };
 
+static COUNT_FUNCTION_ID: AtomicUsize = AtomicUsize::new(0);
+enum UniqueFunctionNameEntry {
+    Vacant(String, String),
+    Occupied(String),
+}
+
+impl UniqueFunctionNameEntry {
+    fn value(&self) -> &String {
+        match self {
+            UniqueFunctionNameEntry::Vacant(_, value) => value,
+            UniqueFunctionNameEntry::Occupied(value) => value,
+        }
+    }
+}
+
 pub struct EnhTypeCheck<'a> {
     target: CompileTarget,
     debug: bool,
@@ -50,6 +70,7 @@ pub struct EnhTypeCheck<'a> {
     type_checker: ASTTypeChecker,
     modules_catalog: &'a dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     modules_container: &'a ASTModulesContainer,
+    unique_function_names: HashMap<String, String>,
 }
 
 type InputModule = EnhancedASTModule;
@@ -72,6 +93,7 @@ impl<'a> EnhTypeCheck<'a> {
             type_checker,
             modules_catalog,
             modules_container,
+            unique_function_names: HashMap::new(),
         }
     }
 
@@ -360,6 +382,7 @@ impl<'a> EnhTypeCheck<'a> {
 
                 if function_references.len() == 1 {
                     let new_function_def = function_references.remove(0);
+
                     let mut function_parameters = new_function_def.parameters.clone();
                     let mut function_return_type = new_function_def.return_type.clone();
                     let mut function_generics = new_function_def.generic_types.clone();
@@ -372,7 +395,7 @@ impl<'a> EnhTypeCheck<'a> {
                             return_type,
                         }) = et
                         {
-                            zip(&new_function_def.parameters, parameters)
+                            zip(&function_parameters, parameters)
                                 .map(|(p, t)| {
                                     self.resolve_generic_types_from_effective_type_and_append(
                                         &p.ast_type,
@@ -385,16 +408,14 @@ impl<'a> EnhTypeCheck<'a> {
                                 .collect::<Result<Vec<_>, EnhTypeCheckError>>()?;
 
                             self.resolve_generic_types_from_effective_type_and_append(
-                                &new_function_def.return_type,
+                                &function_return_type,
                                 &return_type,
                                 module,
                                 &mut resolved_generic_types,
                                 index,
                             )?;
 
-                            function_parameters = new_function_def
-                                .parameters
-                                .clone()
+                            function_parameters = function_parameters
                                 .into_iter()
                                 .map(|mut it| {
                                     let new_ast_type =
@@ -406,8 +427,8 @@ impl<'a> EnhTypeCheck<'a> {
                                 .collect_vec();
 
                             function_return_type =
-                                substitute(&new_function_def.return_type, &resolved_generic_types)
-                                    .unwrap_or(new_function_def.return_type.clone());
+                                substitute(&function_return_type, &resolved_generic_types)
+                                    .unwrap_or(function_return_type);
 
                             let unresolved_generic_types = function_parameters
                                 .iter()
@@ -435,13 +456,15 @@ impl<'a> EnhTypeCheck<'a> {
                         }
                     }
 
-                    let new_function_name = Self::unique_function_name(
+                    let new_function_name_entry = self.unique_function_name_entry(
                         &new_function_def.namespace,
                         &new_function_def.original_name,
                         &function_parameters,
                         &function_return_type,
                         module,
                     );
+
+                    let new_function_name = new_function_name_entry.value().clone();
 
                     if !new_functions
                         .iter()
@@ -456,12 +479,18 @@ impl<'a> EnhTypeCheck<'a> {
                         new_function_def.resolved_generic_types = resolved_generic_types;
 
                         new_functions.push((new_function_def, self.stack.clone()));
+                        match new_function_name_entry {
+                            UniqueFunctionNameEntry::Vacant(name, value) => {
+                                self.unique_function_names.insert(name, value);
+                            }
+                            UniqueFunctionNameEntry::Occupied(_) => {}
+                        }
                     }
 
                     Ok(EnhASTExpression::ValueRef(
                         new_function_name,
                         index.clone(),
-                        namespace.clone(), // TOD const_namespace?
+                        namespace.clone(), // TODO const_namespace?
                     ))
                 } else {
                     let message = if function_references.is_empty() {
@@ -663,7 +692,7 @@ impl<'a> EnhTypeCheck<'a> {
             new_function_def.generic_types = Vec::new();
         }
 
-        let new_function_name = Self::unique_function_name(
+        let new_function_name = self.unique_function_name(
             &new_function_def.namespace,
             &new_function_def.original_name,
             &new_function_def.parameters,
@@ -687,7 +716,7 @@ impl<'a> EnhTypeCheck<'a> {
             new_call.function_name = converted_function.name.clone();
             debug_i!("already added function {}", new_call.function_name);
         } else {
-            new_call.function_name = new_function_name.clone();
+            new_call.function_name = new_function_name;
 
             debug_i!("adding new function {}", new_function_def);
 
@@ -708,6 +737,69 @@ impl<'a> EnhTypeCheck<'a> {
     }
 
     fn unique_function_name(
+        &mut self,
+        namespace: &EnhASTNameSpace,
+        original_name: &str,
+        parameters: &Vec<EnhASTParameterDef>,
+        return_type: &EnhASTType,
+        module: &EnhancedASTModule,
+    ) -> String {
+        let unique_name = Self::unique_function_name_internal(
+            namespace,
+            original_name,
+            parameters,
+            return_type,
+            module,
+        );
+        self.unique_function_names
+            .entry(unique_name)
+            .or_insert_with(|| {
+                format!(
+                    "fn_{}_{}",
+                    original_name.replace("::", "_"),
+                    COUNT_FUNCTION_ID.fetch_add(1, Ordering::Relaxed)
+                )
+            })
+            .clone()
+    }
+
+    /// Returns a UniqueFunctionNameEntry which contains the unique name for the given function.
+    ///
+    /// If the unique name is already in the unique_function_names map, it returns an Occupied entry with the value from the map.
+    /// Otherwise, it returns a Vacant entry with the unique name and a new name
+    ///
+    /// It's needed to avoid mutating directly the unique_function_names map, which, in some cases is not possible
+    ///
+    fn unique_function_name_entry(
+        &self,
+        namespace: &EnhASTNameSpace,
+        original_name: &str,
+        parameters: &Vec<EnhASTParameterDef>,
+        return_type: &EnhASTType,
+        module: &EnhancedASTModule,
+    ) -> UniqueFunctionNameEntry {
+        let unique_name = Self::unique_function_name_internal(
+            namespace,
+            original_name,
+            parameters,
+            return_type,
+            module,
+        );
+        if let Some(value) = self.unique_function_names.get(&unique_name) {
+            UniqueFunctionNameEntry::Occupied(value.clone())
+        } else {
+            UniqueFunctionNameEntry::Vacant(
+                unique_name,
+                format!(
+                    "fn_{}_{}",
+                    original_name.replace("::", "_"),
+                    COUNT_FUNCTION_ID.fetch_add(1, Ordering::Relaxed)
+                ),
+            )
+        }
+    }
+
+    fn unique_function_name_internal(
         namespace: &EnhASTNameSpace,
         original_name: &str,
         parameters: &Vec<EnhASTParameterDef>,
