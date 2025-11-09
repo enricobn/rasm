@@ -173,7 +173,6 @@ pub struct EnhASTFunctionSignature {
     pub name: String,
     //pub generics: Vec<String>,
     pub parameters_types: Vec<EnhASTType>,
-    pub return_type: EnhASTType,
 }
 
 impl Display for EnhASTFunctionDef {
@@ -301,7 +300,6 @@ impl EnhASTFunctionDef {
                 .iter()
                 .map(|it| it.ast_type.clone())
                 .collect(),
-            return_type: self.return_type.clone(),
         }
     }
 
