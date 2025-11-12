@@ -187,31 +187,6 @@ impl CodeGenC {
         }
     }
 
-    // TODO HENRY remove
-    pub fn enh_real_type_to_string(ast_type: &EnhASTType) -> String {
-        match ast_type {
-            EnhASTType::Builtin(kind) => match kind {
-                EnhBuiltinTypeKind::String => "struct RasmPointer_*".to_string(),
-                EnhBuiltinTypeKind::Integer => "long".to_string(),
-                EnhBuiltinTypeKind::Boolean => "char".to_string(),
-                EnhBuiltinTypeKind::Char => "struct RasmPointer_*".to_string(),
-                EnhBuiltinTypeKind::Float => "double".to_string(),
-                EnhBuiltinTypeKind::Lambda {
-                    parameters: _,
-                    return_type: _,
-                } => "struct RasmPointer_*".to_string(),
-            },
-            EnhASTType::Unit => "struct Void_*".to_string(),
-            EnhASTType::Custom {
-                namespace: _,
-                name: _,
-                param_types: _,
-                index: _,
-            } => "struct RasmPointer_*".to_string(),
-            EnhASTType::Generic(_, _, _) => todo!("should not happen"),
-        }
-    }
-
     pub fn escape_string(s: &str) -> String {
         let mut result = s.to_string();
         result = result.replace("\\\\", "\\");
