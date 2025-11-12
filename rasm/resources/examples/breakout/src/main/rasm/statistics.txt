@@ -277,3 +277,13 @@ compiler ended in 783.375234ms
 finished in 1.024118224s
 .c lines: 14748
 .c size: 785528
+
+after short unique_function_name
+parse ended in 22.993435ms
+AST type check ended in 27.489706ms
+type check ended in 96.914658ms
+code generation ended in 76.548408ms
+compiler ended in 775.537663ms
+finished in 1.005549288s
+.c lines: 14748
+.c size: 677078
