@@ -1915,4 +1915,13 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
 
         lambda_type
     }
+
+    fn real_type_to_string(&self, _ast_type: &ASTTypedType) -> String {
+        // it's used when supports_function_duplication_optimization is true
+        todo!("not implemented")
+    }
+
+    fn supports_function_duplication_optimization(&self) -> bool {
+        false
+    }
 }

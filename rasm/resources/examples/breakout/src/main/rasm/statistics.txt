@@ -278,7 +278,7 @@ finished in 1.024118224s
 .c lines: 14748
 .c size: 785528
 
-after short unique_function_name
+after short unique_function_name, one file, no split
 parse ended in 22.993435ms
 AST type check ended in 27.489706ms
 type check ended in 96.914658ms
@@ -287,3 +287,13 @@ compiler ended in 775.537663ms
 finished in 1.005549288s
 .c lines: 14748
 .c size: 677078
+
+duplicate native functions optimization, by body and native signature, one file, no split
+parse ended in 22.65948ms
+AST type check ended in 25.609534ms
+type check ended in 101.979908ms
+code generation ended in 71.613464ms
+compiler ended in 765.366171ms
+finished in 992.360267ms
+.c lines: 14237
+.c size: 647330

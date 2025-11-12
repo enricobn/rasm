@@ -436,6 +436,44 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         let main_body = &typed_module.body;
         let mut function_reference_lambdas = HashMap::new();
 
+        // Here we collect similar native functions, which have the same body and signature
+        // so we can avoid creating similar functions.
+
+        // The key is a tuple of (native signature as string, native body), the value is the function name
+        let mut functions_native_bodies: HashMap<(String, String), String> = HashMap::new();
+        // The key is the original function name, the value is the function name of a similar function,
+        // which has the same native body and native signature
+        let mut optimized_functions = HashMap::new();
+
+        if self.supports_function_duplication_optimization() {
+            for function_def in typed_module.functions_by_name.values() {
+                if self.create_function_definition(&statics, function_def) {
+                    if let ASTTypedFunctionBody::NativeBody(ref body) = function_def.body {
+                        let types = self.native_signature_as_string(
+                            &function_def.original_name,
+                            &function_def.parameters,
+                            &function_def.return_type,
+                        );
+                        if let Some(dup_name) =
+                            functions_native_bodies.get(&(types.clone(), body.clone()))
+                        {
+                            optimized_functions.insert(function_def.name.clone(), dup_name.clone());
+
+                            /*
+                            println!(
+                                "Duplicate native function {} -> {dup_name}",
+                                function_def.name
+                            );
+                            */
+                        } else {
+                            functions_native_bodies
+                                .insert((types, body.clone()), function_def.name.clone());
+                        }
+                    }
+                }
+            }
+        }
+
         self.generate_function_body(
             &code_gen_context,
             typed_module,
@@ -453,6 +491,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             &EnhASTNameSpace::root_namespace(&project),
             true,
             &mut function_reference_lambdas,
+            &optimized_functions,
         );
 
         body.push_str(&self.transform_before_in_function_def(&code_gen_context, before));
@@ -466,6 +505,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             typed_module,
             &code_gen_context,
             &mut function_reference_lambdas,
+            &optimized_functions,
         );
 
         functions_generated_code.extend(self.create_all_functions(
@@ -474,6 +514,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             typed_module,
             &code_gen_context,
             &mut function_reference_lambdas,
+            &optimized_functions,
         ));
 
         let mut generated_code = String::new();
@@ -617,6 +658,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         is_inner_call: bool,
         lambda_in_stack: bool,
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
+        optimized_functions: &HashMap<String, String>,
     ) -> Vec<LambdaCall> {
         let mut lambda_calls = Vec::new();
 
@@ -698,11 +740,31 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         }
                     }
                     ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                        let non_optimized_function_name = call.function_name.clone();
+                        let call = if let Some(f) = optimized_functions.get(&call.function_name) {
+                            /*
+                            println!(
+                                "optimizing call call_function_ {} from {} to {}",
+                                call.index, call.function_name, f
+                            );
+
+                            before.push_str(&format!(
+                                "\n// optimizing call call_function_ {} from {} to {}\n",
+                                call.index, call.function_name, f
+                            ));
+                            */
+
+                            let mut c = call.clone();
+                            c.function_name = f.clone();
+                            c
+                        } else {
+                            call.clone()
+                        };
                         let (bf, cur, af, mut inner_lambda_calls) = self.generate_call_function(
                             code_gen_context,
                             Some(&call_parameters),
                             namespace,
-                            call,
+                            &call,
                             context,
                             parent_def,
                             lambda_space_opt,
@@ -715,6 +777,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             true,
                             lambda_in_stack,
                             function_reference_lambdas,
+                            optimized_functions,
+                            &non_optimized_function_name,
                         );
 
                         call_parameters.add_on_top_of_after(&af.join("\n"));
@@ -754,6 +818,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             namespace,
                             lambda_in_stack,
                             function_reference_lambdas,
+                            optimized_functions,
                         );
                     }
                     ASTTypedExpression::Lambda(lambda_def) => {
@@ -964,13 +1029,33 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         modifiers: Option<&ASTModifiers>,
         lambda_in_stack: bool,
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
+        optimized_functions: &HashMap<String, String>,
     ) -> Vec<LambdaCall> {
         self.define_let(code_gen_context, name, is_const, statics, namespace);
 
         let (return_type, new_lambda_calls, index) = match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
+                let original_call = call.clone();
+                let call = if let Some(f) = optimized_functions.get(&call.function_name) {
+                    /*
+                    println!(
+                        "optimizing call let {} from {} to {}",
+                        call.index, call.function_name, f
+                    );
+                    before.push_str(&format!(
+                        "\n// optimizing call let {} from {} to {}\n",
+                        call.index, call.function_name, f
+                    ));
+                    */
+                    let mut c = call.clone();
+                    c.function_name = f.clone();
+                    c
+                } else {
+                    call.clone()
+                };
                 let (return_type, (bf, mut cur, af, new_lambda_calls), index) = {
-                    let return_type = if let Some(kind) = context.get(&call.function_name) {
+                    let return_type = if let Some(kind) = context.get(&original_call.function_name)
+                    {
                         let typed_type = kind.typed_type();
 
                         if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
@@ -990,7 +1075,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             panic!("Expected lambda but got {typed_type}: {}", call.index);
                         }
                     } else {
-                        call.return_type(context, typed_module)
+                        original_call.return_type(context, typed_module)
                     };
 
                     (
@@ -999,7 +1084,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             code_gen_context,
                             parent_fcp,
                             namespace,
-                            call,
+                            &call,
                             context,
                             function_def,
                             lambda_space,
@@ -1012,6 +1097,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             false,
                             lambda_in_stack,
                             function_reference_lambdas,
+                            optimized_functions,
+                            &original_call.function_name,
                         ),
                         call.index.clone(),
                     )
@@ -1211,6 +1298,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         namespace: &EnhASTNameSpace,
         lambda_in_stack: bool,
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
+        optimized_functions: &HashMap<String, String>,
     ) {
         if let Some(val_kind) = context.get(val_name) {
             match val_kind {
@@ -1258,6 +1346,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 .clone();
 
             if let Some(l) = function_reference_lambdas.get(val_name) {
+                if optimized_functions.contains_key(val_name) {
+                    println!("TODO optimized Lambda {val_name}");
+                }
                 let lambda_type = ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                     parameters: l
                         .def
@@ -1335,6 +1426,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         body: &mut String,
         typed_module: &ASTTypedModule,
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
+        optimized_functions: &HashMap<String, String>,
     ) -> Vec<LambdaCall> {
         debug!(
             "{}Adding function def {}",
@@ -1348,11 +1440,18 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             self.add_comment(definitions, &format!("{}", function_def.index), false);
             self.add_comment(definitions, &function_def.index.to_vscode_string(), false);
         }
-        self.add_comment(
-            definitions,
-            &format!("function {}", function_def.original_signature(typed_module)),
-            false,
-        );
+        if optimized_functions
+            .values()
+            .any(|it| it == &function_def.name)
+        {
+            self.add_comment(definitions, "optimized function", false);
+        } else {
+            self.add_comment(
+                definitions,
+                &format!("function {}", function_def.original_signature(typed_module)),
+                false,
+            );
+        }
 
         let code_gen_context = self.create_code_gen_context();
 
@@ -1417,6 +1516,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     &function_def.namespace,
                     lambda_in_stack,
                     function_reference_lambdas,
+                    optimized_functions,
                 );
             }
             ASTTypedFunctionBody::NativeBody(body) => {
@@ -1474,6 +1574,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         namespace: &EnhASTNameSpace,
         lambda_in_stack: bool,
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
+        optimized_functions: &HashMap<String, String>,
     ) {
         let inline = function_def
             .map(|it| InlineRegistry::is_inline(statics, it))
@@ -1487,12 +1588,32 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 ASTTypedStatement::Expression(expr) => {
                     match expr {
                         ASTTypedExpression::ASTFunctionCallExpression(call) => {
-                            //info!("{}function call {call:?}", " ".repeat(0 * 4));
+                            let non_optimized_function_name = call.function_name.clone();
+
+                            let call = if let Some(f) = optimized_functions.get(&call.function_name)
+                            {
+                                /*
+                                println!(
+                                    "optimizing call function body {} from {} to {}",
+                                    call.index, call.function_name, f
+                                );
+                                before.push_str(&format!(
+                                    "\n// optimizing call function body {} from {} to {}\n",
+                                    call.index, call.function_name, f
+                                ));
+                                */
+                                let mut call = call.clone();
+                                call.function_name = f.clone();
+                                call
+                            } else {
+                                call.clone()
+                            };
+
                             let (bf, cur, af, mut lambda_calls_) = self.generate_call_function(
                                 code_gen_context,
                                 None,
                                 namespace,
-                                call,
+                                &call,
                                 &context,
                                 function_def,
                                 lambda_space,
@@ -1505,6 +1626,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 false,
                                 lambda_in_stack,
                                 function_reference_lambdas,
+                                optimized_functions,
+                                &non_optimized_function_name,
                             );
 
                             before.push_str(&bf);
@@ -1545,6 +1668,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 namespace,
                                 lambda_in_stack,
                                 function_reference_lambdas,
+                                optimized_functions,
                             );
 
                             before.push_str(&parameters.before());
@@ -1649,6 +1773,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         None,
                         lambda_in_stack,
                         function_reference_lambdas,
+                        optimized_functions,
                     );
                     lambda_calls.append(&mut new_lambda_calls);
                 }
@@ -1672,6 +1797,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         Some(modifiers),
                         lambda_in_stack,
                         function_reference_lambdas,
+                        optimized_functions,
                     );
                     lambda_calls.append(&mut new_lambda_calls);
                 }
@@ -1703,6 +1829,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         is_inner_call: bool,
         lambda_in_stack: bool,
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
+        optimized_functions: &HashMap<String, String>,
+        non_optimized_function_name: &str,
     ) -> (String, String, Vec<String>, Vec<LambdaCall>) {
         // before, after, lambda calls
         let mut before = String::new();
@@ -1711,7 +1839,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         let lambda_calls = if let Some(function_def) = typed_module
             .functions_by_name
-            .get(&function_call.function_name)
+            .get(non_optimized_function_name)
         {
             let def = function_def.clone();
             // sometimes the function name is different from the function definition name, because it is not a valid ASM name (for enum types is enu-name::enum-variant)
@@ -1753,6 +1881,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 is_inner_call,
                 lambda_in_stack,
                 function_reference_lambdas,
+                optimized_functions,
             )
         } else if let Some(kind) = context.get(&function_call.function_name) {
             let ast_type = kind.typed_type();
@@ -1827,6 +1956,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     is_inner_call,
                     lambda_in_stack,
                     function_reference_lambdas,
+                    optimized_functions,
                 )
             } else {
                 panic!("Cannot find function, there's a parameter with name '{}', but it's not a lambda", function_call.function_name);
@@ -1851,6 +1981,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         typed_module: &ASTTypedModule,
         code_gen_context: &CTX,
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
+        optimized_functions: &HashMap<String, String>,
     ) -> LinkedHashMap<String, (String, String)> {
         let mut result = LinkedHashMap::new();
 
@@ -1872,6 +2003,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 &mut body,
                 typed_module,
                 function_reference_lambdas,
+                optimized_functions,
             ));
 
             result.insert(lambda_call.def.name.clone(), (definitions, body));
@@ -1898,6 +2030,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             &mut body,
                             typed_module,
                             function_reference_lambdas,
+                            optimized_functions,
                         );
 
                         result.insert(it.name.clone(), (definitions, body));
@@ -1916,10 +2049,32 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 typed_module,
                 code_gen_context,
                 function_reference_lambdas,
+                optimized_functions,
             ));
         }
 
         result
+    }
+
+    fn real_type_to_string(&self, ast_type: &ASTTypedType) -> String;
+    fn supports_function_duplication_optimization(&self) -> bool;
+
+    fn native_signature_as_string(
+        &self,
+        original_name: &str,
+        parameters: &Vec<ASTTypedParameterDef>,
+        return_type: &ASTTypedType,
+    ) -> String {
+        format!(
+            "{}_{}_{}",
+            original_name.replace("::", "_"),
+            parameters
+                .iter()
+                .map(|it| self.real_type_to_string(&it.ast_type))
+                .collect::<Vec<_>>()
+                .join("_"),
+            self.real_type_to_string(return_type)
+        )
     }
 
     fn create_all_functions(
@@ -1929,6 +2084,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         typed_module: &ASTTypedModule,
         code_gen_context: &CTX,
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
+        optimized_functions: &HashMap<String, String>,
     ) -> LinkedHashMap<String, (String, String)> {
         let mut result = LinkedHashMap::new();
         let mut lambdas = LinkedHashMap::new();
@@ -1937,6 +2093,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             // ValContext ???
             //if !function_def.inline {
             if self.create_function_definition(&statics, function_def) {
+                if optimized_functions.contains_key(&function_def.name) {
+                    continue;
+                }
                 let mut definitions = String::new();
                 let mut body = String::new();
 
@@ -1952,6 +2111,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     &mut body,
                     typed_module,
                     function_reference_lambdas,
+                    &optimized_functions,
                 );
                 lambdas.extend(self.create_lambdas(
                     lambda_calls,
@@ -1961,6 +2121,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     typed_module,
                     code_gen_context,
                     function_reference_lambdas,
+                    optimized_functions,
                 ));
 
                 result.insert(function_def.name.clone(), (definitions, body));
