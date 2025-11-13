@@ -419,7 +419,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             }
 
             if variant.parameters.is_empty() {
-                self.code_gen.add(&mut body, "return 0;", None, true);
+                self.code_gen.add(&mut body, "return NULL;", None, true);
                 self.code_gen.add(&mut body, "}", None, true);
                 continue;
             }
@@ -433,49 +433,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                 None,
                 true,
             );
-
-            /*
-            for parameter in &variant.parameters {
-                if let Some(type_name) =
-                    get_reference_type_name(&parameter.ast_type, type_def_provider)
-                {
-                    CLambdas::add_to_statics_if_lambda(&parameter.ast_type, statics);
-                    let source = format!("variant->{}", parameter.name);
-
-                    if type_name == "_fn" {
-                        TypedFunctionsCreatorC::addref_deref_lambda(
-                            &mut body,
-                            function_name,
-                            &source,
-                            &parameter.ast_type,
-                            type_def_provider,
-                            &self.code_gen,
-                            statics,
-                        );
-                    } else {
-                        if function_name == "deref" {
-                            self.code_gen.call_deref(
-                                &mut body,
-                                &source,
-                                &type_name,
-                                &type_name,
-                                type_def_provider,
-                                statics,
-                            );
-                        } else {
-                            self.code_gen.call_add_ref(
-                                &mut body,
-                                &source,
-                                &type_name,
-                                &type_name,
-                                type_def_provider,
-                                statics,
-                            );
-                        }
-                    }
-                }
-            }
-            */
 
             if ref_type == RefType::Deref {
                 CodeGenC::call_deref_simple(
