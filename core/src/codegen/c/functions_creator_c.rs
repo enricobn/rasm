@@ -271,19 +271,10 @@ impl FunctionsCreator for CFunctionsCreator {
         self.code_manipulator
             .add(&mut result, "$structDeclaration(s__)", None, true);
 
-        self.code_manipulator
-            .add(&mut result, "$structType()", None, true);
-
-        self.code_manipulator
-            .add(&mut result, "*s_ = ($structType()", None, true);
-
-        self.code_manipulator
-            .add(&mut result, " *) s__->address;", None, true);
-
         for property_def in struct_def.properties.iter() {
             self.code_manipulator.add(
                 &mut result,
-                &format!("s_->{} = ${};", property_def.name, property_def.name),
+                &format!("s___->{} = ${};", property_def.name, property_def.name),
                 None,
                 true,
             );
