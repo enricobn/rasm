@@ -3,6 +3,7 @@ use crate::{
         enhanced_module::EnhancedASTModule,
         get_reference_type_name,
         statics::Statics,
+        text_macro::RefType,
         type_def_body::{TypeDefBodyCache, TypeDefBodyTarget},
         typedef_provider::TypeDefProvider,
         CodeGen,
@@ -82,7 +83,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
     fn create_struct_free_body(
         &self,
         struct_def: &ASTTypedStructDef,
-        function_name: &str,
+        ref_type: RefType,
         module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
@@ -101,7 +102,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
 
         self.code_gen.call_function(
             &mut result,
-            function_name,
+            ref_type.function_name(),
             &[("$address", None), (&format!("[{key}]"), None)],
             Some(&descr),
             false,
@@ -124,7 +125,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                     get_reference_type_name(&property.ast_type, &TypeDefBodyTarget::Asm)
                 {
                     let descr = &format!("{}.{} : {}", struct_def.name, property.name, name);
-                    if function_name == "deref" {
+                    if ref_type == RefType::Deref {
                         result.push_str(&self.code_gen.call_deref(
                             &format!("[ebx + {}]", i * wl),
                             &name,
@@ -155,7 +156,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
     fn create_enum_free_body(
         &self,
         enum_def: &ASTTypedEnumDef,
-        function_name: &str,
+        ref_type: RefType,
         module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
@@ -196,7 +197,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                     );
                     self.code_gen.call_function(
                         &mut result,
-                        function_name,
+                        ref_type.function_name(),
                         &[("$address", None), (&format!("[{key}]"), None)],
                         Some(&descr),
                         false,
@@ -207,7 +208,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                             get_reference_type_name(&par.ast_type, &TypeDefBodyTarget::Asm)
                         {
                             let descr = &format!("{}.{} : {}", enum_def.name, par.name, name);
-                            if function_name == "deref" {
+                            if ref_type == RefType::Deref {
                                 result.push_str(&self.code_gen.call_deref(
                                     &format!("[ebx + {}]", (j + 1) * wl),
                                     &name,
@@ -247,7 +248,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
         &self,
         _module: &EnhancedASTModule,
         type_def: &ASTTypedTypeDef,
-        function_name: &str,
+        ref_type: RefType,
         typed_module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
@@ -260,7 +261,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
 
         self.code_gen.call_function(
             &mut result,
-            function_name,
+            ref_type.function_name(),
             &[("$address", None), ("$descr", None)],
             Some(&descr),
             false,
@@ -274,7 +275,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
                     get_reference_type_name(generic_type_def, &TypeDefBodyTarget::Asm)
                 {
                     let descr = "$descr";
-                    let call_deref = if function_name == "deref" {
+                    let call_deref = if ref_type == RefType::Deref {
                         self.code_gen
                             .call_deref("[ebx]", &name, descr, typed_module, statics)
                     } else {

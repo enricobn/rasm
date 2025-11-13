@@ -363,38 +363,20 @@ impl CLamdaAddRefDerefFunctions {
         type_def_provider: &dyn TypeDefProvider,
         typed_function_creator: &TypedFunctionsCreatorC,
     ) -> &str {
-        self.map
-            .entry(key.clone())
-            .or_insert_with(|| match &key.function_type {
-                RefType::Deref => {
-                    let function_def = typed_function_creator.create_lambda_free(
-                        &key.lambda_name,
-                        lambda_space,
-                        "deref",
-                        type_def_provider,
-                        statics,
-                        key.optimize_lambda,
-                        key.optimize_lambda_space,
-                    );
-                    let name = function_def.name.clone();
-                    lambda_space.add_ref_function(function_def);
-                    name
-                }
-                RefType::AddRef => {
-                    let function_def = typed_function_creator.create_lambda_free(
-                        &key.lambda_name,
-                        lambda_space,
-                        "addRef",
-                        type_def_provider,
-                        statics,
-                        key.optimize_lambda,
-                        key.optimize_lambda_space,
-                    );
-                    let name = function_def.name.clone();
-                    lambda_space.add_ref_function(function_def);
-                    name
-                }
-            })
+        self.map.entry(key.clone()).or_insert_with(|| {
+            let function_def = typed_function_creator.create_lambda_free(
+                &key.lambda_name,
+                lambda_space,
+                key.function_type,
+                type_def_provider,
+                statics,
+                key.optimize_lambda,
+                key.optimize_lambda_space,
+            );
+            let name = function_def.name.clone();
+            lambda_space.add_ref_function(function_def);
+            name
+        })
     }
 
     pub fn add_to_statics(

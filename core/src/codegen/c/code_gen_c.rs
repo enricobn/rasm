@@ -230,12 +230,8 @@ impl CodeGenC {
                 Some(descr_for_debug),
                 true,
             );
-        } else {
-            if "_fn" == type_name {
-                code_manipulator.add(out, &source, None, true);
-            } else if !is_static {
-                Self::call_add_ref_simple(code_manipulator, out, source, descr_for_debug);
-            }
+        } else if !is_static {
+            Self::call_add_ref_simple(code_manipulator, out, source, descr_for_debug);
         }
     }
 
@@ -293,12 +289,8 @@ impl CodeGenC {
                 Some(descr_for_debug),
                 true,
             );
-        } else {
-            if "_fn" == type_name {
-                code_manipulator.add(out, &source, None, true);
-            } else if !is_static {
-                Self::call_deref_simple(code_manipulator, out, source, descr_for_debug);
-            }
+        } else if !is_static {
+            Self::call_deref_simple(code_manipulator, out, source, descr_for_debug);
         }
     }
 
@@ -522,10 +514,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             TypedFunctionsCreatorC::addref_deref_lambda(
                 &self.code_manipulator,
                 &mut result,
-                "deref",
+                RefType::Deref,
                 name,
                 t,
-                typed_module,
                 statics,
             );
         } else {
@@ -557,10 +548,9 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             TypedFunctionsCreatorC::addref_deref_lambda(
                 &self.code_manipulator,
                 before,
-                "addRef",
+                RefType::AddRef,
                 name,
                 t,
-                typed_module,
                 statics,
             );
         } else {

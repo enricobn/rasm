@@ -807,10 +807,19 @@ pub fn get_type(
     }
 }
 
-#[derive(Clone, Hash, Eq, PartialEq)]
+#[derive(Clone, Copy, Hash, Eq, PartialEq)]
 pub enum RefType {
     Deref,
     AddRef,
+}
+
+impl RefType {
+    pub fn function_name(&self) -> &'static str {
+        match self {
+            RefType::Deref => "deref",
+            RefType::AddRef => "addRef",
+        }
+    }
 }
 
 pub struct AddRefMacro {
@@ -840,12 +849,7 @@ impl TextMacroEval for AddRefMacro {
         if !self.dereference_enabled {
             return Ok(String::new());
         }
-        if let Some(fd) = function_def {
-            if fd.name == "addRef" {
-                return Ok(String::new());
-            }
-
-            let (address, ast_typed_type) = match text_macro.parameters.get(0) {
+        let (address, ast_typed_type) = match text_macro.parameters.get(0) {
                 Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
                     (address, ast_typed_type)
                 }
@@ -861,45 +865,42 @@ impl TextMacroEval for AddRefMacro {
                 ),
             };
 
-            let type_name = match ast_typed_type {
-                ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => "str".to_string(),
-                ASTTypedType::Struct { namespace: _, name } => name.clone(),
-                ASTTypedType::Enum { namespace: _, name } => name.clone(),
-                ASTTypedType::Type {
-                    namespace: _,
-                    name,
-                    body: _,
-                } => name.clone(),
-                _ => return Ok(String::new()),
-            };
+        let type_name = match ast_typed_type {
+            ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => "str".to_string(),
+            ASTTypedType::Struct { namespace: _, name } => name.clone(),
+            ASTTypedType::Enum { namespace: _, name } => name.clone(),
+            ASTTypedType::Type {
+                namespace: _,
+                name,
+                body: _,
+            } => name.clone(),
+            _ => return Ok(String::new()),
+        };
 
-            let mut result = String::new();
-            let descr = &format!("addref macro type {type_name}");
+        let mut result = String::new();
+        let descr = &format!("addref macro type {type_name}");
 
-            match self.ref_type {
-                RefType::Deref => result.push_str(&self.code_gen.call_deref(
+        match self.ref_type {
+            RefType::Deref => result.push_str(&self.code_gen.call_deref(
+                address,
+                &type_name,
+                descr,
+                type_def_provider,
+                statics,
+            )),
+            RefType::AddRef => {
+                self.code_gen.call_add_ref(
+                    &mut result,
                     address,
                     &type_name,
                     descr,
                     type_def_provider,
                     statics,
-                )),
-                RefType::AddRef => {
-                    self.code_gen.call_add_ref(
-                        &mut result,
-                        address,
-                        &type_name,
-                        descr,
-                        type_def_provider,
-                        statics,
-                    );
-                }
+                );
             }
-
-            Ok(result)
-        } else {
-            Ok(String::new())
         }
+
+        Ok(result)
     }
 
     fn is_pre_macro(&self) -> bool {

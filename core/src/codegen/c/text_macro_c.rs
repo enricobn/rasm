@@ -421,12 +421,7 @@ impl TextMacroEval for CAddRefMacro {
         if !self.dereference_enabled {
             return Ok(result);
         }
-        if let Some(fd) = function_def {
-            if fd.name == "addRef" {
-                return Ok(result);
-            }
-
-            let (address, ast_typed_type) = match text_macro.parameters.get(0) {
+        let (address, ast_typed_type) = match text_macro.parameters.get(0) {
                 Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
                     (address, ast_typed_type)
                 }
@@ -442,57 +437,53 @@ impl TextMacroEval for CAddRefMacro {
                 ),
             };
 
-            if let Some(type_name) = get_reference_type_name(ast_typed_type, &TypeDefBodyTarget::C)
-            {
-                let descr = &format!("addref macro type {type_name}");
+        if let Some(type_name) = get_reference_type_name(ast_typed_type, &TypeDefBodyTarget::C) {
+            let descr = &format!("addref macro type {type_name}");
 
-                if type_name == "_fn" {
-                    match self.ref_type {
-                        RefType::Deref => {
-                            TypedFunctionsCreatorC::addref_deref_lambda(
-                                &self.code_manipulator,
-                                &mut result,
-                                "deref",
-                                &address,
-                                ast_typed_type,
-                                type_def_provider,
-                                statics,
-                            );
-                        }
-                        RefType::AddRef => {
-                            TypedFunctionsCreatorC::addref_deref_lambda(
-                                &self.code_manipulator,
-                                &mut result,
-                                "addref",
-                                &address,
-                                ast_typed_type,
-                                type_def_provider,
-                                statics,
-                            );
-                        }
+            if type_name == "_fn" {
+                match self.ref_type {
+                    RefType::Deref => {
+                        TypedFunctionsCreatorC::addref_deref_lambda(
+                            &self.code_manipulator,
+                            &mut result,
+                            RefType::Deref,
+                            &address,
+                            ast_typed_type,
+                            statics,
+                        );
                     }
-                } else {
-                    match self.ref_type {
-                        RefType::Deref => {
-                            CodeGenC::call_deref(
-                                &self.code_manipulator,
-                                &mut result,
-                                address,
-                                &type_name,
-                                descr,
-                                type_def_provider,
-                            );
-                        }
-                        RefType::AddRef => {
-                            CodeGenC::call_add_ref(
-                                &self.code_manipulator,
-                                &mut result,
-                                address,
-                                &type_name,
-                                descr,
-                                type_def_provider,
-                            );
-                        }
+                    RefType::AddRef => {
+                        TypedFunctionsCreatorC::addref_deref_lambda(
+                            &self.code_manipulator,
+                            &mut result,
+                            RefType::AddRef,
+                            &address,
+                            ast_typed_type,
+                            statics,
+                        );
+                    }
+                }
+            } else {
+                match self.ref_type {
+                    RefType::Deref => {
+                        CodeGenC::call_deref(
+                            &self.code_manipulator,
+                            &mut result,
+                            address,
+                            &type_name,
+                            descr,
+                            type_def_provider,
+                        );
+                    }
+                    RefType::AddRef => {
+                        CodeGenC::call_add_ref(
+                            &self.code_manipulator,
+                            &mut result,
+                            address,
+                            &type_name,
+                            descr,
+                            type_def_provider,
+                        );
                     }
                 }
             }

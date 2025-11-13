@@ -5,6 +5,7 @@ use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
+use crate::codegen::text_macro::RefType;
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::enh_type_check::typed_ast::{
@@ -56,7 +57,7 @@ pub trait TypedFunctionsCreator {
             self.create_type_free(
                 module,
                 typed_type_def,
-                "deref",
+                RefType::Deref,
                 typed_module,
                 functions_by_name,
                 statics,
@@ -64,7 +65,7 @@ pub trait TypedFunctionsCreator {
             self.create_type_free(
                 module,
                 typed_type_def,
-                "addRef",
+                RefType::AddRef,
                 typed_module,
                 functions_by_name,
                 statics,
@@ -81,8 +82,20 @@ pub trait TypedFunctionsCreator {
         enum_def: &ASTTypedEnumDef,
     ) {
         if enum_has_references(enum_def, self.type_def_body_target()) {
-            self.create_enum_free(enum_def, "deref", typed_module, functions_by_name, statics);
-            self.create_enum_free(enum_def, "addRef", typed_module, functions_by_name, statics);
+            self.create_enum_free(
+                enum_def,
+                RefType::Deref,
+                typed_module,
+                functions_by_name,
+                statics,
+            );
+            self.create_enum_free(
+                enum_def,
+                RefType::AddRef,
+                typed_module,
+                functions_by_name,
+                statics,
+            );
         }
     }
 
@@ -97,14 +110,14 @@ pub trait TypedFunctionsCreator {
         if struct_has_references(struct_def, self.type_def_body_target()) {
             self.create_struct_free(
                 struct_def,
-                "deref",
+                RefType::Deref,
                 typed_module,
                 functions_by_name,
                 statics,
             );
             self.create_struct_free(
                 struct_def,
-                "addRef",
+                RefType::AddRef,
                 typed_module,
                 functions_by_name,
                 statics,
@@ -168,12 +181,12 @@ pub trait TypedFunctionsCreator {
     fn create_struct_free(
         &self,
         struct_def: &ASTTypedStructDef,
-        function_name: &str,
+        ref_type: RefType,
         module: &dyn TypeDefProvider,
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
     ) {
-        let body_str = self.create_struct_free_body(struct_def, function_name, module, statics);
+        let body_str = self.create_struct_free_body(struct_def, ref_type, module, statics);
         let body = ASTTypedFunctionBody::NativeBody(body_str);
 
         self.add_function(
@@ -181,7 +194,7 @@ pub trait TypedFunctionsCreator {
             functions_by_name,
             struct_def.ast_typed_type.clone(),
             body,
-            function_name,
+            ref_type.function_name(),
             &struct_def.name,
             false,
         );
@@ -190,12 +203,12 @@ pub trait TypedFunctionsCreator {
     fn create_enum_free(
         &self,
         enum_def: &ASTTypedEnumDef,
-        function_name: &str,
+        ref_type: RefType,
         module: &dyn TypeDefProvider,
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
     ) {
-        let body_str = self.create_enum_free_body(enum_def, function_name, module, statics);
+        let body_str = self.create_enum_free_body(enum_def, ref_type, module, statics);
         let body = ASTTypedFunctionBody::NativeBody(body_str);
 
         self.add_function(
@@ -203,7 +216,7 @@ pub trait TypedFunctionsCreator {
             functions_by_name,
             enum_def.ast_typed_type.clone(),
             body,
-            function_name,
+            ref_type.function_name(),
             &enum_def.name,
             false,
         );
@@ -213,18 +226,13 @@ pub trait TypedFunctionsCreator {
         &self,
         module: &EnhancedASTModule,
         typed_type_def: &ASTTypedTypeDef,
-        function_name: &str,
+        ref_type: RefType,
         typed_module: &dyn TypeDefProvider,
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,
     ) {
-        let body_str = self.create_type_free_body(
-            module,
-            typed_type_def,
-            function_name,
-            typed_module,
-            statics,
-        );
+        let body_str =
+            self.create_type_free_body(module, typed_type_def, ref_type, typed_module, statics);
         let body = ASTTypedFunctionBody::NativeBody(body_str);
 
         self.add_function(
@@ -232,7 +240,7 @@ pub trait TypedFunctionsCreator {
             functions_by_name,
             typed_type_def.ast_typed_type.clone(),
             body,
-            function_name,
+            ref_type.function_name(),
             &typed_type_def.name,
             self.addref_with_descr(),
         );
@@ -243,7 +251,7 @@ pub trait TypedFunctionsCreator {
     fn create_struct_free_body(
         &self,
         struct_def: &ASTTypedStructDef,
-        function_name: &str,
+        ref_type: RefType,
         module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String;
@@ -251,7 +259,7 @@ pub trait TypedFunctionsCreator {
     fn create_enum_free_body(
         &self,
         enum_def: &ASTTypedEnumDef,
-        function_name: &str,
+        ref_type: RefType,
         module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String;
@@ -260,7 +268,7 @@ pub trait TypedFunctionsCreator {
         &self,
         module: &EnhancedASTModule,
         type_def: &ASTTypedTypeDef,
-        function_name: &str,
+        ref_type: RefType,
         typed_module: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String;

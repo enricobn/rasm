@@ -25,6 +25,7 @@ use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
+use crate::codegen::text_macro::RefType;
 use crate::codegen::type_def_body::TypeDefBodyTarget;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{get_reference_type_name, CodeGen};
@@ -204,10 +205,9 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                 TypedFunctionsCreatorC::addref_deref_lambda(
                     &self.code_manipulator,
                     &mut self.before,
-                    "addRef",
+                    RefType::AddRef,
                     &tmp_val_name,
                     t,
-                    module,
                     statics,
                 );
             } else {
@@ -229,10 +229,9 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                 TypedFunctionsCreatorC::addref_deref_lambda(
                     &self.code_manipulator,
                     &mut deref_code,
-                    "deref",
+                    RefType::Deref,
                     &tmp_val_name,
                     t,
-                    module,
                     statics,
                 );
             } else {
@@ -388,7 +387,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                 let addref_function = typed_function_creator.create_or_get_lambda_free(
                     &lambda_type,
                     &mut lambda_space,
-                    "addRef",
+                    RefType::AddRef,
                     module,
                     statics,
                     lambda_in_stack,
@@ -398,7 +397,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                 let deref_function = typed_function_creator.create_or_get_lambda_free(
                     &lambda_type,
                     &mut lambda_space,
-                    "deref",
+                    RefType::Deref,
                     module,
                     statics,
                     lambda_in_stack,

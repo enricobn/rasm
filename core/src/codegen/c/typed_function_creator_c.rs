@@ -59,7 +59,7 @@ impl TypedFunctionsCreatorC {
     fn create_lambda_free_body(
         &self,
         c_lambda_name: &str,
-        function_name: &str,
+        ref_type: RefType,
         lambda_space: &LambdaSpace,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
@@ -95,7 +95,7 @@ impl TypedFunctionsCreatorC {
             );
         }
 
-        if function_name == "deref" {
+        if ref_type == RefType::Deref {
             if !optimize_lambda_space {
                 CodeGenC::call_deref_simple(
                     &self.code_manipulator,
@@ -150,14 +150,13 @@ impl TypedFunctionsCreatorC {
                         Self::addref_deref_lambda(
                             &self.code_manipulator,
                             &mut body,
-                            function_name,
+                            ref_type,
                             &source,
                             t,
-                            type_def_provider,
                             &statics,
                         );
                     } else {
-                        if function_name == "deref" {
+                        if ref_type == RefType::Deref {
                             CodeGenC::call_deref(
                                 &self.code_manipulator,
                                 &mut body,
@@ -189,59 +188,36 @@ impl TypedFunctionsCreatorC {
     pub fn addref_deref_lambda(
         code_manipulator: &CCodeManipulator,
         body: &mut String,
-        function_name: &str,
+        ref_type: RefType,
         orig_source: &str,
         t: &ASTTypedType,
-        type_def_provider: &dyn TypeDefProvider,
         statics: &Statics,
     ) {
         let ts = CodeGenC::type_to_string(t, statics);
 
-        let source = if function_name == "deref" {
-            code_manipulator.add(
-                body,
-                &format!("if ((({ts}){orig_source}->address)->deref_function != NULL) {{"),
-                None,
-                true,
-            );
-            format!("(({ts}){orig_source}->address)->deref_function({orig_source});")
+        let function = if ref_type == RefType::Deref {
+            format!("(({ts}){orig_source}->address)->deref_function")
         } else {
-            code_manipulator.add(
-                body,
-                &format!("if ((({ts}){orig_source}->address)->addref_function != NULL) {{"),
-                None,
-                true,
-            );
-            format!("(({ts}){orig_source}->address)->addref_function({orig_source});")
+            format!("(({ts}){orig_source}->address)->addref_function")
         };
 
-        if function_name == "deref" {
-            CodeGenC::call_deref(
-                code_manipulator,
-                body,
-                &source,
-                "_fn",
-                "_fn",
-                type_def_provider,
-            );
-        } else {
-            CodeGenC::call_add_ref(
-                code_manipulator,
-                body,
-                &source,
-                "_fn",
-                "_fn",
-                type_def_provider,
-            );
-        }
-        code_manipulator.add(body, "}", None, true);
+        code_manipulator.add_rows(
+            body,
+            vec![
+                &format!("if ({function} != NULL) {{"),
+                &format!("    {function}({orig_source});"),
+                "}",
+            ],
+            None,
+            true,
+        );
     }
 
     pub fn create_or_get_lambda_free(
         &self,
         c_lambda_name: &str,
         lambda_space: &mut LambdaSpace,
-        function_name: &str,
+        ref_type: RefType,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
         optimize_lambda: bool,
@@ -249,11 +225,7 @@ impl TypedFunctionsCreatorC {
     ) -> String {
         CLamdaAddRefDerefFunctions::add_to_statics(
             statics,
-            if function_name == "deref" {
-                RefType::Deref
-            } else {
-                RefType::AddRef
-            },
+            ref_type,
             c_lambda_name.to_string(),
             optimize_lambda,
             optimize_lambda_space,
@@ -267,7 +239,7 @@ impl TypedFunctionsCreatorC {
         &self,
         c_lambda_name: &str,
         lambda_space: &LambdaSpace,
-        function_name: &str,
+        ref_type: RefType,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
         optimize_lambda: bool,
@@ -275,7 +247,7 @@ impl TypedFunctionsCreatorC {
     ) -> ASTTypedFunctionDef {
         let body_str = self.create_lambda_free_body(
             c_lambda_name,
-            function_name,
+            ref_type,
             lambda_space,
             type_def_provider,
             statics,
@@ -285,7 +257,8 @@ impl TypedFunctionsCreatorC {
         let body = ASTTypedFunctionBody::NativeBody(body_str);
 
         let fun_name = format!(
-            "lambda_{function_name}_{}",
+            "lambda_{}_{}",
+            ref_type.function_name(),
             REF_FUNCTIONS_ID.fetch_add(1, Ordering::SeqCst)
         );
 
@@ -307,13 +280,13 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
     fn create_struct_free_body(
         &self,
         struct_def: &ASTTypedStructDef,
-        function_name: &str,
+        ref_type: RefType,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
         let mut body = String::new();
 
-        if function_name == "deref" {
+        if ref_type == RefType::Deref {
             CodeGenC::call_deref_simple(
                 &self.code_manipulator,
                 &mut body,
@@ -344,14 +317,13 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                     TypedFunctionsCreatorC::addref_deref_lambda(
                         &self.code_manipulator,
                         &mut body,
-                        function_name,
+                        ref_type,
                         &source,
                         &property.ast_type,
-                        type_def_provider,
                         statics,
                     );
                 } else {
-                    if function_name == "deref" {
+                    if ref_type == RefType::Deref {
                         CodeGenC::call_deref(
                             &self.code_manipulator,
                             &mut body,
@@ -398,14 +370,14 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         }
         self.create_enum_free(
             enum_def,
-            "deref",
+            RefType::Deref,
             type_def_provider,
             functions_by_name,
             statics,
         );
         self.create_enum_free(
             enum_def,
-            "addRef",
+            RefType::AddRef,
             type_def_provider,
             functions_by_name,
             statics,
@@ -415,7 +387,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
     fn create_enum_free_body(
         &self,
         enum_def: &ASTTypedEnumDef,
-        function_name: &str,
+        ref_type: RefType,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
@@ -505,7 +477,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             }
             */
 
-            if function_name == "deref" {
+            if ref_type == RefType::Deref {
                 CodeGenC::call_deref_simple(
                     &self.code_manipulator,
                     &mut body,
@@ -534,14 +506,13 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                         TypedFunctionsCreatorC::addref_deref_lambda(
                             &self.code_manipulator,
                             &mut body,
-                            function_name,
+                            ref_type,
                             &source,
                             &parameter.ast_type,
-                            type_def_provider,
                             statics,
                         );
                     } else {
-                        if function_name == "deref" {
+                        if ref_type == RefType::Deref {
                             CodeGenC::call_deref(
                                 &self.code_manipulator,
                                 &mut inner_body,
@@ -565,7 +536,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             }
 
             if !inner_body.is_empty() {
-                if function_name == "deref" {
+                if ref_type == RefType::Deref {
                     self.code_gen
                         .add(&mut body, "if (e->variant->count == 0) {", None, true);
                 } else {
@@ -580,7 +551,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
 
         // TODO else with error
 
-        if function_name == "deref" {
+        if ref_type == RefType::Deref {
             CodeGenC::call_deref_simple(
                 &self.code_manipulator,
                 &mut body,
@@ -606,11 +577,11 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         &self,
         module: &EnhancedASTModule,
         type_def: &ASTTypedTypeDef,
-        function_name: &str,
+        ref_type: RefType,
         type_def_provider: &dyn TypeDefProvider,
         statics: &mut Statics,
     ) -> String {
-        let suffix = if function_name == "deref" {
+        let suffix = if ref_type == RefType::Deref {
             "Deref"
         } else {
             "AddRef"
