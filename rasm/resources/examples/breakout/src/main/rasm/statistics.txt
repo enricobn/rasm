@@ -299,6 +299,6 @@ finished in 992.360267ms
 .c size: 647330
 
 
-little optimizayion
+little optimization
 .c lines: 14174
 .c size: 645655
