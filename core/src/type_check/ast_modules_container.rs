@@ -10,8 +10,8 @@ use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
     parser::{
         ast::{
-            ASTEnumDef, ASTFunctionDef, ASTFunctionSignature, ASTModule, ASTPosition, ASTStructDef,
-            ASTType, ASTTypeDef, ASTBuiltinTypeKind, CustomTypeDef,
+            ASTBuiltinTypeKind, ASTEnumDef, ASTFunctionDef, ASTFunctionSignature, ASTModule,
+            ASTPosition, ASTStructDef, ASTType, ASTTypeDef, CustomTypeDef,
         },
         builtin_functions::BuiltinFunctions,
     },
@@ -595,7 +595,8 @@ impl ASTModulesContainer {
                 }
             }
             ASTType::ASTUnitType => {
-                matches!(with_type, ASTType::ASTUnitType) || matches!(with_type, ASTType::ASTGenericType(_, _, _))
+                matches!(with_type, ASTType::ASTUnitType)
+                    || matches!(with_type, ASTType::ASTGenericType(_, _, _))
             }
         }
     }
@@ -832,7 +833,7 @@ impl ASTTypeFilter {
 mod tests {
     use std::path::PathBuf;
 
-    use rasm_parser::parser::ast::{ASTPosition, ASTType, ASTBuiltinTypeKind};
+    use rasm_parser::parser::ast::{ASTBuiltinTypeKind, ASTPosition, ASTType};
 
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
@@ -868,7 +869,10 @@ mod tests {
             "match",
             &None,
             &vec![
-                exact_custom("Option", vec![ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType)]),
+                exact_custom(
+                    "Option",
+                    vec![ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType)],
+                ),
                 exact_builtin(ASTBuiltinTypeKind::ASTLambdaType {
                     parameters: vec![ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType)],
                     return_type: Box::new(ASTType::ASTGenericType(
@@ -899,7 +903,14 @@ mod tests {
         let (container, catalog, _errors) =
             project.container_and_catalog(&RasmProjectRunType::Main, &target);
 
-        enrich_container(&target, &mut Statics::new(), container, &catalog, false)
+        enrich_container(
+            &target,
+            &mut Statics::new(),
+            container,
+            &catalog,
+            false,
+            false,
+        )
     }
 
     fn exact_builtin(kind: ASTBuiltinTypeKind) -> ASTTypeFilter {

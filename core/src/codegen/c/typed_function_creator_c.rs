@@ -50,9 +50,10 @@ pub struct TypedFunctionsCreatorC {
 
 impl TypedFunctionsCreatorC {
     pub fn new(code_gen: CodeGenC) -> Self {
+        let debug = code_gen.debug();
         Self {
             code_gen,
-            code_manipulator: CCodeManipulator::new(),
+            code_manipulator: CCodeManipulator::new(debug),
         }
     }
 

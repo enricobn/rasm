@@ -32,12 +32,16 @@ pub fn compile_c(
     let mut make_file_content = String::new();
 
     make_file_content.push_str("SAVE-TEMPS =\n");
+    let debug = command_line_options.debug && !command_line_options.release;
     if command_line_options.release {
         make_file_content.push_str("OPTIMIZE = -O3\n");
-        make_file_content.push_str("DEBUG =\n");
     } else {
         make_file_content.push_str("OPTIMIZE = -O0\n");
+    }
+    if debug {
         make_file_content.push_str("DEBUG = -g\n");
+    } else {
+        make_file_content.push_str("DEBUG =\n");
     }
 
     make_file_content.push_str("OUT = ");

@@ -56,16 +56,16 @@ pub struct CFunctionCallParameters {
 }
 
 impl CFunctionCallParameters {
-    pub fn new(parameters: Vec<ASTTypedParameterDef>, immediate: bool) -> Self {
+    pub fn new(parameters: Vec<ASTTypedParameterDef>, debug:bool, immediate: bool) -> Self {
         Self {
             parameters,
             parameters_values: LinkedHashMap::new(),
             before: String::new(),
             current: String::new(),
             after: Vec::new(),
-            code_manipulator: CCodeManipulator::new(),
+            code_manipulator: CCodeManipulator::new(debug),
             immediate,
-            code_gen_c: CodeGenC::new(COptions::default(), false),
+            code_gen_c: CodeGenC::new(COptions::default(), debug, false),
         }
     }
 

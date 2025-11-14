@@ -365,7 +365,11 @@ impl EnhResolvedGenericTypes {
 
         for (name, inner) in self.map.into_iter() {
             let inner_new = new
-                .entry(ASTType::get_original_generic(&name).unwrap().to_owned())
+                .entry(
+                    ASTType::get_original_generic(&name)
+                        .expect(&name)
+                        .to_owned(),
+                )
                 .or_insert(LinkedHashMap::new());
 
             for (var_types, t) in inner.into_iter() {

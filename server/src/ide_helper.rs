@@ -266,7 +266,14 @@ pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<Com
     let (container, catalog, errors) =
         project.container_and_catalog(&RasmProjectRunType::Main, &target);
 
-    let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
+    let container = enrich_container(
+        &target,
+        &mut Statics::new(),
+        container,
+        &catalog,
+        false,
+        false,
+    );
 
     (IDEHelper::from_container(container), errors)
 }

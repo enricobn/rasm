@@ -64,8 +64,8 @@ pub struct CCodeManipulator {
 }
 
 impl CCodeManipulator {
-    pub fn new() -> Self {
-        Self { comments: true }
+    pub fn new(comments: bool) -> Self {
+        Self { comments }
     }
 }
 
@@ -99,14 +99,16 @@ impl CodeManipulator for CCodeManipulator {
 pub struct CodeGenC {
     code_manipulator: CCodeManipulator,
     c_options: COptions,
+    memory_debug: bool,
     debug: bool,
 }
 
 impl CodeGenC {
-    pub fn new(options: COptions, debug: bool) -> Self {
+    pub fn new(options: COptions, debug: bool, memory_debug: bool) -> Self {
         Self {
-            code_manipulator: CCodeManipulator::new(),
+            code_manipulator: CCodeManipulator::new(debug),
             c_options: options,
+            memory_debug,
             debug,
         }
     }
@@ -311,6 +313,10 @@ impl CodeGenC {
     pub fn variant_const_name(namespace: &EnhASTNameSpace, e: &str, v: &str) -> String {
         format!("{}_{}_{}_value_", namespace.safe_name(), e, v)
     }
+
+    pub fn debug(&self) -> bool {
+        self.debug
+    }
 }
 
 pub struct CodeGenCContext {}
@@ -418,8 +424,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         if return_value {
             self.add(
                 before,
-                &format!("{return_type} return_value_ =  // CodgenC.call_lambda"),
-                None,
+                &format!("{return_type} return_value_ = "),
+                Some("CodgenC.call_lambda"),
                 true,
             );
             self.call_function(
@@ -451,7 +457,11 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         immediate: bool,
         _id: usize,
     ) -> Box<CFunctionCallParameters> {
-        Box::new(CFunctionCallParameters::new(parameters.clone(), immediate))
+        Box::new(CFunctionCallParameters::new(
+            parameters.clone(),
+            self.debug,
+            immediate,
+        ))
     }
 
     fn insert_let_in_context(
@@ -806,7 +816,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     }
 
     fn get_text_macro_evaluator(&self) -> TextMacroEvaluator {
-        let mut evaluator = TextMacroEvaluator::new(CCodeManipulator::new());
+        let mut evaluator = TextMacroEvaluator::new(CCodeManipulator::new(self.debug));
         evaluator.add("call", CCallMacro);
         evaluator.add("include", CIncludeMacro);
         evaluator.add("structDeclaration", CStructDeclarationMacro);
@@ -818,7 +828,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         evaluator.add(
             "addRef",
             CAddRefMacro::new(
-                CCodeManipulator::new(),
+                CCodeManipulator::new(self.debug),
                 RefType::AddRef,
                 self.c_options.dereference(),
             ),
@@ -826,7 +836,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         evaluator.add(
             "deref",
             CAddRefMacro::new(
-                CCodeManipulator::new(),
+                CCodeManipulator::new(self.debug),
                 RefType::Deref,
                 self.c_options.dereference(),
             ),
@@ -853,7 +863,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         // TODO
     }
 
-    fn debug(&self) -> bool {
+    fn memory_debug(&self) -> bool {
         false
     }
 
@@ -944,7 +954,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             self.add_empty_line(&mut include);
         }
 
-        if self.debug {
+        if self.memory_debug {
             self.add(&mut include, "#define __RASM_DEBUG__", None, false);
         }
 
@@ -1523,7 +1533,7 @@ mod tests {
 
     #[test]
     fn called_functions() {
-        let sut = CodeGenC::new(COptions::default(), false);
+        let sut = CodeGenC::new(COptions::default(), false, false);
         let mut statics = Statics::new();
 
         let functions = sut

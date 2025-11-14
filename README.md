@@ -56,8 +56,10 @@ main=
 ### Usage
 
 ```text
+Usage: rasm [OPTIONS] <ACTION> [file]
+
 Arguments:
-  <ACTION>  the action to perform [possible values: build, test, server, ui]
+  <ACTION>  the action to perform [possible values: build, install, run, buildtest, test, server, ui]
   [file]    the input directory or file
 
 Options:
@@ -70,8 +72,10 @@ Options:
       --message-format <message-format>
           for vscode
   -d, --debug
-          prints debug informations at runtime (very verbose)
-  -m, --memoryinfo
+          compiles with debug symbols and includes comments in generated code
+  -D, --memorydebug
+          prints memory debug informations at runtime (very verbose)
+  -M, --memoryinfo
           prints memory informations
   -p, --printcode
           prints code

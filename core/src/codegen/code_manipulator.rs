@@ -55,23 +55,25 @@ pub trait CodeManipulator {
 }
 
 #[derive(Clone)]
-pub struct CodeManipulatorNasm;
+pub struct CodeManipulatorNasm {
+    comments: bool,
+}
 
 impl CodeManipulatorNasm {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(comments: bool) -> Self {
+        Self { comments }
     }
 }
 
 impl CodeManipulator for CodeManipulatorNasm {
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {
-        if !comment.is_empty() {
+        if self.comments && !comment.is_empty() {
             self.add(out, &format!("; {comment}"), None, indent);
         }
     }
 
     fn push_comment(&self, out: &mut String, comment: &str, indent: bool) {
-        if !comment.is_empty() {
+        if self.comments && !comment.is_empty() {
             self.push(out, &format!("; {comment}"), None, indent);
         }
     }

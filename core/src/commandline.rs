@@ -32,7 +32,7 @@ pub enum CommandLineAction {
 #[derive(Clone)]
 pub struct CommandLineOptions {
     pub action: CommandLineAction,
-    pub debug: bool,
+    pub memory_debug: bool,
     pub print_code: bool,
     pub print_memory: bool,
     pub only_compile: bool,
@@ -40,13 +40,14 @@ pub struct CommandLineOptions {
     pub release: bool,
     pub arguments: Vec<String>,
     pub include_tests: Vec<String>,
+    pub debug: bool,
 }
 
 impl Default for CommandLineOptions {
     fn default() -> Self {
         Self {
             action: CommandLineAction::Test,
-            debug: false,
+            memory_debug: false,
             print_code: false,
             print_memory: false,
             only_compile: false,
@@ -54,6 +55,7 @@ impl Default for CommandLineOptions {
             out: None,
             arguments: Vec::new(),
             include_tests: Vec::new(),
+            debug: false,
         }
     }
 }

@@ -241,7 +241,7 @@ mod tests {
         let mut out = String::new();
 
         let stack = StackVals::new();
-        let code_gen = CodeGenAsm::new(AsmOptions::default(), false);
+        let code_gen = CodeGenAsm::new(AsmOptions::default(), false, false);
         assert_eq!(1, stack.reserve_local_val("val1"));
         stack.reserve_return_register(&code_gen, &mut out);
         assert_eq!(2, stack.reserve_local_val("val2"));

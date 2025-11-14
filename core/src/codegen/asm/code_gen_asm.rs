@@ -80,12 +80,13 @@ impl CodeGenOptions for AsmOptions {
 pub struct CodeGenAsm {
     backend: BackendNasmi386,
     options: AsmOptions,
-    debug: bool,
+    memory_debug: bool,
     code_manipulator: CodeManipulatorNasm,
+    debug: bool,
 }
 
 impl CodeGenAsm {
-    pub fn new(options: AsmOptions, debug: bool) -> Self {
+    pub fn new(options: AsmOptions, debug: bool, memory_debug: bool) -> Self {
         /*
         crate::utils::debug_indent::INDENT.with(|indent| {
             *indent.borrow_mut() = 0;
@@ -95,10 +96,11 @@ impl CodeGenAsm {
 
         Self {
             //module,
-            backend: BackendNasmi386::new(debug),
+            backend: BackendNasmi386::new(memory_debug),
             options,
+            memory_debug,
+            code_manipulator: CodeManipulatorNasm::new(debug),
             debug,
-            code_manipulator: CodeManipulatorNasm::new(),
         }
     }
 
@@ -127,7 +129,11 @@ impl CodeGenAsm {
             panic!();
         }
 
-        let descr = if self.debug { descr_for_debug } else { "" };
+        let descr = if self.memory_debug {
+            descr_for_debug
+        } else {
+            ""
+        };
 
         let key = statics.add_str(descr);
 
@@ -210,7 +216,11 @@ impl CodeGenAsm {
             panic!();
         }
 
-        let descr = if self.debug { descr_for_debug } else { "" };
+        let descr = if self.memory_debug {
+            descr_for_debug
+        } else {
+            ""
+        };
 
         let key = statics.add_str(descr);
 
@@ -233,7 +243,11 @@ impl CodeGenAsm {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 
-        let descr = if self.debug { descr_for_debug } else { "" };
+        let descr = if self.memory_debug {
+            descr_for_debug
+        } else {
+            ""
+        };
 
         let mut result = String::new();
 
@@ -326,7 +340,11 @@ impl CodeGenAsm {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 
-        let descr = if self.debug { descr_for_debug } else { "" };
+        let descr = if self.memory_debug {
+            descr_for_debug
+        } else {
+            ""
+        };
 
         let key = statics.add_str(descr);
 
@@ -1452,8 +1470,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         );
     }
 
-    fn debug(&self) -> bool {
-        self.debug
+    fn memory_debug(&self) -> bool {
+        self.memory_debug
     }
 
     fn call_function_simple(
@@ -1686,7 +1704,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
     }
 
     fn get_text_macro_evaluator(&self) -> TextMacroEvaluator {
-        let mut evaluator = TextMacroEvaluator::new(CodeManipulatorNasm::new());
+        let mut evaluator = TextMacroEvaluator::new(CodeManipulatorNasm::new(self.debug));
         let call_text_macro_evaluator = AsmCallTextMacroEvaluator::new(self.clone());
         evaluator.add("call", call_text_macro_evaluator);
 

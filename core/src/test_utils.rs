@@ -24,7 +24,14 @@ pub fn project_and_container(
     let (container, catalog, _errors) =
         project.container_and_catalog(&RasmProjectRunType::Main, &target);
 
-    let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
+    let container = enrich_container(
+        &target,
+        &mut Statics::new(),
+        container,
+        &catalog,
+        false,
+        false,
+    );
 
     (project, container)
 }
@@ -39,7 +46,7 @@ pub fn project_to_ast_typed_module(
 
     let (container, catalog, _) = project.container_and_catalog(&run_type, &target);
 
-    let container = enrich_container(target, &mut statics, container, &catalog, false);
+    let container = enrich_container(target, &mut statics, container, &catalog, false, false);
 
     let modules = container
         .modules()
@@ -51,7 +58,7 @@ pub fn project_to_ast_typed_module(
         .collect::<Vec<_>>();
 
     let (module, errors) =
-        EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, true);
+        EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, true, false);
 
     if !errors.is_empty() {
         return Err(errors);
@@ -72,6 +79,7 @@ pub fn project_to_ast_typed_module(
         ASTTypeChecker::from_modules_container(&container).0,
         &catalog,
         &container,
+        false,
     ) {
         Ok(module) => Ok((module, statics)),
         Err(e) => Err(vec![e]),

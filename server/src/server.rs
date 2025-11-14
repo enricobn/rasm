@@ -179,7 +179,14 @@ async fn file<'a>(
 
     let (container, catalog, _) = project.container_and_catalog(&RasmProjectRunType::Main, &target);
 
-    let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
+    let container = enrich_container(
+        &target,
+        &mut Statics::new(),
+        container,
+        &catalog,
+        false,
+        false,
+    );
 
     let ide_helper = IDEHelper::from_container(container);
 

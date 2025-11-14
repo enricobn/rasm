@@ -92,7 +92,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
 
         let mut result = String::new();
 
-        let descr = if self.backend.debug_asm() {
+        let descr = if self.backend.memory_debug() {
             format!("type {}", struct_def.name)
         } else {
             String::new()
@@ -165,7 +165,7 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorNasmi386 {
 
         let mut result = String::new();
 
-        let descr = if self.backend.debug_asm() {
+        let descr = if self.backend.memory_debug() {
             format!("type {}", enum_def.name)
         } else {
             String::new()

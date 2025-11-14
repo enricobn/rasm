@@ -14,11 +14,12 @@ pub fn enrich_module(
     target: &CompileTarget,
     statics: &mut Statics,
     module: &mut ASTModule,
-    debug: bool,
+    memory_debug: bool,
     info: &EnhModuleInfo,
+    debug: bool,
 ) {
     target
-        .functions_creator(debug)
+        .functions_creator(debug, memory_debug)
         .create(module, statics, info);
 }
 
@@ -28,6 +29,7 @@ pub fn enrich_container(
     container: ASTModulesContainer,
     catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     debug: bool,
+    memory_debug: bool,
 ) -> ASTModulesContainer {
     // let start = Instant::now();
 
@@ -44,7 +46,7 @@ pub fn enrich_container(
 
             let mut module = m;
 
-            enrich_module(target, statics, &mut module, debug, &info);
+            enrich_module(target, statics, &mut module, memory_debug, &info, debug);
 
             enriched_container.add(
                 module, ns, id, false, // what means add_builtin???

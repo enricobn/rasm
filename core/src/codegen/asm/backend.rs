@@ -32,7 +32,7 @@ pub trait Backend: Send + Sync {
 
     fn type_size(&self, ast_typed_type: &ASTTypedType) -> Option<String>;
 
-    fn debug_asm(&self) -> bool;
+    fn memory_debug(&self) -> bool;
 }
 
 #[auto_impl(Box)]
@@ -56,16 +56,16 @@ enum Linker {
 pub struct BackendNasmi386 {
     linker: Linker,
     libc: bool,
-    debug: bool,
+    memory_debug: bool,
 }
 
 impl BackendNasmi386 {
-    pub fn new(debug: bool) -> Self {
+    pub fn new(memory_debug: bool) -> Self {
         let libc = true; //requires.contains("libc");
         Self {
             linker: if libc { Linker::Gcc } else { Linker::Ld },
             libc,
-            debug,
+            memory_debug,
         }
     }
 }
@@ -216,8 +216,8 @@ impl Backend for BackendNasmi386 {
         }
     }
 
-    fn debug_asm(&self) -> bool {
-        self.debug
+    fn memory_debug(&self) -> bool {
+        self.memory_debug
     }
 }
 

@@ -75,9 +75,17 @@ fn main() {
         )
         .arg(
             Arg::new("debug")
-                .help("prints debug informations at runtime (very verbose)")
+                .help("compiles with debug symbols and includes comments in generated code")
                 .long("debug")
                 .short('d')
+                .action(ArgAction::SetTrue)
+                .required(false),
+        )
+        .arg(
+            Arg::new("memorydebug")
+                .help("prints memory debug informations at runtime (very verbose)")
+                .long("memorydebug")
+                .short('D')
                 .action(ArgAction::SetTrue)
                 .required(false),
         )
@@ -85,7 +93,7 @@ fn main() {
             Arg::new("memoryinfo")
                 .help("prints memory informations")
                 .long("memoryinfo")
-                .short('m')
+                .short('M')
                 .action(ArgAction::SetTrue)
                 .required(false),
         )
@@ -152,7 +160,7 @@ fn main() {
 
     let command_line_options = CommandLineOptions {
         action,
-        debug: matches.get_flag("debug"),
+        memory_debug: matches.get_flag("memorydebug"),
         print_code: matches.get_flag("printcode"),
         print_memory: matches.get_flag("memoryinfo"),
         only_compile: matches.get_flag("compile"),
@@ -166,6 +174,7 @@ fn main() {
             .map_or(Vec::new(), |it| {
                 it.split(',').map(|it| it.to_string()).into_iter().collect()
             }),
+        debug: matches.get_flag("debug"),
     };
 
     let src_path = Path::new(&src);

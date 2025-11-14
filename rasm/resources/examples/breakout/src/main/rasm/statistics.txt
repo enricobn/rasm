@@ -302,3 +302,13 @@ finished in 992.360267ms
 little optimization
 .c lines: 14174
 .c size: 645655
+
+no comments and no debug symbols
+parse ended in 25.259345ms
+AST type check ended in 27.202392ms
+type check ended in 103.958385ms
+code generation ended in 74.720497ms
+compiler ended in 708.389241ms
+finished in 944.855271ms
+.c lines: 12312
+.c size: 477436

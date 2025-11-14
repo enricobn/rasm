@@ -35,8 +35,9 @@ impl EnhancedASTModule {
         project: &RasmProject,
         statics: &mut Statics,
         target: &CompileTarget,
-        debug: bool,
+        memory_debug: bool,
         prefix_generics: bool,
+        debug: bool,
     ) -> (Self, Vec<CompilationError>) {
         let result = Self::new(
             modules
@@ -47,6 +48,7 @@ impl EnhancedASTModule {
             statics,
             target,
             debug,
+            memory_debug,
         );
 
         // result.0.print();
@@ -60,6 +62,7 @@ impl EnhancedASTModule {
         statics: &mut Statics,
         target: &CompileTarget,
         debug: bool,
+        memory_debug: bool,
     ) -> (Self, Vec<CompilationError>) {
         let mut body = Vec::new();
         let mut enums = Vec::new();
@@ -91,7 +94,7 @@ impl EnhancedASTModule {
         };
 
         target
-            .functions_creator(debug)
+            .functions_creator(debug, memory_debug)
             .create_globals(&mut enhanced_module, statics);
 
         let (enhanced_module, errors) = match enhanced_module.fix_namespaces() {

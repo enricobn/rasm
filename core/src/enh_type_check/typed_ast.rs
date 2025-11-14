@@ -731,17 +731,19 @@ pub fn convert_to_typed_module(
     statics: &mut Statics,
     default_functions: Vec<DefaultFunction>,
     target: &CompileTarget,
-    debug: bool,
+    memory_debug: bool,
     ast_type_checker: ASTTypeChecker,
     modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     modules_container: &ASTModulesContainer,
+    debug: bool,
 ) -> Result<ASTTypedModule, CompilationError> {
     let type_check = EnhTypeCheck::new(
         target.clone(),
-        debug,
+        memory_debug,
         ast_type_checker,
         modules_catalog,
         modules_container,
+        debug,
     );
 
     let module = type_check.type_check(
@@ -789,14 +791,14 @@ pub fn convert_to_typed_module(
     // since they are not referenced in code, but added by the compiler itself.
     // It could be an idea to add them as default functions in CompileTarget, but then we must remove them
     // after typed functions creator.
-    target.typed_functions_creator(debug).create(
+    target.typed_functions_creator(debug, memory_debug).create(
         &original_module,
         &conv_context,
         &mut functions_by_name,
         statics,
     );
 
-    let evaluator = target.get_evaluator(debug);
+    let evaluator = target.get_evaluator(debug, memory_debug);
 
     for (_name, function) in functions_by_name.iter_mut() {
         match &function.body {
@@ -867,6 +869,7 @@ pub fn convert_to_typed_module(
                         &conv_context,
                         statics,
                         debug,
+                        memory_debug,
                     )
                     .map_err(|err| CompilationError {
                         index: function.index.clone(),

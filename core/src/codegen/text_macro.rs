@@ -1261,7 +1261,7 @@ mod tests {
     }
 
     fn code_gen() -> CodeGenAsm {
-        CodeGenAsm::new(AsmOptions::default(), false)
+        CodeGenAsm::new(AsmOptions::default(), false, false)
     }
 
     #[test]
@@ -1281,7 +1281,7 @@ mod tests {
             index: EnhASTIndex::none(),
         };
 
-        let result = CodeGenC::new(COptions::default(), false)
+        let result = CodeGenC::new(COptions::default(), false, false)
             .get_text_macro_evaluator()
             .get_macros(
                 Some(&function_def),

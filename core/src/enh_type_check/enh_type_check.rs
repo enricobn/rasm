@@ -63,7 +63,7 @@ impl UniqueFunctionNameEntry {
 
 pub struct EnhTypeCheck<'a> {
     target: CompileTarget,
-    debug: bool,
+    memory_debug: bool,
     stack: Vec<EnhASTIndex>,
     functions_stack: LinkedHashMap<String, Vec<EnhASTIndex>>,
     new_functions: HashMap<String, EnhASTFunctionDef>,
@@ -71,6 +71,7 @@ pub struct EnhTypeCheck<'a> {
     modules_catalog: &'a dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     modules_container: &'a ASTModulesContainer,
     unique_function_names: HashMap<String, String>,
+    debug: bool,
 }
 
 type InputModule = EnhancedASTModule;
@@ -79,14 +80,15 @@ type OutputModule = EnhancedASTModule;
 impl<'a> EnhTypeCheck<'a> {
     pub fn new(
         target: CompileTarget,
-        debug: bool,
+        memory_debug: bool,
         type_checker: ASTTypeChecker,
         modules_catalog: &'a dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
         modules_container: &'a ASTModulesContainer,
+        debug: bool,
     ) -> Self {
         Self {
             target,
-            debug,
+            memory_debug,
             stack: vec![],
             functions_stack: Default::default(),
             new_functions: HashMap::new(),
@@ -94,6 +96,7 @@ impl<'a> EnhTypeCheck<'a> {
             modules_catalog,
             modules_container,
             unique_function_names: HashMap::new(),
+            debug,
         }
     }
 
@@ -1511,7 +1514,7 @@ impl<'a> EnhTypeCheck<'a> {
             EnhASTFunctionBody::NativeBody(native_body) => {
                 let type_def_provider = DummyTypeDefProvider::empty();
 
-                let evaluator = self.target.get_evaluator(self.debug);
+                let evaluator = self.target.get_evaluator(self.debug, self.memory_debug);
                 let text_macro_names = evaluator
                     .get_macros(
                         None,
@@ -1573,6 +1576,7 @@ impl<'a> EnhTypeCheck<'a> {
                         &type_def_provider,
                         statics,
                         self.debug,
+                        self.memory_debug,
                     )
                     .map_err(|it| {
                         dedent!();

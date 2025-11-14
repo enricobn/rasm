@@ -97,10 +97,11 @@ pub fn get_typed_module(
     print_module: bool,
     statics: &mut Statics,
     target: &CompileTarget,
-    debug: bool,
+    memory_debug: bool,
     ast_type_checker: ASTTypeChecker,
     modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     modules_container: &ASTModulesContainer,
+    debug: bool,
 ) -> Result<ASTTypedModule, CompilationError> {
     let mandatory_functions = target.get_mandatory_functions(&module);
     let default_functions = target.get_default_functions(print_memory_info);
@@ -112,10 +113,11 @@ pub fn get_typed_module(
         statics,
         default_functions,
         target,
-        debug,
+        memory_debug,
         ast_type_checker,
         modules_catalog,
         modules_container,
+        debug,
     )
 }
 
@@ -334,7 +336,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn initialize_static_values(&self, generated_code: &mut String);
 
-    fn debug(&self) -> bool;
+    fn memory_debug(&self) -> bool;
 
     fn call_function_simple(
         &self,
@@ -539,7 +541,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             generated_code.push_str(&include_code);
         }
 
-        if self.debug() {
+        if self.memory_debug() {
             self.define_debug(&mut generated_code);
         }
 
@@ -664,7 +666,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         self.add_empty_line(before);
 
-        if self.debug() {
+        if self.memory_debug() {
             if inline {
                 self.add_comment(
                     before,
@@ -961,7 +963,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 );
             }
         } else {
-            if self.debug() {
+            if self.memory_debug() {
                 self.add_comment(
                     before,
                     &format!(
@@ -990,7 +992,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         after.insert(0, call_parameters.after().join("\n"));
 
-        if self.debug() {
+        if self.memory_debug() {
             if inline {
                 self.add_comment(
                     before,
@@ -2426,7 +2428,7 @@ mod tests {
 
     #[test]
     fn called_functions_in_comment() {
-        let sut = CodeGenAsm::new(AsmOptions::default(), false);
+        let sut = CodeGenAsm::new(AsmOptions::default(), false, false);
         let mut statics = Statics::new();
 
         assert!(sut
@@ -2444,7 +2446,7 @@ mod tests {
 
     #[test]
     fn called_functions_external() {
-        let sut = CodeGenAsm::new(AsmOptions::default(), false);
+        let sut = CodeGenAsm::new(AsmOptions::default(), false, false);
         let mut statics = Statics::new();
 
         assert!(sut
@@ -2462,7 +2464,7 @@ mod tests {
 
     #[test]
     fn called_functions() {
-        let sut = CodeGenAsm::new(AsmOptions::default(), false);
+        let sut = CodeGenAsm::new(AsmOptions::default(), false, false);
         let mut statics = Statics::new();
 
         assert_eq!(
@@ -2486,7 +2488,7 @@ mod tests {
     #[test]
     fn breakout_codegenc() {
         let options = COptions::default();
-        let sut = CodeGenC::new(options.clone(), false);
+        let sut = CodeGenC::new(options.clone(), false, false);
 
         let project = RasmProject::new(PathBuf::from("../rasm/resources/examples/breakout"));
         let target = CompileTarget::C(options);

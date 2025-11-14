@@ -152,25 +152,32 @@ impl CompileTarget {
         out_folder: &Path,
     ) -> Vec<(String, String)> {
         match self {
-            CompileTarget::Nasmi386(options) => {
-                CodeGenAsm::new(options.clone(), cmd_line_options.debug).generate(
-                    project,
-                    &self,
-                    typed_module,
-                    statics,
-                    cmd_line_options,
-                    out_folder,
-                )
-            }
-            CompileTarget::C(options) => CodeGenC::new(options.clone(), cmd_line_options.debug)
-                .generate(
-                    project,
-                    &self,
-                    typed_module,
-                    statics,
-                    cmd_line_options,
-                    out_folder,
-                ),
+            CompileTarget::Nasmi386(options) => CodeGenAsm::new(
+                options.clone(),
+                cmd_line_options.debug,
+                cmd_line_options.memory_debug,
+            )
+            .generate(
+                project,
+                &self,
+                typed_module,
+                statics,
+                cmd_line_options,
+                out_folder,
+            ),
+            CompileTarget::C(options) => CodeGenC::new(
+                options.clone(),
+                cmd_line_options.debug,
+                cmd_line_options.memory_debug,
+            )
+            .generate(
+                project,
+                &self,
+                typed_module,
+                statics,
+                cmd_line_options,
+                out_folder,
+            ),
         }
     }
 
@@ -181,41 +188,45 @@ impl CompileTarget {
         }
     }
 
-    pub fn functions_creator(&self, debug: bool) -> Box<dyn FunctionsCreator> {
+    pub fn functions_creator(&self, debug: bool, memory_debug: bool) -> Box<dyn FunctionsCreator> {
         match self {
             CompileTarget::Nasmi386(options) => {
-                let backend = BackendNasmi386::new(debug);
+                let backend = BackendNasmi386::new(memory_debug);
                 Box::new(FunctionsCreatorNasmi386::new(
                     backend.clone(),
-                    CodeGenAsm::new(options.clone(), debug),
+                    CodeGenAsm::new(options.clone(), debug, memory_debug),
                 ))
             }
-            CompileTarget::C(_) => Box::new(CFunctionsCreator::new()),
+            CompileTarget::C(_) => Box::new(CFunctionsCreator::new(debug)),
         }
     }
 
-    pub fn typed_functions_creator(&self, debug: bool) -> Box<dyn TypedFunctionsCreator> {
+    pub fn typed_functions_creator(
+        &self,
+        debug: bool,
+        memory_debug: bool,
+    ) -> Box<dyn TypedFunctionsCreator> {
         match self {
             CompileTarget::Nasmi386(options) => {
-                let backend = BackendNasmi386::new(debug);
-                let code_gen = CodeGenAsm::new(options.clone(), debug);
+                let backend = BackendNasmi386::new(memory_debug);
+                let code_gen = CodeGenAsm::new(options.clone(), debug, memory_debug);
                 Box::new(TypedFunctionsCreatorNasmi386::new(backend, code_gen))
             }
             CompileTarget::C(options) => {
-                let code_gen = CodeGenC::new(options.clone(), debug);
+                let code_gen = CodeGenC::new(options.clone(), debug, memory_debug);
                 Box::new(TypedFunctionsCreatorC::new(code_gen))
             }
         }
     }
 
-    pub fn get_evaluator(&self, debug: bool) -> TextMacroEvaluator {
+    pub fn get_evaluator(&self, debug: bool, memory_debug: bool) -> TextMacroEvaluator {
         match self {
             CompileTarget::Nasmi386(options) => {
-                let code_gen = CodeGenAsm::new(options.clone(), debug);
+                let code_gen = CodeGenAsm::new(options.clone(), debug, memory_debug);
                 code_gen.get_text_macro_evaluator()
             }
             CompileTarget::C(options) => {
-                let code_gen = CodeGenC::new(options.clone(), debug);
+                let code_gen = CodeGenC::new(options.clone(), debug, memory_debug);
                 code_gen.get_text_macro_evaluator()
             }
         }
@@ -230,10 +241,11 @@ impl CompileTarget {
         type_def_provider: &dyn TypeDefProvider,
         _statics: &mut Statics,
         debug: bool,
+        memory_debug: bool,
     ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String> {
         match self {
             CompileTarget::Nasmi386(options) => {
-                let code_gen = CodeGenAsm::new(options.clone(), debug);
+                let code_gen = CodeGenAsm::new(options.clone(), debug, memory_debug);
                 code_gen.called_functions(
                     typed_function_def,
                     function_def,
@@ -244,7 +256,7 @@ impl CompileTarget {
                 )
             }
             CompileTarget::C(options) => {
-                let code_gen = CodeGenC::new(options.clone(), debug);
+                let code_gen = CodeGenC::new(options.clone(), debug, memory_debug);
                 code_gen.called_functions(
                     typed_function_def,
                     function_def,
@@ -840,6 +852,7 @@ impl CompileTarget {
             container,
             catalog,
             command_line_options.debug,
+            command_line_options.memory_debug,
         );
 
         let modules = enriched_container
@@ -862,8 +875,9 @@ impl CompileTarget {
             &project,
             &mut statics,
             self,
-            command_line_options.debug,
+            command_line_options.memory_debug,
             true,
+            command_line_options.debug,
         );
 
         if !errors.is_empty() {
@@ -876,10 +890,11 @@ impl CompileTarget {
             command_line_options.print_code,
             &mut statics,
             self,
-            command_line_options.debug,
+            command_line_options.memory_debug,
             ast_type_check,
             catalog,
             &enriched_container,
+            command_line_options.debug,
         )
         .map_err(|it| vec![it])?;
 
@@ -919,7 +934,7 @@ impl CompileTarget {
                         panic!("Only one native file to compile is supported!");
                     }
 
-                    let backend = BackendNasmi386::new(command_line_options.debug);
+                    let backend = BackendNasmi386::new(command_line_options.memory_debug);
 
                     let out = out_paths.remove(0);
 
@@ -1141,7 +1156,7 @@ mod tests {
 
         let command_line_options = CommandLineOptions {
             action: CommandLineAction::Build,
-            debug: false,
+            memory_debug: false,
             print_code: false,
             print_memory: false,
             only_compile: false,
@@ -1149,6 +1164,7 @@ mod tests {
             release: false,
             arguments: Vec::new(),
             include_tests: Vec::new(),
+            debug: false,
         };
         sut.run(project, command_line_options);
     }

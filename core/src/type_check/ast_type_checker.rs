@@ -1860,7 +1860,14 @@ mod tests {
         let (container, catalog, _errors) =
             project.container_and_catalog(&RasmProjectRunType::Main, &target);
 
-        let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
+        let container = enrich_container(
+            &target,
+            &mut Statics::new(),
+            container,
+            &catalog,
+            false,
+            false,
+        );
 
         let mut type_checker = ASTTypeChecker::new();
         let mut val_context = ValContext::new(None);
@@ -1944,7 +1951,14 @@ mod tests {
         let (container, catalog, _errors) =
             project.container_and_catalog(&RasmProjectRunType::Main, &target);
 
-        let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
+        let container = enrich_container(
+            &target,
+            &mut Statics::new(),
+            container,
+            &catalog,
+            false,
+            false,
+        );
 
         let mut type_checker = ASTTypeChecker::new();
         let mut val_context = ValContext::new(None);
@@ -2128,7 +2142,7 @@ mod tests {
 
         let mut statics = &mut Statics::new();
 
-        let container = enrich_container(&target, &mut statics, container, &catalog, false);
+        let container = enrich_container(&target, &mut statics, container, &catalog, false, false);
 
         let result = ASTTypeChecker::from_modules_container(&container);
 

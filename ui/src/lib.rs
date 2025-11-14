@@ -84,7 +84,14 @@ impl UI {
 
         let (container, catalog, _errors) = project.container_and_catalog(&run_type, &target);
 
-        let container = enrich_container(&target, &mut Statics::new(), container, &catalog, false);
+        let container = enrich_container(
+            &target,
+            &mut Statics::new(),
+            container,
+            &catalog,
+            false,
+            false,
+        );
 
         let mut static_val_context = ValContext::new(None);
 

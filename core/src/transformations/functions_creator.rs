@@ -680,14 +680,14 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
     }
 
     fn debug(&self) -> bool {
-        self.backend.debug_asm()
+        self.backend.memory_debug()
     }
 
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
         let mut body = String::new();
-        let descr = if self.backend.debug_asm() {
+        let descr = if self.backend.memory_debug() {
             format!(" for {}", struct_def.name)
         } else {
             String::new()

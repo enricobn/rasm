@@ -31,9 +31,9 @@ pub struct CFunctionsCreator {
 }
 
 impl CFunctionsCreator {
-    pub fn new() -> Self {
+    pub fn new(debug: bool) -> Self {
         Self {
-            code_manipulator: CCodeManipulator::new(),
+            code_manipulator: CCodeManipulator::new(debug),
         }
     }
 }
