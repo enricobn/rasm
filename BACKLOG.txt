@@ -51,13 +51,16 @@ Major
     - check for unused parameters, let and static let, it should be an error
 - it would be better if we cannot use .someFunction without parenthesis, if the function does not return anything
 - visibility
-  - private
+  - public (pub)
+  - private (default)
   - readonly
     - structs
+      - symbol is public
       - constructor is private
       - setters are private
   - opaque
     - structs
+      - symbol is public
       - constructor is private
       - setters are private
       - getters are private
