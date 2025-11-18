@@ -7,6 +7,13 @@ real    0m0,668s
 C backend
 real    0m3,772s
 
+time tmp/bouncing_quads 20 (with 50000 quads)
+
+Nasmi386 backend
+real    0m2,222s
+
+C backend
+real    0m1,519s
 */
 
 struct Model {
@@ -35,10 +42,6 @@ const HEIGHT = 768;
 const QUADWIDTH = 10;
 const BLACK = SDLColor(0, 0, 0, 255);
 const WHITE = SDLColor(255, 255, 255, 255);
-const RED = SDLColor(255, 0, 0, 255);
-const GREEN = SDLColor(0, 255, 0, 255);
-const BLUE = SDLColor(0, 0, 255, 255);
-const YELLOW = SDLColor(255, 255, 0, 255);
 
 initRandom();
 
