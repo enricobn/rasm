@@ -270,13 +270,6 @@ impl EnhFunctionsContainer {
             result
         };
         let matching_functions = functions.iter().filter(lambda).collect::<Vec<_>>();
-        if function_name.contains("Ok") {
-            println!(
-                "found {} matching functions for {}",
-                matching_functions.len(),
-                function_name
-            );
-        }
         Ok(matching_functions)
     }
 
