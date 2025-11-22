@@ -169,10 +169,14 @@ impl EnhFunctionsContainer {
     ) -> Result<Option<&EnhASTFunctionDef>, EnhTypeCheckError> {
         if let Some(functions) = self.functions_by_name.get(original_function_name) {
             if functions.is_empty() {
-                panic!(
-                    "cannot find functions for {function_name} filter {}",
-                    SliceDisplay(&parameter_types_filter)
-                );
+                return Err(EnhTypeCheckError::new(
+                    index.clone(),
+                    format!(
+                        "cannot find functions for {function_name} filter {}",
+                        SliceDisplay(&parameter_types_filter)
+                    ),
+                    Vec::new(),
+                ));
             } else {
                 let matching_functions = Self::find_call_vec_1(
                     function_name,
@@ -266,6 +270,13 @@ impl EnhFunctionsContainer {
             result
         };
         let matching_functions = functions.iter().filter(lambda).collect::<Vec<_>>();
+        if function_name.contains("Ok") {
+            println!(
+                "found {} matching functions for {}",
+                matching_functions.len(),
+                function_name
+            );
+        }
         Ok(matching_functions)
     }
 
