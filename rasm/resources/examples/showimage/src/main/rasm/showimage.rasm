@@ -1,15 +1,15 @@
-sdlInit();
+let sdl = sdlInit();
 
-let win = sdlErrorIfNull(sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387), "SDL_CreateWindow Error: %s\n");
-let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
+let win = sdl.sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387);
+let ren = sdlCreateRenderer(win);
 let bmp = 
     if(argv(1).getOrElse("bmp").eq("svg"), {
-        sdlErrorIfNull(sdlLoadSVG("rasm/resources/examples/level1.svg"), "SDL_LoadSVG Error: %s\n");
+        sdlLoadSVG("rasm/resources/examples/level1.svg");
     }, {
-        sdlErrorIfNull(sdlLoadBMP("rasm/resources/examples/jose-raul-capablanca.bmp"), "SDL_LoadBMP Error: %s\n");
+        sdlLoadBMP("rasm/resources/examples/jose-raul-capablanca.bmp");
     });
 
-let tex = sdlErrorIfNull(sdlCreateTextureFromSurface(ren, bmp), "SDL_CreateTexture Error: %s\n");
+let tex = sdlCreateTextureFromSurface(ren, bmp);
 
 sdlFreeSurface(bmp);
 

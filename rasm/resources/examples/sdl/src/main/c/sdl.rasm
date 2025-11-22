@@ -3,26 +3,31 @@ pub type SDLWindow /{ hasReferences = false, nativeType = SDL_Window* }/
 pub type SDLSurface /{ hasReferences = false, nativeType = SDL_Surface* }/
 pub type SDLTexture /{ hasReferences = false, nativeType = SDL_Texture* }/
 pub type SDLFont /{ hasReferences = false, nativeType = TTF_Font* }/
+pub type SDL /{ hasReferences = false, nativeType = char }/
+pub type SDLTTF /{ hasReferences = false, nativeType = char }/
 type NativeSDLRect /{ hasReferences = false, nativeType = SDL_Rect* }/
 
-native isSDLNull<T>(value: T) -> bool /{
-    return (value == NULL);
+pub native sdlInit() -> SDL /{
+    $include(<SDL.h>)
+    // SDL_Init(SDL_INIT_EVERYTHING)
+    if (SDL_Init(62001) != 0) {
+        $call(sdlFailure, "Error initializing SDL");
+    }
+    return 0;
 }/
 
 native sdlFailure(message: str) /{
-    printf(message->address, SDL_GetError());
+    printf("%s: %s\n", (char *)message->address, SDL_GetError());
     SDL_Quit();
     exit(1);
 }/
 
-pub native sdlInit() /{
-    $include(<SDL.h>)
-    // SDL_Init(SDL_INIT_EVERYTHING)
-    SDL_Init(62001);
-}/
-
-pub native sdlCreateWindow(title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
-    return SDL_CreateWindow(title->address, x, y, width, height, 4);
+pub native sdlCreateWindow(sdl: SDL, title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
+    SDL_Window* window = SDL_CreateWindow(title->address, x, y, width, height, 4);
+    if (window == NULL) {
+        $call(sdlFailure, "Error creating window");
+    }
+    return window;
 }/
 
 pub native sdlDelay(millis: int) /{
@@ -33,7 +38,11 @@ pub native sdlCreateRenderer(win: SDLWindow) -> SDLRenderer /{
     // SDL_RENDERER_ACCELERATED = 0x00000002
     // SDL_RENDERER_PRESENTVSYNC = 0x00000004
     // TODO for now vsync is always disabled, pass a configuration struct instead
-    return SDL_CreateRenderer(win, -1, 2);
+    SDL_Renderer* renderer = SDL_CreateRenderer(win, -1, 2);
+    if (renderer == NULL) {
+        $call(sdlFailure, "Error creating renderer");
+    }
+    return renderer;
 }/
 
 pub native sdlLoadBMP(file: str) -> SDLSurface /{
@@ -164,13 +173,9 @@ pub native keyEvent() -> Option<KeyEvent> /{
 
         if (state != NULL) {
             $addRef(state:KeyState)
-            void * keyEvent =
-            $call(KeyEvent, event.key.keysym.scancode, state: KeyState)
-            ;
+            void * keyEvent = $call(KeyEvent, event.key.keysym.scancode, state: KeyState);
             $addRef(keyEvent:KeyEvent)
-            void *result = 
-            $call(Some, keyEvent: KeyEvent)
-            ;
+            void *result = $call(Some, keyEvent: KeyEvent);
             $deref(keyEvent:KeyEvent)
             $deref(state:KeyState)
             return result;
@@ -183,13 +188,22 @@ pub native keyEvent() -> Option<KeyEvent> /{
 
 // Text
 
-pub native sdlTTFInit() -> int /{
+pub native sdlTTFInit(sdl: SDL) -> SDLTTF /{
     $include(<SDL_ttf.h>)
-    return TTF_Init();
+
+    if (TTF_Init() != 0) {
+        $call(sdlFailure, "Error initializing TTF");
+    }
+    return 0;
 }/
 
-pub native sdlOpenFont(file: str, size: int) -> SDLFont /{
-    return TTF_OpenFont(file->address, size);
+pub native sdlOpenFont(ttf: SDLTTF, file: str, size: int) -> SDLFont /{
+    TTF_Font* font = TTF_OpenFont(file->address, size);
+    if (font == NULL) {
+        // add font file
+        $call(sdlFailure, "Error opening font");
+    }
+    return font;
 }/
 
 native sdlRenderTextSolid(font: SDLFont, message: str, r: int, g: int, b: int, a: int) -> SDLSurface /{

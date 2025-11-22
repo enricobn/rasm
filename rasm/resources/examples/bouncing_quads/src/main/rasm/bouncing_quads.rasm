@@ -45,11 +45,11 @@ const WHITE = SDLColor(255, 255, 255, 255);
 
 initRandom();
 
-sdlInit();
+let sdl = sdlInit();
 
-if(sdlTTFInit().eq(1), { panic("TTFInit error."); }, { });
+let ttf = sdl.sdlTTFInit();
 
-let font = sdlErrorIfNull(sdlOpenFont(resource("DejaVuSerif.ttf"), 24), "cannot open font: %s\n");
+let font = ttf.sdlOpenFont(resource("DejaVuSerif.ttf"), 24);
 let quads = vecRange(0, QUADS)
     .map(fn(it) {
         let x = random(WIDTH);
@@ -60,8 +60,8 @@ let quads = vecRange(0, QUADS)
     });
 let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(toInt).getOrElse(5000));
 
-let win = sdlErrorIfNull(sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT), "SDL_CreateWindow Error: %s\n");
-let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
+let win = sdl.sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT);
+let ren = sdlCreateRenderer(win);
 
 run(ren, initialModel, update, render, subscriptions);
 

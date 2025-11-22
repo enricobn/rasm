@@ -49,7 +49,7 @@ void initRasmReferences() {
                           fs_allocator_enum->count * fs_allocator_enum->size);
 }
 
-struct RasmPointer_ *addStaticStringToHeap(char *s) {
+struct RasmPointer_ *addStaticStringToHeap(const char *s) {
   struct RasmPointer_ *result = rasmMalloc(strlen(s) + 1);
   strcpy((char *)result->address, s);
   return result;

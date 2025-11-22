@@ -3,17 +3,8 @@ pub type SDLWindow /{ hasReferences = false }/
 pub type SDLSurface /{ hasReferences = false }/
 pub type SDLTexture /{ hasReferences = false }/
 pub type SDLFont /{ hasReferences = false }/
-
-native isSDLNull<T>(value: T) -> bool /{
-    mov dword   eax, $value
-    cmp     eax,0
-    je .null
-    mov dword eax, 0
-    jmp .end
-.null:
-    mov dword eax, 1
-.end:
-}/
+pub type SDL /{ hasReferences = false }/
+pub type SDLTTF /{ hasReferences = false }/
 
 native sdlFailure(message: str) /{
     $ccall(SDL_GetError)
@@ -22,12 +13,13 @@ native sdlFailure(message: str) /{
     $ccall(exit, 1)
 }/
 
-pub native sdlInit() /{
+pub native sdlInit() -> SDL /{
     ; SDL_Init(SDL_INIT_EVERYTHING)
     $ccall(SDL_Init, 62001)
+    mov  dword eax,0
 }/
 
-pub native sdlCreateWindow(title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
+pub native sdlCreateWindow(sdl: SDL, title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
     $ccall(SDL_CreateWindow, $title, $x, $y, $width, $height, 4)
 }/
 
@@ -182,11 +174,12 @@ pub native keyEvent() -> Option<KeyEvent> /{
 
 // Text
 
-pub native sdlTTFInit() -> int /{
+pub native sdlTTFInit(sdl: SDL) -> SDLTTF /{
     $ccall(TTF_Init)
+    mov  dword eax,0
 }/
 
-pub native sdlOpenFont(file: str, size: int) -> SDLFont /{
+pub native sdlOpenFont(ttf: SDLTTF, file: str, size: int) -> SDLFont /{
     $ccall(TTF_OpenFont, $file, $size)
 }/
 

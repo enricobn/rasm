@@ -362,7 +362,7 @@ impl TextMacroEval for CCallMacro {
             if let Some(MacroParam::Plain(function_name, _, _)) = text_macro.parameters.get(0) {
                 function_name
             } else {
-                panic!("Error getting the function name");
+                return Err("Error getting the function name".to_owned());
             };
 
         let parameters = text_macro
@@ -371,7 +371,7 @@ impl TextMacroEval for CCallMacro {
             .skip(1)
             .map(|it| match it {
                 MacroParam::Plain(value, _, _) => value.to_string(),
-                MacroParam::StringLiteral(s) => format!("\"{s}\""),
+                MacroParam::StringLiteral(s) => format!("addStaticStringToHeap(\"{s}\")"),
                 MacroParam::Ref(value, _, _) => value.to_string(),
             })
             .collect::<Vec<_>>();

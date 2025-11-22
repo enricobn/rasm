@@ -12,12 +12,6 @@ pub struct SDLColor {
     a: int
 }
 
-/* if the value is 0, which is considered an error in SDL, the program exits printing the SDL error,
-otherwise returns the value */
-pub fn sdlErrorIfNull<T>(value: T, message: str) -> T {
-    if(isSDLNull(value), { sdlFailure(message); value; }, { value; });
-}
-
 // Events
 
 pub enum KeyState {

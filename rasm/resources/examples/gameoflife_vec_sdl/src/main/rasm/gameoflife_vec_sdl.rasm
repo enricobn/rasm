@@ -30,19 +30,19 @@
 // real    0m3,388s
 //
 
-sdlInit();
+let sdl = sdlInit();
 
 argv(1).match(fn(file) {
     let start = readCellFile(file);
 
     argv(2).fmap(fn(s) { toInt(s);}).match(fn(count) {
-        run(moveCells(start, 20), 80, 50, count);
+        run(sdl, moveCells(start, 20), 80, 50, count);
     }, { println("A number for count must be specified."); });
 }, { println("A file must be specified."); });
 
-fn run(start: Vec<Cell>, width: int, height: int, count: int) {
-    let win = sdlErrorIfNull(sdlCreateWindow("Game of life", 100, 100, 1024, 768), "SDL_CreateWindow Error: %s\n");
-    let ren = sdlErrorIfNull(sdlCreateRenderer(win), "SDL_CreateRenderer Error: %s\n");
+fn run(sdl: SDL,start: Vec<Cell>, width: int, height: int, count: int) {
+    let win = sdl.sdlCreateWindow("Game of life", 100, 100, 1024, 768);
+    let ren = sdlCreateRenderer(win);
 
     sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
     sdlRenderClear(ren);
