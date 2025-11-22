@@ -1522,14 +1522,19 @@ pub fn value_type_to_typed_type(value_type: &ASTValue) -> ASTTypedType {
 
 #[cfg(test)]
 mod tests {
+    use rasm_parser::parser::ast::ASTModifiers;
     use rasm_utils::SliceDisplay;
 
     use crate::codegen::c::code_gen_c::CodeGenC;
     use crate::codegen::c::options::COptions;
+    use crate::codegen::enh_ast::{
+        EnhASTFunctionBody, EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTType,
+    };
     use crate::codegen::enh_val_context::EnhValContext;
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::CodeGen;
+    use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
 
     #[test]
     fn called_functions() {
@@ -1539,7 +1544,7 @@ mod tests {
         let functions = sut
             .called_functions(
                 None,
-                None,
+                Some(&funtion_def()),
                 //"$call(Option::Some, value:T)",
                 "$call(Option::None<T>)",
                 &EnhValContext::new(None),
@@ -1557,7 +1562,57 @@ mod tests {
     }
 
     #[test]
+    fn called_functions_2() {
+        let sut = CodeGenC::new(COptions::default(), false, false);
+        let mut statics = Statics::new();
+
+        let functions = sut
+            .called_functions(
+                None,
+                Some(&funtion_def()),
+                //"$call(Option::Some, value:T)",
+                "$call(Ok<int,str>,10)",
+                &EnhValContext::new(None),
+                &DummyTypeDefProvider::empty(),
+                &mut statics,
+            )
+            .unwrap();
+
+        println!(
+            "called functions {}",
+            SliceDisplay(&functions.iter().map(|it| &it.1).collect::<Vec<_>>())
+        );
+
+        assert!(!functions.is_empty());
+        let (m, call) = functions.first().unwrap();
+
+        assert_eq!(
+            "$call(Plain(Ok<int,str>, None, None), Plain(10, None, None))",
+            &format!("{m}")
+        );
+        assert_eq!("Ok", call.name);
+        assert_eq!(2, call.generics.len());
+    }
+
+    #[test]
     fn test_escape() {
         assert_eq!(CodeGenC::escape_string("a\"a"), "a\\\"a");
+    }
+
+    fn funtion_def() -> EnhASTFunctionDef {
+        EnhASTFunctionDef {
+            name: "aFunction".to_string(),
+            parameters: vec![],
+            return_type: EnhASTType::Unit,
+            original_name: "aFunction".to_string(),
+            body: EnhASTFunctionBody::RASMBody(Vec::new()),
+            generic_types: Vec::new(),
+            resolved_generic_types: EnhResolvedGenericTypes::new(),
+            index: EnhASTIndex::none(),
+            modifiers: ASTModifiers::public(),
+            namespace: EnhASTNameSpace::global(),
+            rank: 0,
+            target: None,
+        }
     }
 }

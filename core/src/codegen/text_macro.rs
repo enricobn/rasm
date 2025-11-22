@@ -196,6 +196,7 @@ impl TextMacroEvaluator {
             None,
             Standard,
             StringLiteral,
+            Bracket,
         }
 
         let mut state = State::None;
@@ -204,7 +205,11 @@ impl TextMacroEvaluator {
         for c in s.to_string().chars() {
             match state {
                 State::Standard => {
-                    if c == ',' {
+                    // TODO other brackets?
+                    if c == '<' {
+                        actual_param.push(c);
+                        state = State::Bracket;
+                    } else if c == ',' {
                         let param = self.get_param(
                             &actual_param,
                             typed_function_def,
@@ -239,6 +244,12 @@ impl TextMacroEvaluator {
                         actual_param.push(c);
                     }
                 }
+                State::Bracket => {
+                    if c == '>' {
+                        state = State::Standard;
+                    }
+                    actual_param.push(c);
+                }
             }
         }
 
@@ -255,6 +266,9 @@ impl TextMacroEvaluator {
             }
             State::StringLiteral => {
                 result.push(MacroParam::StringLiteral(actual_param));
+            }
+            State::Bracket => {
+                return Err(format!("Unclosed bracked: {}", s));
             }
         }
 
@@ -1066,6 +1080,24 @@ mod tests {
         assert_eq!(
             result,
             "a line\n; call macro, calling println\n    push dword [_s_1]\n    call println\n    add esp, 4\n\nanother line\n"
+        );
+    }
+
+    #[test]
+    fn parse_generic_function_par() {
+        let result = code_gen()
+            .get_text_macro_evaluator()
+            .parse_params(
+                "Ok<int,str>, 10",
+                None,
+                None,
+                &DummyTypeDefProvider::empty(),
+            )
+            .unwrap();
+
+        assert_eq!(
+            format!("{}", SliceDisplay(&result)),
+            "Plain(Ok<int,str>, None, None), Plain(10, None, None)"
         );
     }
 

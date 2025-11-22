@@ -1617,8 +1617,22 @@ impl<'a> EnhTypeCheck<'a> {
                             })?;
                         debug_i!("old line {}", lines[f.i]);
 
+                        // I don't like the format here, it could not match spaces, but it seems to work
+                        let mut new_function_name = call.function_name.clone();
+                        if !call.generics.is_empty() {
+                            new_function_name = format!(
+                                "{}<{}>",
+                                new_function_name,
+                                call.generics
+                                    .iter()
+                                    .map(|it| it.to_string())
+                                    .collect::<Vec<_>>()
+                                    .join(",")
+                            )
+                        }
+
                         let new_line =
-                            lines[f.i].replace(&call.function_name, &new_call.function_name);
+                            lines[f.i].replace(&new_function_name, &new_call.function_name);
                         debug_i!("new line {}", new_line);
                         lines[f.i] = new_line;
                     }

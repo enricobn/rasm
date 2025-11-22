@@ -1,0 +1,29 @@
+println(some());
+println(none());
+println(ok());
+println(error());
+
+native some() -> Option<int> /{
+    return $call(Some<int>, 1);
+}/
+
+native none() -> Option<int> /{
+    return $call(None<str>);
+}/
+
+native ok() -> Result<int,str> /{
+    long value = 20;
+    return $call(Ok<int , str>,value);
+}/
+
+native error() -> Result<int,str> /{
+    struct RasmPointer_* s = addStaticStringToHeap("an error");
+    return $call(Error<int,str>,s:str);
+}/
+
+pub fn toString<OK,ERR>(result: Result<OK,ERR>) -> str {
+    result.match(
+        fn(it) { "Ok(".append(it).add(")");},
+        fn(it) { "Err(".append(it).add(")");}
+    );
+}

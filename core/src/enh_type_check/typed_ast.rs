@@ -903,7 +903,7 @@ pub fn convert_to_typed_module(
                             }
                         } else {
                             // panic!("cannot find call {function_call}");
-                            // TODO I hope it is a predefined function like addRef or deref for a tstruct or enum
+                            // TODO I hope it is a predefined function like addRef or deref for a struct or enum
                             debug_i!("convert_to_typed_module: cannot find call to {}", it.name);
                         }
                     });
@@ -1483,6 +1483,7 @@ pub struct DefaultFunctionCall {
     pub name: String,
     pub param_types: Vec<EnhASTType>,
     pub i: usize,
+    pub generics: Vec<EnhASTType>,
 }
 
 impl Display for DefaultFunctionCall {
@@ -1496,11 +1497,17 @@ impl Display for DefaultFunctionCall {
 }
 
 impl DefaultFunctionCall {
-    pub fn new(name: &str, param_types: Vec<EnhASTType>, i: usize) -> Self {
+    pub fn new(
+        name: &str,
+        param_types: Vec<EnhASTType>,
+        i: usize,
+        generics: Vec<EnhASTType>,
+    ) -> Self {
         Self {
             name: name.into(),
             param_types,
             i,
+            generics,
         }
     }
 
@@ -1515,6 +1522,7 @@ impl DefaultFunctionCall {
         }
         .to_call(&function_def.namespace.clone());
         call.index = self.index(&function_def.index);
+        call.generics = self.generics.clone();
         call
     }
 }

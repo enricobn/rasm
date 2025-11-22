@@ -761,8 +761,21 @@ Circle(Point(10, 3), 10)
 
 #[test]
 fn test_lambda_vec() {
-    run_test("lambda_vec", vec![], 
-    "called aFunction 10\ncalled anotherFunction 10\nlambda1 10\nlambda2 10\n");
+    run_test(
+        "lambda_vec",
+        vec![],
+        "called aFunction 10\ncalled anotherFunction 10\nlambda1 10\nlambda2 10\n",
+    );
+}
+
+#[test]
+fn native_generic_call() {
+    run_test_with_target(
+        "native_generic_call",
+        vec![],
+        "Some(1)\nNone\nOk(20)\nErr(an error)\n",
+        CompileTarget::C(COptions::default()),
+    );
 }
 
 // Compile tests

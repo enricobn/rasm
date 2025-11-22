@@ -73,23 +73,27 @@ impl TextMacroEval for AsmPrintRefMacro {
                 "print",
                 vec![EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)],
                 0,
+                Vec::new(),
             ),
             DefaultFunctionCall::new(
                 "println",
                 vec![EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)],
                 0,
+                Vec::new(),
             ),
             DefaultFunctionCall::new(
                 "print",
                 vec![EnhASTType::Builtin(EnhBuiltinTypeKind::String)],
                 0,
+                Vec::new(),
             ),
             DefaultFunctionCall::new(
                 "println",
                 vec![EnhASTType::Builtin(EnhBuiltinTypeKind::String)],
                 0,
+                Vec::new(),
             ),
-            DefaultFunctionCall::new("println", Vec::new(), 0),
+            DefaultFunctionCall::new("println", Vec::new(), 0, Vec::new()),
         ]
     }
 }

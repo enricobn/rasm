@@ -9,12 +9,14 @@ use code_manipulator::CodeManipulator;
 use enh_ast::EnhModuleId;
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
-use log::debug;
+use log::{debug, warn};
 
 use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
-use rasm_utils::{debug_i, OptionDisplay};
+use rasm_parser::lexer::Lexer;
+use rasm_parser::parser::Parser;
+use rasm_utils::{debug_i, OptionDisplay, SliceDisplay};
 
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{
@@ -42,7 +44,7 @@ use crate::project::RasmProject;
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::get_new_native_call;
-use rasm_parser::parser::ast::{ASTModifiers, ASTValue};
+use rasm_parser::parser::ast::{ASTExpression, ASTModifiers, ASTStatement, ASTValue};
 
 pub mod asm;
 pub mod c;
@@ -2162,7 +2164,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 } else {
                     // panic!("cannot find call {function_call}");
                     // TODO I hope it is a predefined function like addRef or deref for a struct or enum
-                    println!("translate_body: cannot find call to {}", it.name);
+                    warn!("translate_body: cannot find call to {}", it.name);
                 }
             });
 
@@ -2345,10 +2347,62 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 if let Some(MacroParam::Plain(function_name, _, _)) = m.parameters.get(0) {
                     function_name
                 } else {
-                    return Err(format!("Cannot find function : {i}"));
+                    return Err(format!("Cannot find function in macro : {m}"));
+                };
+            // TODO there's another way to do this?
+            if function_name.contains('<') {
+                let (namespace, index) = if let Some(function_def) = function_def {
+                    (function_def.namespace.clone(), function_def.index.clone())
+                } else if let Some(function_def) = typed_function_def {
+                    (function_def.namespace.clone(), function_def.index.clone())
+                } else {
+                    return Err(format!(
+                        "Cannot resolve generic parameters without a function : {m}"
+                    ));
                 };
 
-            result.push((m.clone(), DefaultFunctionCall::new(function_name, types, i)));
+                let fake_function_name = function_name.replace("_", "GENERICSEPARATORPLACEHOLDER");
+                let (module, errors) =
+                    Parser::new(Lexer::new(format!("{fake_function_name}();"))).parse();
+
+                if let Some(ASTStatement::ASTExpressionStatement(
+                    ASTExpression::ASTFunctionCallExpression(call),
+                    _,
+                )) = module.body.first()
+                {
+                    let id = if let Some(path) = index.file_name {
+                        EnhModuleId::Path(path)
+                    } else {
+                        EnhModuleId::none()
+                    };
+                    let generics = call
+                        .generics()
+                        .iter()
+                        .map(|it| EnhASTType::from_ast(&namespace, &id, it.clone(), None))
+                        .collect::<Vec<_>>();
+
+                    let df = DefaultFunctionCall::new(
+                        &call
+                            .function_name()
+                            .replace("GENERICSEPARATORPLACEHOLDER", "_"),
+                        types.clone(),
+                        i,
+                        generics,
+                    );
+
+                    result.push((m.clone(), df));
+                } else {
+                    return Err(format!(
+                        "Cannot find function in macro : {m}\n{}",
+                        SliceDisplay(&errors)
+                    ));
+                }
+            } else {
+                result.push((
+                    m.clone(),
+                    DefaultFunctionCall::new(function_name, types, i, Vec::new()),
+                ));
+            }
         }
         Ok(result)
     }
