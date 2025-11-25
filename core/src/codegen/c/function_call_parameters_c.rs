@@ -271,7 +271,8 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         // for malloc
         CInclude::add_to_statics(statics, "<stdlib.h>".to_string());
 
-        // if the _lambda parameter has already been added, don't add it again
+        // TODO I don't like it: if the _lambda parameter has already been added, remove it, 
+        // it will be added after, and here, before creating the lambda, we don't want it
         let mut parameters = def.parameters.clone();
         parameters.retain_mut(|it| it.name != "_lambda");
 
