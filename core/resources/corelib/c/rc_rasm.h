@@ -33,8 +33,8 @@ void initRasmReferences();
 
 struct RasmPointer_ *addStaticStringToHeap(const char *s);
 
-void deref(struct RasmPointer_ *address);
+struct Void_ *deref(struct RasmPointer_ *address);
 
-void addRef(struct RasmPointer_ *address);
+struct Void_ *addRef(struct RasmPointer_ *address);
 
 #endif

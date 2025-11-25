@@ -55,7 +55,7 @@ struct RasmPointer_ *addStaticStringToHeap(const char *s) {
   return result;
 }
 
-void deref(struct RasmPointer_ *address) {
+struct Void_ *deref(struct RasmPointer_ *address) {
 #ifdef __RASM_DEBUG__
   if (address == NULL) {
     printf("NULL address\n");
@@ -68,9 +68,10 @@ void deref(struct RasmPointer_ *address) {
   if (--address->count == 0) {
     push_zero(address);
   }
+  return NULL;
 }
 
-void addRef(struct RasmPointer_ *address) {
+struct Void_ *addRef(struct RasmPointer_ *address) {
 
 #ifdef __RASM_DEBUG__
   if (address == NULL) {
@@ -87,4 +88,5 @@ void addRef(struct RasmPointer_ *address) {
       address->zero = NULL;
     }
   }
+  return NULL;
 }
