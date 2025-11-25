@@ -28,13 +28,14 @@ pub native add(s: str, c: char) -> str /{
     $include(<string.h>)
 
     char* s_ = (char *)$s->address;
+    char* c_ = (char *)$c->address;
 
-    int len_ = strlen(s_) + strlen($c);
+    int len_ = strlen(s_) + strlen(c_);
 
     struct RasmPointer_ *result = rasmMalloc(sizeof(char) * (len_ + 1)); // +1 for the null-terminator
     // in real code you would check for errors in malloc here
     strcpy(result->address, s_);
-    strcat(result->address, $c->address);
+    strcat(result->address, c_);
     ((char *)result->address)[len_] = 0;
     return result;
 }/
