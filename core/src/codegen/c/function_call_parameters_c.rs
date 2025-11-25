@@ -35,6 +35,7 @@ use crate::enh_type_check::typed_ast::{
 use linked_hash_map::LinkedHashMap;
 use log::debug;
 use rasm_parser::parser::ast::ASTValue;
+use core::panic;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::any::CStructs;
@@ -270,8 +271,12 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         // for malloc
         CInclude::add_to_statics(statics, "<stdlib.h>".to_string());
 
+        // if the _lambda parameter has already been added, don't add it again
+        let mut parameters = def.parameters.clone();
+        parameters.retain_mut(|it| it.name != "_lambda");
+
         let c_lambda = CLambda::new(
-            def.parameters
+            parameters
                 .iter()
                 .map(|it| it.ast_type.clone())
                 .collect(),
