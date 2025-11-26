@@ -25,10 +25,10 @@ pub native negate(n: int) -> int /{
 
 // from https://stackoverflow.com/questions/8257714/how-can-i-convert-an-int-to-a-string-in-c
 pub native toString(n: int) -> str /{
-    $include(<math.h>)
-
     // TODO calculate max length
-    //int s_len = (int)((ceil(log10((double)$n));
+    // $include(<math.h>)
+    // int s_len = (int)((ceil(log10((double)$n));
+    
     int s_len = 20;
 
     struct RasmPointer_ *_str = rasmMalloc((s_len + 1) * sizeof(char));
