@@ -181,7 +181,6 @@ impl TypedFunctionsCreatorC {
             }
             self.code_gen.add(&mut body, "}", None, true);
         }
-        //self.code_gen.add(&mut body, "return NULL;", None, true);
 
         body
     }
@@ -348,7 +347,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
         }
 
         self.code_gen.add(&mut body, "}", None, true);
-        //self.code_gen.add(&mut body, "return NULL;", None, true);
 
         body
     }
@@ -524,9 +522,6 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
                 &enum_type_name,
             );
         }
-        //self.code_gen.add(&mut body, "return NULL;", None, true);
-
-        //println!("create enum {} free body:\n{}", enum_def.name, body);
 
         body
     }
