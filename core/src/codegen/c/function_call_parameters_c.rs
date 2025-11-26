@@ -622,11 +622,11 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
             if let Some(rt) = return_type {
                 if !matches!(rt, ASTTypedType::Unit) {
                     format!(
-                        "{} return_value_ =  {body};",
+                        "{} return_value_ =  {body}",
                         CodeGenC::real_type_to_string(rt),
                     )
                 } else {
-                    format!("{body};")
+                    format!("{body}")
                 }
             } else {
                 panic!("return value without return type");
