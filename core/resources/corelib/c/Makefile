@@ -1,7 +1,7 @@
 #SAVE-TEMPS = -save-temps
 CC = cc
 LFLAGS = -Wall $(DEBUG)
-CFLAGS = -c -std=c17 -Wno-incompatible-pointer-types -Wno-int-conversion $(DEBUG) $(OPTIMIZE) $(SAVE-TEMPS)
+CFLAGS = -c -std=c17 $(DEBUG) $(OPTIMIZE) $(SAVE-TEMPS)
 
 all : $(OUT)
 

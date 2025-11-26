@@ -603,14 +603,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         before: &mut String,
         val_name: &String,
         typed_val_kind: &TypedValKind,
-        statics: &Statics,
+        _statics: &Statics,
         name: &str,
     ) -> ASTTypedType {
         // todo!("{val_name}")
         let t = typed_val_kind.typed_type();
         self.add(
             before,
-            &format!("{} {name} = {val_name};", Self::type_to_string(t, statics)),
+            &format!("{} {name} = {val_name};", Self::real_type_to_string(t)),
             None,
             true,
         );
@@ -1377,14 +1377,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         before: &mut String,
         val_name: &String,
         typed_val_kind: &TypedValKind,
-        statics: &Statics,
+        _statics: &Statics,
         name: &str,
     ) {
         self.code_manipulator.add(
             before,
             &format!(
                 "{} {name} = lambda_space->{val_name};",
-                Self::type_to_string(typed_val_kind.typed_type(), statics)
+                Self::real_type_to_string(typed_val_kind.typed_type())
             ),
             None,
             true,
