@@ -589,7 +589,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             statics,
             statics_key.to_owned(),
             format!(
-                "{} {statics_key};",
+                "{} {statics_key}",
                 CodeGenC::real_type_to_string(typed_type)
             ),
             None,
@@ -691,7 +691,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             self.add(
                 before,
                 &format!(
-                    "{} {name} = {};",
+                    "{} {name} = {}",
                     CodeGenC::real_type_to_string(typed_type),
                     value
                 ),
