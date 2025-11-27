@@ -376,7 +376,7 @@ impl TextMacroEval for CCallMacro {
             })
             .collect::<Vec<_>>();
 
-        Ok(format!("{function_name}({});", parameters.join(", ")))
+        Ok(format!("{function_name}({})", parameters.join(", ")))
     }
 
     fn is_pre_macro(&self) -> bool {

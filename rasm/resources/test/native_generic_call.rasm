@@ -13,12 +13,12 @@ native none() -> Option<int> /{
 
 native ok() -> Result<int,str> /{
     long value = 20;
-    return $call(Ok<int , str>,value);
+    return $call(Ok<int,str>, value);
 }/
 
 native error() -> Result<int,str> /{
     struct RasmPointer_* s = addStaticStringToHeap("an error");
-    return $call(Error<int,str>,s:str);
+    return $call(Error<int,str>, s:str);
 }/
 
 pub fn toString<OK,ERR>(result: Result<OK,ERR>) -> str {

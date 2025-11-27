@@ -515,7 +515,7 @@ pub native charsVec(s: str) -> Vec<char> /{
     $include(<stdlib.h>)
 
     int length = 
-    $call(len, $s)
+        $call(len, $s);
     size_t sz = sizeof(void *);
     struct RasmPointer_ *result = $call(Vec,length,sz);
     struct Vector *result_vec = (struct Vector*)result->address;
