@@ -53,5 +53,5 @@ pub native fileExists(path: str) -> bool /{
     // TODO it's UNIX
     $include(<unistd.h>)
 
-    return access(path->address, F_OK) == 0
+    return access(path->address, F_OK) == 0;
 }/

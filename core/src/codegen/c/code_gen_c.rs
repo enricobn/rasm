@@ -896,9 +896,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             }
         }
         self.call_function(out, function_name, &args, None, false, is_inner_call);
-        if return_value {
-            self.add(out, ";", None, true);
-        }
     }
 
     fn call_function(

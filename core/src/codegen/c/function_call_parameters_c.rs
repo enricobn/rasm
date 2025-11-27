@@ -616,8 +616,6 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         return_type: Option<&ASTTypedType>,
         _is_lambda: bool,
     ) -> String {
-        let suffix = if is_inner_call { "" } else { ";" };
-
         let mut result = if return_value {
             if let Some(rt) = return_type {
                 if !matches!(rt, ASTTypedType::Unit) {
@@ -632,7 +630,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                 panic!("return value without return type");
             }
         } else {
-            format!("{}{suffix}", body)
+            body.to_owned()
         };
 
         let mut substitutions = Vec::new();
