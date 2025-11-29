@@ -49,7 +49,7 @@ let sdl = sdlInit();
 
 let ttf = sdl.sdlTTFInit();
 
-let font = ttf.sdlOpenFont(resource("DejaVuSerif.ttf"), 24);
+let font = ttf.sdlOpenFont(resource("DejaVuSerif.ttf"), 16);
 let quads = vecRange(0, QUADS)
     .map(fn(it) {
         let x = random(WIDTH);
@@ -71,8 +71,8 @@ fn update(message: Message, model: Model) -> Model {
     }, {});
 
     let newModel = model
-        .quads(model.quads.map(update))
-        .fps(model.fps.update)
+        .quads(fn(quads) {quads.map(update);})
+        .fps(update)
         .count(model.count.sub(1));
 
     if(newModel.count.less(0), {sdlQuit(); exitMain(0);}, {});
@@ -106,7 +106,7 @@ fn render(ren: SDLRenderer, model: Model) {
     });
 
     let fpsText = sdlCreateText(ren, model.font, "FPS: ".append(model.fps.fps), WHITE);
-    sdlRenderAndRelease(ren, fpsText, 400, 2);
+    sdlRenderAndRelease(ren, fpsText, 10, 10);
 
     sdlRenderPresent(ren);
 }
