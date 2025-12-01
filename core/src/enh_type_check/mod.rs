@@ -21,6 +21,7 @@ pub mod enh_functions_container;
 pub mod enh_resolved_generic_types;
 pub mod enh_type_check;
 pub mod enh_type_check_error;
+pub mod navigate_used_functions;
 pub mod traverse_typed_ast;
 pub mod typed_ast;
 pub mod used_functions;
