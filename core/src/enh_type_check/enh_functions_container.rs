@@ -94,9 +94,10 @@ impl EnhFunctionsContainer {
     }
 
     pub fn find_function(&self, name: &str) -> Option<&EnhASTFunctionDef> {
-        let functions = self.functions();
-        let found = functions
-            .into_iter()
+        let found = self
+            .functions_by_name
+            .iter()
+            .flat_map(|it| it.1.iter())
             .filter(|it| it.name == name)
             .collect::<Vec<_>>();
 
@@ -106,7 +107,7 @@ impl EnhFunctionsContainer {
                 found.iter().map(|it| format!("{it}")).collect::<Vec<_>>()
             );
         } else {
-            found.first().cloned()
+            found.first().map(|it| &**it)
         }
     }
 
