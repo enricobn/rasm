@@ -558,7 +558,6 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         body: &str,
         ident: usize,
         _return_value: bool,
-        _is_inner_value: bool,
         return_type: Option<&ASTTypedType>,
         is_lambda: bool,
     ) -> String {

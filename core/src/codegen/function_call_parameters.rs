@@ -109,7 +109,6 @@ pub trait FunctionCallParameters<CTX> {
         body: &str,
         ident: usize,
         return_value: bool,
-        is_inner_call: bool,
         return_type: Option<&ASTTypedType>,
         is_lambda: bool,
     ) -> String;

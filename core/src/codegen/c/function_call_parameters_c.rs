@@ -612,7 +612,6 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         body: &str,
         indent: usize,
         return_value: bool,
-        is_inner_call: bool,
         return_type: Option<&ASTTypedType>,
         _is_lambda: bool,
     ) -> String {

@@ -914,7 +914,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             && parent_def
                                 .map(|it| it.return_type != ASTTypedType::Unit)
                                 .unwrap_or(false),
-                        is_inner_call,
                         parent_def.map(|it| it.return_type.clone()).as_ref(),
                         is_lambda,
                     ),
@@ -1540,7 +1539,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     body,
                     indent,
                     function_def.return_type == ASTTypedType::Unit,
-                    false,
                     Some(&function_def.return_type),
                     is_lambda,
                 );
