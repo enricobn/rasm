@@ -3,11 +3,24 @@
 #include "rc_zero_list.h"
 #include <stdlib.h>
 
+/**
+ * Fixed size allocator for struct RasmPointers
+ */
 struct fs_allocator *fs_allocator;
+/**
+ * Fixed allocator for struct Enum
+ */
 struct fs_allocator *fs_allocator_enum;
 static size_t enum_size;
 static void *enum_max_mem;
 
+/**
+ * Allocates memory of size 'size' on the heap and returns a RasmPointer_
+ * containing a pointer to the allocated memory. If 'size' is equal to the size
+ * of an enum, it allocates memory on the fs_allocator_enum, otherwise it
+ * allocates on the standard heap. The returned RasmPointer_ has count set to 0
+ * and zero set to NULL.
+ */
 struct RasmPointer_ *rasmMalloc(size_t size) {
 
   free_zero();
@@ -28,6 +41,13 @@ struct RasmPointer_ *rasmMalloc(size_t size) {
   return result;
 }
 
+/**
+ * Frees a RasmPointer_ previously allocated by rasmMalloc.
+ * If the pointer to the allocated memory is within the range of the
+ * fs_allocator_enum, it frees the memory on the fs_allocator_enum, otherwise it
+ * frees the memory on the standard heap. Additionally, it frees the
+ * RasmPointer_ itself on the fs_allocator
+ */
 void rasmFree(struct RasmPointer_ *pointer) {
 
   if (pointer->address >= fs_allocator_enum->mem &&

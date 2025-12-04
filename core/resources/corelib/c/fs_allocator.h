@@ -1,11 +1,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-// false = 0
-struct fs_pointer {
-  void *address;
-};
-
+/**
+ * Fixed size allocator, it is created as a single memory block of size * count
+ * bytes.
+ *
+ * It allocates memory from the first block to the last block.
+ *
+ * The allocator allocates memory in blocks of a given size and count.
+ *
+ * @param size the size of each block in the allocator
+ * @param count the number of blocks in the allocator
+ */
 struct fs_allocator {
   size_t size;
   size_t count;
