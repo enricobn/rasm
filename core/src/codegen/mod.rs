@@ -492,7 +492,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             &mut body,
             &mut id,
             4,
-            &EnhASTNameSpace::root_namespace(&project),
+            &EnhASTNameSpace::root_namespace(&project, command_line_options.is_test()),
             true,
             &mut function_reference_lambdas,
             &optimized_functions,

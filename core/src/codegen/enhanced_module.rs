@@ -13,7 +13,6 @@ use crate::codegen::enh_ast::{
 };
 use crate::enh_type_check::enh_functions_container::{EnhFunctionsContainer, EnhTypeFilter};
 use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
-use crate::project::RasmProject;
 use rasm_parser::parser::ast;
 
 use super::enh_ast::EnhModuleInfo;
@@ -32,7 +31,6 @@ pub struct EnhancedASTModule {
 impl EnhancedASTModule {
     pub fn from_ast(
         modules: Vec<(ast::ASTModule, EnhModuleInfo)>,
-        project: &RasmProject,
         statics: &mut Statics,
         target: &CompileTarget,
         memory_debug: bool,
@@ -44,7 +42,6 @@ impl EnhancedASTModule {
                 .into_iter()
                 .map(|(module, info)| EnhASTModule::from_ast(module, info, prefix_generics))
                 .collect(),
-            project,
             statics,
             target,
             debug,
@@ -58,7 +55,6 @@ impl EnhancedASTModule {
 
     pub fn new(
         modules: Vec<EnhASTModule>,
-        project: &RasmProject,
         statics: &mut Statics,
         target: &CompileTarget,
         debug: bool,
@@ -71,18 +67,43 @@ impl EnhancedASTModule {
 
         let mut container = EnhFunctionsContainer::new();
 
+        let mut body_namespace = None;
+        let mut errors = Vec::new();
+
         for module in modules {
             module.functions.into_iter().for_each(|mut it| {
                 it.update_calculated_properties();
                 container.add_function(it.original_name.clone(), it);
             });
-            body.extend(module.body);
+            if !module.body.is_empty() {
+                if module
+                    .body
+                    .iter()
+                    .any(|s| !matches!(s, EnhASTStatement::ConstStatement(_, _, _, _, _)))
+                {
+                    if body_namespace.is_some() {
+                        errors.push(CompilationError {
+                            error_kind: CompilationErrorKind::Generic(
+                                "Multiple body in modules".to_owned(),
+                            ),
+                            index: module
+                                .body
+                                .first()
+                                .unwrap()
+                                .get_index()
+                                .cloned()
+                                .unwrap_or(EnhASTIndex::none()),
+                        });
+                    } else {
+                        body_namespace = Some(module.namespace.clone());
+                    }
+                }
+                body.extend(module.body);
+            }
             enums.extend(module.enums);
             structs.extend(module.structs);
             types.extend(module.types);
         }
-
-        let body_namespace = EnhASTNameSpace::root_namespace(project);
 
         let mut enhanced_module = Self {
             body,
@@ -90,20 +111,22 @@ impl EnhancedASTModule {
             enums,
             structs,
             types,
-            body_namespace,
+            body_namespace: body_namespace.unwrap_or(EnhASTNameSpace::global()),
         };
 
         target
             .functions_creator(debug, memory_debug)
             .create_globals(&mut enhanced_module, statics);
 
-        let (enhanced_module, errors) = match enhanced_module.fix_namespaces() {
+        let (enhanced_module, fix_namespaces_errors) = match enhanced_module.fix_namespaces() {
             Ok(m) => {
-                let errors = m.check_for_duplicates();
-                (m, errors)
+                let duplicates_errors = m.check_for_duplicates();
+                (m, duplicates_errors)
             }
             Err(e) => (EnhancedASTModule::empty(), vec![e]),
         };
+
+        errors.extend(fix_namespaces_errors);
 
         (enhanced_module, errors)
     }

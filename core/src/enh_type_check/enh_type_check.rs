@@ -497,10 +497,10 @@ impl<'a> EnhTypeCheck<'a> {
                     ))
                 } else {
                     let message = if function_references.is_empty() {
-                        format!("Cannot find reference to {name} transforming {expression}")
+                        format!("Cannot find reference to {name} from namespace {namespace}")
                     } else {
                         format!(
-                            "More than one reference to {name} transforming {expression}: {}",
+                            "More than one reference to {name} from namespace {namespace}: {}",
                             SliceDisplay(
                                 &function_references
                                     .iter()

@@ -872,8 +872,6 @@ impl EnhFunctionsContainer {
 
 #[cfg(test)]
 mod tests {
-    use linked_hash_map::LinkedHashMap;
-
     use crate::codegen::asm::code_gen_asm::AsmOptions;
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enh_ast::{
@@ -885,9 +883,7 @@ mod tests {
     use crate::enh_type_check::enh_functions_container::EnhFunctionsContainer;
     use crate::enh_type_check::enh_functions_container::EnhTypeFilter::Exact;
     use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
-    use crate::project::{RasmConfig, RasmPackage, RasmProject};
     use rasm_parser::parser::ast::{ASTModifiers, ASTValue};
-    use std::path::PathBuf;
 
     #[test]
     fn test_2() {
@@ -949,26 +945,9 @@ mod tests {
             target: None,
         };
 
-        let project = RasmProject {
-            root: PathBuf::new(),
-            config: RasmConfig {
-                package: RasmPackage {
-                    name: "test".to_string(),
-                    version: "".to_string(),
-                    main: None,
-                    source_folder: Some("".to_string()),
-                },
-                dependencies: None,
-                targets: None,
-            },
-            from_file: false,
-            in_memory_files: LinkedHashMap::new(),
-        };
-
         let mut statics = Statics::new();
 
-        let (module, _) =
-            EnhancedASTModule::new(vec![], &project, &mut statics, &target(), false, false);
+        let (module, _) = EnhancedASTModule::new(vec![], &mut statics, &target(), false, false);
 
         let result = sut.find_call(
             &call.function_name,

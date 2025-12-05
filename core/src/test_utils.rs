@@ -58,7 +58,7 @@ pub fn project_to_ast_typed_module(
         .collect::<Vec<_>>();
 
     let (module, errors) =
-        EnhancedASTModule::from_ast(modules, &project, &mut statics, &target, false, true, false);
+        EnhancedASTModule::from_ast(modules, &mut statics, &target, false, true, false);
 
     if !errors.is_empty() {
         return Err(errors);

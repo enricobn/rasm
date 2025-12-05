@@ -61,6 +61,7 @@ pub struct RasmProject {
     pub root: PathBuf,
     pub config: RasmConfig,
     pub from_file: bool,
+    // TODO don't like them here, is something that has to do with the IDE
     pub in_memory_files: LinkedHashMap<PathBuf, String>,
 }
 #[derive(RustEmbed)]
@@ -355,12 +356,10 @@ impl RasmProject {
     }
 
     pub fn main_out_file_name(&self, command_line_options: &CommandLineOptions) -> String {
-        match command_line_options.action {
-            crate::commandline::CommandLineAction::Test
-            | crate::commandline::CommandLineAction::BuildTest => {
-                format!("{}_test", self.config.package.name)
-            }
-            _ => self.config.package.name.clone(),
+        if command_line_options.is_test() {
+            format!("{}_test", self.config.package.name)
+        } else {
+            self.config.package.name.clone()
         }
     }
 

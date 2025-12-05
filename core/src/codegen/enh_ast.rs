@@ -104,6 +104,9 @@ impl EnhASTNameSpace {
         if lib.is_empty() {
             panic!("lib cannot be empty");
         }
+        if path.is_empty() {
+            panic!("path cannot be empty");
+        }
         if path.ends_with(".rasm") {
             panic!("path should not end with .rasm {path}")
         }
@@ -113,8 +116,10 @@ impl EnhASTNameSpace {
         Self { lib, path }
     }
 
-    pub fn root_namespace(project: &RasmProject) -> Self {
-        let namespace_path = if let Some(p) = &project.config.package.main {
+    pub fn root_namespace(project: &RasmProject, is_test: bool) -> Self {
+        let namespace_path = if is_test {
+            "main".to_string()
+        } else if let Some(p) = &project.config.package.main {
             p.strip_suffix(".rasm").unwrap().to_string()
         } else {
             String::new()

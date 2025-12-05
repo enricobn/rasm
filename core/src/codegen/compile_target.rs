@@ -872,7 +872,6 @@ impl CompileTarget {
 
         let (enhanced_ast_module, errors) = EnhancedASTModule::from_ast(
             modules,
-            &project,
             &mut statics,
             self,
             command_line_options.memory_debug,

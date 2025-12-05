@@ -59,3 +59,9 @@ impl Default for CommandLineOptions {
         }
     }
 }
+
+impl CommandLineOptions {
+    pub fn is_test(&self) -> bool {
+        self.action == CommandLineAction::Test || self.action == CommandLineAction::BuildTest
+    }
+}
