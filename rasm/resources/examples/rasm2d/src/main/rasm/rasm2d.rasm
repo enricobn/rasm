@@ -1,0 +1,89 @@
+pub struct Rect2D {
+    x: int,
+    y: int,
+    width: int,
+    height: int
+}
+
+pub struct RGBAColor {
+    r: int,
+    g: int,
+    b: int,
+    a: int
+}
+
+pub fn initRasm2D(handler: fn(Rasm2D) -> ()) {
+    let rasm2d = Rasm2D();
+    handler(rasm2d);
+    rasm2d.close();
+}
+
+pub fn createWindow(rasm2d: Rasm2D, title: str, x: int, y: int, width: int, height: int, handler: fn(Rasm2DWindow) -> ()) {
+    let window = rasm2d.createWindow(title, x, y, width, height);
+    handler(window);
+    window.close();
+}
+
+pub fn createRenderer(window: Rasm2DWindow, handler: fn(Rasm2DRenderer) -> ()) {
+    let renderer = window.createRenderer();
+    handler(renderer);
+    renderer.close();
+}
+
+// Events
+/*
+pub enum KeyState {
+    Down,
+    Up
+}
+
+pub fn print(state: KeyState) {
+    match(state, { print("Down");}, { print("Up");});
+}
+
+pub struct KeyEvent {
+    key: int,
+    state: KeyState
+}
+
+pub fn print(event: KeyEvent) {
+    let key = key(event);
+    let key = key(event);
+    let state = state(event);
+    print("key=");
+    print(key);
+    print(" state=");
+    print(state);
+}
+
+pub struct SDLText {
+    surface: SDLSurface,
+    texture: SDLTexture
+}
+
+pub fn sdlCreateText(ren: SDLRenderer, font: SDLFont, text: str, color: SDLColor) -> SDLText {
+    let surface = sdlRenderTextSolid(font, text, color);
+    let texture = sdlCreateTextureFromSurface(ren, surface);
+
+    SDLText(surface, texture);
+}
+
+pub fn sdlRenderAndRelease(ren: SDLRenderer, text: SDLText, x: int, y: int) {
+    sdlRender(ren, text, x, y);
+    sdlDestroyTexture(text.texture);
+    sdlFreeSurface(text.surface);
+}
+
+pub fn release(text: SDLText) {
+    release(text.texture);
+    release(text.surface);
+}
+
+pub fn release(texture: SDLTexture) {
+    sdlDestroyTexture(texture);
+}
+
+pub fn release(surface: SDLSurface) {
+    sdlFreeSurface(surface);
+}
+*/

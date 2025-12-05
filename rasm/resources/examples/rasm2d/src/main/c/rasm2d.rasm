@@ -1,0 +1,31 @@
+pub type Rasm2D /{ hasReferences = false, nativeType = char }/
+pub type Rasm2DWindow /{ hasReferences = false, nativeType = void* }/
+pub type Rasm2DRenderer /{ hasReferences = false, nativeType = void* }/
+
+pub native present(rend: Rasm2DRenderer) /{
+    $call(sdlRenderPresent, rend: SDLRenderer);
+}/
+
+native Rasm2D() -> Rasm2D /{
+    return $call(sdlInit);
+}/
+
+native close(rasm2d: Rasm2D) /{
+    $call(sdlQuit);
+}/
+
+native createWindow(rasm2D: Rasm2D, title: str, x: int, y: int, width: int, height: int) -> Rasm2DWindow /{
+    return $call(sdlCreateWindow, 0:SDL, $title, x, y, width, height);
+}/
+
+native close(window: Rasm2DWindow) /{
+    return $call(sdlDestroyWindow, window: SDLWindow);
+}/
+
+native createRenderer(window: Rasm2DWindow) -> Rasm2DRenderer /{
+    return $call(sdlCreateRenderer, window: SDLWindow);
+}/
+
+native close(rend: Rasm2DRenderer) /{
+    return $call(sdlDestroyRenderer, rend: SDLRenderer);
+}/

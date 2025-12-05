@@ -1,0 +1,10 @@
+initRasm2D(fn(rasm2d) {
+    rasm2d.createWindow("Hello world", 100, 100, 800, 600, fn(window) {
+        window.createRenderer(render);
+    });
+});
+
+fn render(rend: Rasm2DRenderer) {
+    rend.present();
+    sdlDelay(2000);
+}
