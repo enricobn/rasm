@@ -1,13 +1,19 @@
 pub type Rasm2D /{ hasReferences = false, nativeType = char }/
 pub type Rasm2DWindow /{ hasReferences = false, nativeType = void* }/
 pub type Rasm2DRenderer /{ hasReferences = false, nativeType = void* }/
+// pub type Rasm2DFont /{ hasReferences = false, nativeType = void* }/
 
 pub native present(rend: Rasm2DRenderer) /{
     $call(sdlRenderPresent, rend: SDLRenderer);
 }/
 
+pub struct Rasm2D {
+    sdl: SDL
+}
+
 native Rasm2D() -> Rasm2D /{
-    return $call(sdlInit);
+    $realTypeName(SDL) sdl = $call(sdlInit);
+    return $call(Rasm2D, sdl: SDL);
 }/
 
 native close(rasm2d: Rasm2D) /{
@@ -15,7 +21,8 @@ native close(rasm2d: Rasm2D) /{
 }/
 
 native createWindow(rasm2D: Rasm2D, title: str, x: int, y: int, width: int, height: int) -> Rasm2DWindow /{
-    return $call(sdlCreateWindow, 0:SDL, $title, x, y, width, height);
+    $realTypeName(SDL) sdl = $castAddress($rasm2D)->sdl;
+    return $call(sdlCreateWindow, sdl:SDL, $title, x, y, width, height);
 }/
 
 native close(window: Rasm2DWindow) /{
@@ -29,3 +36,10 @@ native createRenderer(window: Rasm2DWindow) -> Rasm2DRenderer /{
 native close(rend: Rasm2DRenderer) /{
     return $call(sdlDestroyRenderer, rend: SDLRenderer);
 }/
+
+/*
+TODO
+pub native sdlOpenFont(ttf: SDLTTF, file: str, size: int) -> Rasm2DFont /{
+    return $call(sdlOpenFont, 0: SDLTTF, file, size: int);
+}/
+*/
