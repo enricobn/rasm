@@ -15,7 +15,6 @@
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 use rasm_utils::OptionDisplay;
 
 use crate::codegen::c::any::CInclude;
@@ -571,7 +570,7 @@ impl TextMacroEval for CRealTypeNameMacro {
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        _type_def_provider: &dyn TypeDefProvider,
+        type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
         let value = text_macro.parameters.get(0).unwrap();
         if let MacroParam::Ref(_name, _ast_type, ast_type_type) = value {
@@ -585,7 +584,38 @@ impl TextMacroEval for CRealTypeNameMacro {
                 let resolved_generic_types =
                     def.resolved_generic_types.clone().remove_generics_prefix();
 
-                // TODO type classes, I would like to resolve something like M<T>
+                // TODO it does not resolve generic types like Option<T>, nor type classes like M<T>, nor primitive types,
+                // but only T, or a non generic, custom type
+
+                /*
+                let generic_names = resolved_generic_types
+                    .keys()
+                    .into_iter()
+                    .cloned()
+                    .collect::<Vec<String>>();
+
+                let lexer = Lexer::new(name.to_owned());
+
+                let parser = Parser::new(lexer);
+                if let Some((ast_type, _)) =
+                    TypeParser::new(&parser).try_parse_ast_type(0, &generic_names)?
+                {
+                    println!("realTypeName ast_type: {ast_type:?}");
+
+                    if let Some(ast_typed_type) =
+                        type_def_provider.get_ast_typed_type_from_type_name(&name)
+                    {
+                        println!("  ast_typed_type: {ast_typed_type:?}");
+                    }
+                };
+                */
+
+                if let Some(t) = type_def_provider.get_ast_typed_type_from_type_name(&name) {
+                    CLambdas::add_to_statics_if_lambda(&t, statics);
+
+                    return Ok(CodeGenC::real_type_to_string(&t));
+                }
+
                 //let gen_name = format!("{}_{}:{}", def.namespace, def.name, name);
                 if let Some(t) = resolved_generic_types.get(&name, &Vec::new()) {
                     CLambdas::add_to_statics_if_lambda(&t, statics);
