@@ -19,8 +19,8 @@ real    0m1,519s
 struct Model {
     quads: Vec<Quad>,
     fps: FPS,
-    font: SDLFont,
-    count:int
+    font: TTFFont,
+    count: int
 }
 
 struct Quad {
@@ -45,11 +45,11 @@ const WHITE = SDLColor(255, 255, 255, 255);
 
 initRandom();
 
-let sdl = sdlInit();
+sdlInit();
 
-let ttf = sdl.sdlTTFInit();
+ttfInit();
 
-let font = ttf.sdlOpenFont(resource("DejaVuSerif.ttf"), 16);
+let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 16);
 let quads = vecRange(0, QUADS)
     .map(fn(it) {
         let x = random(WIDTH);
@@ -60,7 +60,7 @@ let quads = vecRange(0, QUADS)
     });
 let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(toInt).getOrElse(5000));
 
-let win = sdl.sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT);
+let win = sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT);
 let ren = sdlCreateRenderer(win);
 
 run(ren, initialModel, update, render, subscriptions);

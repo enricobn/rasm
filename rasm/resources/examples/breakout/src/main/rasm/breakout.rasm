@@ -4,7 +4,7 @@ pub enum GameResult {
 }
 
 pub struct Resources {
-    font: SDLFont
+    font: TTFFont
 }
 
 pub struct HighScore {
@@ -60,16 +60,16 @@ pub const HEADERHEIGHT = 30;
 pub const BALLSIZE = 5;
 pub const COLORS = Colors();
 
-let sdl = sdlInit();
-let ttf = sdl.sdlTTFInit();
+sdlInit();
+ttfInit();
 
-let font = ttf.sdlOpenFont(resource("DejaVuSerif.ttf"), 24);
+let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 24);
 
 let highScores = loadHighScores();
 
 let initialState = State(Resources(font), Vec(), Menu(MenuState(highScores)), highScores);
 
-let win = sdl.sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT);
+let win = sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT);
 let ren = win.sdlCreateRenderer();
 
 run(ren, initialState, update, render, subscriptions);

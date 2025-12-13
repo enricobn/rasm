@@ -2,32 +2,43 @@ pub type SDLRenderer /{ hasReferences = false, nativeType = SDL_Renderer* }/
 pub type SDLWindow /{ hasReferences = false, nativeType = SDL_Window* }/
 pub type SDLSurface /{ hasReferences = false, nativeType = SDL_Surface* }/
 pub type SDLTexture /{ hasReferences = false, nativeType = SDL_Texture* }/
-pub type SDLFont /{ hasReferences = false, nativeType = TTF_Font* }/
-pub type SDL /{ hasReferences = false, nativeType = char }/
-pub type SDLTTF /{ hasReferences = false, nativeType = char }/
-type NativeSDLRect /{ hasReferences = false, nativeType = SDL_Rect* }/
+pub type TTFFont /{ hasReferences = false, nativeType = TTF_Font* }/
+pub type SDLRect /{ hasReferences = true, nativeType = SDL_Rect* }/
+pub type SDLRWops /{ hasReferences = false, nativeType = SDL_RWops* }/
 
-pub native sdlInit() -> SDL /{
+pub native SDLRect(x: int, y: int, w: int, h: int) -> SDLRect /{
+    struct RasmPointer_ *result = rasmMalloc(sizeof(struct SDL_Rect));
+    struct SDL_Rect *rect = (struct SDL_Rect*)result->address;
+    
+    rect->x = x; rect->y = y; rect->w = w; rect->h = h;
+    
+    return result;
+}/
+
+pub native SDLRectAddRef<T>(address: Vec<T>) /{
+    addRef(address);
+}/
+
+pub native SDLRectDeref<T>(address: Vec<T>) /{
+    deref(address);
+}/
+
+pub native sdlInit() /{
     $include(<SDL.h>)
     // SDL_Init(SDL_INIT_EVERYTHING)
-    if (SDL_Init(62001) != 0) {
-        $call(sdlFailure, "Error initializing SDL");
-    }
-    return 0;
+    SDL_Init(62001);
 }/
 
-native sdlFailure(message: str) /{
-    printf("%s: %s\n", (char *)message->address, SDL_GetError());
+pub native sdlGetError() -> str /{
+    return addStaticStringToHeap(SDL_GetError());
+}/
+
+pub native sdlQuit() /{
     SDL_Quit();
-    exit(1);
 }/
 
-pub native sdlCreateWindow(sdl: SDL, title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
-    SDL_Window* window = SDL_CreateWindow(title->address, x, y, width, height, 4);
-    if (window == NULL) {
-        $call(sdlFailure, "Error creating window");
-    }
-    return window;
+pub native sdlCreateWindow(title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
+    return SDL_CreateWindow(title->address, x, y, width, height, 4);
 }/
 
 pub native sdlDelay(millis: int) /{
@@ -38,21 +49,19 @@ pub native sdlCreateRenderer(win: SDLWindow) -> SDLRenderer /{
     // SDL_RENDERER_ACCELERATED = 0x00000002
     // SDL_RENDERER_PRESENTVSYNC = 0x00000004
     // TODO for now vsync is always disabled, pass a configuration struct instead
-    SDL_Renderer* renderer = SDL_CreateRenderer(win, -1, 2);
-    if (renderer == NULL) {
-        $call(sdlFailure, "Error creating renderer");
-    }
-    return renderer;
+    return SDL_CreateRenderer(win, -1, 2);
 }/
 
-pub native sdlLoadBMP(file: str) -> SDLSurface /{
-    SDL_RWops* rw = SDL_RWFromFile(file->address, "rb");
+pub native sdlLoadBMPRW(rw: SDLRWops) -> SDLSurface /{
     return SDL_LoadBMP_RW(rw, 1);
 }/
 
-pub native sdlLoadSVG(file: str) -> SDLSurface /{
+pub native sdlRWFromFile(file: str, mode: str) -> SDLRWops /{
+    SDL_RWFromFile(file->address, mode->address);
+}/
+
+pub native sdlIMGLoadSVGRW(rw: SDLRWops) -> SDLSurface /{
     $include(<SDL_image.h>)
-    SDL_RWops* rw = SDL_RWFromFile(file->address, "rb");
     return IMG_LoadSVG_RW(rw);
 }/
 
@@ -88,14 +97,6 @@ pub native sdlDestroyWindow(win: SDLWindow) /{
     SDL_DestroyWindow(win);
 }/
 
-native sdlGetError() -> str /{
-    return addStaticStringToHeap(SDL_GetError());
-}/
-
-pub native sdlQuit() /{
-    SDL_Quit();
-}/
-
 pub fn sdlSetRenderDrawColor(ren: SDLRenderer, color: SDLColor) {
     sdlSetRenderDrawColor(ren, r(color), g(color), b(color), a(color));
 }
@@ -105,23 +106,7 @@ pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: in
 }/
 
 pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
-    struct SDL_Rect result;
-    result.x = $castAddress($rect)->x;
-    result.y = $castAddress($rect)->y;
-    result.w = $castAddress($rect)->width;
-    result.h = $castAddress($rect)->height;
-
-    SDL_RenderFillRect(ren, &result);
-}/
-
-native rectToSDL(rect: SDLRect) -> NativeSDLRect /{
-    struct SDL_Rect *result = malloc(sizeof(struct SDL_Rect));
-    result->x = $castAddress($rect)->x;
-    result->y = $castAddress($rect)->y;
-    result->w = $castAddress($rect)->width;
-    result->h = $castAddress($rect)->height;
-
-    return result;
+    SDL_RenderFillRect(ren, rect->address);
 }/
 
 /*
@@ -188,30 +173,22 @@ pub native keyEvent() -> Option<KeyEvent> /{
 
 // Text
 
-pub native sdlTTFInit(sdl: SDL) -> SDLTTF /{
+pub native ttfInit() /{
     $include(<SDL_ttf.h>)
 
-    if (TTF_Init() != 0) {
-        $call(sdlFailure, "Error initializing TTF");
-    }
-    return 0;
+    TTF_Init();
 }/
 
-pub native sdlOpenFont(ttf: SDLTTF, file: str, size: int) -> SDLFont /{
-    TTF_Font* font = TTF_OpenFont(file->address, size);
-    if (font == NULL) {
-        // add font file
-        $call(sdlFailure, "Error opening font");
-    }
-    return font;
+pub native ttfOpenFont(file: str, size: int) -> TTFFont /{
+    return TTF_OpenFont(file->address, size);
 }/
 
-native sdlRenderTextSolid(font: SDLFont, message: str, r: int, g: int, b: int, a: int) -> SDLSurface /{
+native sdlRenderTextSolid(font: TTFFont, message: str, r: int, g: int, b: int, a: int) -> SDLSurface /{
     SDL_Color color = {r, g, b};
     return TTF_RenderText_Solid(font, message->address, color);
 }/
 
-pub native sdlRenderTextSolid(font: SDLFont, message: str, c: SDLColor) -> SDLSurface /{
+pub native sdlRenderTextSolid(font: TTFFont, message: str, c: SDLColor) -> SDLSurface /{
     SDL_Color color = {$castAddress($c)->r, $castAddress($c)->g, $castAddress($c)->b};
 
     return TTF_RenderText_Solid(font, message->address, color);
@@ -219,14 +196,8 @@ pub native sdlRenderTextSolid(font: SDLFont, message: str, c: SDLColor) -> SDLSu
 
 pub native sdlRender(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
     $include(<stdlib.h>)
-    SDL_Rect *sdlRect =
-        $call(rectToSDL, $rect)
-    ;
 
-    // TODO can it be simply $rect->address ?
-    SDL_RenderCopy(ren, $texture, NULL, sdlRect);
-
-    free(sdlRect);
+    SDL_RenderCopy(ren, $texture, NULL, rect->address);
 }/
 
 pub native sdlRender(ren: SDLRenderer, text: SDLText, x: int, y: int) /{

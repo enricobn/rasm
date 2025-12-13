@@ -1,12 +1,14 @@
-let sdl = sdlInit();
+sdlInit();
 
-let win = sdl.sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387);
+let win = sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387);
 let ren = sdlCreateRenderer(win);
 let bmp = 
     if(argv(1).getOrElse("bmp").eq("svg"), {
-        sdlLoadSVG("rasm/resources/examples/level1.svg");
+        let rw = sdlRWFromFile("rasm/resources/examples/level1.svg", "rb");
+        sdlIMGLoadSVGRW(rw);
     }, {
-        sdlLoadBMP("rasm/resources/examples/jose-raul-capablanca.bmp");
+        let rw = sdlRWFromFile("rasm/resources/examples/jose-raul-capablanca.bmp", "rb");
+        sdlLoadBMPRW(rw);
     });
 
 let tex = sdlCreateTextureFromSurface(ren, bmp);

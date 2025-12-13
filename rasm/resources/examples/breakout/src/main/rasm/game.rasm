@@ -167,7 +167,7 @@ pub fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
 
 // TODO put this in the SDL library, but it depends on WIDTH (it can be passed as an argument),
 // and on the size of the Font, which is for now not exposed
-fn centerAndRelease(ren: SDLRenderer, font: SDLFont, text: str, y: int, color: SDLColor) {
+fn centerAndRelease(ren: SDLRenderer, font: TTFFont, text: str, y: int, color: SDLColor) {
     let sText = sdlCreateText(ren, font, text, color);
     sdlRenderAndRelease(ren, sText, WIDTH.sub(text.len.mul(12)).div(2), y);
 }

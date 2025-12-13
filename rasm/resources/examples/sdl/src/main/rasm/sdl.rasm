@@ -1,10 +1,3 @@
-pub struct SDLRect {
-    x: int,
-    y: int,
-    width: int,
-    height: int
-}
-
 pub struct SDLColor {
     r: int,
     g: int,
@@ -29,13 +22,10 @@ pub struct KeyEvent {
 }
 
 pub fn print(event: KeyEvent) {
-    let key = key(event);
-    let key = key(event);
-    let state = state(event);
     print("key=");
-    print(key);
+    print(event.key);
     print(" state=");
-    print(state);
+    print(event.state);
 }
 
 pub struct SDLText {
@@ -43,7 +33,7 @@ pub struct SDLText {
     texture: SDLTexture
 }
 
-pub fn sdlCreateText(ren: SDLRenderer, font: SDLFont, text: str, color: SDLColor) -> SDLText {
+pub fn sdlCreateText(ren: SDLRenderer, font: TTFFont, text: str, color: SDLColor) -> SDLText {
     let surface = sdlRenderTextSolid(font, text, color);
     let texture = sdlCreateTextureFromSurface(ren, surface);
 

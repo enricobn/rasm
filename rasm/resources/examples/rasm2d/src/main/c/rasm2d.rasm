@@ -1,15 +1,26 @@
-pub type Rasm2D /{ hasReferences = false, nativeType = char }/
 pub type Rasm2DWindow /{ hasReferences = false, nativeType = void* }/
 pub type Rasm2DRenderer /{ hasReferences = false, nativeType = void* }/
-// pub type Rasm2DFont /{ hasReferences = false, nativeType = void* }/
+
+pub struct Rasm2D {
+    sdl: SDL
+}
+
+pub struct Rasm2DTTF {
+    sdl: SDLTTF
+}
+
+pub struct Rasm2DFont {
+    font: SDLFont
+}
 
 pub native present(rend: Rasm2DRenderer) /{
     $call(sdlRenderPresent, rend: SDLRenderer);
 }/
 
-pub struct Rasm2D {
-    sdl: SDL
-}
+pub native openFont(ttf: SDLTTF, file: str, size: int) -> SDLFont /{
+    $realTypeName(SDLFont) font = $call(sdlOpenFont, $ttf, file: str, size: int);
+    return $call(Rasm2DFont, font: SDLFont);
+}/
 
 native Rasm2D() -> Rasm2D /{
     $realTypeName(SDL) sdl = $call(sdlInit);
