@@ -1,0 +1,29 @@
+pub type SDLRect /{ hasReferences = true }/
+
+pub native SDLRect(x: int, y: int, w: int, h: int) -> SDLRect /{
+    push    ebx
+    $call(rasmalloc, 4, " for SDLRect")
+    push    eax
+    mov     eax,[eax]
+    mov     dword ebx, $x
+    mov     dword [eax],ebx
+
+    mov     dword ebx, $y
+    mov     dword [eax + 4],ebx
+
+    mov     dword ebx, $w
+    mov     dword [eax + 8],ebx
+
+    mov     dword ebx, $h
+    mov     dword [eax + 12],ebx
+    pop     eax
+    pop     ebx
+}/
+
+pub native SDLRectAddRef<T>(address: Vec<T>) /{
+    pippo
+}/
+
+pub native SDLRectDeref<T>(address: Vec<T>) /{
+    
+}/

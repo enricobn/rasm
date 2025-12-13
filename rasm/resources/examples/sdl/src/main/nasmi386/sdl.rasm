@@ -2,24 +2,15 @@ pub type SDLRenderer /{ hasReferences = false }/
 pub type SDLWindow /{ hasReferences = false }/
 pub type SDLSurface /{ hasReferences = false }/
 pub type SDLTexture /{ hasReferences = false }/
-pub type SDLFont /{ hasReferences = false }/
-pub type SDL /{ hasReferences = false }/
-pub type SDLTTF /{ hasReferences = false }/
+pub type TTFFont /{ hasReferences = false }/
+pub type SDLRWops /{ hasReferences = false }/
 
-native sdlFailure(message: str) /{
-    $ccall(SDL_GetError)
-    $ccall(printf, $message, eax)
-    $ccall(SDL_Quit)
-    $ccall(exit, 1)
-}/
-
-pub native sdlInit() -> SDL /{
+pub native sdlInit() /{
     ; SDL_Init(SDL_INIT_EVERYTHING)
     $ccall(SDL_Init, 62001)
-    mov  dword eax,0
 }/
 
-pub native sdlCreateWindow(sdl: SDL, title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
+pub native sdlCreateWindow(title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
     $ccall(SDL_CreateWindow, $title, $x, $y, $width, $height, 4)
 }/
 
@@ -34,14 +25,17 @@ pub native sdlCreateRenderer(win: SDLWindow) -> SDLRenderer /{
     $ccall(SDL_CreateRenderer, $win, -1, 2)
 }/
 
-pub native sdlLoadBMP(file: str) -> SDLSurface /{
-    $ccall(SDL_RWFromFile, $file, "rb")
-    $ccall(SDL_LoadBMP_RW, eax, 1)
+
+pub native sdlLoadBMPRW(rw: SDLRWops) -> SDLSurface /{
+    $ccall(SDL_LoadBMP_RW, $rw, 1)
 }/
 
-pub native sdlLoadSVG(file: str) -> SDLSurface /{
-    $ccall(SDL_RWFromFile, $file, "rb")
-    $ccall(IMG_LoadSVG_RW, eax, 1)
+pub native sdlRWFromFile(file: str, mode: str) -> SDLRWops /{
+    $ccall(SDL_RWFromFile, $file, $mode);
+}/
+
+pub native sdlIMGLoadSVGRW(rw: SDLRWops) -> SDLSurface /{
+    $ccall(IMG_LoadSVG_RW, $rw)
 }/
 
 pub native sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> SDLTexture /{
@@ -76,7 +70,7 @@ pub native sdlDestroyWindow(win: SDLWindow) /{
     $ccall(SDL_DestroyWindow, $win)
 }/
 
-native sdlGetError() -> str /{
+pub native sdlGetError() -> str /{
     $ccall(SDL_GetError)
     ; TODO I don't know if it works or if it is correct: it is not a static string
     $call(addStaticStringToHeap, eax)
@@ -174,16 +168,15 @@ pub native keyEvent() -> Option<KeyEvent> /{
 
 // Text
 
-pub native sdlTTFInit(sdl: SDL) -> SDLTTF /{
+pub native ttfInit() /{
     $ccall(TTF_Init)
-    mov  dword eax,0
 }/
 
-pub native sdlOpenFont(ttf: SDLTTF, file: str, size: int) -> SDLFont /{
+pub native ttfOpenFont(file: str, size: int) -> TTFFont /{
     $ccall(TTF_OpenFont, $file, $size)
 }/
 
-native sdlRenderTextSolid(font: SDLFont, message: str, r: int, g: int, b: int, a: int) -> SDLSurface /{
+native sdlRenderTextSolid(font: TTFFont, message: str, r: int, g: int, b: int, a: int) -> SDLSurface /{
     push    ebx
     push    ecx
 
@@ -207,7 +200,7 @@ native sdlRenderTextSolid(font: SDLFont, message: str, r: int, g: int, b: int, a
     pop     ebx
 }/
 
-pub native sdlRenderTextSolid(font: SDLFont, message: str, color: SDLColor) -> SDLSurface /{
+pub native sdlRenderTextSolid(font: TTFFont, message: str, color: SDLColor) -> SDLSurface /{
     push    ebx
     push    ecx
     push    edx

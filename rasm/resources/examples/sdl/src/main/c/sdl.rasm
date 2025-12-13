@@ -3,25 +3,7 @@ pub type SDLWindow /{ hasReferences = false, nativeType = SDL_Window* }/
 pub type SDLSurface /{ hasReferences = false, nativeType = SDL_Surface* }/
 pub type SDLTexture /{ hasReferences = false, nativeType = SDL_Texture* }/
 pub type TTFFont /{ hasReferences = false, nativeType = TTF_Font* }/
-pub type SDLRect /{ hasReferences = true, nativeType = SDL_Rect* }/
 pub type SDLRWops /{ hasReferences = false, nativeType = SDL_RWops* }/
-
-pub native SDLRect(x: int, y: int, w: int, h: int) -> SDLRect /{
-    struct RasmPointer_ *result = rasmMalloc(sizeof(struct SDL_Rect));
-    struct SDL_Rect *rect = (struct SDL_Rect*)result->address;
-    
-    rect->x = x; rect->y = y; rect->w = w; rect->h = h;
-    
-    return result;
-}/
-
-pub native SDLRectAddRef<T>(address: Vec<T>) /{
-    addRef(address);
-}/
-
-pub native SDLRectDeref<T>(address: Vec<T>) /{
-    deref(address);
-}/
 
 pub native sdlInit() /{
     $include(<SDL.h>)
