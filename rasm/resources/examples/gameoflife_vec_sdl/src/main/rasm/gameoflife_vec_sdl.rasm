@@ -30,7 +30,7 @@
 // real    0m3,388s
 //
 
-sdlInit();
+if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())); }, { });
 
 argv(1).match(fn(file) {
     let start = readCellFile(file);

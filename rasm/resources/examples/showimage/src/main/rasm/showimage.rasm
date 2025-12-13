@@ -1,4 +1,4 @@
-sdlInit();
+if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())); }, { });
 
 let win = sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387);
 let ren = sdlCreateRenderer(win);

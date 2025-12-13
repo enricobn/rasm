@@ -5,10 +5,10 @@ pub type SDLTexture /{ hasReferences = false, nativeType = SDL_Texture* }/
 pub type TTFFont /{ hasReferences = false, nativeType = TTF_Font* }/
 pub type SDLRWops /{ hasReferences = false, nativeType = SDL_RWops* }/
 
-pub native sdlInit() /{
+pub native sdlInit() -> int /{
     $include(<SDL.h>)
     // SDL_Init(SDL_INIT_EVERYTHING)
-    SDL_Init(62001);
+    return SDL_Init(62001);
 }/
 
 pub native sdlGetError() -> str /{
@@ -155,10 +155,10 @@ pub native keyEvent() -> Option<KeyEvent> /{
 
 // Text
 
-pub native ttfInit() /{
+pub native ttfInit() -> int /{
     $include(<SDL_ttf.h>)
 
-    TTF_Init();
+    return TTF_Init();
 }/
 
 pub native ttfOpenFont(file: str, size: int) -> TTFFont /{

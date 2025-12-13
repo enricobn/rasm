@@ -45,9 +45,8 @@ const WHITE = SDLColor(255, 255, 255, 255);
 
 initRandom();
 
-sdlInit();
-
-ttfInit();
+if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())); }, { });
+if(ttfInit().eq(0).not, { panic("Error initializing SDL TTF: ".add(sdlGetError())); }, { });
 
 let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 16);
 let quads = vecRange(0, QUADS)

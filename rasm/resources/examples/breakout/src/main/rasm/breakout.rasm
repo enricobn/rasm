@@ -60,8 +60,8 @@ pub const HEADERHEIGHT = 30;
 pub const BALLSIZE = 5;
 pub const COLORS = Colors();
 
-sdlInit();
-ttfInit();
+if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())); }, { });
+if(ttfInit().eq(0).not, { panic("Error initializing SDL TTF: ".add(sdlGetError())); }, { });
 
 let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 24);
 

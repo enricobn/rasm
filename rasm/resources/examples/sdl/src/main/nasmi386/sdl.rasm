@@ -5,7 +5,7 @@ pub type SDLTexture /{ hasReferences = false }/
 pub type TTFFont /{ hasReferences = false }/
 pub type SDLRWops /{ hasReferences = false }/
 
-pub native sdlInit() /{
+pub native sdlInit() -> int /{
     ; SDL_Init(SDL_INIT_EVERYTHING)
     $ccall(SDL_Init, 62001)
 }/
@@ -168,7 +168,7 @@ pub native keyEvent() -> Option<KeyEvent> /{
 
 // Text
 
-pub native ttfInit() /{
+pub native ttfInit() -> int /{
     $ccall(TTF_Init)
 }/
 
