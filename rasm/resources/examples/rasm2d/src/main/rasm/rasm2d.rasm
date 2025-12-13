@@ -13,9 +13,13 @@ pub struct RGBAColor {
 }
 
 pub fn initRasm2D(handler: fn(Rasm2D) -> ()) {
-    let rasm2d = Rasm2D();
-    handler(rasm2d);
-    rasm2d.close();
+    Rasm2D().match(fn(rasm2d) {
+        handler(rasm2d);
+        rasm2d.close();
+    }, fn(error) {
+        println(error);
+        exitMain(1);
+    });
 }
 
 pub fn createWindow(rasm2d: Rasm2D, title: str, x: int, y: int, width: int, height: int, handler: fn(Rasm2DWindow) -> ()) {

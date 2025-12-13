@@ -1,30 +1,34 @@
 pub type Rasm2DWindow /{ hasReferences = false, nativeType = void* }/
 pub type Rasm2DRenderer /{ hasReferences = false, nativeType = void* }/
-
-pub struct Rasm2D {
-    sdl: SDL
-}
-
-pub struct Rasm2DTTF {
-    sdl: SDLTTF
-}
+pub type Rasm2D /{ hasReferences = false, nativeType = char }/
+pub type Rasm2DTTF /{ hasReferences = false, nativeType = char }/
 
 pub struct Rasm2DFont {
-    font: SDLFont
+    font: TTFFont
 }
 
 pub native present(rend: Rasm2DRenderer) /{
     $call(sdlRenderPresent, rend: SDLRenderer);
 }/
 
-pub native openFont(ttf: SDLTTF, file: str, size: int) -> SDLFont /{
-    $realTypeName(SDLFont) font = $call(sdlOpenFont, $ttf, file: str, size: int);
-    return $call(Rasm2DFont, font: SDLFont);
+pub native openFont(file: str, size: int) -> TTFFont /{
+    $realTypeName(TTFFont) font = $call(sdlOpenFont, $ttf, file: str, size: int);
+    return $call(Rasm2DFont, font: TTFFont);
 }/
 
-native Rasm2D() -> Rasm2D /{
-    $realTypeName(SDL) sdl = $call(sdlInit);
-    return $call(Rasm2D, sdl: SDL);
+native Rasm2D() -> Result<Rasm2D,str> /{
+    int error = $call(sdlInit);
+    if (error == 0) {
+        $call(Ok<Rasm2D,str>, 0: Rasm2D);
+    } else {
+        struct RasmPointer_* error = $call(sdlGetError);
+        $call(Error<Rasm2D,str>, error: str);
+    }
+}/
+
+native Rasm2DTTF() -> Rasm2DTTF /{
+    $call(ttfInit);
+    return 0;
 }/
 
 native close(rasm2d: Rasm2D) /{
@@ -32,8 +36,7 @@ native close(rasm2d: Rasm2D) /{
 }/
 
 native createWindow(rasm2D: Rasm2D, title: str, x: int, y: int, width: int, height: int) -> Rasm2DWindow /{
-    $realTypeName(SDL) sdl = $castAddress($rasm2D)->sdl;
-    return $call(sdlCreateWindow, sdl:SDL, $title, x, y, width, height);
+    return $call(sdlCreateWindow, $title, x, y, width, height);
 }/
 
 native close(window: Rasm2DWindow) /{
