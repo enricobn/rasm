@@ -2,7 +2,6 @@ pub type SDLRenderer /{ hasReferences = false, nativeType = SDL_Renderer* }/
 pub type SDLWindow /{ hasReferences = false, nativeType = SDL_Window* }/
 pub type SDLSurface /{ hasReferences = false, nativeType = SDL_Surface* }/
 pub type SDLTexture /{ hasReferences = false, nativeType = SDL_Texture* }/
-pub type TTFFont /{ hasReferences = false, nativeType = TTF_Font* }/
 pub type SDLRWops /{ hasReferences = false, nativeType = SDL_RWops* }/
 
 pub native sdlInit() -> int /{
@@ -89,29 +88,6 @@ pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: in
 
 pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
     SDL_RenderFillRect(ren, rect->address);
-}/
-
-// Text
-
-pub native ttfInit() -> int /{
-    $include(<SDL_ttf.h>)
-
-    return TTF_Init();
-}/
-
-pub native ttfOpenFont(file: str, size: int) -> TTFFont /{
-    return TTF_OpenFont(file->address, size);
-}/
-
-native sdlRenderTextSolid(font: TTFFont, message: str, r: int, g: int, b: int, a: int) -> SDLSurface /{
-    SDL_Color color = {r, g, b};
-    return TTF_RenderText_Solid(font, message->address, color);
-}/
-
-pub native sdlRenderTextSolid(font: TTFFont, message: str, c: SDLColor) -> SDLSurface /{
-    SDL_Color color = {$castAddress($c)->r, $castAddress($c)->g, $castAddress($c)->b};
-
-    return TTF_RenderText_Solid(font, message->address, color);
 }/
 
 pub native sdlRender(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{

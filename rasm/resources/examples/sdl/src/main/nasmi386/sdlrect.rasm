@@ -19,11 +19,3 @@ pub native SDLRect(x: int, y: int, w: int, h: int) -> SDLRect /{
     pop     eax
     pop     ebx
 }/
-
-pub native SDLRectAddRef<T>(address: Vec<T>) /{
-    pippo
-}/
-
-pub native SDLRectDeref<T>(address: Vec<T>) /{
-    
-}/

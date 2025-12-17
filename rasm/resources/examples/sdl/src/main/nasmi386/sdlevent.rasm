@@ -14,7 +14,7 @@ pub native sdlPollEvent() -> Option<SDLEvent> /{
         mov     dword eax,[ebx] ; here we have the event type
         cmp     eax, 768        ; keyDown
         jne     .noKeyDown
-            $call(SDLKeyboardEvent, [_enum_sdl_sdl_SDLKeyboardState_KeyDown]: SDLKeyboardState, 0: bool, [ebx + 16], 0)
+            $call(SDLKeyboardEvent, [_enum_sdl_sdlevent_SDLKeyboardState_KeyDown]: SDLKeyboardState, 0: bool, [ebx + 16], 0)
             $addRef(eax:SDLEvent)
             mov     dword ebx, eax
             $call(Some, eax:SDLEvent)
@@ -23,7 +23,7 @@ pub native sdlPollEvent() -> Option<SDLEvent> /{
 .noKeyDown:
         cmp     eax, 769        ; keyUp
         jne     .noKey    
-            $call(SDLKeyboardEvent, [_enum_sdl_sdl_SDLKeyboardState_KeyUp]: SDLKeyboardState, 0: bool, [ebx + 16], 0)
+            $call(SDLKeyboardEvent, [_enum_sdl_sdlevent_SDLKeyboardState_KeyUp]: SDLKeyboardState, 0: bool, [ebx + 16], 0)
             $addRef(eax:SDLEvent)
             mov     dword ebx, eax
             $call(Some, eax:SDLEvent)

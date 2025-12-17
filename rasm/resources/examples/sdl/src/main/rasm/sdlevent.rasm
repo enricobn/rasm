@@ -1,0 +1,9 @@
+pub enum SDLKeyboardState {
+    KeyDown,
+    KeyUp
+}
+
+pub enum SDLEvent {
+    SDLKeyboardEvent(state: SDLKeyboardState, repeat: bool, scancode: int, sym: int),
+    SDLQuitEvent
+}

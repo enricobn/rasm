@@ -1,0 +1,63 @@
+pub type TTFFont /{ hasReferences = false }/
+
+pub native ttfInit() -> int /{
+    $ccall(TTF_Init)
+}/
+
+pub native ttfOpenFont(file: str, size: int) -> TTFFont /{
+    $ccall(TTF_OpenFont, $file, $size)
+}/
+
+pub native sdlRenderTextSolid(font: TTFFont, message: str, r: int, g: int, b: int, a: int) -> SDLSurface /{
+    push    ebx
+    push    ecx
+
+    $call(rasmalloc, 5, " for temp mem for sdlRenderTextSolid") ; why 5???
+    push    eax
+
+    mov     ecx, [eax]
+    mov     dword ebx, $r
+    mov     byte [ecx], bl
+    mov     dword ebx, $g
+    mov     byte [ecx + 1], bl
+    mov     dword ebx, $b
+    mov     byte [ecx + 2], bl
+    mov     dword ebx, $a
+    mov     byte [ecx + 3], bl
+
+    $ccall(TTF_RenderText_Solid, $font, $message, [ecx])
+    pop     ecx
+    $call(freeMem, ecx)
+    pop     ecx
+    pop     ebx
+}/
+
+pub native sdlRenderTextSolid(font: TTFFont, message: str, color: SDLColor) -> SDLSurface /{
+    push    ebx
+    push    ecx
+    push    edx
+
+    mov     dword edx, $color
+    mov     dword edx, [edx]
+
+    $call(rasmalloc, 5, " for temp for sdlRenderTextSolid") ; why 5???
+    push    eax
+
+    mov     ecx, [eax]
+    mov     dword ebx, [edx]
+    mov     byte [ecx], bl
+    mov     dword ebx, [edx + 4]
+    mov     byte [ecx + 1], bl
+    mov     dword ebx, [edx + 8]
+    mov     byte [ecx + 2], bl
+    mov     dword ebx, [edx + 12]
+    mov     byte [ecx + 3], bl
+
+    $ccall(TTF_RenderText_Solid, $font, $message, [ecx])
+    pop     ecx
+    $call(freeMem, ecx)
+
+    pop     edx
+    pop     ecx
+    pop     ebx
+}/

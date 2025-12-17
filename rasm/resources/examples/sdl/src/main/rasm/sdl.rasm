@@ -10,16 +10,6 @@ pub struct SDLText {
     texture: SDLTexture
 }
 
-pub enum SDLKeyboardState {
-    KeyDown,
-    KeyUp
-}
-
-pub enum SDLEvent {
-    SDLKeyboardEvent(state: SDLKeyboardState, repeat: bool, scancode: int, sym: int),
-    SDLQuitEvent
-}
-
 pub fn sdlCreateText(ren: SDLRenderer, font: TTFFont, text: str, color: SDLColor) -> SDLText {
     let surface = sdlRenderTextSolid(font, text, color);
     let texture = sdlCreateTextureFromSurface(ren, surface);
@@ -34,14 +24,6 @@ pub fn sdlRenderAndRelease(ren: SDLRenderer, text: SDLText, x: int, y: int) {
 }
 
 pub fn release(text: SDLText) {
-    release(text.texture);
-    release(text.surface);
-}
-
-pub fn release(texture: SDLTexture) {
-    sdlDestroyTexture(texture);
-}
-
-pub fn release(surface: SDLSurface) {
-    sdlFreeSurface(surface);
+    sdlDestroyTexture(text.texture);
+    sdlFreeSurface(text.surface);
 }

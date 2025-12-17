@@ -2,7 +2,6 @@ pub type SDLRenderer /{ hasReferences = false }/
 pub type SDLWindow /{ hasReferences = false }/
 pub type SDLSurface /{ hasReferences = false }/
 pub type SDLTexture /{ hasReferences = false }/
-pub type TTFFont /{ hasReferences = false }/
 pub type SDLRWops /{ hasReferences = false }/
 
 pub native sdlInit() -> int /{
@@ -90,112 +89,6 @@ pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: in
 
 pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
     $ccall(SDL_RenderFillRect, $ren, $rect)
-}/
-
-/*
-pub native keyEvent() -> Option<KeyEvent> /{
-    push    ebx
-
-    $call(rasmalloc, 56, " for temp mem for sdl keyEvent")
-    $call(addRef, eax, "temp mem for sdl keyEvent")
-    push    eax
-
-    mov     dword  ebx, [eax]
-    $ccall(SDL_PollEvent, [eax]);
-    cmp     eax, 0
-    je      .noKey
-    mov     dword eax,[ebx] ; here we have the event type
-    cmp     eax, 768        ; keyDown
-    jne     .noKeyDown
-    $call(KeyEvent, [ebx + 16], [_enum_sdl_sdl_KeyState_Down]: KeyState)
-    $addRef(eax:KeyEvent)
-    push    eax
-    $call(Some, eax: KeyEvent)
-    pop     ebx
-    $deref(ebx:KeyEvent)
-    jmp     .end
-.noKeyDown:
-    cmp     eax, 769        ; keyUp
-    jne     .noKey
-    $call(KeyEvent, [ebx + 16], [_enum_sdl_sdl_KeyState_Up]: KeyState)
-    $addRef(eax:KeyEvent)
-    push    eax
-    $call(Some, eax: KeyEvent)
-    pop     ebx
-    $deref(ebx:KeyEvent)
-    jmp     .end
-.noKey:
-    mov     dword eax, [_enum_stdlib_option_Option_None]
-.end:
-    pop     ebx
-    $call(freeMem, ebx)
-
-    pop     ebx
-}/
-*/
-
-// Text
-
-pub native ttfInit() -> int /{
-    $ccall(TTF_Init)
-}/
-
-pub native ttfOpenFont(file: str, size: int) -> TTFFont /{
-    $ccall(TTF_OpenFont, $file, $size)
-}/
-
-native sdlRenderTextSolid(font: TTFFont, message: str, r: int, g: int, b: int, a: int) -> SDLSurface /{
-    push    ebx
-    push    ecx
-
-    $call(rasmalloc, 5, " for temp mem for sdlRenderTextSolid") ; why 5???
-    push    eax
-
-    mov     ecx, [eax]
-    mov     dword ebx, $r
-    mov     byte [ecx], bl
-    mov     dword ebx, $g
-    mov     byte [ecx + 1], bl
-    mov     dword ebx, $b
-    mov     byte [ecx + 2], bl
-    mov     dword ebx, $a
-    mov     byte [ecx + 3], bl
-
-    $ccall(TTF_RenderText_Solid, $font, $message, [ecx])
-    pop     ecx
-    $call(freeMem, ecx)
-    pop     ecx
-    pop     ebx
-}/
-
-pub native sdlRenderTextSolid(font: TTFFont, message: str, color: SDLColor) -> SDLSurface /{
-    push    ebx
-    push    ecx
-    push    edx
-
-    mov     dword edx, $color
-    mov     dword edx, [edx]
-
-    $call(rasmalloc, 5, " for temp for sdlRenderTextSolid") ; why 5???
-    push    eax
-
-    mov     ecx, [eax]
-    mov     dword ebx, [edx]
-    mov     byte [ecx], bl
-    mov     dword ebx, [edx + 4]
-    mov     byte [ecx + 1], bl
-    mov     dword ebx, [edx + 8]
-    mov     byte [ecx + 2], bl
-    mov     dword ebx, [edx + 12]
-    mov     byte [ecx + 3], bl
-
-    $ccall(TTF_RenderText_Solid, $font, $message, [ecx])
-    pop     ecx
-    $call(freeMem, ecx)
-
-    pop     edx
-    pop     ecx
-    pop     ebx
 }/
 
 pub native sdlRender(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{

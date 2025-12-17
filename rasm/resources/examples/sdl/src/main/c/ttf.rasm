@@ -1,0 +1,22 @@
+pub type TTFFont /{ hasReferences = false, nativeType = TTF_Font* }/
+
+pub native ttfInit() -> int /{
+    $include(<SDL_ttf.h>)
+
+    return TTF_Init();
+}/
+
+pub native ttfOpenFont(file: str, size: int) -> TTFFont /{
+    return TTF_OpenFont(file->address, size);
+}/
+
+pub native sdlRenderTextSolid(font: TTFFont, message: str, r: int, g: int, b: int, a: int) -> SDLSurface /{
+    SDL_Color color = {r, g, b};
+    return TTF_RenderText_Solid(font, message->address, color);
+}/
+
+pub native sdlRenderTextSolid(font: TTFFont, message: str, c: SDLColor) -> SDLSurface /{
+    SDL_Color color = {$castAddress($c)->r, $castAddress($c)->g, $castAddress($c)->b};
+
+    return TTF_RenderText_Solid(font, message->address, color);
+}/
