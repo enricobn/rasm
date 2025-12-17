@@ -91,68 +91,6 @@ pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
     SDL_RenderFillRect(ren, rect->address);
 }/
 
-/*
-SDL C types:
-
-typedef union{
-  Uint8 type;
-  SDL_ActiveEvent active;
-  SDL_KeyboardEvent key;
-  SDL_MouseMotionEvent motion;
-  SDL_MouseButtonEvent button;
-  SDL_JoyAxisEvent jaxis;
-  SDL_JoyBallEvent jball;
-  SDL_JoyHatEvent jhat;
-  SDL_JoyButtonEvent jbutton;
-  SDL_ResizeEvent resize;
-  SDL_ExposeEvent expose;
-  SDL_QuitEvent quit;
-  SDL_UserEvent user;
-  SDL_SysWMEvent syswm;
-} SDL_Event;
-
-typedef struct{
-  Uint8 type;
-  Uint8 state;
-  SDL_keysym keysym;
-} SDL_KeyboardEvent;
-
-typedef struct{
-  Uint8 scancode;
-  SDLKey sym;
-  SDLMod mod;
-  Uint16 unicode;
-} SDL_keysym;
-
-*/
-pub native keyEvent() -> Option<KeyEvent> /{
-    SDL_Event event;
-    if (SDL_PollEvent(&event)) {
-        void * state = NULL;
-
-        if (event.type == SDL_KEYDOWN) {
-            $enumSimple(tmp_state, Down, KeyState)
-            state = tmp_state;
-        } else if (event.type == SDL_KEYUP) {
-            $enumSimple(tmp_state, Up, KeyState)
-            state = tmp_state;
-        }
-
-        if (state != NULL) {
-            $addRef(state:KeyState)
-            void * keyEvent = $call(KeyEvent, event.key.keysym.scancode, state: KeyState);
-            $addRef(keyEvent:KeyEvent)
-            void *result = $call(Some, keyEvent: KeyEvent);
-            $deref(keyEvent:KeyEvent)
-            $deref(state:KeyState)
-            return result;
-        }
-    }
-
-    $enumSimple(result_,None)
-    return result_;
-}/
-
 // Text
 
 pub native ttfInit() -> int /{

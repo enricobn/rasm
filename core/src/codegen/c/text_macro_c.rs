@@ -702,11 +702,9 @@ impl TextMacroEval for CEnumSimpleMacro {
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
-        if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {
-            if let Some(MacroParam::Plain(variant_name, _, _)) = text_macro.parameters.get(1) {
-                let enum_def = if let Some(MacroParam::Plain(enum_name, _, _)) =
-                    text_macro.parameters.get(2)
-                {
+        if let Some(MacroParam::Plain(variant_name, _, _)) = text_macro.parameters.get(0) {
+            let enum_def =
+                if let Some(MacroParam::Plain(enum_name, _, _)) = text_macro.parameters.get(1) {
                     if let Some(def) = function_def {
                         if let Some(enum_def) =
                             type_def_provider.get_enum_def_like_name(&def.namespace, enum_name)
@@ -740,39 +738,37 @@ impl TextMacroEval for CEnumSimpleMacro {
                     panic!("Function not present {}", text_macro.index);
                 };
 
-                if let Some((_i, variant)) = enum_def
-                    .variants
-                    .iter()
-                    .enumerate()
-                    .find(|(_i, v)| &v.name == variant_name)
+            if let Some((_i, variant)) = enum_def
+                .variants
+                .iter()
+                .enumerate()
+                .find(|(_i, v)| &v.name == variant_name)
+            {
+                let mut result = String::new();
+                if let EnhASTType::Custom {
+                    namespace: _,
+                    name,
+                    param_types: _,
+                    index: _,
+                } = &enum_def.ast_type
                 {
-                    let mut result = String::new();
-                    if let EnhASTType::Custom {
-                        namespace: _,
+                    result.push_str(&CodeGenC::variant_const_name(
+                        enum_def.namespace(),
                         name,
-                        param_types: _,
-                        index: _,
-                    } = &enum_def.ast_type
-                    {
-                        result.push_str(&format!(
-                            "struct RasmPointer_ *{var_name} = {};",
-                            CodeGenC::variant_const_name(enum_def.namespace(), name, &variant.name)
-                        ));
-                        Ok(result)
-                    } else {
-                        panic!();
-                    }
+                        &variant.name,
+                    ));
+                    Ok(result)
                 } else {
-                    panic!(
-                        "Cannot find variant {variant_name} for enum {} : {}",
-                        enum_def.name, text_macro.index
-                    )
+                    panic!();
                 }
             } else {
-                panic!("Error in enumVariantDeclaration macro. Expected the thirs plain parameter as the name of the variant {}", text_macro.index)
+                panic!(
+                    "Cannot find variant {variant_name} for enum {} : {}",
+                    enum_def.name, text_macro.index
+                )
             }
         } else {
-            panic!("Expected the first parameter to be the name of the variable to be created.")
+            panic!("Error in enumVariantDeclaration macro. Expected the thirs plain parameter as the name of the variant {}", text_macro.index)
         }
     }
 

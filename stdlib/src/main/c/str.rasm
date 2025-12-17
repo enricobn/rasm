@@ -56,8 +56,7 @@ pub native toInt(s: str) -> Option<int> /{
         ;
     } else {
         // a "typed" None based on the typed return value of the function
-        $enumSimple(result,None)
-        return result;
+        return $enumSimple(None);
     }
 }/
 
@@ -136,8 +135,7 @@ pub native substr(s: str, pos: int, len: int) -> Option<str> /{
     if (pos + len > input_len)
     {
         // a "typed" None based on the typed return value of the function
-        $enumSimple(result,None)
-        return result;
+        return $enumSimple(None);
     }
 
     struct RasmPointer_ *dest = rasmMalloc((sizeof(char)) * len + 1);

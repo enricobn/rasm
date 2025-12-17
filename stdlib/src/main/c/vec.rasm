@@ -56,8 +56,7 @@ pub native first<T>(vec: Vec<T>) -> Option<T> /{
     size_t length = $castAddress($vec)->length;
 
     if (length == 0) {
-        $enumSimple(result,None)
-        return result;
+        return $enumSimple(None);
     } else {
         struct RasmPointer_ *values = $castAddress($vec)->values;
         $realTypeName(T) *array = ($realTypeName(T) *)values->address;
@@ -73,8 +72,7 @@ pub native last<T>(vec: Vec<T>) -> Option<T> /{
     size_t length = $castAddress($vec)->length;
 
     if (length == 0) {
-        $enumSimple(result,None)
-        return result;
+        return $enumSimple(None);
     } else {
         struct RasmPointer_ *values = $castAddress($vec)->values;
         $realTypeName(T) *array = ($realTypeName(T) *)values->address;
@@ -262,8 +260,7 @@ native optIOError() -> Option<IOError> /{
     $include(<errno.h>)
 
     if (errno == 0) {
-        $enumSimple(result,None)
-        return result;
+        return $enumSimple(None);
     } else {
         void *error = $call(IOError, "IO Error");
         return $call(Some, error: IOError);
@@ -585,8 +582,7 @@ pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
 pub native get<T>(vec: Vec<T>, i: int) -> Option<T> /{
     int l = $castAddress($vec)->length;
     if (i >= l || i < 0) {
-        $enumSimple(result,None);
-        return result;
+        return $enumSimple(None);
     } else {
         struct RasmPointer_ *array_values = $castAddress($vec)->values;           \
         $realTypeName(T) *array = ($realTypeName(T) *)array_values->address;     \

@@ -5,32 +5,19 @@ pub struct SDLColor {
     a: int
 }
 
-// Events
-
-pub enum KeyState {
-    Down,
-    Up
-}
-
-pub fn print(state: KeyState) {
-    match(state, { print("Down");}, { print("Up");});
-}
-
-pub struct KeyEvent {
-    key: int,
-    state: KeyState
-}
-
-pub fn print(event: KeyEvent) {
-    print("key=");
-    print(event.key);
-    print(" state=");
-    print(event.state);
-}
-
 pub struct SDLText {
     surface: SDLSurface,
     texture: SDLTexture
+}
+
+pub enum SDLKeyboardState {
+    KeyDown,
+    KeyUp
+}
+
+pub enum SDLEvent {
+    SDLKeyboardEvent(state: SDLKeyboardState, repeat: bool, scancode: int, sym: int),
+    SDLQuitEvent
 }
 
 pub fn sdlCreateText(ren: SDLRenderer, font: TTFFont, text: str, color: SDLColor) -> SDLText {

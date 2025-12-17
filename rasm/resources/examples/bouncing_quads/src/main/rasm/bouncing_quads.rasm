@@ -32,7 +32,7 @@ struct Quad {
 }
 
 enum Message {
-    KeyMessage(event: KeyEvent),
+    EventMessage(event: SDLEvent),
     Tick
 }
 
@@ -65,8 +65,12 @@ let ren = sdlCreateRenderer(win);
 run(ren, initialModel, update, render, subscriptions);
 
 fn update(message: Message, model: Model) -> Model {
-    message.match(fn(keyEvent) {
-        if(eq(keyEvent.key, 41), { sdlQuit(); exitMain(0);}, { }); // 41 -> ESC
+    message.match(fn(event) {
+        event.match(fn(state, repeat, scancode, sym) {
+            if(scancode.eq(41), { sdlQuit(); exitMain(0);}, { }); // 41 -> ESC
+        }, {
+            sdlQuit(); exitMain(0);
+        });
     }, {});
 
     let newModel = model
@@ -111,9 +115,7 @@ fn render(ren: SDLRenderer, model: Model) {
 }
 
 fn subscriptions() -> Vec<Message> {
-    let event = keyEvent();
-
-    event.match(fn(e) {
-        vecOf(KeyMessage(e));
-    }, { vecOf(Tick()); });
+    sdlPollEvent().match(fn(event) {
+        vecOf(EventMessage(event));
+    }, { vecOf(Tick());});
 }

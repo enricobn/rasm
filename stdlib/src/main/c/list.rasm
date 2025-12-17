@@ -1,5 +1,5 @@
 pub native chars(s: str) -> List<char> /{
-    $enumSimple(result,Empty)
+    struct RasmPointer_ *result = $enumSimple(Empty);
     $addRef(result:List<char>)
 
     char* s_ = (char*)$s->address;
@@ -60,7 +60,7 @@ pub native chars(s: str) -> List<char> /{
 }/
 
 pub native lines(s: str) -> List<str> /{
-    $enumSimple(result,Empty)
+    struct RasmPointer_ *result = $enumSimple(Empty);
     $addRef(result:List<str>)
 
     char* s_ = (char*)$s->address;

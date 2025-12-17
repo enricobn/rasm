@@ -1,0 +1,38 @@
+pub native sdlPollEvent() -> Option<SDLEvent> /{
+    push    ebx
+
+    $call(rasmalloc, 56, " for temp mem for sdl SDLEvent")
+    ; we do an addref simple because the struct is NULL, for now
+    $call(addRef, eax, "temp mem for sdl SDLEvent")
+    push    eax
+
+    mov     dword  ebx, [eax]
+
+    $ccall(SDL_PollEvent, [eax]) ; we cannot use directly ebx because it's used for the call
+    cmp     eax,0
+    je      .noKey
+        mov     dword eax,[ebx] ; here we have the event type
+        cmp     eax, 768        ; keyDown
+        jne     .noKeyDown
+            $call(SDLKeyboardEvent, [_enum_sdl_sdl_SDLKeyboardState_KeyDown]: SDLKeyboardState, 0: bool, [ebx + 16], 0)
+            $addRef(eax:SDLEvent)
+            mov     dword ebx, eax
+            $call(Some, eax:SDLEvent)
+            $deref(ebx:SDLEvent)
+            jmp     .end
+.noKeyDown:
+        cmp     eax, 769        ; keyUp
+        jne     .noKey    
+            $call(SDLKeyboardEvent, [_enum_sdl_sdl_SDLKeyboardState_KeyUp]: SDLKeyboardState, 0: bool, [ebx + 16], 0)
+            $addRef(eax:SDLEvent)
+            mov     dword ebx, eax
+            $call(Some, eax:SDLEvent)
+            $deref(ebx:SDLEvent)
+            jmp     .end
+.noKey:
+    mov     dword eax,[_enum_stdlib_option_Option_None]
+.end:
+    pop     ebx
+    $call(deref, ebx, "temp mem for sdl SDLEvent")
+    pop     ebx
+}/

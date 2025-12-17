@@ -10,8 +10,7 @@ native optIOError() -> Option<IOError> /{
     $include(<string.h>)
 
     if (errno == 0) {
-        $enumSimple(result,None)
-        return result;
+        return $enumSimple(None);
     } else {
         struct RasmPointer_ *message = addStaticStringToHeap(strerror(errno));
         void *error = $call(IOError, message: str); //"Error writing to file.";

@@ -45,7 +45,7 @@ pub fn Colors() -> Colors {
 }
 
 enum Message {
-    KeyMessage(event: KeyEvent),
+    EventMessage(event: SDLEvent),
     Tick
 }
 
@@ -85,16 +85,17 @@ fn update(message: Message, state: State) -> State {
     let highScores = state.highScores;
 
     let newKeys = message.match(fn(e) {
-          if(eq(e.key, 41), { sdlQuit(); exitMain(0);}, { }); // 41 -> ESC
-
-          let key = e.key;
-          let keyState = e.state;
-
-          keyState.match({
-            vecOf(key);
-          }, {
-            keys.filter(neq.curry(key));
-          });
+        e.match(fn(keyState, repeat, scancode, sym) {
+            if(scancode.eq(41), { sdlQuit(); exitMain(0);}, { }); // 41 -> ESC
+            keyState.match({
+                keys.push(scancode);
+            }, {
+                keys.filter(neq.curry(scancode));
+            });
+        }, {
+            sdlQuit(); exitMain(0);
+            Vec();
+        });
       }, { keys; });
 
     match(stage, 
@@ -136,11 +137,10 @@ fn render(ren: SDLRenderer, state: State) {
 }
 
 fn subscriptions() -> Vec<Message> {
-    let event = keyEvent();
-
-    event.match(fn(e) {
-        vecOf(KeyMessage(e));
-    }, { vecOf(Tick()); });
+    sdlPollEvent().match(fn(event) {
+        // println("an event ", event);
+        vecOf(EventMessage(event));
+    }, { vecOf(Tick());});
 }
 
 fn loadHighScores() -> Vec<HighScore> {
