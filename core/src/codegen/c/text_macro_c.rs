@@ -573,12 +573,14 @@ impl TextMacroEval for CRealTypeNameMacro {
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
         let value = text_macro.parameters.get(0).unwrap();
-        if let MacroParam::Ref(_name, _ast_type, ast_type_type) = value {
-            let t = ast_type_type.clone().unwrap();
+        if let MacroParam::Ref(_name, _ast_type, Some(t)) = value {
+            CLambdas::add_to_statics_if_lambda(t, statics);
 
-            CLambdas::add_to_statics_if_lambda(&t, statics);
+            Ok(CodeGenC::real_type_to_string(t))
+        } else if let MacroParam::Plain(_name, _ast_type, Some(t)) = value {
+            CLambdas::add_to_statics_if_lambda(t, statics);
 
-            Ok(CodeGenC::real_type_to_string(&t))
+            Ok(CodeGenC::real_type_to_string(t))
         } else if let MacroParam::Plain(name, _, _) = value {
             if let Some(def) = function_def {
                 let resolved_generic_types =
@@ -630,10 +632,12 @@ impl TextMacroEval for CRealTypeNameMacro {
                     ))
                 }
             } else {
-                panic!("Cannot resolve generic type {name} without a function.")
+                Err(format!(
+                    "Cannot resolve type for {name} without a function."
+                ))
             }
         } else {
-            panic!("First argument should be a reference to a value.")
+            Err(format!("Cannot resolve type for {value}."))
         }
     }
 
@@ -663,17 +667,24 @@ impl TextMacroEval for CCastAddress {
         _type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
         let value = text_macro.parameters.get(0).unwrap();
-        if let MacroParam::Ref(name, _ast_type, ast_type_type) = value {
-            let t = ast_type_type.clone().unwrap();
-
-            CLambdas::add_to_statics_if_lambda(&t, statics);
+        if let MacroParam::Ref(name, _ast_type, Some(t)) = value {
+            CLambdas::add_to_statics_if_lambda(t, statics);
 
             Ok(format!(
                 "(({}){name}->address)",
-                CodeGenC::type_to_string(&t, statics)
+                CodeGenC::type_to_string(t, statics)
+            ))
+        } else if let MacroParam::Plain(name, _, Some(t)) = value {
+            CLambdas::add_to_statics_if_lambda(t, statics);
+
+            Ok(format!(
+                "(({}){name}->address)",
+                CodeGenC::type_to_string(t, statics)
             ))
         } else {
-            panic!("First argument should be a reference to a value.")
+            Err(
+                format!("First argument should be a reference to a value, or plain arg with type, but got {value}."
+                ))
         }
     }
 
