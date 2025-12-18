@@ -90,19 +90,18 @@ pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
     SDL_RenderFillRect(ren, rect->address);
 }/
 
-pub native sdlRender(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
+pub native sdlRenderCopy(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
     $include(<stdlib.h>)
 
     SDL_RenderCopy(ren, $texture, NULL, rect->address);
 }/
 
-pub native sdlRender(ren: SDLRenderer, text: SDLText, x: int, y: int) /{
-    $include(<stdlib.h>)
+pub native w(surface: SDLSurface) -> int /{
+    $inline()
+    return surface->w;
+}/
 
-    struct SDL_Surface *surface = $castAddress($text)->surface;
-    struct SDL_Texture *texture = $castAddress($text)->texture;
-
-    SDL_Rect destRect = {x, y, surface->w, surface->h};
-
-    SDL_RenderCopy(ren, texture, NULL, &destRect);
+pub native h(surface: SDLSurface) -> int /{
+    $inline()
+    return surface->h;
 }/

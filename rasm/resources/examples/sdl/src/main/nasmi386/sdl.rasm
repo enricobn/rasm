@@ -94,40 +94,19 @@ pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
     pop     eax
 }/
 
-pub native sdlRender(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
+pub native sdlRenderCopy(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
     push    eax
     mov     dword eax, $rect
     $ccall(SDL_RenderCopy, $ren, $texture, 0, [eax])
     pop     eax
 }/
 
-pub native sdlRender(ren: SDLRenderer, text: SDLText, x: int, y: int) /{
-    push eax
-    push ebx
-    push ecx
-
-    mov     dword eax, $text
-    mov     dword eax, [eax]
-    ; surface
-    mov     dword ebx, [eax]
-
-    ; texture
-    mov     dword ecx, [eax + 4]
-
-    ; mov     dword eax, [ebx + 8]
-    ; $call(println, "w:", eax)
-
-    ; mov     dword eax, [ebx + 12]
-    ; $call(println, "h:", eax)
-    
-    $call(SDLRect, $x, $y, [ebx + 8], [ebx + 12])
-
-    push    eax
-    $ccall(SDL_RenderCopy, $ren, ecx, 0, [eax])
-    pop     eax
-
-    pop ecx
-    pop ebx
-    pop eax
+pub native w(surface: SDLSurface) -> int /{
+    mov     dword eax, $surface
+    mov     dword eax, [eax + 8]
 }/
 
+pub native h(surface: SDLSurface) -> int /{
+    mov     dword eax, $surface
+    mov     dword eax, [eax + 12]
+}/

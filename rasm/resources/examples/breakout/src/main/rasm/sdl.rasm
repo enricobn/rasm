@@ -1,0 +1,7 @@
+pub fn renderText(ren: SDLRenderer, font: TTFFont, text: str, color: SDLColor, x: int, y: int) {
+    let surface = sdlRenderTextSolid(font, text, color);
+    let texture = sdlCreateTextureFromSurface(ren, surface);
+    sdlRenderCopy(ren, texture, SDLRect(x, y, surface.w, surface.h));
+    sdlDestroyTexture(texture);
+    sdlFreeSurface(surface);
+}

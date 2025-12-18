@@ -146,14 +146,11 @@ pub fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
     sdlSetRenderDrawColor(ren, COLORS.blue);
     sdlRenderFillRect(ren, SDLRect(0, 0, WIDTH, HEADERHEIGHT));
 
-    let scoreText = sdlCreateText(ren, font, "Score: ".append(world.score), COLORS.green);
-    sdlRenderAndRelease(ren, scoreText, 2, 2);
+    renderText(ren, font, "Score: ".append(world.score), COLORS.green, 2, 2);
 
-    let livesText = sdlCreateText(ren, font, "Lives: ".append(world.lives), COLORS.green);
-    sdlRenderAndRelease(ren, livesText, 200, 2);
+    renderText(ren, font, "Lives: ".append(world.lives), COLORS.green, 200, 2);
 
-    let fpsText = sdlCreateText(ren, font, "FPS: ".append(fps), COLORS.green);
-    sdlRenderAndRelease(ren, fpsText, 400, 2);
+    renderText(ren, font, "FPS: ".append(fps), COLORS.green, 400, 2);
 
     gameState.stage.match(
         fn(time) {
@@ -168,8 +165,7 @@ pub fn render(ren: SDLRenderer, resources: Resources, gameState : GameState) {
 // TODO put this in the SDL library, but it depends on WIDTH (it can be passed as an argument),
 // and on the size of the Font, which is for now not exposed
 fn centerAndRelease(ren: SDLRenderer, font: TTFFont, text: str, y: int, color: SDLColor) {
-    let sText = sdlCreateText(ren, font, text, color);
-    sdlRenderAndRelease(ren, sText, WIDTH.sub(text.len.mul(12)).div(2), y);
+    renderText(ren, font, text, color, WIDTH.sub(text.len.mul(12)).div(2), y);
 }
 
 
