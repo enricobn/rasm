@@ -80,7 +80,7 @@ pub native sdlQuit() /{
 }/
 
 pub fn sdlSetRenderDrawColor(ren: SDLRenderer, color: SDLColor) {
-    sdlSetRenderDrawColor(ren, r(color), g(color), b(color), a(color));
+    sdlSetRenderDrawColor(ren, color.r, color.g, color.b, color.a);
 }
 
 pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: int) /{
@@ -88,7 +88,10 @@ pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: in
 }/
 
 pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
-    $ccall(SDL_RenderFillRect, $ren, $rect)
+    push    eax
+    mov     dword eax, $rect
+    $ccall(SDL_RenderFillRect, $ren, [eax])
+    pop     eax
 }/
 
 pub native sdlRender(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
@@ -122,8 +125,6 @@ pub native sdlRender(ren: SDLRenderer, text: SDLText, x: int, y: int) /{
     push    eax
     $ccall(SDL_RenderCopy, $ren, ecx, 0, [eax])
     pop     eax
-
-    $deref(eax: SDLRect)
 
     pop ecx
     pop ebx

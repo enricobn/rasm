@@ -1,0 +1,39 @@
+pub type SDLColor /{ hasReferences = true, nativeType = SDL_Color* }/
+
+
+pub native SDLColor(r: int, g: int, b: int, a: int) -> SDLColor /{
+    struct RasmPointer_ *result = rasmMalloc(sizeof(struct SDL_Color));
+    struct SDL_Color *color = (struct SDL_Color*)result->address;
+    
+    color->r = r; color->g = g; color->b = b; color->a = a;
+    
+    return result;
+}/
+
+pub native SDLColorAddRef<T>(address: Vec<T>) /{
+    addRef(address);
+}/
+
+pub native SDLColorDeref<T>(address: Vec<T>) /{
+    deref(address);
+}/
+
+pub native r(color: SDLColor) -> int /{
+    struct SDL_Color *c = $castAddress($color);
+    return c->r;
+}/
+
+pub native g(color: SDLColor) -> int /{
+    struct SDL_Color *c = $castAddress($color);
+    return c->g;
+}/
+
+pub native b(color: SDLColor) -> int /{
+    struct SDL_Color *c = $castAddress($color);
+    return c->b;
+}/
+
+pub native a(color: SDLColor) -> int /{
+    struct SDL_Color *c = $castAddress($color);
+    return c->a;
+}/

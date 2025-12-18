@@ -1,0 +1,49 @@
+pub type SDLColor /{ hasReferences = true }/
+
+pub native SDLColor(r: int, g: int, b: int, a: int) -> SDLColor /{
+    push    ebx
+    $call(rasmalloc, 5, " for SDLColor") ; why 5?
+    push    eax
+    mov     eax,[eax]
+    mov     dword ebx, $r
+    mov     byte [eax],bl
+
+    mov     dword ebx, $g
+    mov     byte [eax + 1],bl
+
+    mov     dword ebx, $b
+    mov     byte [eax + 2],bl
+
+    mov     dword ebx, $a
+    mov     byte [eax + 3],bl
+    pop     eax
+    pop     ebx
+}/
+
+pub native r(color: SDLColor) -> int /{
+    mov     dword eax, $color
+    mov     dword eax, [eax]
+    mov     byte al, [eax]
+    and     eax,0xFF
+}/
+
+pub native g(color: SDLColor) -> int /{
+    mov     dword eax, $color
+    mov     dword eax, [eax]
+    mov     byte al, [eax + 1]
+    and     eax,0xFF
+}/
+
+pub native b(color: SDLColor) -> int /{
+    mov     dword eax, $color
+    mov     dword eax, [eax]
+    mov     byte al, [eax + 2]
+    and     eax,0xFF
+}/
+
+pub native a(color: SDLColor) -> int /{
+    mov     dword eax, $color
+    mov     dword eax, [eax]
+    mov     byte al, [eax + 3]
+    and     eax,0xFF
+}/
