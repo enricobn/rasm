@@ -2,7 +2,7 @@ pub type SDLColor /{ hasReferences = true }/
 
 pub native SDLColor(r: int, g: int, b: int, a: int) -> SDLColor /{
     push    ebx
-    $call(rasmalloc, 5, " for SDLColor") ; why 5?
+    $call(rasmalloc, 4, " for SDLColor")
     push    eax
     mov     eax,[eax]
     mov     dword ebx, $r

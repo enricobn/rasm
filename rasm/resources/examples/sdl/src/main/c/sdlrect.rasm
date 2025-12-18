@@ -16,3 +16,19 @@ pub native SDLRectAddRef<T>(address: Vec<T>) /{
 pub native SDLRectDeref<T>(address: Vec<T>) /{
     deref(address);
 }/
+
+pub native x(rect: SDLRect) -> int /{
+    return $castAddress($rect)->x;
+}/
+
+pub native y(rect: SDLRect) -> int /{
+    return $castAddress($rect)->y;
+}/
+
+pub native w(rect: SDLRect) -> int /{
+    return $castAddress($rect)->w;
+}/
+
+pub native h(rect: SDLRect) -> int /{
+    return $castAddress($rect)->h;
+}/

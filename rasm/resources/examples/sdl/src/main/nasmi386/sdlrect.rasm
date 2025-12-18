@@ -2,7 +2,7 @@ pub type SDLRect /{ hasReferences = true }/
 
 pub native SDLRect(x: int, y: int, w: int, h: int) -> SDLRect /{
     push    ebx
-    $call(rasmalloc, 4, " for SDLRect")
+    $call(rasmalloc, 16, " for SDLRect")
     push    eax
     mov     eax,[eax]
     mov     dword ebx, $x
@@ -18,4 +18,28 @@ pub native SDLRect(x: int, y: int, w: int, h: int) -> SDLRect /{
     mov     dword [eax + 12],ebx
     pop     eax
     pop     ebx
+}/
+
+pub native x(rect: SDLRect) -> int /{
+    mov     dword eax, $rect
+    mov     dword eax, [eax]
+    mov     dword eax, [eax]
+}/
+
+pub native y(rect: SDLRect) -> int /{
+    mov     dword eax, $rect
+    mov     dword eax, [eax]
+    mov     dword eax, [eax + 4]
+}/
+
+pub native w(rect: SDLRect) -> int /{
+    mov     dword eax, $rect
+    mov     dword eax, [eax]
+    mov     dword eax, [eax + 8]
+}/
+
+pub native h(rect: SDLRect) -> int /{
+    mov     dword eax, $rect
+    mov     dword eax, [eax]
+    mov     dword eax, [eax + 12]
 }/

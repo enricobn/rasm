@@ -88,17 +88,17 @@ pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: in
 }/
 
 pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
-    push    eax
-    mov     dword eax, $rect
-    $ccall(SDL_RenderFillRect, $ren, [eax])
-    pop     eax
+    push    ecx
+    mov     dword ecx, $rect
+    $ccall(SDL_RenderFillRect, $ren, [ecx])
+    pop     ecx
 }/
 
 pub native sdlRenderCopy(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
-    push    eax
-    mov     dword eax, $rect
-    $ccall(SDL_RenderCopy, $ren, $texture, 0, [eax])
-    pop     eax
+    push    ecx
+    mov     dword ecx, $rect
+    $ccall(SDL_RenderCopy, $ren, $texture, 0, [ecx])
+    pop     ecx
 }/
 
 pub native w(surface: SDLSurface) -> int /{
