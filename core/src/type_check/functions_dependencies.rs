@@ -10,7 +10,7 @@ use rasm_parser::{
         ASTStatement, ASTType,
     },
 };
-use rasm_utils::{debug_i, dedent, indent, HashMapDisplay, OptionDisplay, SliceDisplay};
+use rasm_utils::{HashMapDisplay, OptionDisplay, SliceDisplay, debug_i, dedent, indent};
 
 use crate::type_check::{
     ast_generic_types_resolver::ASTResolvedGenericTypes, ast_modules_container::ASTTypeFilter,
@@ -324,7 +324,7 @@ fn call_expr_dependencies(
                 */
             }
             ASTParameterDependencies::None => {}
-            ASTParameterDependencies::Precise(ref found_types) => {
+            ASTParameterDependencies::Precise(found_types) => {
                 for ft in found_types.iter() {
                     debug_i!("found_type {ft}");
                     match ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
@@ -348,9 +348,9 @@ fn call_expr_dependencies(
                                 } else {
                                     call_result.or(
                                         par,
-                                        ASTParameterDependencies::precise(vec![par
-                                            .ast_type
-                                            .clone()]),
+                                        ASTParameterDependencies::precise(vec![
+                                            par.ast_type.clone(),
+                                        ]),
                                     );
                                 }
                             }
@@ -479,7 +479,7 @@ fn function_dependencies_inner_2(
                                                                 .unwrap()
                                                                 .name,
                                                         ) {
-                                                            if let ASTParameterDependencies::Precise(ref found_types) = par_dependencies {
+                                                            if let ASTParameterDependencies::Precise(found_types) = par_dependencies {
                                                                     for ft in found_types.iter() {
                                                                         debug_i!("found_type {ft}");
                                                                     }
@@ -709,7 +709,7 @@ fn expr_calls<'a>(
 mod tests {
     use std::path::Path;
 
-    use rasm_utils::{test_utils::init_log, OptionDisplay};
+    use rasm_utils::{OptionDisplay, test_utils::init_log};
 
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget},

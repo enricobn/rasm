@@ -32,10 +32,10 @@ fn test_float() {
     test_print_float(f32::NEG_INFINITY);
     test_print_float(f32::NAN);
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     for _ in 0..1000 {
-        let n = rng.gen::<f64>() * 1_000f64 - 500f64;
+        let n = rng.random::<f64>() * 1_000f64 - 500f64;
         test_print_float(n as f32);
     }
 }

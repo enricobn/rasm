@@ -5,12 +5,12 @@ use std::{
 };
 
 use iced::{
-    widget::{
-        container,
-        scrollable::{self, Id, Scrollbar},
-        text, Column, Row, Scrollable,
-    },
     Background, Color, Element, Length, Padding,
+    widget::{
+        Column, Row, Scrollable, container,
+        scrollable::{self, Id, Scrollbar},
+        text,
+    },
 };
 use rasm_core::{
     codegen::enh_ast::EnhModuleInfo, type_check::ast_modules_container::ASTTypeFilter,
@@ -19,7 +19,7 @@ use rasm_core::{
 use rasm_parser::parser::ast::{ASTBuiltinTypeKind, ASTModule, ASTType};
 use rasm_parser::{
     catalog::ASTIndex,
-    lexer::{tokens::TokenKind, Lexer},
+    lexer::{Lexer, tokens::TokenKind},
 };
 
 use crate::{Message, SelectedModule, UI};
@@ -39,7 +39,10 @@ enum SyntaxKind {
 }
 
 impl UI {
-    pub fn show_module<'a>(&'a self, selected_module: &'a SelectedModule) -> Element<Message> {
+    pub fn show_module<'a, 'b>(
+        &'a self,
+        selected_module: &'a SelectedModule,
+    ) -> Element<'a, Message> {
         let mut column: Column<'_, Message> = Column::new().spacing(10).push(text(
             self.project
                 .relative_to_source_folder(Path::new(&selected_module.path))

@@ -87,11 +87,11 @@ impl<'a> ASTTree<'a> {
             .map(|(pos, _)| pos)
     }
 
-    pub fn get_element(&self, position: &ASTPosition) -> Option<&ASTElement> {
+    pub fn get_element(&'_ self, position: &ASTPosition) -> Option<&'_ ASTElement<'_>> {
         self.positions.get(position)
     }
 
-    pub fn previous_element(&self, position: &ASTPosition) -> Option<&ASTElement> {
+    pub fn previous_element(&'_ self, position: &ASTPosition) -> Option<&'_ ASTElement<'_>> {
         let mut column = position.column;
         while column > 0 {
             if let Some(e) = self.get_element(&ASTPosition::new(position.row, column)) {

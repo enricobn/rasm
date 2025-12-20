@@ -24,7 +24,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use crate::codegen::compile_target::{CompileTarget, C, NASMI386};
+use crate::codegen::compile_target::{C, CompileTarget, NASMI386};
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 use crate::commandline::CommandLineOptions;
 use crate::pm::repository::{
@@ -37,8 +37,8 @@ use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use log::{info, warn};
 use pathdiff::diff_paths;
-use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::ModuleInfo;
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_utils::debug_indent::{enable_log, log_enabled};
 use rayon::prelude::*;
 use rust_embed::RustEmbed;
@@ -50,9 +50,9 @@ use walkdir::WalkDir;
 
 use crate::errors::{CompilationError, CompilationErrorKind};
 use rasm_parser::lexer::Lexer;
+use rasm_parser::parser::Parser;
 use rasm_parser::parser::ast::ASTExpression::{self, ASTFunctionCallExpression};
 use rasm_parser::parser::ast::{ASTModifiers, ASTModule, ASTPosition, ASTStatement, ASTValue};
-use rasm_parser::parser::Parser;
 
 const STD_LIB_VERSION: &str = "0.1";
 
@@ -147,11 +147,7 @@ impl RasmProject {
     pub fn main_test_src_file(&self) -> Option<PathBuf> {
         if let Some(test_rasm_folder) = self.test_rasm_folder() {
             let result = test_rasm_folder.join(Path::new("main.rasm"));
-            if result.exists() {
-                Some(result)
-            } else {
-                None
-            }
+            if result.exists() { Some(result) } else { None }
         } else {
             None
         }
@@ -461,7 +457,7 @@ impl RasmProject {
         target: &CompileTarget,
     ) -> (
         ASTModulesContainer,
-        impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> + use<>,
         Vec<CompilationError>,
     ) {
         let mut catalog = RasmProjectCatalog::new();
@@ -1208,10 +1204,9 @@ mod tests {
     fn test_catalog() {
         let sut = RasmProject::new(PathBuf::from("resources/test/helloworld.rasm"));
 
-        let (_container, catalog, _errors) = sut.container_and_catalog(
-            &RasmProjectRunType::Main,
-            &CompileTarget::C(COptions::default()),
-        );
+        let target = CompileTarget::C(COptions::default());
+        let (_container, catalog, _errors) =
+            sut.container_and_catalog(&RasmProjectRunType::Main, &target);
 
         let info = catalog.info(&EnhModuleId::Path(
             PathBuf::from("resources/test/helloworld.rasm")

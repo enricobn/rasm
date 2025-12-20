@@ -4,10 +4,11 @@ use properties_parser::parse_properties;
 use std::fmt::{Display, Formatter};
 use strum_macros::Display;
 
+use crate::lexer::Lexer;
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
-use crate::lexer::Lexer;
+use crate::parser::ParserState::StructDef;
 use crate::parser::asm_def_parser::NativeFnParser;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
@@ -21,8 +22,7 @@ use crate::parser::struct_parser::StructParser;
 use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
-use crate::parser::ParserState::StructDef;
-use rasm_utils::{debug_i, OptionDisplay, SliceDisplay};
+use rasm_utils::{OptionDisplay, SliceDisplay, debug_i};
 
 mod asm_def_parser;
 pub mod ast;
@@ -1067,7 +1067,7 @@ impl Parser {
     fn try_parse_function_call(
         &mut self,
     ) -> Option<(String, Vec<ASTType>, usize, usize, Option<String>, bool)> {
-        if let Some(TokenKind::AlphaNumeric(ref f_name)) = self.get_token_kind() {
+        if let Some(TokenKind::AlphaNumeric(f_name)) = self.get_token_kind() {
             let (function_name, next_n, function_name_n, target) =
                 if let Some((function_name, next_n)) = self.try_parse_call_with_target() {
                     (function_name, next_n, next_n - 1, Some(f_name.clone()))
@@ -1478,15 +1478,15 @@ pub trait ParserTrait {
 mod tests {
     use std::path::Path;
 
-    use rasm_utils::test_utils::init_minimal_log;
     use rasm_utils::SliceDisplay;
+    use rasm_utils::test_utils::init_minimal_log;
 
     use crate::lexer::Lexer;
+    use crate::parser::Parser;
     use crate::parser::ast::{
         ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
         ASTModifiers, ASTModule, ASTPosition, ASTStatement, ASTType, ASTValue,
     };
-    use crate::parser::Parser;
 
     use super::ParserError;
 

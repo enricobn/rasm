@@ -1,21 +1,21 @@
 use std::{fs, path::PathBuf};
 
 use iced::{
-    widget::{
-        button,
-        scrollable::{Direction, Scrollbar},
-        text, Scrollable,
-    },
     Background, Element, Length,
+    widget::{
+        Scrollable, button,
+        scrollable::{Direction, Scrollbar},
+        text,
+    },
 };
 
 use crate::{
-    ui_tree::{ui_leaf, ui_node, ui_tree, UINode},
     Message, UI,
+    ui_tree::{UINode, ui_leaf, ui_node, ui_tree},
 };
 
 impl UI {
-    pub(crate) fn project_tree(&self) -> Element<Message> {
+    pub(crate) fn project_tree(&'_ self) -> Element<'_, Message> {
         let root_o = self.get_node(
             0,
             &self.project.config.package.name,

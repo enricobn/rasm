@@ -201,7 +201,7 @@ impl TypedValContext {
         self.value_to_address.get(key)
     }
 
-    pub fn iter(&self) -> Iter<String, TypedValKind> {
+    pub fn iter<'a>(&'a self) -> Iter<'a, String, TypedValKind> {
         self.value_to_address.iter()
     }
 

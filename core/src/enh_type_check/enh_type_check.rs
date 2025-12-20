@@ -10,13 +10,14 @@ use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
 use log::info;
 use rasm_parser::{
-    catalog::{modules_catalog::ModulesCatalog, ModuleInfo},
+    catalog::{ModuleInfo, modules_catalog::ModulesCatalog},
     parser::ast::{ASTBuiltinTypeKind, ASTType},
 };
-use rasm_utils::{debug_i, dedent, indent, OptionDisplay, SliceDisplay};
+use rasm_utils::{OptionDisplay, SliceDisplay, debug_i, dedent, indent};
 
 use crate::{
     codegen::{
+        EnhValKind,
         c::code_gen_c::value_type_to_enh_type,
         compile_target::CompileTarget,
         enh_ast::{
@@ -28,7 +29,6 @@ use crate::{
         enhanced_module::EnhancedASTModule,
         statics::Statics,
         typedef_provider::DummyTypeDefProvider,
-        EnhValKind,
     },
     enh_type_check::enh_functions_container::EnhTypeFilter,
     errors::{CompilationError, CompilationErrorKind},
@@ -995,7 +995,9 @@ impl<'a> EnhTypeCheck<'a> {
                 // because if two functions are valid, but with the same rank, there's a problem: we cannot identify
                 // the right function to call
                 if old_function.rank != function.rank {
-                    debug_i!("A valid function has already been found and the current one has a different rank.");
+                    debug_i!(
+                        "A valid function has already been found and the current one has a different rank."
+                    );
                     break;
                 }
             }
@@ -1195,7 +1197,10 @@ impl<'a> EnhTypeCheck<'a> {
                         dedent!();
                         let error = EnhTypeCheckError::new(
                             call.index.clone(),
-                            format!("ignoring function {function} : {} because it has the same ranking of {old_function} : {}", function.index, old_function.index),
+                            format!(
+                                "ignoring function {function} : {} because it has the same ranking of {old_function} : {}",
+                                function.index, old_function.index
+                            ),
                             self.stack.clone(),
                         );
                         //self.stack.pop();
@@ -1408,7 +1413,7 @@ impl<'a> EnhTypeCheck<'a> {
                 }
             }
         } else if let EnhTypeFilter::Lambda(_, Some(lrt)) = &t {
-            if let EnhTypeFilter::Exact(ref et) = lrt.deref() {
+            if let EnhTypeFilter::Exact(et) = lrt.deref() {
                 if !et.is_generic() {
                     if let Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
                         parameters: _,
@@ -2037,9 +2042,13 @@ impl<'a> EnhTypeCheck<'a> {
                         } else {
                             dedent!();
                             let message = if function_references.is_empty() {
-                                format!("Cannot find reference to {name} typing expression {typed_expression}")
+                                format!(
+                                    "Cannot find reference to {name} typing expression {typed_expression}"
+                                )
                             } else {
-                                format!("More than one reference to {name} typing expression {typed_expression}")
+                                format!(
+                                    "More than one reference to {name} typing expression {typed_expression}"
+                                )
                             };
                             return Err(EnhTypeCheckError::new_with_kind(
                                 index.clone(),

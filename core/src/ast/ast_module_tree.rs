@@ -223,7 +223,7 @@ impl ASTModuleTree {
         };
 
         match expression {
-            ASTExpression::ASTFunctionCallExpression(ref function_call) => {
+            ASTExpression::ASTFunctionCallExpression(function_call) => {
                 for argument in function_call.parameters().iter() {
                     Self::add_expression(argument, elements, Some(position.id));
                 }

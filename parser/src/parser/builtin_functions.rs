@@ -312,7 +312,7 @@ impl BuiltinFunctions {
 
         if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
             parameters,
-            ref return_type,
+            return_type,
         }) = &property_def.ast_type
         {
             result.push((

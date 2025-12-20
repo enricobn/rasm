@@ -1,6 +1,6 @@
 use iced::{
-    widget::{button, horizontal_space, row, text, Column, Row},
     Element,
+    widget::{Column, Row, button, horizontal_space, row, text},
 };
 
 pub struct UITree {}
@@ -38,7 +38,7 @@ where
 }
 
 impl UITree {
-    pub fn new<'a, Message>(root: UINode<'a, Message>) -> Column<Message>
+    pub fn new<'a, Message>(root: UINode<'a, Message>) -> Column<'a, Message>
     where
         Message: 'a + Clone,
     {
@@ -79,7 +79,7 @@ impl UITree {
         new_tree
     }
 
-    fn indent_row<'a, Message>(indent: usize, element: Element<'a, Message>) -> Element<Message>
+    fn indent_row<'a, Message>(indent: usize, element: Element<'a, Message>) -> Element<'a, Message>
     where
         Message: 'a + Clone,
     {

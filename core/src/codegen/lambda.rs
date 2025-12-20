@@ -1,7 +1,7 @@
 use linked_hash_map::{Iter, LinkedHashMap};
 
-use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::TypedValKind;
+use crate::codegen::enh_val_context::TypedValContext;
 use crate::enh_type_check::typed_ast::{ASTTypedFunctionDef, ASTTypedType};
 
 #[derive(Debug, Clone)]
@@ -54,7 +54,7 @@ impl LambdaSpace {
         &self.context
     }
 
-    pub fn iter(&self) -> Iter<String, TypedValKind> {
+    pub fn iter<'a>(&'a self) -> Iter<'a, String, TypedValKind> {
         self.values.iter()
     }
 

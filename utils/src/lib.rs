@@ -147,7 +147,7 @@ impl<'a, T: fmt::Display + 'a> fmt::Display for HashSetDisplay<'a, T> {
     }
 }
 
-pub fn find_one<T, P>(iter: Iter<T>, predicate: P) -> Option<&T>
+pub fn find_one<'a, T, P>(iter: Iter<'a, T>, predicate: P) -> Option<&'a T>
 where
     P: FnMut(&&T) -> bool,
 {

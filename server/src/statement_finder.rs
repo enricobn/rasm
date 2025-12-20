@@ -24,7 +24,7 @@ impl<'a> ModulePosition<'a> {
     pub fn body(&self) -> &'a Vec<ASTStatement> {
         match self {
             ModulePosition::Body(module) => &module.body,
-            ModulePosition::Function(_, ref function_def) => match &function_def.body {
+            ModulePosition::Function(_, function_def) => match &function_def.body {
                 ASTFunctionBody::RASMBody(vec) => vec,
                 ASTFunctionBody::NativeBody(_) => panic!(), // it should not happen
             },
@@ -169,7 +169,7 @@ impl StatementFinder {
                             SFExprResult::InExpr => return SFExprResult::InExpr,
                             SFExprResult::NotInExpr => {}
                             SFExprResult::InStatement(astposition) => {
-                                return SFExprResult::InStatement(astposition)
+                                return SFExprResult::InStatement(astposition);
                             }
                         }
                     }
