@@ -63,19 +63,24 @@ pub const COLORS = Colors();
 if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())); }, { });
 if(ttfInit().eq(0).not, { panic("Error initializing SDL TTF: ".add(sdlGetError())); }, { });
 
-let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 24);
+let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 24)
+.match(fn(font) {
+    let highScores = loadHighScores();
 
-let highScores = loadHighScores();
+    let initialState = State(Resources(font), Vec(), Menu(MenuState(highScores)), highScores);
 
-let initialState = State(Resources(font), Vec(), Menu(MenuState(highScores)), highScores);
+    let win = sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT);
+    let ren = win.sdlCreateRenderer();
 
-let win = sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT);
-let ren = win.sdlCreateRenderer();
+    run(ren, initialState, update, render, subscriptions);
 
-run(ren, initialState, update, render, subscriptions);
+    ren.sdlDestroyRenderer();
+    win.sdlDestroyWindow();
+}, fn(error) {
+    println("Error opening font: ", error);
+});
 
-ren.sdlDestroyRenderer();
-win.sdlDestroyWindow();
+sdlQuit();
 
 // TODO keys are not as expected, space is 44 but should be 32!
 fn update(message: Message, state: State) -> State {

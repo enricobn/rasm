@@ -48,21 +48,26 @@ initRandom();
 if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())); }, { });
 if(ttfInit().eq(0).not, { panic("Error initializing SDL TTF: ".add(sdlGetError())); }, { });
 
-let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 16);
-let quads = vecRange(0, QUADS)
-    .map(fn(it) {
-        let x = random(WIDTH);
-        let y = random(HEIGHT);
-        let xDir = if(random(2).eq(0), Right(), Left());
-        let yDir = if(random(2).eq(0), YDirection::Up(), YDirection::Down());
-        Quad(x, y, xDir, yDir, SDLColor(random(255), random(255), random(255), 255));
-    });
-let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(toInt).getOrElse(5000));
+let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 16)
+.match(fn(font) {
+    let quads = vecRange(0, QUADS)
+        .map(fn(it) {
+            let x = random(WIDTH);
+            let y = random(HEIGHT);
+            let xDir = if(random(2).eq(0), Right(), Left());
+            let yDir = if(random(2).eq(0), YDirection::Up(), YDirection::Down());
+            Quad(x, y, xDir, yDir, SDLColor(random(255), random(255), random(255), 255));
+        });
+    let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(toInt).getOrElse(5000));
 
-let win = sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT);
-let ren = sdlCreateRenderer(win);
+    let win = sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT);
+    let ren = sdlCreateRenderer(win);
 
-run(ren, initialModel, update, render, subscriptions);
+    run(ren, initialModel, update, render, subscriptions);
+}, fn(error) {
+    println("Error opening font: ", error);
+});
+sdlQuit();
 
 fn update(message: Message, model: Model) -> Model {
     message.match(fn(event) {
