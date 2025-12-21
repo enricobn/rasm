@@ -1,0 +1,11 @@
+pub type Rasm2DTTF /{ hasReferences = false, nativeType = char }/
+
+native Rasm2DTTF() -> Result<Rasm2DTTF,str> /{
+    int error = $call(ttfInit);
+    if (error == 0) {
+        $call(Ok<Rasm2DTTF,str>, 0: Rasm2DTTF);
+    } else {
+        struct RasmPointer_* error = $call(sdlGetError);
+        $call(Error<Rasm2DTTF,str>, error: str);
+    }
+}/

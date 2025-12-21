@@ -1,8 +1,8 @@
 pub struct Rect2D {
     x: int,
     y: int,
-    width: int,
-    height: int
+    w: int,
+    h: int
 }
 
 pub struct RGBAColor {
@@ -10,6 +10,14 @@ pub struct RGBAColor {
     g: int,
     b: int,
     a: int
+}
+
+pub struct Rasm2DRenderer {
+    rend: SDLRenderer
+}
+
+pub struct Rasm2DWindow {
+    win: SDLWindow
 }
 
 pub fn initRasm2D(handler: fn(Rasm2D) -> ()) {
@@ -22,6 +30,10 @@ pub fn initRasm2D(handler: fn(Rasm2D) -> ()) {
     });
 }
 
+fn close(rasm2d: Rasm2D) {
+    sdlQuit();
+}
+
 pub fn createWindow(rasm2d: Rasm2D, title: str, x: int, y: int, width: int, height: int, handler: fn(Rasm2DWindow) -> ()) {
     let window = rasm2d.createWindow(title, x, y, width, height);
     handler(window);
@@ -32,6 +44,26 @@ pub fn createRenderer(window: Rasm2DWindow, handler: fn(Rasm2DRenderer) -> ()) {
     let renderer = window.createRenderer();
     handler(renderer);
     renderer.close();
+}
+
+pub fn present(rend: Rasm2DRenderer) {
+    sdlRenderPresent(rend.rend);
+}
+
+fn createWindow(rasm2D: Rasm2D, title: str, x: int, y: int, width: int, height: int) -> Rasm2DWindow {
+    Rasm2DWindow(sdlCreateWindow(title, x, y, width, height));
+}
+
+fn close(window: Rasm2DWindow) {
+    sdlDestroyWindow(window.win);
+}
+
+fn createRenderer(window: Rasm2DWindow) -> Rasm2DRenderer {
+    Rasm2DRenderer(sdlCreateRenderer(window.win));
+}
+
+fn close(rend: Rasm2DRenderer) {
+    sdlDestroyRenderer(rend.rend);
 }
 
 // Events
