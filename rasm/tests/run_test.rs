@@ -4,7 +4,7 @@ use std::process::{Command, Stdio};
 use ntest::timeout;
 use rasm_core::codegen::asm::code_gen_asm::AsmOptions;
 use rasm_core::codegen::c::options::COptions;
-use rasm_core::codegen::compile_target::{CompileTarget, C, NASMI386};
+use rasm_core::codegen::compile_target::{C, CompileTarget, NASMI386};
 use rasm_core::commandline::CommandLineAction;
 use tempdir::TempDir;
 
@@ -60,12 +60,20 @@ fn test_str_to_int() {
 
 #[test]
 fn test_conditionals() {
-    run_test("conditionals", Vec::new(), "False\nTrue\nequal\nnot equal\nless\nnot less\ngreater\nnot greater\nless or equal\nless or equal\nnot less or equal\n200\n100\n");
+    run_test(
+        "conditionals",
+        Vec::new(),
+        "False\nTrue\nequal\nnot equal\nless\nnot less\ngreater\nnot greater\nless or equal\nless or equal\nnot less or equal\n200\n100\n",
+    );
 }
 
 #[test]
 fn test_conditionals2() {
-    run_test("conditionals2", Vec::new(), "[Some(first),Some(first),Some(first)]\n[Some(second),Some(second),Some(second)]\n[Some(third),Some(third),Some(third)]\n");
+    run_test(
+        "conditionals2",
+        Vec::new(),
+        "[Some(first),Some(first),Some(first)]\n[Some(second),Some(second),Some(second)]\n[Some(third),Some(third),Some(third)]\n",
+    );
 }
 
 #[test]
@@ -330,7 +338,7 @@ fn test_vec() {
         "vec",
         vec![],
         "[0,1]\n[10,11]\ntrue\nfalse\ntrue\nfalse\n1\n6\n2\n[0,1,2,3,4,5]\n[5]\n[10,15,21,2,2,1,4,5]\n10\n[1,2,3]\n[1,11,2,12]\n[0,1,2]\n10\nNone\nSome(Some(Hello))\n[1,2]\nSome(2)\n[1]\nfalse\ntrue\n[1.100000000,2.200000000]\nNone\nSome(20)\nSome(20)\n",
-        CompileTarget::C(COptions::default())
+        CompileTarget::C(COptions::default()),
     );
 }
 
@@ -390,12 +398,17 @@ fn test_function_overloading() {
 
 #[test]
 fn test_type_check_1() {
-    run_test("type_check_1", vec![], "a string\n");
+    run_test("type_check/type_check_1", vec![], "a string\n");
 }
 
 #[test]
 fn test_type_check_2() {
-    run_test("type_check_2", vec![], "true\n");
+    run_test("type_check/type_check_2", vec![], "true\n");
+}
+
+#[test]
+fn test_type_check_3() {
+    run_test("type_check/type_check_3", vec![], "Value: 10\nError: an error\n");
 }
 
 #[test]
@@ -439,14 +452,22 @@ fn test_root() {
 
 #[test]
 fn test_float_nasm() {
-    run_test_with_target("float", vec![], "-7.375000000\n-7.400000092\n-1.375000000\n-1.375432131\n-1.123456712\n-0.375000000\n-0.399999973\n-0.375432071\n0.000000000\n10.000000000\n20.100000379\n20.000999449\n-0.000000000\n-10.000000000\n-20.100000379\n-20.000999449\n10.000000000\n123456.000000000\n-10.000000000\n-123456.000000000\nSome(10)\nSome(-10)\n2.000000000\n5.000000000\n10.199999806\n9.800000188\n17.500000000\n8.199999806\n-8.199999806\ntrue\nfalse\nfalse\ntrue\nfalse\ntrue\ntrue\nfalse\n7.500000000\n7.500000000\n",
-    CompileTarget::Nasmi386(AsmOptions::default()));
+    run_test_with_target(
+        "float",
+        vec![],
+        "-7.375000000\n-7.400000092\n-1.375000000\n-1.375432131\n-1.123456712\n-0.375000000\n-0.399999973\n-0.375432071\n0.000000000\n10.000000000\n20.100000379\n20.000999449\n-0.000000000\n-10.000000000\n-20.100000379\n-20.000999449\n10.000000000\n123456.000000000\n-10.000000000\n-123456.000000000\nSome(10)\nSome(-10)\n2.000000000\n5.000000000\n10.199999806\n9.800000188\n17.500000000\n8.199999806\n-8.199999806\ntrue\nfalse\nfalse\ntrue\nfalse\ntrue\ntrue\nfalse\n7.500000000\n7.500000000\n",
+        CompileTarget::Nasmi386(AsmOptions::default()),
+    );
 }
 
 #[test]
 fn test_float_c() {
-    run_test_with_target("float", vec![], "-7.375000000\n-7.400000000\n-1.375000000\n-1.375432100\n-1.123456700\n-0.375000000\n-0.400000000\n-0.375432100\n0.000000000\n10.000000000\n20.100000000\n20.001000000\n0.000000000\n-10.000000000\n-20.100000000\n-20.001000000\n10.000000000\n123456.000000000\n-10.000000000\n-123456.000000000\nSome(10)\nSome(-10)\n2.000000000\n5.000000000\n10.200000000\n9.800000000\n17.500000000\n8.200000000\n-8.200000000\ntrue\nfalse\nfalse\ntrue\nfalse\ntrue\ntrue\nfalse\n7.500000000\n7.500000000\n",
-    CompileTarget::C(COptions::default()));
+    run_test_with_target(
+        "float",
+        vec![],
+        "-7.375000000\n-7.400000000\n-1.375000000\n-1.375432100\n-1.123456700\n-0.375000000\n-0.400000000\n-0.375432100\n0.000000000\n10.000000000\n20.100000000\n20.001000000\n0.000000000\n-10.000000000\n-20.100000000\n-20.001000000\n10.000000000\n123456.000000000\n-10.000000000\n-123456.000000000\nSome(10)\nSome(-10)\n2.000000000\n5.000000000\n10.200000000\n9.800000000\n17.500000000\n8.200000000\n-8.200000000\ntrue\nfalse\nfalse\ntrue\nfalse\ntrue\ntrue\nfalse\n7.500000000\n7.500000000\n",
+        CompileTarget::C(COptions::default()),
+    );
 }
 
 #[test]
@@ -675,7 +696,11 @@ fn test_function_reference() {
 
 #[test]
 fn test_consts() {
-    run_test("consts", vec![], "consts pub string: pub string\nconsts priv string: consts priv string\nanother priv string: another priv string\n");
+    run_test(
+        "consts",
+        vec![],
+        "consts pub string: pub string\nconsts priv string: consts priv string\nanother priv string: another priv string\n",
+    );
 }
 
 #[test]
