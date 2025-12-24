@@ -1,28 +1,32 @@
 pub struct Rasm2DFont {
-    font: TTFFont
+    private font: TTFFont
 }
 
 pub fn initRasm2DTTF(handler: fn(Rasm2DTTF) -> ()) {
     Rasm2DTTF().match(fn(rasm2dttf) {
         handler(rasm2dttf);
-        //rasm2dttf.close();
+        rasm2dttf.close();
     }, fn(error) {
         println(error);
         exitMain(1);
     });
 }
 
-pub fn openFont(ttf: Rasm2DTTF, file: str, size: int) -> Result<Rasm2DFont,str> {
+pub fn openFont(ttf: Rasm2DTTF, file: str, size: int, handler: fn(Rasm2DFont) -> ()) {
     ttfOpenFont(file, size)
-    .map(fn(font) {
-        Rasm2DFont(font);
+    .match(fn(font) {
+        handler(Rasm2DFont(font));
+    }, fn(error) {
+        ttfQuit();
+        println(error);
+        exitMain(1);
     });
 }
 
 pub fn renderText(ren: Rasm2DRenderer, font: Rasm2DFont, text: str, color: RGBAColor, x: int, y: int) {
     let surface = sdlRenderTextSolid(font.font, text, SDLColor(color.r, color.g, color.b, color.a));
-    let texture = sdlCreateTextureFromSurface(ren.rend, surface);
-    sdlRenderCopy(ren.rend, texture, SDLRect(x, y, surface.w, surface.h));
+    let texture = sdlCreateTextureFromSurface(ren.sdlRenderer, surface);
+    sdlRenderCopy(ren.sdlRenderer, texture, SDLRect(x, y, surface.w, surface.h));
     sdlDestroyTexture(texture);
     sdlFreeSurface(surface);
 }

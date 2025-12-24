@@ -13,11 +13,11 @@ pub struct RGBAColor {
 }
 
 pub struct Rasm2DRenderer {
-    rend: SDLRenderer
+    private rend: SDLRenderer
 }
 
 pub struct Rasm2DWindow {
-    win: SDLWindow
+    private win: SDLWindow
 }
 
 pub fn initRasm2D(handler: fn(Rasm2D) -> ()) {

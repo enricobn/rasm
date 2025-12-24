@@ -9,3 +9,11 @@ native Rasm2DTTF() -> Result<Rasm2DTTF,str> /{
         $call(Error<Rasm2DTTF,str>, error: str);
     }
 }/
+
+fn close(ttf: Rasm2DTTF) {
+    ttfQuit();
+}
+
+native sdlRenderer(rend: Rasm2DRenderer) -> SDLRenderer /{
+    return $castAddress($rend)->rend;
+}/

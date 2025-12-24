@@ -7,15 +7,11 @@ initRasm2D(fn(rasm2d) {
 fn render(rend: Rasm2DRenderer) {
     initRasm2DTTF(
         fn(ttf) {  
-            ttf.openFont(testResource("DejaVuSerif.ttf"), 20)
-            .match(fn(font) {
+            ttf.openFont(testResource("DejaVuSerif.ttf"), 20, fn(font) {
                 renderText(rend, font, "Hello world", RGBAColor(255, 0, 0, 355), 300, 250);
 
                 rend.present();
                 sdlDelay(2000);
-            }, fn(error) {
-                println("Error opening font: ", error);
             });
-            
         });
 }
