@@ -4,7 +4,7 @@ use std::{
     iter::zip,
 };
 
-use rasm_utils::{debug_i, find_one, OptionDisplay, SliceDisplay};
+use rasm_utils::{OptionDisplay, SliceDisplay, debug_i, find_one};
 
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
@@ -378,7 +378,11 @@ impl ASTModulesContainer {
                 .collect::<Vec<_>>();
         }
 
-        if result.len() > 1 {
+        if result.len() > 1
+            && parameter_types_filter
+                .iter()
+                .all(|f| !f.is_generic_or_any())
+        {
             let mut functions_by_coeff = HashMap::new();
             let mut max_coeff = 0;
             for entry in result.into_iter() {
@@ -741,13 +745,13 @@ impl ASTTypeFilter {
         }
     }
 
-    pub fn is_generic(&self) -> bool {
+    pub fn is_generic_or_any(&self) -> bool {
         match &self {
             ASTTypeFilter::Exact(asttype, _) => asttype.is_generic(),
-            ASTTypeFilter::Any => todo!(),
+            ASTTypeFilter::Any => true,
             ASTTypeFilter::Lambda(_, asttype_filter) => asttype_filter
                 .as_ref()
-                .map(|it| it.is_generic())
+                .map(|it| it.is_generic_or_any())
                 .unwrap_or(false),
         }
     }

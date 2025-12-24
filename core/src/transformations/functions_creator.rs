@@ -1,10 +1,10 @@
 use rasm_utils::debug_i;
 
+use crate::codegen::CodeGen;
 use crate::codegen::asm::backend::{Backend, BackendAsm, BackendNasmi386};
 use crate::codegen::asm::code_gen_asm::CodeGenAsm;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::codegen::CodeGen;
 use rasm_parser::parser::ast::{
     ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTEnumDef, ASTEnumVariantDef, ASTExpression,
     ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature, ASTModifiers,
@@ -31,22 +31,33 @@ pub trait FunctionsCreator {
 
         for struct_def in &module.structs.clone() {
             for (i, property_def) in struct_def.properties.iter().enumerate() {
-                let property_functions =
+                let mut property_functions =
                     self.create_functions_for_struct_get_property(struct_def, property_def, i);
+
+                if property_def.private {
+                    for f in &mut property_functions {
+                        f.modifiers.public = false;
+                    }
+                }
 
                 for f in property_functions {
                     module.add_function(f);
                 }
 
-                let property_setter_function =
+                let mut property_setter_function =
                     self.create_function_for_struct_set_property(struct_def, property_def, i);
+                if property_def.private {
+                    property_setter_function.modifiers.public = false;
+                }
                 module.add_function(property_setter_function);
 
-                let property_setter_function = self.create_function_for_struct_set_lambda_property(
-                    struct_def,
-                    property_def,
-                    i,
-                );
+                let mut property_setter_function = self
+                    .create_function_for_struct_set_lambda_property(struct_def, property_def, i);
+
+                if property_def.private {
+                    property_setter_function.modifiers.public = false;
+                }
+
                 module.add_function(property_setter_function);
             }
 
@@ -58,9 +69,13 @@ pub trait FunctionsCreator {
 
             let mut position = struct_def.position.clone();
             position.builtin = Some(ASTBuiltinFunctionType::StructConstructor);
+
+            let is_public =
+                struct_def.modifiers.public && !struct_def.properties.iter().any(|p| p.private);
+
             let function_def = ASTFunctionDef::from_signature(
                 signature,
-                struct_def.modifiers.public,
+                is_public,
                 position,
                 parameters_names,
                 parameters_positions,

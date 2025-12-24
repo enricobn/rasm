@@ -13,6 +13,7 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::enh_type_check::enh_type_check::EnhTypeCheck;
+use crate::macros::macro_call_extractor::get_macro_result_type;
 use crate::project::RasmProject;
 
 use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
@@ -361,6 +362,10 @@ impl EnhASTFunctionDef {
             rank: 0,
             target: function.target,
         }
+    }
+
+    pub fn can_be_a_macro(&self) -> bool {
+        get_macro_result_type(&self.return_type.to_ast()).is_some()
     }
 }
 
@@ -1083,6 +1088,7 @@ pub struct EnhASTFunctionCall {
     pub index: EnhASTIndex,
     pub generics: Vec<EnhASTType>,
     pub target: Option<String>,
+    pub is_macro: bool,
 }
 
 impl EnhASTFunctionCall {
@@ -1135,6 +1141,7 @@ impl EnhASTFunctionCall {
                 function_name_for_fix_generics,
             ),
             target: call.target().clone(),
+            is_macro: call.is_macro(),
         }
     }
 }

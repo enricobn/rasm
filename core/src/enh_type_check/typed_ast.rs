@@ -7,6 +7,7 @@ use linked_hash_set::LinkedHashSet;
 use log::info;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 
+use crate::codegen::TypedValKind;
 use crate::codegen::c::code_gen_c::value_type_to_typed_type;
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{
@@ -18,9 +19,8 @@ use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::TypedValKind;
 use crate::enh_type_check::conv_context::{
-    conv_to_typed_parameter_def, conv_to_typed_type, ConvContext,
+    ConvContext, conv_to_typed_parameter_def, conv_to_typed_type,
 };
 use crate::enh_type_check::enh_functions_container::EnhTypeFilter;
 use crate::enh_type_check::enh_type_check::EnhTypeCheck;
@@ -31,7 +31,7 @@ use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::get_new_native_call;
 use rasm_parser::parser::ast::{ASTModifiers, ASTType, ASTValue};
-use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
+use rasm_utils::{SliceDisplay, debug_i, dedent, indent};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypedFunctionDef {
@@ -1621,6 +1621,7 @@ impl DefaultFunction {
             index: EnhASTIndex::none(),
             generics: Vec::new(),
             target: None,
+            is_macro: false,
         }
     }
 }

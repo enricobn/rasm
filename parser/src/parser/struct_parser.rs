@@ -1,8 +1,8 @@
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, Token, TokenKind};
+use crate::parser::ParserTrait;
 use crate::parser::ast::ASTModifiers;
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
 use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
-use crate::parser::ParserTrait;
 
 pub struct StructParser {
     matcher: TokensMatcher,
@@ -100,12 +100,14 @@ mod tests {
             name: "x".into(),
             ast_type: ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
             position: ASTPosition::new(2, 13),
+            private: false,
         };
 
         let y = ASTStructPropertyDef {
             name: "y".into(),
             ast_type: ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
             position: ASTPosition::new(3, 13),
+            private: false,
         };
 
         if let Some((struct_def, errors, n)) = parse_result {
@@ -140,12 +142,14 @@ mod tests {
             name: "index".into(),
             ast_type: ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
             position: ASTPosition::new(2, 13),
+            private: false,
         };
 
         let y = ASTStructPropertyDef {
             name: "value".into(),
             ast_type: ASTGenericType(ASTPosition::new(3, 21), "T".into(), Vec::new()),
             position: ASTPosition::new(3, 13),
+            private: false,
         };
 
         if let Some((struct_def, errors, n)) = parse_result {

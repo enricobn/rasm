@@ -7,14 +7,14 @@ use std::{
 use itertools::Itertools;
 
 use rasm_utils::{
-    debug_i,
+    OptionDisplay, SliceDisplay, debug_i,
     debug_indent::{enable_log, log_enabled},
-    dedent, indent, OptionDisplay, SliceDisplay,
+    dedent, indent,
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::{
-    codegen::val_context::ValContext,
+    codegen::val_context::ValContext, macros::macro_call_extractor::get_macro_result_type,
     type_check::ast_generic_types_resolver::ASTResolvedGenericTypes,
 };
 
@@ -81,7 +81,7 @@ impl Display for ASTTypeCheckError {
 
 #[derive(Debug, Clone)]
 pub enum ASTTypeCheckInfo {
-    Call(String, Vec<(ASTFunctionSignature, ASTIndex)>),
+    Call(String, Vec<(ASTFunctionSignature, ASTIndex)>, bool),
     LambdaCall(ASTFunctionSignature, ASTIndex),
     ReferenceToFunction(ASTFunctionSignature, ASTIndex),
     Ref(String, ASTIndex),
@@ -95,11 +95,12 @@ pub enum ASTTypeCheckInfo {
 impl Display for ASTTypeCheckInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ASTTypeCheckInfo::Call(name, vec) => {
+            ASTTypeCheckInfo::Call(name, vec, is_macro) => {
+                let mc = if *is_macro { "macro " } else { "" };
                 if vec.len() == 1 {
-                    write!(f, "call to {}", vec.first().unwrap().0)?;
+                    write!(f, "call to {mc}{}", vec.first().unwrap().0)?;
                 } else {
-                    write!(f, "call to {name} which can be one of \n")?;
+                    write!(f, "call to {mc}{name} which can be one of \n")?;
                     for function_signature in vec {
                         write!(f, "{}\n", function_signature.0)?;
                     }
@@ -182,9 +183,10 @@ impl ASTTypeCheckEntry {
     pub fn is_generic(&self) -> bool {
         match &self.filter {
             Some(ASTTypeFilter::Exact(t, _i)) => t.is_generic(),
-            Some(ASTTypeFilter::Lambda(_, rt)) => {
-                rt.as_ref().map(|it| it.is_generic()).unwrap_or(false)
-            }
+            Some(ASTTypeFilter::Lambda(_, rt)) => rt
+                .as_ref()
+                .map(|it| it.is_generic_or_any())
+                .unwrap_or(false),
             _ => false,
         }
     }
@@ -388,6 +390,16 @@ impl ASTTypeChecker {
         modules_container: &ASTModulesContainer,
         function: Option<&ASTFunctionDef>,
     ) -> Option<ASTTypeCheckEntry> {
+        if body.is_empty() {
+            return Some(ASTTypeCheckEntry {
+                index: ASTIndex::none(),
+                filter: Some(ASTTypeFilter::Exact(
+                    ASTType::ASTUnitType,
+                    ModuleInfo::global(),
+                )),
+                info: ASTTypeCheckInfo::Lambda, // TODO
+            });
+        }
         let mut return_type = None;
         let inner_val_context = &mut ValContext::new(Some(val_context));
 
@@ -996,7 +1008,7 @@ impl ASTTypeChecker {
             if self.result.get_by_index(&e_index).is_none() {
                 // it's almost impossible to determine the right type of lambda without knowing the expected type,
                 // here we are calculating only the types for filtering the functions,
-                // we hope that knowing only that it's a lambda, eventually the return type and the number of parameters is sufficient
+                // we hope that knowing only that it's a lambda, eventually the return type and the number of parameters is enough
 
                 if let ASTExpression::ASTLambdaExpression(def) = e {
                     let mut lambda_val_context = ValContext::new(Some(&val_context));
@@ -1125,13 +1137,19 @@ impl ASTTypeChecker {
             return;
         }
 
-        let mut functions = modules_container.find_call_vec(
-            call.function_name(),
-            call.target(),
-            &parameter_types_filters,
-            expected_expression_type,
-            module_namespace,
-        );
+        let mut functions = modules_container
+            .find_call_vec(
+                call.function_name(),
+                call.target(),
+                &parameter_types_filters,
+                expected_expression_type,
+                module_namespace,
+            )
+            .into_iter()
+            .filter(|it| {
+                !call.is_macro() || get_macro_result_type(&it.signature.return_type).is_some()
+            })
+            .collect::<Vec<_>>();
 
         if functions.is_empty() {
             self.errors.push(ASTTypeCheckError::new(
@@ -1204,6 +1222,7 @@ impl ASTTypeChecker {
                                     )
                                 })
                                 .collect(),
+                            call.is_macro(),
                         ),
                     ),
                 );
@@ -1419,6 +1438,7 @@ impl ASTTypeChecker {
                     ASTTypeCheckInfo::Call(
                         call.function_name().clone(),
                         vec![(function_signature.clone(), call_index.clone())],
+                        call.is_macro(),
                     ),
                 ),
             );
@@ -1508,7 +1528,8 @@ mod tests {
         str::FromStr,
     };
 
-    use rasm_utils::{test_utils::init_minimal_log, OptionDisplay, SliceDisplay};
+    use itertools::Itertools;
+    use rasm_utils::{OptionDisplay, SliceDisplay, test_utils::init_minimal_log};
 
     use crate::{
         ast::ast_module_tree::{ASTElement, ASTModuleTree},
@@ -2025,20 +2046,49 @@ mod tests {
         .unwrap();
 
         if let Some(entry) = tc.result.get(id) {
-            if let ASTTypeCheckInfo::Call(_, vec) = &entry.info {
+            if let ASTTypeCheckInfo::Call(_, vec, _) = &entry.info {
                 let mut v = vec.iter().map(|it| format!("{}", it.0)).collect::<Vec<_>>();
                 v.sort();
                 assert_eq!(
                     "print(Compare), print<stdlib_iter_print:T>(Iter<stdlib_iter_print:T>), print<stdlib_list_print:T>(List<stdlib_list_print:T>), print<stdlib_print_print:T>(stdlib_print_print:T)",
-                    format!(
-                        "{}",
-                        SliceDisplay(&v)
-                    )
+                    format!("{}", SliceDisplay(&v))
                 );
                 return;
             }
         }
         panic!()
+    }
+
+    #[test]
+    fn test_type_check_3() {
+        init_minimal_log();
+
+        let (tc, _, _, _) = check_project_with_run_type(
+            "../rasm/resources/test/type_check/type_check_3.rasm",
+            &RasmProjectRunType::Main,
+        );
+
+        let entries = tc
+            .result
+            .map
+            .values()
+            .filter(|it| {
+                it.index().module_namespace().0.contains("type_check_3")
+                    && (it.index().position().row == 2 || it.index().position().row == 5)
+            })
+            .collect_vec();
+
+        if entries.len() != 2 {
+            panic!();
+        }
+
+        entries.into_iter().for_each(|entry| {
+            if let ASTTypeCheckInfo::Call(_, vec, _) = &entry.info {
+               if vec.len() != 1 {
+                   panic!();
+               }
+            }
+        });
     }
 
     fn get_type_check_entry<'a>(
@@ -2133,12 +2183,23 @@ mod tests {
         ValContext,
         ASTModulesContainer,
     ) {
+        check_project_with_run_type(path, &RasmProjectRunType::Main)
+    }
+
+    fn check_project_with_run_type(
+        path: &str,
+        run_type: &RasmProjectRunType,
+    ) -> (
+        ASTTypeChecker,
+        impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        ValContext,
+        ASTModulesContainer,
+    ) {
         let project = RasmProject::new(PathBuf::from(path));
 
         let target = CompileTarget::C(COptions::default());
 
-        let (container, catalog, _errors) =
-            project.container_and_catalog(&RasmProjectRunType::Main, &target);
+        let (container, catalog, _errors) = project.container_and_catalog(run_type, &target);
 
         let mut statics = &mut Statics::new();
 

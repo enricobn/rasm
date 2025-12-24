@@ -3,7 +3,7 @@ use std::iter::zip;
 use std::ops::Deref;
 
 use linked_hash_map::LinkedHashMap;
-use rasm_utils::{debug_i, dedent, indent, OptionDisplay, SliceDisplay};
+use rasm_utils::{OptionDisplay, SliceDisplay, debug_i, dedent, indent};
 
 use crate::codegen::enh_ast::{
     EnhASTFunctionBody, EnhASTFunctionCall, EnhASTFunctionDef, EnhASTIndex, EnhASTType,
@@ -130,11 +130,7 @@ impl EnhFunctionsContainer {
         let found = self.functions_by_name.get(name);
 
         if let Some(f) = found {
-            if f.len() > 1 {
-                None
-            } else {
-                f.first()
-            }
+            if f.len() > 1 { None } else { f.first() }
         } else {
             None
         }
@@ -143,11 +139,7 @@ impl EnhFunctionsContainer {
     pub fn count_by_original_name(&self, name: &str) -> usize {
         let found = self.functions_by_name.get(name);
 
-        if let Some(f) = found {
-            f.len()
-        } else {
-            0
-        }
+        if let Some(f) = found { f.len() } else { 0 }
     }
 
     pub fn find_functions_by_original_name(&self, name: &str) -> &[EnhASTFunctionDef] {
@@ -507,7 +499,9 @@ impl EnhFunctionsContainer {
         return_type: bool,
         enhanced_astmodule: &EnhancedASTModule,
     ) -> Result<bool, EnhTypeCheckError> {
-        debug_i!("almost_same_type {parameter_type} filter {parameter_type_filter} return_type: {return_type}");
+        debug_i!(
+            "almost_same_type {parameter_type} filter {parameter_type_filter} return_type: {return_type}"
+        );
         indent!();
         let result: bool = match parameter_type_filter {
             EnhTypeFilter::Any => Ok::<bool, EnhTypeCheckError>(true),
@@ -943,6 +937,7 @@ mod tests {
             index: EnhASTIndex::none(),
             generics: Vec::new(),
             target: None,
+            is_macro: false,
         };
 
         let mut statics = Statics::new();
@@ -980,9 +975,11 @@ mod tests {
 
         assert!(functions_container.find_function("aFun_0").is_some());
         assert!(functions_container.find_function("newFun_0").is_some());
-        assert!(functions_container
-            .find_function("anotherNewFun_0")
-            .is_some());
+        assert!(
+            functions_container
+                .find_function("anotherNewFun_0")
+                .is_some()
+        );
 
         assert_eq!(
             functions_container

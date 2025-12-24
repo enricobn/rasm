@@ -1,6 +1,6 @@
-use crate::lexer::tokens::{PunctuationKind, TokenKind};
+use crate::lexer::tokens::{KeywordKind, PunctuationKind, TokenKind};
 
-use super::{ast::ASTStructPropertyDef, type_parser::TypeParser, ParserError, ParserTrait};
+use super::{ParserError, ParserTrait, ast::ASTStructPropertyDef, type_parser::TypeParser};
 
 enum PropertyStatus {
     Name,
@@ -83,6 +83,7 @@ pub fn parse_property(
         name: String::new(),
         ast_type: super::ast::ASTType::ASTUnitType,
         position: parser.get_position(n),
+        private: false,
     };
 
     loop {
@@ -100,6 +101,9 @@ pub fn parse_property(
                     property_def.position = token.position.clone();
                     new_n += 1;
                     status = PropertyStatus::Colon
+                } else if let TokenKind::KeyWord(KeywordKind::Private) = token.kind {
+                    property_def.private = true;
+                    new_n += 1;
                 } else {
                     errors.push(parser.error(
                         new_n,

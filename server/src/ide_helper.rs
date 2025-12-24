@@ -18,11 +18,11 @@ use rasm_core::type_check::ast_type_checker::{
 };
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::lexer::Lexer;
+use rasm_parser::parser::Parser;
 use rasm_parser::parser::ast::{
     ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionDef,
     ASTModifiers, ASTModule, ASTParameterDef, ASTPosition, ASTStatement, ASTType, CustomTypeDef,
 };
-use rasm_parser::parser::Parser;
 use rasm_utils::OptionDisplay;
 
 use crate::ast_tree::{ASTElement, ASTTree};
@@ -362,7 +362,7 @@ impl IDEHelper {
             });
 
             let selectable_item = match entry.info() {
-                ASTTypeCheckInfo::Call(name, function_signatures) => {
+                ASTTypeCheckInfo::Call(name, function_signatures, _) => {
                     let target = if function_signatures.len() == 1 {
                         let (function_signature, function_index) =
                             function_signatures.first().unwrap();
@@ -674,7 +674,7 @@ impl IDEHelper {
             CompletionTrigger::IncompleteCompletion => {
                 return Ok(CompletionResult::NotFound(
                     "Incomplete completion is not supported.".to_string(),
-                ))
+                ));
             }
         };
 
@@ -1563,17 +1563,17 @@ mod tests {
     use rasm_core::type_check::ast_modules_container::ASTModulesContainer;
     use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
     use rasm_parser::lexer::Lexer;
+    use rasm_parser::parser::Parser;
     use rasm_parser::parser::ast::{
         ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTFunctionSignature, ASTPosition, ASTType,
     };
-    use rasm_parser::parser::Parser;
     use rasm_utils::test_utils::{init_minimal_log, read_chunk};
-    use rasm_utils::{reset_indent, OptionDisplay};
+    use rasm_utils::{OptionDisplay, reset_indent};
 
     use crate::completion_service::{CompletionResult, CompletionTrigger};
 
     use super::{
-        get_ide_helper_from_project, IDEHelper, IDESelectableItem, IDESelectableItemTarget,
+        IDEHelper, IDESelectableItem, IDESelectableItemTarget, get_ide_helper_from_project,
     };
 
     #[test]
@@ -2706,7 +2706,8 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
                 let mut result = result.changes().clone().remove(&info.module_id()).unwrap();
                 let edit = result.remove(0);
                 assert_eq!(
-                    "\n\nfn newFunction<T,T1,T2>(vec2: Vec<T2>, zipFunction: fn (T1,T2) -> T, v1: T1) -> T {\nmap(vec2, fn(v2) {zipFunction(v1, v2); });\n}", edit.text
+                    "\n\nfn newFunction<T,T1,T2>(vec2: Vec<T2>, zipFunction: fn (T1,T2) -> T, v1: T1) -> T {\nmap(vec2, fn(v2) {zipFunction(v1, v2); });\n}",
+                    edit.text
                 );
                 let edit = result.remove(0);
                 assert_eq!("newFunction(vec2, zipFunction, v1)", edit.text);

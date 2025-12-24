@@ -915,7 +915,7 @@ impl<'a> EnhTypeCheck<'a> {
 
         if let Some(e) = self.get_type_check_entry(&call.index) {
             // println!("optimized call {}: {call} -> {e}", call.index);
-            if let ASTTypeCheckInfo::Call(_, vec) = e.info() {
+            if let ASTTypeCheckInfo::Call(_, vec, _) = e.info() {
                 if vec.len() == 1 {
                     let (f, index) = vec.first().unwrap();
 
@@ -943,6 +943,7 @@ impl<'a> EnhTypeCheck<'a> {
                 .filter(|it| {
                     (it.modifiers.public || &it.namespace == namespace)
                         && it.parameters.len() == call.parameters.len()
+                        && (!call.is_macro || it.can_be_a_macro())
                 })
                 .filter(|it| {
                     if let Some(ref ft) = first_type {
@@ -1922,7 +1923,7 @@ impl<'a> EnhTypeCheck<'a> {
         if let Some(enh_index) = typed_expression.get_index() {
             if let Some(t) = self.get_type_check_entry(enh_index) {
                 if let Some(f) = t.filter() {
-                    if !f.is_generic() {
+                    if !f.is_generic_or_any() {
                         /*
                         println!(
                             "optimized {f} -> {enh_index} {}",

@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use log::info;
 use rasm_parser::{
-    catalog::{modules_catalog::ModulesCatalog, ASTIndex, ModuleId, ModuleNamespace},
+    catalog::{ASTIndex, ModuleId, ModuleNamespace, modules_catalog::ModulesCatalog},
     parser::ast::{
         ASTBuiltinTypeKind, ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall,
         ASTFunctionSignature, ASTModifiers, ASTPosition, ASTStatement, ASTStructDef, ASTType,
@@ -820,7 +820,7 @@ impl Display for MacroResultType {
     }
 }
 
-fn get_macro_result_type(ast_type: &ASTType) -> Option<MacroResultType> {
+pub fn get_macro_result_type(ast_type: &ASTType) -> Option<MacroResultType> {
     match ast_type {
         ASTType::ASTCustomType {
             name,

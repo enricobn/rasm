@@ -1,0 +1,13 @@
+Ok<int,str>(10)
+.printResult();
+
+Error<int,str>("an error")
+.printResult();
+
+fn printResult<T,E>(result: Result<T,E>) {
+    result.match(fn(i) {
+        println("Value: ", i);
+    }, fn(error) {
+        println("Error: ", error);
+    });
+}
