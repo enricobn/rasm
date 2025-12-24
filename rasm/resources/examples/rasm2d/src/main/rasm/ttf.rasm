@@ -23,10 +23,10 @@ pub fn openFont(ttf: Rasm2DTTF, file: str, size: int, handler: fn(Rasm2DFont) ->
     });
 }
 
-pub fn renderText(ren: Rasm2DRenderer, font: Rasm2DFont, text: str, color: RGBAColor, x: int, y: int) {
+pub fn renderText(graphics: Rasm2DGraphics, font: Rasm2DFont, text: str, color: RGBAColor, x: int, y: int) {
     let surface = sdlRenderTextSolid(font.font, text, SDLColor(color.r, color.g, color.b, color.a));
-    let texture = sdlCreateTextureFromSurface(ren.sdlRenderer, surface);
-    sdlRenderCopy(ren.sdlRenderer, texture, SDLRect(x, y, surface.w, surface.h));
+    let texture = sdlCreateTextureFromSurface(graphics.sdlRenderer, surface);
+    sdlRenderCopy(graphics.sdlRenderer, texture, SDLRect(x, y, surface.w, surface.h));
     sdlDestroyTexture(texture);
     sdlFreeSurface(surface);
 }

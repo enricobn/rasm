@@ -20,6 +20,10 @@ pub struct Rasm2DWindow {
     private win: SDLWindow
 }
 
+pub struct Rasm2DGraphics {
+    private rend: SDLRenderer
+}
+
 pub fn initRasm2D(handler: fn(Rasm2D) -> ()) {
     Rasm2D().match(fn(rasm2d) {
         handler(rasm2d);
@@ -46,8 +50,8 @@ pub fn createRenderer(window: Rasm2DWindow, handler: fn(Rasm2DRenderer) -> ()) {
     renderer.close();
 }
 
-pub fn present(rend: Rasm2DRenderer) {
-    sdlRenderPresent(rend.rend);
+fn present(graphics: Rasm2DGraphics) {
+    sdlRenderPresent(graphics.rend);
 }
 
 fn createWindow(rasm2D: Rasm2D, title: str, x: int, y: int, width: int, height: int) -> Rasm2DWindow {
@@ -64,6 +68,12 @@ fn createRenderer(window: Rasm2DWindow) -> Rasm2DRenderer {
 
 fn close(rend: Rasm2DRenderer) {
     sdlDestroyRenderer(rend.rend);
+}
+
+pub fn createGraphics(rend: Rasm2DRenderer, handler: fn(Rasm2DGraphics) -> ()) {
+    let graphics = Rasm2DGraphics(rend.rend);
+    handler(graphics);
+    graphics.present();
 }
 
 // Events

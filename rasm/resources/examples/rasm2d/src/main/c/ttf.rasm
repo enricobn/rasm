@@ -17,3 +17,7 @@ fn close(ttf: Rasm2DTTF) {
 native sdlRenderer(rend: Rasm2DRenderer) -> SDLRenderer /{
     return $castAddress($rend)->rend;
 }/
+
+native sdlRenderer(graphics: Rasm2DGraphics) -> SDLRenderer /{
+    return $castAddress($graphics)->rend;
+}/

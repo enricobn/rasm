@@ -8,9 +8,11 @@ fn render(rend: Rasm2DRenderer) {
     initRasm2DTTF(
         fn(ttf) {  
             ttf.openFont(testResource("DejaVuSerif.ttf"), 20, fn(font) {
-                renderText(rend, font, "Hello world", RGBAColor(255, 0, 0, 355), 300, 250);
-
-                rend.present();
+                rend.createGraphics(
+                    fn(graphics) {  
+                        graphics.renderText(font, "Hello world", RGBAColor(255, 0, 0, 355), 300, 250);
+                    }
+                );
                 sdlDelay(2000);
             });
         });
