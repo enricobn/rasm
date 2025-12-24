@@ -6,6 +6,10 @@ pub native ttfInit() -> int /{
     return TTF_Init();
 }/
 
+pub native ttfQuit() /{
+    TTF_Quit();
+}/
+
 pub native ttfOpenFont(file: str, size: int) -> Result<TTFFont,str> /{
     TTF_Font* font = TTF_OpenFont(file->address, size);
     if (font != 0) {
@@ -14,6 +18,10 @@ pub native ttfOpenFont(file: str, size: int) -> Result<TTFFont,str> /{
         struct RasmPointer_* error = $call(sdlGetError);
         return $call(Error<TTFFont,str>, error: str);
     }
+}/
+
+pub native ttfCloseFont(font: TTFFont) /{
+    TTF_CloseFont(font);
 }/
 
 pub native sdlRenderTextSolid(font: TTFFont, message: str, c: SDLColor) -> SDLSurface /{

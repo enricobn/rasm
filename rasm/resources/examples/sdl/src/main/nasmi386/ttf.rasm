@@ -4,10 +4,18 @@ pub native ttfInit() -> int /{
     $ccall(TTF_Init)
 }/
 
+pub native ttfQuit() /{
+    $ccall(TTF_Quit)
+}/
+
 pub native ttfOpenFont(file: str, size: int) -> Result<TTFFont,str> /{
     $ccall(TTF_OpenFont, $file, $size)
     ; TODO error check
     $call(Ok<TTFFont,str>, eax: TTFFont)
+}/
+
+pub native ttfCloseFont(font: TTFFont) /{
+    $ccall(TTF_CloseFont, $font)
 }/
 
 pub native sdlRenderTextSolid(font: TTFFont, message: str, color: SDLColor) -> SDLSurface /{

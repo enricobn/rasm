@@ -74,12 +74,14 @@ let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 24)
 
     run(ren, initialState, update, render, subscriptions);
 
+    ttfCloseFont(font);
     ren.sdlDestroyRenderer();
     win.sdlDestroyWindow();
 }, fn(error) {
     println("Error opening font: ", error);
 });
 
+ttfQuit();
 sdlQuit();
 
 // TODO keys are not as expected, space is 44 but should be 32!

@@ -64,9 +64,13 @@ let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 16)
     let ren = sdlCreateRenderer(win);
 
     run(ren, initialModel, update, render, subscriptions);
+    
+    ttfCloseFont(font);
 }, fn(error) {
     println("Error opening font: ", error);
 });
+
+ttfQuit();
 sdlQuit();
 
 fn update(message: Message, model: Model) -> Model {
