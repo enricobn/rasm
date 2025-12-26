@@ -1,26 +1,19 @@
+pub fn openFont(graphics: Rasm2DRenderer, file: str, size: int, handler: fn(Rasm2DFont) -> ()) {
+    openFont(file, size)
+    .match(
+        fn(font) {  
+            handler(font);
+            font.close();
+        }, 
+        fn(error) {  
+            println("Error opening font: ", error);
+        });
+}
+
+// SDL implementation
+
 pub struct Rasm2DFont {
     private font: TTFFont
-}
-
-pub fn initRasm2DTTF(handler: fn(Rasm2DTTF) -> ()) {
-    Rasm2DTTF().match(fn(rasm2dttf) {
-        handler(rasm2dttf);
-        rasm2dttf.close();
-    }, fn(error) {
-        println(error);
-        exitMain(1);
-    });
-}
-
-pub fn openFont(ttf: Rasm2DTTF, file: str, size: int, handler: fn(Rasm2DFont) -> ()) {
-    ttfOpenFont(file, size)
-    .match(fn(font) {
-        handler(Rasm2DFont(font));
-    }, fn(error) {
-        ttfQuit();
-        println(error);
-        exitMain(1);
-    });
 }
 
 pub fn renderText(graphics: Rasm2DGraphics, font: Rasm2DFont, text: str, color: RGBAColor, x: int, y: int) {
@@ -29,4 +22,15 @@ pub fn renderText(graphics: Rasm2DGraphics, font: Rasm2DFont, text: str, color: 
     sdlRenderCopy(graphics.sdlRenderer, texture, SDLRect(x, y, surface.w, surface.h));
     sdlDestroyTexture(texture);
     sdlFreeSurface(surface);
+}
+
+fn openFont(file: str, size: int)-> Result<Rasm2DFont,str> {
+    ttfOpenFont(file, size)
+    .map(fn(font) {
+        Rasm2DFont(font);
+    });
+}
+
+fn close(font: Rasm2DFont) {
+    ttfCloseFont(font.font);
 }

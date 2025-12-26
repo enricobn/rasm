@@ -1,11 +1,30 @@
-pub type Rasm2D /{ hasReferences = false, nativeType = char }/
+struct Rasm2DWindow {
+    private win: SDLWindow
+}
 
-native Rasm2D() -> Result<Rasm2D,str> /{
+fn rasm2DInit() -> Option<str> /{
     int error = $call(sdlInit);
-    if (error == 0) {
-        $call(Ok<Rasm2D,str>, 0: Rasm2D);
-    } else {
+    if (error != 0) {
         struct RasmPointer_* error = $call(sdlGetError);
-        $call(Error<Rasm2D,str>, error: str);
+        return $call(Some, error: str);
     }
+    error = $call(ttfInit);
+    if (error != 0) {
+        struct RasmPointer_* error = $call(sdlGetError);
+        return $call(Some, error: str);
+    }
+    return $enumSimple(None);
 }/
+
+fn rasm2dQuit() {
+    ttfQuit();
+    sdlQuit();
+}
+
+fn Rasm2DWindow(title: str, x: int, y: int, width: int, height: int) -> Rasm2DWindow {
+    Rasm2DWindow(sdlCreateWindow(title, x, y, width, height));
+}
+
+fn close(window: Rasm2DWindow) {
+    sdlDestroyWindow(window.win);
+}
