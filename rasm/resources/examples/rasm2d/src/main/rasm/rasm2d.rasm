@@ -24,6 +24,14 @@ pub struct Rasm2DGraphics {
     private rend: SDLRenderer
 }
 
+pub struct Rasm2DApplication {
+    title: str,
+    x: int,
+    y: int,
+    width: int,
+    height: int
+}
+
 pub fn initRasm2D(handler: fn(Rasm2D) -> ()) {
     Rasm2D().match(fn(rasm2d) {
         handler(rasm2d);
@@ -74,6 +82,24 @@ pub fn createGraphics(rend: Rasm2DRenderer, handler: fn(Rasm2DGraphics) -> ()) {
     let graphics = Rasm2DGraphics(rend.rend);
     handler(graphics);
     graphics.present();
+}
+
+
+pub fn Rasm2DApplication() -> Rasm2DApplication {
+    Rasm2DApplication("Rasm2D", 0, 0, 800, 600);
+}
+
+pub fn run(app: Rasm2DApplication, handler: fn(Rasm2DRenderer, Rasm2DTTF) -> ()) {
+    initRasm2D(fn(rasm2d) {
+        initRasm2DTTF(
+            fn(ttf) { 
+                rasm2d.createWindow(app.title, app.x, app.y, app.width, app.height, fn(window) {
+                    window.createRenderer(fn(rend) {
+                        handler(rend, ttf);
+                    });
+                });
+        });
+    }); 
 }
 
 // Events

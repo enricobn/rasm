@@ -1,19 +1,23 @@
-initRasm2D(fn(rasm2d) {
-    rasm2d.createWindow("Hello world", 100, 100, 800, 600, fn(window) {
-        window.createRenderer(render);
-    });
-});
+Rasm2DApplication()
+.run(render);
 
-fn render(rend: Rasm2DRenderer) {
-    initRasm2DTTF(
-        fn(ttf) {  
-            ttf.openFont(testResource("DejaVuSerif.ttf"), 20, fn(font) {
-                rend.createGraphics(
-                    fn(graphics) {  
-                        graphics.renderText(font, "Hello world", RGBAColor(255, 0, 0, 355), 300, 250);
-                    }
-                );
-                sdlDelay(2000);
-            });
+fn render(rend: Rasm2DRenderer, ttf: Rasm2DTTF) {
+    ttf.openFont(testResource("DejaVuSerif.ttf"), 20, fn(font) {
+        rend.createGraphics(
+            fn(graphics) {  
+                graphics.renderText(font, "Hello world", RGBAColor(255, 0, 0, 355), 300, 250);
+            }
+        );
+        sdlDelay(2000);
+    });
+}
+
+pub fn loop(title: str, x: int, y: int, width: int, height: int, handler: fn(Rasm2DGraphics) -> ()) {
+   initRasm2D(fn(rasm2d) {
+    rasm2d.createWindow(title, x, y, width, height, fn(window) {
+        window.createRenderer(fn(rend) {
+            rend.createGraphics(handler);
         });
+    });
+}); 
 }
