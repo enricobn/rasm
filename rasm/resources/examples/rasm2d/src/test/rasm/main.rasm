@@ -1,4 +1,6 @@
 Rasm2DApplication()
+.width(1024)
+.height(768)
 .run(main);
 
 fn main(rend: Rasm2DRenderer) {

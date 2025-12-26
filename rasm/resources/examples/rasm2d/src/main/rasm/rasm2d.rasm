@@ -63,6 +63,23 @@ pub struct Rasm2DGraphics {
     private rend: SDLRenderer
 }
 
+struct Rasm2DWindow {
+    win: SDLWindow
+}
+
+fn rasm2dQuit() {
+    ttfQuit();
+    sdlQuit();
+}
+
+fn Rasm2DWindow(title: str, x: int, y: int, width: int, height: int) -> Rasm2DWindow {
+    Rasm2DWindow(sdlCreateWindow(title, x, y, width, height));
+}
+
+fn close(window: Rasm2DWindow) {
+    sdlDestroyWindow(window.win);
+}
+
 pub fn clear(graphics: Rasm2DGraphics) {
     sdlRenderClear(graphics.rend);
 }
