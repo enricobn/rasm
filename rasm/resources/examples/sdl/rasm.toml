@@ -29,9 +29,11 @@ externals = [
     "SDL_RWFromFile",
     "SDL_SetRenderDrawColor",
     "SDL_Quit",
+    "TTF_CloseFont",
     "TTF_Init",
     "TTF_OpenFont",
-    "TTF_RenderText_Solid"]
+    "TTF_RenderText_Solid",
+    "TTF_Quit"]
 
 [targets.c]
 requires = ["SDL2", "SDL2_ttf", "SDL2_image"]

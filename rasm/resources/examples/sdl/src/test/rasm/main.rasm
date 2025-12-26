@@ -1,0 +1,34 @@
+if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())); }, { });
+if(ttfInit().eq(0).not, { panic("Error initializing SDL TTF: ".add(sdlGetError())); }, { });
+
+let win = sdlCreateWindow("Test", 100, 100, 1024, 768);
+let ren = sdlCreateRenderer(win);
+
+sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
+sdlRenderClear(ren);
+
+ttfOpenFont(testResource("DejaVuSerif.ttf"), 20)
+.match(fn(font) {
+    let color = SDLColor(255, 0, 0, 255);
+
+    renderText(ren, font, "Hello world", color, 100, 100);
+
+    sdlRenderPresent(ren);
+    sdlDelay(1000);
+    ttfCloseFont(font);
+}, fn(error) {
+    println("Error opening font: ", error);
+});
+sdlDestroyRenderer(ren);
+sdlDestroyWindow(win);
+ttfQuit();
+sdlQuit();
+
+pub fn renderText(ren: SDLRenderer, font: TTFFont, text: str, color: SDLColor, x: int, y: int) {
+    let surface = sdlRenderTextSolid(font, text, color);
+    let texture = sdlCreateTextureFromSurface(ren, surface);
+    sdlRenderCopy(ren, texture, SDLRect(x, y, surface.w, surface.h));
+    sdlDestroyTexture(texture);
+    sdlFreeSurface(surface);
+}
+
