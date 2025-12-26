@@ -63,6 +63,18 @@ pub struct Rasm2DGraphics {
     private rend: SDLRenderer
 }
 
+pub fn clear(graphics: Rasm2DGraphics) {
+    sdlRenderClear(graphics.rend);
+}
+
+pub fn setColor(graphics: Rasm2DGraphics, color: RGBAColor) {
+    sdlSetRenderDrawColor(graphics.rend, color.r, color.g, color.b, color.a);
+}
+
+pub fn fillRect(graphics: Rasm2DGraphics, rect: Rect2D) {
+    sdlRenderFillRect(graphics.rend, SDLRect(rect.x, rect.y, rect.w, rect.h));
+}
+
 fn present(graphics: Rasm2DGraphics) {
     sdlRenderPresent(graphics.rend);
 }

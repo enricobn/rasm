@@ -4,8 +4,12 @@ Rasm2DApplication()
 fn main(rend: Rasm2DRenderer) {
     rend.openFont(testResource("DejaVuSerif.ttf"), 20, fn(font) {
         rend.render(
-            fn(graphics) {  
+            fn(graphics) {
+                graphics.setColor(RGBAColor(0, 0, 255, 255));
+                graphics.clear();
                 graphics.renderText(font, "Hello world", RGBAColor(255, 0, 0, 355), 300, 250);
+                graphics.setColor(RGBAColor(0, 255, 0, 255));
+                graphics.fillRect(Rect2D(300, 400, 10, 10));
             });
     });
     sdlDelay(2000);
