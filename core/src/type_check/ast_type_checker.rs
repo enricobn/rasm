@@ -1540,7 +1540,8 @@ mod tests {
             statics::Statics,
             val_context::ValContext,
         },
-        project::{RasmProject, RasmProjectRunType},
+        commandline::RasmProfile,
+        project::RasmProject,
         test_utils::project_and_container,
         transformations::enrich_container,
         type_check::{
@@ -1563,15 +1564,15 @@ mod tests {
         let project = RasmProject::new(PathBuf::from("../rasm/resources/examples/breakout"));
 
         let target = CompileTarget::C(COptions::default());
+        let profile = RasmProfile::Main;
 
-        let (container, _catalog, _errors) =
-            project.container_and_catalog(&RasmProjectRunType::Main, &target);
+        let (container, _catalog, _errors) = project.container_and_catalog(&profile, &target);
 
         let mut statics = ValContext::new(None);
 
         let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
 
-        let (module, _errors, info) = project.get_module(path, &target).unwrap();
+        let (module, _errors, info) = project.get_module(path, &target, &profile, true).unwrap();
 
         let mut function_type_checker = ASTTypeChecker::new();
 
@@ -1879,7 +1880,7 @@ mod tests {
         let target = CompileTarget::C(COptions::default());
 
         let (container, catalog, _errors) =
-            project.container_and_catalog(&RasmProjectRunType::Main, &target);
+            project.container_and_catalog(&RasmProfile::Main, &target);
 
         let container = enrich_container(
             &target,
@@ -1970,7 +1971,7 @@ mod tests {
         let target = CompileTarget::C(COptions::default());
 
         let (container, catalog, _errors) =
-            project.container_and_catalog(&RasmProjectRunType::Main, &target);
+            project.container_and_catalog(&RasmProfile::Main, &target);
 
         let container = enrich_container(
             &target,
@@ -2063,9 +2064,9 @@ mod tests {
     fn test_type_check_3() {
         init_minimal_log();
 
-        let (tc, _, _, _) = check_project_with_run_type(
+        let (tc, _, _, _) = check_project_with_profile(
             "../rasm/resources/test/type_check/type_check_3.rasm",
-            &RasmProjectRunType::Main,
+            &RasmProfile::Main,
         );
 
         let entries = tc
@@ -2084,9 +2085,9 @@ mod tests {
 
         entries.into_iter().for_each(|entry| {
             if let ASTTypeCheckInfo::Call(_, vec, _) = &entry.info {
-               if vec.len() != 1 {
-                   panic!();
-               }
+                if vec.len() != 1 {
+                    panic!();
+                }
             }
         });
     }
@@ -2183,12 +2184,12 @@ mod tests {
         ValContext,
         ASTModulesContainer,
     ) {
-        check_project_with_run_type(path, &RasmProjectRunType::Main)
+        check_project_with_profile(path, &RasmProfile::Main)
     }
 
-    fn check_project_with_run_type(
+    fn check_project_with_profile(
         path: &str,
-        run_type: &RasmProjectRunType,
+        profile: &RasmProfile,
     ) -> (
         ASTTypeChecker,
         impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
@@ -2199,7 +2200,7 @@ mod tests {
 
         let target = CompileTarget::C(COptions::default());
 
-        let (container, catalog, _errors) = project.container_and_catalog(run_type, &target);
+        let (container, catalog, _errors) = project.container_and_catalog(profile, &target);
 
         let mut statics = &mut Statics::new();
 
@@ -2289,7 +2290,9 @@ mod tests {
         let (project, modules_container) = project_and_container(&target, &project_path);
         let function_type_checker = ASTTypeChecker::new();
 
-        let (module, _, info) = project.get_module(Path::new(file), &target).unwrap();
+        let (module, _, info) = project
+            .get_module(Path::new(file), &target, &RasmProfile::Main, true)
+            .unwrap();
 
         (
             f(

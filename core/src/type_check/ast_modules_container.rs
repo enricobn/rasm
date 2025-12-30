@@ -841,7 +841,8 @@ mod tests {
 
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
-        project::{RasmProject, RasmProjectRunType},
+        commandline::RasmProfile,
+        project::RasmProject,
         transformations::enrich_container,
         type_check::ast_modules_container::ModuleNamespace,
     };
@@ -905,7 +906,7 @@ mod tests {
         let target = CompileTarget::C(COptions::default());
 
         let (container, catalog, _errors) =
-            project.container_and_catalog(&RasmProjectRunType::Main, &target);
+            project.container_and_catalog(&RasmProfile::Main, &target);
 
         enrich_container(
             &target,

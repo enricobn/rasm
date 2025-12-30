@@ -24,14 +24,16 @@ use std::sync::Arc;
 
 use axum::extract::{Query, State};
 use axum::response::Html;
-use axum::{routing::get, Router};
+use axum::{Router, routing::get};
 use log::info;
-use rasm_core::codegen::asm::code_gen_asm::AsmOptions;
+
+use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::enh_ast::EnhASTIndex;
 use rasm_core::codegen::statics::Statics;
+use rasm_core::commandline::RasmProfile;
 use rasm_core::transformations::enrich_container;
-use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::ASTIndex;
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
@@ -39,9 +41,9 @@ use crate::ide_helper::IDEHelper;
 
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::enh_type_check::enh_type_check_error::EnhTypeCheckError;
-use rasm_core::project::{RasmProject, RasmProjectRunType};
-use rasm_parser::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
+use rasm_core::project::RasmProject;
 use rasm_parser::lexer::Lexer;
+use rasm_parser::lexer::tokens::{BracketKind, BracketStatus, PunctuationKind, Token, TokenKind};
 
 pub fn rasm_server(project: RasmProject) {
     //init_log();
@@ -87,11 +89,17 @@ struct FileQueryParams {
 
 struct ServerState {
     project: RasmProject,
+    target: CompileTarget,
+    profile: RasmProfile,
 }
 
 impl ServerState {
     fn new(project: RasmProject) -> Result<Self, EnhTypeCheckError> {
-        Ok(Self { project })
+        Ok(Self {
+            project,
+            target: CompileTarget::C(COptions::default()),
+            profile: RasmProfile::Main,
+        })
     }
 }
 
@@ -104,8 +112,9 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
 
     let root_file = project
         .relative_to_main_rasm_source_folder(
+            &state.profile,
             project
-                .main_src_file()
+                .main_src_file(&state.profile)
                 .expect("undefined main in rasm.toml")
                 .as_path(),
         )
@@ -123,14 +132,14 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
 
     let mut paths: Vec<PathBuf> = Vec::new();
 
-    for entry in WalkDir::new(&project.main_rasm_source_folder())
+    for entry in WalkDir::new(&project.rasm_source_folder(&state.profile))
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| !e.file_type().is_dir() && e.file_name().to_str().unwrap().ends_with(".rasm"))
     {
         let f_name = entry.into_path();
         let file = project
-            .relative_to_main_rasm_source_folder(f_name.as_path())
+            .relative_to_main_rasm_source_folder(&state.profile, f_name.as_path())
             .unwrap();
         paths.push(file);
     }
@@ -164,20 +173,20 @@ async fn file<'a>(
     info!("start rendering {}", src);
 
     let project = &state.project;
+    let profile = &state.profile;
+    let target = &state.target;
 
     let file_path = project
-        .from_relative_to_main_src(Path::new(&src))
+        .from_relative_to_main_src(profile, Path::new(&src))
         .canonicalize()
         .unwrap();
 
-    let target = CompileTarget::Nasmi386(AsmOptions::default());
-
     let (_module, _errors, info) = &state
         .project
-        .get_module(file_path.as_path(), &target)
+        .get_module(file_path.as_path(), target, profile, true)
         .unwrap();
 
-    let (container, catalog, _) = project.container_and_catalog(&RasmProjectRunType::Main, &target);
+    let (container, catalog, _) = project.container_and_catalog(&profile, &target);
 
     let container = enrich_container(
         &target,
@@ -240,7 +249,10 @@ async fn file<'a>(
                     let ref_name = format!(
                         "/file?src={}#_{}_{}",
                         project
-                            .relative_to_main_rasm_source_folder(file_name.as_path())
+                            .relative_to_main_rasm_source_folder(
+                                &state.profile,
+                                file_name.as_path()
+                            )
                             .unwrap_or_else(|| panic!("{:?}", file_name))
                             .to_str()
                             .unwrap(),

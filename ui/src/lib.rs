@@ -5,13 +5,14 @@ use std::{
 };
 
 use iced::{
+    Color, Element, Font, Padding, Task, Theme,
     widget::{
+        Button, Column,
         button::Style,
         pane_grid::{self, ResizeEvent},
-        scrollable::{scroll_to, AbsoluteOffset, Id},
-        text, Button, Column,
+        scrollable::{AbsoluteOffset, Id, scroll_to},
+        text,
     },
-    Color, Element, Font, Padding, Task, Theme,
 };
 
 use module_view::TEXT_SCROLLABLE_ID;
@@ -22,7 +23,8 @@ use rasm_core::{
         statics::Statics,
         val_context::ValContext,
     },
-    project::{RasmProject, RasmProjectRunType},
+    commandline::RasmProfile,
+    project::RasmProject,
     transformations::enrich_container,
     type_check::{
         ast_modules_container::ASTModulesContainer,
@@ -75,14 +77,12 @@ enum UIPane {
 }
 
 impl UI {
-    pub fn show(project: RasmProject, target: CompileTarget) -> iced::Result {
-        let run_type = if project.test_rasm_folder().is_some() {
-            RasmProjectRunType::Test
-        } else {
-            RasmProjectRunType::Main
-        };
-
-        let (container, catalog, _errors) = project.container_and_catalog(&run_type, &target);
+    pub fn show(
+        project: RasmProject,
+        target: CompileTarget,
+        profile: &RasmProfile,
+    ) -> iced::Result {
+        let (container, catalog, _errors) = project.container_and_catalog(profile, &target);
 
         let container = enrich_container(
             &target,
@@ -120,7 +120,7 @@ impl UI {
         let main = if let Some(main) = &project.config.package.main {
             Some(
                 project
-                    .from_relative_to_main_src(Path::new(&main))
+                    .from_relative_to_main_src(profile, Path::new(&main))
                     .canonicalize()
                     .unwrap()
                     .to_string_lossy()

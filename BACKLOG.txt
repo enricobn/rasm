@@ -1,5 +1,6 @@
 Doing
 ------
+- profiles
 
 Bug
 ----
@@ -24,6 +25,7 @@ Bug
 
 Road to language version 1.0.0 (not compiler)
 -----------------------------------------------
+- internal modifier
 - array type?
   
 Major
@@ -38,7 +40,6 @@ Major
 - rename EnhancedASTModule: it is the untyped container for all the modules in the project
 - move all asm code to backend
 - List library
-- SDL library
 - library from http (https)
 - library from git
 - Unit type: ()
@@ -68,6 +69,7 @@ Major
       - getters are private
 - optimize
   - can a recursive function's lambda space be reused?
+  - enums in C can be a union?
 - threads library
 - use Result in standard library
 - standardize compiler errors with source

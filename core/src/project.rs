@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 
 use crate::codegen::compile_target::{C, CompileTarget, NASMI386};
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
-use crate::commandline::CommandLineOptions;
+use crate::commandline::{CommandLineOptions, RasmProfile};
 use crate::pm::repository::{
     LocalPackageRepository, PackageManager, PackageManagerImpl, RepositoryAuthentication,
     VersionFilter,
@@ -68,13 +68,6 @@ pub struct RasmProject {
 #[folder = "../core/resources/corelib"]
 pub struct RasmCoreLibAssets;
 
-#[derive(PartialEq, Eq)]
-pub enum RasmProjectRunType {
-    Main,
-    Test,
-    All,
-}
-
 #[derive(Debug, Clone, Derivative)]
 #[derivative(PartialEq)]
 pub struct ResolvedDependency {
@@ -103,24 +96,6 @@ impl ResolvedDependency {
     }
 }
 
-impl RasmProjectRunType {
-    pub fn main(&self) -> bool {
-        match self {
-            RasmProjectRunType::Main => true,
-            RasmProjectRunType::Test => false,
-            RasmProjectRunType::All => true,
-        }
-    }
-
-    pub fn test(&self) -> bool {
-        match self {
-            RasmProjectRunType::Main => false,
-            RasmProjectRunType::Test => true,
-            RasmProjectRunType::All => true,
-        }
-    }
-}
-
 impl RasmProject {
     pub fn new(root: PathBuf) -> Self {
         Self {
@@ -136,21 +111,12 @@ impl RasmProject {
             .insert(path.canonicalize().unwrap(), source);
     }
 
-    pub fn main_src_file(&self) -> Option<PathBuf> {
+    pub fn main_src_file(&self, profile: &RasmProfile) -> Option<PathBuf> {
         self.config
             .package
             .main
             .clone()
-            .map(|it| self.main_rasm_source_folder().join(Path::new(&it)))
-    }
-
-    pub fn main_test_src_file(&self) -> Option<PathBuf> {
-        if let Some(test_rasm_folder) = self.test_rasm_folder() {
-            let result = test_rasm_folder.join(Path::new("main.rasm"));
-            if result.exists() { Some(result) } else { None }
-        } else {
-            None
-        }
+            .map(|it| self.rasm_source_folder(profile).join(Path::new(&it)))
     }
 
     pub fn out_folder(&self) -> PathBuf {
@@ -181,7 +147,7 @@ impl RasmProject {
         */
     }
 
-    pub fn main_rasm_source_folder(&self) -> PathBuf {
+    pub fn rasm_source_folder(&self, profile: &RasmProfile) -> PathBuf {
         if self.is_dir() {
             Path::new(&self.root).join(
                 Path::new(
@@ -192,9 +158,13 @@ impl RasmProject {
                         .as_ref()
                         .unwrap_or(&"src".to_string()),
                 )
-                .join("main/rasm"),
+                .join(profile.path())
+                .join("rasm"),
             )
         } else {
+            if profile != &RasmProfile::Main {
+                panic!("Only main profile is supported for one file projects");
+            }
             Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
         }
     }
@@ -269,21 +239,20 @@ impl RasmProject {
         }
     }
 
-    pub fn main_native_source_folder(&self, native: &str) -> Option<PathBuf> {
+    pub fn native_source_folder(&self, profile: &RasmProfile, native: &str) -> Option<PathBuf> {
         if self.is_dir() {
-            Some(
-                Path::new(&self.root).join(
-                    Path::new(
-                        self.config
-                            .package
-                            .source_folder
-                            .as_ref()
-                            .unwrap_or(&"src".to_string()),
-                    )
-                    .join("main")
-                    .join(native),
-                ),
-            )
+            let path = Path::new(&self.root).join(
+                Path::new(
+                    self.config
+                        .package
+                        .source_folder
+                        .as_ref()
+                        .unwrap_or(&"src".to_string()),
+                )
+                .join(profile.path())
+                .join(native),
+            );
+            if path.exists() { Some(path) } else { None }
         } else {
             None
         }
@@ -303,20 +272,24 @@ impl RasmProject {
         }
     }
 
-    pub fn from_relative_to_main_src(&self, path: &Path) -> PathBuf {
+    pub fn from_relative_to_main_src(&self, profile: &RasmProfile, path: &Path) -> PathBuf {
         if path.is_absolute() {
             path.to_path_buf()
         } else {
-            self.main_rasm_source_folder().join(path)
+            self.rasm_source_folder(profile).join(path)
         }
     }
 
-    pub fn relative_to_main_rasm_source_folder(&self, path: &Path) -> Option<PathBuf> {
+    pub fn relative_to_main_rasm_source_folder(
+        &self,
+        profile: &RasmProfile,
+        path: &Path,
+    ) -> Option<PathBuf> {
         diff_paths(
             path.canonicalize()
                 .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
             if self.root.is_dir() {
-                self.main_rasm_source_folder().canonicalize().unwrap()
+                self.rasm_source_folder(profile).canonicalize().unwrap()
             } else {
                 self.root.parent().unwrap().canonicalize().unwrap()
             },
@@ -352,73 +325,82 @@ impl RasmProject {
     }
 
     pub fn main_out_file_name(&self, command_line_options: &CommandLineOptions) -> String {
-        if command_line_options.is_test() {
-            format!("{}_test", self.config.package.name)
-        } else {
+        if command_line_options.profile == RasmProfile::Main {
             self.config.package.name.clone()
+        } else {
+            format!(
+                "{}_{}",
+                self.config.package.name,
+                command_line_options.profile.path().replace('/', "_")
+            )
         }
-    }
-
-    fn all_test_modules(
-        &self,
-        target: &CompileTarget,
-    ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
-        info!("Reading tests");
-
-        let mut modules = Vec::new();
-        let mut errors = Vec::new();
-
-        if let Some(test_rasm_folder) = self.test_rasm_folder() {
-            self.get_modules(test_rasm_folder, target)
-                .into_iter()
-                .for_each(|(module, module_errors, info)| {
-                    modules.push((module, info));
-                    errors.extend(module_errors);
-                });
-        }
-        (modules, errors)
     }
 
     fn all_modules(
         &self,
+        profile: &RasmProfile,
         target: &CompileTarget,
+        is_principal_profile: bool,
     ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
-        let mut pairs = vec![self.core_modules(target)];
+        let mut pairs = Vec::new();
 
-        pairs.push(self.get_modules(self.main_rasm_source_folder(), target));
+        pairs.push(self.get_modules(
+            self.rasm_source_folder(profile),
+            target,
+            profile,
+            is_principal_profile,
+        ));
 
-        if let Some(native_folder) = self.main_native_source_folder(target.folder()) {
-            if native_folder.exists() {
-                pairs.push(self.get_modules(native_folder, target));
+        if let Some(native_folder) = self.native_source_folder(profile, target.folder()) {
+            pairs.push(self.get_modules(native_folder, target, profile, is_principal_profile));
+        }
+
+        /*
+        if profile != &RasmProfile::Main {
+            if let Some(native_folder) =
+                self.native_source_folder(&RasmProfile::Main, target.folder())
+            {
+                pairs.push(self.get_modules(native_folder, target, profile));
             }
         }
+        */
 
         let log_enabled = log_enabled();
 
-        pairs.append(
-            &mut self
-                .all_projects()
-                .into_par_iter()
-                .map(|dependency| {
-                    enable_log(log_enabled);
-                    info!("including dependency {}", dependency.config.package.name);
-                    //TODO include tests?
-                    let mut dep_modules =
-                        dependency.get_modules(dependency.main_rasm_source_folder(), target);
-                    if let Some(native_source_folder) =
-                        dependency.main_native_source_folder(target.folder())
-                    {
-                        if native_source_folder.exists() {
-                            dep_modules
-                                .extend(dependency.get_modules(native_source_folder, target));
+        if is_principal_profile {
+            pairs.append(
+                &mut self
+                    .all_projects()
+                    .into_par_iter()
+                    .map(|dependency| {
+                        enable_log(log_enabled);
+                        info!("including dependency {}", dependency.config.package.name);
+                        //TODO include tests?
+                        let mut dep_modules = dependency.get_modules(
+                            dependency.rasm_source_folder(&RasmProfile::Main),
+                            target,
+                            &RasmProfile::Main,
+                            false,
+                        );
+                        if let Some(native_source_folder) =
+                            dependency.native_source_folder(&&RasmProfile::Main, target.folder())
+                        {
+                            if native_source_folder.exists() {
+                                dep_modules.extend(dependency.get_modules(
+                                    native_source_folder,
+                                    target,
+                                    &RasmProfile::Main,
+                                    false,
+                                ));
+                            }
                         }
-                    }
-                    dep_modules
-                })
-                .collect::<Vec<_>>(),
-        );
+                        dep_modules
+                    })
+                    .collect::<Vec<_>>(),
+            );
+        }
 
         pairs
             .into_iter()
@@ -453,7 +435,7 @@ impl RasmProject {
 
     pub fn container_and_catalog(
         &self,
-        run_type: &RasmProjectRunType,
+        command_line_profile: &RasmProfile,
         target: &CompileTarget,
     ) -> (
         ASTModulesContainer,
@@ -462,7 +444,7 @@ impl RasmProject {
     ) {
         let mut catalog = RasmProjectCatalog::new();
         let mut container = ASTModulesContainer::new();
-        let (mut modules, errors) = self.get_all_modules(run_type, target);
+        let (mut modules, errors) = self.get_all_modules(command_line_profile, target);
 
         // let start = Instant::now();
 
@@ -473,6 +455,7 @@ impl RasmProject {
             "RASMRESOURCEFOLDER",
             self.main_resources_folder(),
         );
+        // TODO RASMPROFILERESOURCEFOLDER
         Self::add_folder(
             &mut resources_body,
             "RASMTESTRESOURCEFOLDER",
@@ -513,12 +496,29 @@ impl RasmProject {
 
     pub fn get_all_modules(
         &self,
-        run_type: &RasmProjectRunType,
+        command_line_profile: &RasmProfile,
         target: &CompileTarget,
     ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
-        let (mut modules, mut errors) = self.all_modules(target);
+        if !self.rasm_source_folder(command_line_profile).exists() {
+            panic!(
+                "Cannot find rasm source folder for profile {}",
+                command_line_profile.path()
+            );
+        }
+        let (mut modules, mut errors) = self.all_modules(
+            &RasmProfile::Main,
+            target,
+            command_line_profile == &RasmProfile::Main,
+        );
 
-        if matches!(run_type, RasmProjectRunType::Test) {
+        let core_modules = self.core_modules(target);
+
+        for (module, e, info) in core_modules {
+            modules.push((module, info));
+            errors.extend(e);
+        }
+
+        if command_line_profile != &RasmProfile::Main {
             modules.iter_mut().for_each(|(it, _info)| {
                 let new_body = it
                     .body
@@ -534,21 +534,28 @@ impl RasmProject {
                     .collect::<Vec<_>>();
                 it.body = new_body;
             });
-        }
 
-        if !matches!(run_type, RasmProjectRunType::Main) {
-            let (test_modules, test_errors) = self.all_test_modules(target);
+            let (profile_modules, profile_errors) =
+                self.all_modules(command_line_profile, target, true);
 
-            modules.extend(test_modules);
-            errors.extend(test_errors);
+            modules.extend(profile_modules);
+            errors.extend(profile_errors);
         }
 
         (modules, errors)
     }
 
-    pub fn path_to_module_info(&self, path: &str) -> Option<ModuleInfo> {
+    pub fn path_to_module_info(
+        &self,
+        path: &str,
+        command_line_profile: &RasmProfile,
+    ) -> Option<ModuleInfo> {
         if self.from_file {
-            let main_src_file = self.main_src_file().unwrap().canonicalize().unwrap();
+            let main_src_file = self
+                .main_src_file(command_line_profile)
+                .unwrap()
+                .canonicalize()
+                .unwrap();
             if main_src_file == PathBuf::from(path).canonicalize().unwrap() {
                 let name = main_src_file
                     .with_extension("")
@@ -570,7 +577,10 @@ impl RasmProject {
     fn targets(&self) -> Vec<String> {
         let targets = vec![NASMI386.to_owned(), C.to_owned()]
             .into_iter()
-            .filter(|it| self.main_native_source_folder(it).is_some())
+            .filter(|it| {
+                // TODO is correct to detect natives only from main profile?
+                self.native_source_folder(&RasmProfile::Main, it).is_some()
+            })
             .collect_vec();
 
         if targets.is_empty() {
@@ -606,9 +616,11 @@ impl RasmProject {
         &self,
         source_folder: PathBuf,
         target: &CompileTarget,
+        profile: &RasmProfile,
+        is_principal_profile: bool,
     ) -> Vec<(ASTModule, Vec<CompilationError>, EnhModuleInfo)> {
         if self.from_file {
-            let main_src_file = self.main_src_file().unwrap();
+            let main_src_file = self.main_src_file(&RasmProfile::Main).unwrap();
 
             let name = main_src_file
                 .with_extension("")
@@ -636,9 +648,7 @@ impl RasmProject {
                 .filter(|it| it.file_name().to_str().unwrap().ends_with(".rasm"))
                 .filter_map(|entry| {
                     enable_log(log_enabled);
-                    let path = entry.path();
-
-                    self.get_module(path, target)
+                    self.get_module(entry.path(), target, profile, is_principal_profile)
                 })
                 .collect::<Vec<_>>()
         }
@@ -668,119 +678,139 @@ impl RasmProject {
         &self,
         path: &Path,
         target: &CompileTarget,
+        command_line_profile: &RasmProfile,
+        is_principal_profile: bool,
     ) -> Option<(ASTModule, Vec<CompilationError>, EnhModuleInfo)> {
-        let (source_folder, body) = if path
-            .canonicalize()
-            .unwrap()
-            .starts_with(self.main_rasm_source_folder().canonicalize().unwrap())
-        {
-            let body = if let Some(main_src_file) = self.main_src_file() {
-                path.canonicalize().unwrap() == main_src_file.as_path().canonicalize().unwrap()
-            } else {
-                false
-            };
-            (self.main_rasm_source_folder(), body)
-        } else if self
-            .test_rasm_folder()
-            .map(|it| path.starts_with(it))
-            .unwrap_or(false)
-        {
-            let body = if let Some(main_src_file) = self.main_test_src_file() {
-                path.canonicalize().unwrap() == main_src_file.as_path().canonicalize().unwrap()
-            } else {
-                false
-            };
-            (self.test_rasm_folder().unwrap(), body)
-        } else {
-            if let Some(native_source_folder) = self.main_native_source_folder(target.folder()) {
-                if !native_source_folder.exists() {
-                    return None;
+        let mut source_folder_opt = None;
+        let mut body_opt = None;
+
+        for profile in vec![command_line_profile] {
+            if let Some(native_source_folder) = self.native_source_folder(&profile, target.folder())
+            {
+                let path = path.canonicalize().unwrap();
+
+                if path
+                    .canonicalize()
+                    .unwrap()
+                    .starts_with(native_source_folder.canonicalize().unwrap())
+                {
+                    body_opt = Some(false);
+                    source_folder_opt = Some(native_source_folder);
+                    break;
                 }
-                (native_source_folder, false)
-            } else {
-                return None;
             }
-        };
 
-        let namespace = EnhASTNameSpace::new(
-            self.config.package.name.clone(),
-            diff_paths(
-                path.canonicalize().unwrap(),
-                source_folder.canonicalize().expect(&format!(
-                    "cannot find source folder {}",
-                    source_folder.to_string_lossy()
-                )),
-            )
-            .unwrap()
-            .with_extension("")
-            .to_string_lossy()
-            .to_string(),
-        );
-        info!(
-            "including file {} namespace {namespace}",
-            path.to_str().unwrap()
-        );
+            let rasm_source_folder = self.rasm_source_folder(&profile);
+            if rasm_source_folder.exists()
+                && path
+                    .canonicalize()
+                    .unwrap()
+                    .starts_with(rasm_source_folder.canonicalize().unwrap())
+            {
+                body_opt = if let Some(main_src_file) = self.main_src_file(&profile) {
+                    if is_principal_profile {
+                        Some(
+                            path.canonicalize().unwrap()
+                                == main_src_file.as_path().canonicalize().unwrap(),
+                        )
+                    } else {
+                        Some(false)
+                    }
+                } else {
+                    Some(false)
+                };
+                source_folder_opt = Some(rasm_source_folder);
+                break;
+            }
+        }
 
-        let (entry_module, mut module_errors) =
-            self.module_from_file(&path.canonicalize().unwrap());
-        // const statements are allowed
-        let first_body_statement = entry_module.body.iter().find(|it| match it {
-            ASTStatement::ASTExpressionStatement(ASTFunctionCallExpression(_), _) => true,
-            ASTStatement::ASTLetStatement(_, _, _) => true,
-            _ => false,
-        });
+        if let Some(source_folder) = source_folder_opt
+            && let Some(body) = body_opt
+        {
+            let namespace = EnhASTNameSpace::new(
+                self.config.package.name.clone(),
+                diff_paths(
+                    path.canonicalize().unwrap(),
+                    source_folder.canonicalize().expect(&format!(
+                        "cannot find source folder {}",
+                        source_folder.to_string_lossy()
+                    )),
+                )
+                .unwrap()
+                .with_extension("")
+                .to_string_lossy()
+                .to_string(),
+            );
+            info!(
+                "including file {} namespace {namespace}",
+                path.to_str().unwrap()
+            );
 
-        if body {
-            let is_main = if let Some(main_src_file) = self.main_src_file() {
-                path.canonicalize()
-                    .unwrap_or_else(|_| panic!("Cannot find {}", path.to_string_lossy()))
-                    == main_src_file
-                        .canonicalize()
-                        .expect("Cannot find main source file")
-            } else {
-                false
-            };
+            let (entry_module, mut module_errors) =
+                self.module_from_file(&path.canonicalize().unwrap());
+            // const statements are allowed
+            let first_body_statement = entry_module.body.iter().find(|it| match it {
+                ASTStatement::ASTExpressionStatement(ASTFunctionCallExpression(_), _) => true,
+                ASTStatement::ASTLetStatement(_, _, _) => true,
+                _ => false,
+            });
 
-            let is_test_main = if let Some(main_src_file) = self.main_test_src_file() {
-                path.canonicalize()
-                    .unwrap_or_else(|_| panic!("Cannot find {}", path.to_string_lossy()))
-                    == main_src_file
-                        .canonicalize()
-                        .expect("Cannot find main source file")
-            } else {
-                false
-            };
+            if body {
+                let is_main = if let Some(main_src_file) = self.main_src_file(command_line_profile)
+                {
+                    path.canonicalize()
+                        .unwrap_or_else(|_| panic!("Cannot find {}", path.to_string_lossy()))
+                        == main_src_file
+                            .canonicalize()
+                            .expect("Cannot find main source file")
+                } else {
+                    false
+                };
 
-            if is_main || is_test_main {
-                if first_body_statement.is_none() {
+                if is_main {
+                    if first_body_statement.is_none() {
+                        Self::add_generic_error(
+                            path,
+                            &mut module_errors,
+                            "Main file should have a body",
+                        );
+                    }
+                } else if let Some(fbs) = first_body_statement {
                     Self::add_generic_error(
                         path,
                         &mut module_errors,
-                        "Main file should have a body",
+                        &format!(
+                            "Only main file should have a body {}, but main is {}",
+                            fbs.position(),
+                            self.main_src_file(command_line_profile)
+                                .unwrap()
+                                .to_string_lossy()
+                        ),
                     );
                 }
             } else if let Some(fbs) = first_body_statement {
-                Self::add_generic_error(
-                    path,
-                    &mut module_errors,
-                    &format!("Only main file should have a body {}", fbs.position()),
-                );
+                if !is_principal_profile {
+                    Self::add_generic_error(
+                        path,
+                        &mut module_errors,
+                        &format!(
+                            "Only main file should have a body {} is_principal_profile {is_principal_profile},",
+                            fbs.position()
+                        ),
+                    );
+                }
             }
-        } else if let Some(fbs) = first_body_statement {
-            Self::add_generic_error(
-                path,
-                &mut module_errors,
-                &format!("Only main file should have a body {}", fbs.position()),
-            );
+            Some((
+                entry_module,
+                module_errors,
+                EnhModuleInfo::new(
+                    EnhModuleId::Path(path.to_path_buf().canonicalize().unwrap()),
+                    namespace,
+                ),
+            ))
+        } else {
+            None
         }
-        Some((
-            entry_module,
-            module_errors,
-            EnhModuleInfo::new(
-                EnhModuleId::Path(path.to_path_buf().canonicalize().unwrap()),
-                namespace,
-            ),
-        ))
     }
 
     fn add_generic_error(path: &Path, module_errors: &mut Vec<CompilationError>, message: &str) {
@@ -1143,8 +1173,9 @@ mod tests {
     use crate::codegen::c::options::COptions;
     use crate::codegen::compile_target::CompileTarget;
     use crate::codegen::enh_ast::EnhModuleId;
+    use crate::commandline::RasmProfile;
     use crate::pm::repository::PackageManager;
-    use crate::project::{RasmConfig, RasmPackage, RasmProjectRunType};
+    use crate::project::{RasmConfig, RasmPackage};
 
     use super::RasmProject;
 
@@ -1205,8 +1236,7 @@ mod tests {
         let sut = RasmProject::new(PathBuf::from("resources/test/helloworld.rasm"));
 
         let target = CompileTarget::C(COptions::default());
-        let (_container, catalog, _errors) =
-            sut.container_and_catalog(&RasmProjectRunType::Main, &target);
+        let (_container, catalog, _errors) = sut.container_and_catalog(&RasmProfile::Main, &target);
 
         let info = catalog.info(&EnhModuleId::Path(
             PathBuf::from("resources/test/helloworld.rasm")

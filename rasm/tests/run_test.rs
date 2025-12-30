@@ -5,7 +5,7 @@ use ntest::timeout;
 use rasm_core::codegen::asm::code_gen_asm::AsmOptions;
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::{C, CompileTarget, NASMI386};
-use rasm_core::commandline::CommandLineAction;
+use rasm_core::commandline::{CommandLineAction, RasmProfile};
 use tempdir::TempDir;
 
 #[cfg(test)]
@@ -408,7 +408,11 @@ fn test_type_check_2() {
 
 #[test]
 fn test_type_check_3() {
-    run_test("type_check/type_check_3", vec![], "Value: 10\nError: an error\n");
+    run_test(
+        "type_check/type_check_3",
+        vec![],
+        "Value: 10\nError: an error\n",
+    );
 }
 
 #[test]
@@ -758,7 +762,8 @@ fn test_testmock() {
         "testmock",
         vec![],
         "saved Amount(User(mocked user), 10)\n",
-        CommandLineAction::BuildTest,
+        CommandLineAction::Build,
+        RasmProfile::Test,
     );
 }
 
@@ -866,6 +871,7 @@ fn run_test_with_action(
     args: Vec<&str>,
     expected_output: &str,
     action: CommandLineAction,
+    profile: RasmProfile,
 ) {
     run_test_with_target_with_action(
         test_name,
@@ -873,6 +879,7 @@ fn run_test_with_action(
         expected_output,
         CompileTarget::Nasmi386(AsmOptions::default()),
         action.clone(),
+        profile.clone(),
     );
     run_test_with_target_with_action(
         test_name,
@@ -880,6 +887,7 @@ fn run_test_with_action(
         expected_output,
         CompileTarget::C(COptions::default()),
         action,
+        profile,
     );
 }
 
@@ -898,6 +906,7 @@ fn run_test_with_target(
     }
 
     let executable = compile_with_target(&dir, &main, false, target);
+    println!("Executable: {}", executable);
     execute(&executable, args, Some(expected_output));
 }
 
@@ -907,6 +916,7 @@ fn run_test_with_target_with_action(
     expected_output: &str,
     target: CompileTarget,
     action: CommandLineAction,
+    profile: RasmProfile,
 ) {
     let dir = TempDir::new("rasm_int_test").unwrap();
 
@@ -916,7 +926,7 @@ fn run_test_with_target_with_action(
         main = format!("{main}.rasm");
     }
 
-    let executable = compile_with_target_with_action(&dir, &main, false, target, action);
+    let executable = compile_with_target_with_action(&dir, &main, false, target, action, profile);
     execute(&executable, args, Some(expected_output));
 }
 
@@ -968,7 +978,14 @@ fn compile_with_target(
     only_compile: bool,
     target: CompileTarget,
 ) -> String {
-    compile_with_target_with_action(dir, source, only_compile, target, CommandLineAction::Build)
+    compile_with_target_with_action(
+        dir,
+        source,
+        only_compile,
+        target,
+        CommandLineAction::Build,
+        RasmProfile::Main,
+    )
 }
 
 fn compile_with_target_with_action(
@@ -977,6 +994,7 @@ fn compile_with_target_with_action(
     only_compile: bool,
     target: CompileTarget,
     action: CommandLineAction,
+    profile: RasmProfile,
 ) -> String {
     let source_without_extension = Path::new(source).with_extension("");
     let file_name = source_without_extension
@@ -998,6 +1016,8 @@ fn compile_with_target_with_action(
         dest.to_owned(),
         "-t".to_string(),
         target_name.to_string(),
+        "-P".to_string(),
+        profile.path().to_string(),
     ];
 
     if only_compile {
@@ -1014,12 +1034,10 @@ fn compile_with_target_with_action(
 
     assert!(output.status.success());
 
-    if action == CommandLineAction::Build {
+    if profile == RasmProfile::Main {
         format!("{dest}/{file_name}")
-    } else if action == CommandLineAction::BuildTest {
-        format!("{dest}/{file_name}_test")
     } else {
-        panic!("unexpected action")
+        format!("{dest}/{file_name}_{}", profile.path().replace('/', "_"))
     }
 }
 

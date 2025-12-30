@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     fs::{self, DirBuilder},
-    io::{self, stdout, Write},
+    io::{self, Write, stdout},
     path::{Path, PathBuf},
 };
 
@@ -12,7 +12,7 @@ use semver::Version;
 
 use crate::{
     codegen::compile_target::CompileTarget,
-    commandline::{CommandLineAction, CommandLineOptions},
+    commandline::{CommandLineAction, CommandLineOptions, RasmProfile},
     project::RasmProject,
 };
 
@@ -152,9 +152,10 @@ impl PackageRepository for LocalPackageRepository {
             }
         }
 
-        if project.main_test_src_file().is_some() {
+        if project.main_src_file(&RasmProfile::Test).is_some() {
             let mut test_command_line_options = command_line_options.clone();
-            test_command_line_options.action = CommandLineAction::Test;
+            test_command_line_options.action = CommandLineAction::Run;
+            test_command_line_options.profile = RasmProfile::Test;
             for native in project.all_targets() {
                 info!("running tests for native {}", native);
                 let native_target =

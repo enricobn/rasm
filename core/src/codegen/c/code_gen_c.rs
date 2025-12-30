@@ -40,7 +40,8 @@ use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{InlineMacro, InlineRegistry, RefType, TextMacroEvaluator};
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{get_reference_type_name, CodeGen, CodeGenOptions, TypedValKind};
+use crate::codegen::{CodeGen, CodeGenOptions, TypedValKind, get_reference_type_name};
+use crate::commandline::RasmProfile;
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
@@ -1267,33 +1268,47 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         self.add(out, "}", None, false);
     }
 
-    fn add_statics(&self, project: &RasmProject, statics: &mut Statics, out_folder: &Path) {
+    fn add_statics(
+        &self,
+        project: &RasmProject,
+        profile: &RasmProfile,
+        statics: &mut Statics,
+        out_folder: &Path,
+    ) {
         project.all_projects().iter().for_each(|dependency| {
-            if let Some(native_source_folder) = dependency.main_native_source_folder("c") {
-                if native_source_folder.exists() {
-                    WalkDir::new(native_source_folder)
-                        .into_iter()
-                        .filter_map(Result::ok)
-                        .filter(|it| {
-                            it.file_name().to_string_lossy().ends_with(".h")
-                                || it.file_name().to_string_lossy().ends_with(".c")
-                        })
-                        .for_each(|it| {
-                            CInclude::add_to_statics(
-                                statics,
-                                format!("\"{}\"", it.clone().file_name().to_string_lossy()),
-                            );
+            let profiles = if profile == &RasmProfile::Main {
+                vec![&RasmProfile::Main]
+            } else {
+                vec![&RasmProfile::Main, profile]
+            };
 
-                            let dest = out_folder
-                                .to_path_buf()
-                                .join(Path::new(it.file_name().to_string_lossy().as_ref()));
+            profiles.into_iter().for_each(|it: &RasmProfile| {
+                if let Some(native_source_folder) = dependency.native_source_folder(it, "c") {
+                    if native_source_folder.exists() {
+                        WalkDir::new(native_source_folder)
+                            .into_iter()
+                            .filter_map(Result::ok)
+                            .filter(|it| {
+                                it.file_name().to_string_lossy().ends_with(".h")
+                                    || it.file_name().to_string_lossy().ends_with(".c")
+                            })
+                            .for_each(|it| {
+                                CInclude::add_to_statics(
+                                    statics,
+                                    format!("\"{}\"", it.clone().file_name().to_string_lossy()),
+                                );
 
-                            info!("including file {}", it.path().to_string_lossy());
+                                let dest = out_folder
+                                    .to_path_buf()
+                                    .join(Path::new(it.file_name().to_string_lossy().as_ref()));
 
-                            fs::copy(it.clone().into_path(), dest).unwrap();
-                        });
+                                info!("including file {}", it.path().to_string_lossy());
+
+                                fs::copy(it.clone().into_path(), dest).unwrap();
+                            });
+                    }
                 }
-            }
+            });
         });
 
         CLibAssets::iter()
@@ -1522,6 +1537,7 @@ mod tests {
     use rasm_parser::parser::ast::ASTModifiers;
     use rasm_utils::SliceDisplay;
 
+    use crate::codegen::CodeGen;
     use crate::codegen::c::code_gen_c::CodeGenC;
     use crate::codegen::c::options::COptions;
     use crate::codegen::enh_ast::{
@@ -1530,7 +1546,6 @@ mod tests {
     use crate::codegen::enh_val_context::EnhValContext;
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
-    use crate::codegen::CodeGen;
     use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
 
     #[test]

@@ -10,6 +10,7 @@ use snailquote::unescape;
 
 use crate::{
     codegen::{
+        CodeGen, CodeGenOptions, TypedValKind,
         code_manipulator::{CodeManipulator, CodeManipulatorNasm},
         enh_ast::{EnhASTIndex, EnhASTNameSpace},
         enh_val_context::TypedValContext,
@@ -20,8 +21,8 @@ use crate::{
         text_macro::{AddRefMacro, InlineMacro, InlineRegistry, RefType, TextMacroEvaluator},
         type_def_body::TypeDefBodyTarget,
         typedef_provider::TypeDefProvider,
-        CodeGen, CodeGenOptions, TypedValKind,
     },
+    commandline::RasmProfile,
     enh_type_check::typed_ast::{
         ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
         ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, ResolvedGenericTypedTypes,
@@ -1632,7 +1633,13 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         }
     }
 
-    fn add_statics(&self, _project: &RasmProject, statics: &mut Statics, _out_folder: &Path) {
+    fn add_statics(
+        &self,
+        _project: &RasmProject,
+        _profile: &RasmProfile,
+        statics: &mut Statics,
+        _out_folder: &Path,
+    ) {
         // +1 because we clean up the next allocated table slot for every new allocation to be sure that is 0..., so we want to have an extra slot
         statics.insert(
             "_heap_table".into(),

@@ -713,6 +713,7 @@ mod tests {
 
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget},
+        commandline::RasmProfile,
         test_utils::project_and_container,
         type_check::{
             ast_type_checker::ASTTypeChecker, functions_dependencies::function_dependencies,
@@ -774,7 +775,9 @@ mod tests {
         let target = CompileTarget::C(COptions::default());
         let (project, container) = project_and_container(&target, file_path);
 
-        let (module, _errors, info) = project.get_module(Path::new(file_path), &target).unwrap();
+        let (module, _errors, info) = project
+            .get_module(Path::new(file_path), &target, &RasmProfile::Main, true)
+            .unwrap();
 
         let function = module.functions.first().unwrap();
 

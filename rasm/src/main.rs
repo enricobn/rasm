@@ -9,7 +9,8 @@ use clap::{Arg, ArgAction, Command};
 use env_logger::Builder;
 use log::info;
 use rasm_core::{
-    codegen::compile_target::{CompileTarget, C, NASMI386},
+    codegen::compile_target::{C, CompileTarget, NASMI386},
+    commandline::RasmProfile,
     pm::repository::PackageManager,
 };
 use rasm_utils::debug_i;
@@ -40,7 +41,6 @@ fn main() {
         .arg(
             Arg::new("ACTION")
                 .help("the action to perform")
-                .required(true)
                 .value_parser(["build", "install", "run", "buildtest", "test", "server", "ui"])
                 .required(true)
                 .index(1),
@@ -49,7 +49,6 @@ fn main() {
             Arg::new("target")
                 .short('t')
                 .help("the compiler target")
-                .required(true)
                 .value_parser([NASMI386, C])
                 .default_value(NASMI386)
                 .required(false),
@@ -131,6 +130,12 @@ fn main() {
                 .long("include-tests")
                 .required(false),
         )
+        .arg(
+            Arg::new("profile")
+                .short('P')
+                .help("profile")
+                .required(false),
+        )
         .get_matches();
 
     let current_path = env::current_dir().unwrap();
@@ -152,8 +157,6 @@ fn main() {
         "install" => CommandLineAction::Install,
         "run" => CommandLineAction::Run,
         "server" => CommandLineAction::Server,
-        "buildtest" => CommandLineAction::BuildTest,
-        "test" => CommandLineAction::Test,
         "ui" => CommandLineAction::UI,
         it => panic!("Unsupported action {it}"),
     };
@@ -175,6 +178,15 @@ fn main() {
                 it.split(',').map(|it| it.to_string()).into_iter().collect()
             }),
         debug: matches.get_flag("debug"),
+        profile: matches
+            .get_one::<String>("profile")
+            .map_or(RasmProfile::Main, |it| match it.as_str() {
+                "main" => RasmProfile::Main,
+                "test" => RasmProfile::Test,
+                path => RasmProfile::Custom {
+                    path: path.to_string(),
+                },
+            }),
     };
 
     let src_path = Path::new(&src);
@@ -190,7 +202,7 @@ fn main() {
     if command_line_options.action == CommandLineAction::Server {
         rasm_server(project);
     } else if command_line_options.action == CommandLineAction::UI {
-        UI::show(project, target).unwrap();
+        UI::show(project, target, &command_line_options.profile).unwrap();
     } else if command_line_options.action == CommandLineAction::Install {
         let package_manager = project.package_manager();
 

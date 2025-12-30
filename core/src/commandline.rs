@@ -21,12 +21,27 @@ use strum_macros::Display;
 #[derive(PartialEq, Display, Clone)]
 pub enum CommandLineAction {
     Build,
-    BuildTest,
     Install,
     Run,
     Server,
-    Test,
     UI,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub enum RasmProfile {
+    Main,
+    Test,
+    Custom { path: String },
+}
+
+impl RasmProfile {
+    pub fn path(&self) -> &str {
+        match self {
+            RasmProfile::Main => "main",
+            RasmProfile::Test => "test",
+            RasmProfile::Custom { path } => path,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -41,12 +56,13 @@ pub struct CommandLineOptions {
     pub arguments: Vec<String>,
     pub include_tests: Vec<String>,
     pub debug: bool,
+    pub profile: RasmProfile,
 }
 
 impl Default for CommandLineOptions {
     fn default() -> Self {
         Self {
-            action: CommandLineAction::Test,
+            action: CommandLineAction::Run,
             memory_debug: false,
             print_code: false,
             print_memory: false,
@@ -56,12 +72,7 @@ impl Default for CommandLineOptions {
             arguments: Vec::new(),
             include_tests: Vec::new(),
             debug: false,
+            profile: RasmProfile::Test,
         }
-    }
-}
-
-impl CommandLineOptions {
-    pub fn is_test(&self) -> bool {
-        self.action == CommandLineAction::Test || self.action == CommandLineAction::BuildTest
     }
 }

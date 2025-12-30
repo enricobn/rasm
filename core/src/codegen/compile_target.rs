@@ -31,7 +31,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{exit, Command, Stdio};
+use std::process::{Command, Stdio, exit};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
@@ -50,12 +50,12 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{get_typed_module, AsmOptions, CodeGen};
+use crate::codegen::{AsmOptions, CodeGen, get_typed_module};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::CompilationError;
-use crate::macros::macro_call_extractor::{extract_macro_calls, MacroCall, MacroResultType};
+use crate::macros::macro_call_extractor::{MacroCall, MacroResultType, extract_macro_calls};
 use crate::macros::macro_module::create_macro_module;
-use crate::project::{RasmProject, RasmProjectRunType};
+use crate::project::RasmProject;
 use crate::transformations::enrich_container;
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
@@ -272,19 +272,9 @@ impl CompileTarget {
     pub fn supported_actions(&self) -> Vec<CommandLineAction> {
         match self {
             CompileTarget::Nasmi386(_) => {
-                vec![
-                    CommandLineAction::Build,
-                    CommandLineAction::Run,
-                    CommandLineAction::BuildTest,
-                    CommandLineAction::Test,
-                ]
+                vec![CommandLineAction::Build, CommandLineAction::Run]
             }
-            CompileTarget::C(_) => vec![
-                CommandLineAction::Build,
-                CommandLineAction::Run,
-                CommandLineAction::BuildTest,
-                CommandLineAction::Test,
-            ],
+            CompileTarget::C(_) => vec![CommandLineAction::Build, CommandLineAction::Run],
         }
     }
 
@@ -313,15 +303,8 @@ impl CompileTarget {
             info!("out folder: {}", out_folder.to_string_lossy());
         }
 
-        let run_type = if command_line_options.action == CommandLineAction::Test
-            || command_line_options.action == CommandLineAction::BuildTest
-        {
-            RasmProjectRunType::Test
-        } else {
-            RasmProjectRunType::Main
-        };
-
-        let (container, catalog, errors) = project.container_and_catalog(&run_type, self);
+        let (container, catalog, errors) =
+            project.container_and_catalog(&command_line_options.profile, self);
 
         info!("parse ended in {:?}", start.elapsed());
 
@@ -352,9 +335,7 @@ impl CompileTarget {
 
         info!("finished in {:?}", start.elapsed());
 
-        if command_line_options.action == CommandLineAction::Test
-            || command_line_options.action == CommandLineAction::Run
-        {
+        if command_line_options.action == CommandLineAction::Run {
             let mut command = Command::new(out_file.to_string_lossy().to_string());
 
             let output = command
@@ -489,7 +470,7 @@ impl CompileTarget {
 
             let macro_errors = macro_modules
                 .iter()
-                .flat_map(|it| it.1 .1.iter())
+                .flat_map(|it| it.1.1.iter())
                 .collect::<Vec<_>>();
 
             if !macro_errors.is_empty() {
@@ -925,10 +906,7 @@ impl CompileTarget {
 
         match self {
             CompileTarget::Nasmi386(options) => match command_line_options.action {
-                CommandLineAction::Build
-                | CommandLineAction::BuildTest
-                | CommandLineAction::Test
-                | CommandLineAction::Run => {
+                CommandLineAction::Build | CommandLineAction::Run => {
                     if out_paths.len() != 1 {
                         panic!("Only one native file to compile is supported!");
                     }
@@ -1164,6 +1142,7 @@ mod tests {
             arguments: Vec::new(),
             include_tests: Vec::new(),
             debug: false,
+            profile: crate::commandline::RasmProfile::Main,
         };
         sut.run(project, command_line_options);
     }

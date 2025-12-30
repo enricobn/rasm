@@ -12,6 +12,7 @@ use rasm_utils::SliceDisplay;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
+use crate::commandline::RasmProfile;
 use crate::enh_type_check::enh_type_check::EnhTypeCheck;
 use crate::macros::macro_call_extractor::get_macro_result_type;
 use crate::project::RasmProject;
@@ -117,8 +118,8 @@ impl EnhASTNameSpace {
         Self { lib, path }
     }
 
-    pub fn root_namespace(project: &RasmProject, is_test: bool) -> Self {
-        let namespace_path = if is_test {
+    pub fn main_file_namespace(project: &RasmProject, profile: &RasmProfile) -> Self {
+        let namespace_path = if profile != &RasmProfile::Main {
             "main".to_string()
         } else if let Some(p) = &project.config.package.main {
             p.strip_suffix(".rasm").unwrap().to_string()

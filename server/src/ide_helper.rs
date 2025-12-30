@@ -5,12 +5,12 @@ use std::io;
 use linked_hash_map::LinkedHashMap;
 
 use rasm_core::ast::ast_module_tree::{ASTModuleTree, ASTModuleTreeLocation};
-use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::{ValContext, ValKind};
+use rasm_core::commandline::RasmProfile;
 use rasm_core::errors::CompilationError;
-use rasm_core::project::{RasmProject, RasmProjectRunType};
+use rasm_core::project::RasmProject;
 use rasm_core::transformations::enrich_container;
 use rasm_core::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
 use rasm_core::type_check::ast_type_checker::{
@@ -261,10 +261,12 @@ pub struct IDESignatureHelp {
     pub param: usize,
 }
 
-pub fn get_ide_helper_from_project(project: &RasmProject) -> (IDEHelper, Vec<CompilationError>) {
-    let target = CompileTarget::C(COptions::default());
-    let (container, catalog, errors) =
-        project.container_and_catalog(&RasmProjectRunType::Main, &target);
+pub fn get_ide_helper_from_project(
+    project: &RasmProject,
+    target: &CompileTarget,
+    profile: &RasmProfile,
+) -> (IDEHelper, Vec<CompilationError>) {
+    let (container, catalog, errors) = project.container_and_catalog(profile, target);
 
     let container = enrich_container(
         &target,
@@ -1558,6 +1560,7 @@ mod tests {
 
     use rasm_core::codegen::c::options::COptions;
     use rasm_core::codegen::compile_target::CompileTarget;
+    use rasm_core::commandline::RasmProfile;
     use rasm_core::errors::CompilationError;
     use rasm_core::project::RasmProject;
     use rasm_core::type_check::ast_modules_container::ASTModulesContainer;
@@ -2374,6 +2377,8 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/simple.rasm"),
             &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+            true,
         ) {
             let index = ASTIndex::new(
                 info.module_namespace(),
@@ -2400,6 +2405,8 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/references.rasm"),
             &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+            true,
         ) {
             let index = ASTIndex::new(
                 info.module_namespace(),
@@ -2423,6 +2430,8 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/references.rasm"),
             &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+            true,
         ) {
             let index = ASTIndex::new(
                 info.module_namespace(),
@@ -2446,6 +2455,8 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/statement_start_position.rasm"),
             &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+            true,
         ) {
             let index = ASTIndex::new(
                 info.module_namespace(),
@@ -2469,6 +2480,8 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/statement_start_position.rasm"),
             &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+            true,
         ) {
             let index = ASTIndex::new(
                 info.module_namespace(),
@@ -2492,6 +2505,8 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/statement_start_position.rasm"),
             &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+            true,
         ) {
             let index = ASTIndex::new(
                 info.module_namespace(),
@@ -2516,6 +2531,8 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/breakout/src/main/rasm/breakout.rasm"),
             &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+            true,
         ) {
             let index = ASTIndex::new(
                 info.module_namespace(),
@@ -2539,8 +2556,12 @@ mod tests {
 
         let path = Path::new("resources/test/breakout/src/main/rasm/breakout.rasm");
 
-        if let Some((_, _, info)) = project.get_module(path, &CompileTarget::C(COptions::default()))
-        {
+        if let Some((_, _, info)) = project.get_module(
+            path,
+            &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+            true,
+        ) {
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
@@ -2583,8 +2604,12 @@ let newHighScores = highScores.add(score);
         let (project, helper) = get_helper("resources/test/breakout");
 
         let path = Path::new("resources/test/breakout/src/main/rasm/breakout.rasm");
-        if let Some((_, _, info)) = project.get_module(path, &CompileTarget::C(COptions::default()))
-        {
+        if let Some((_, _, info)) = project.get_module(
+            path,
+            &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+            true,
+        ) {
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
@@ -2623,8 +2648,12 @@ Menu(MenuState(newHighScores));
         let (project, helper) = get_helper("resources/test/breakout");
 
         let path = Path::new("resources/test/breakout/src/main/rasm/breakout.rasm");
-        if let Some((_, _, info)) = project.get_module(path, &CompileTarget::C(COptions::default()))
-        {
+        if let Some((_, _, info)) = project.get_module(
+            path,
+            &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+            true,
+        ) {
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
@@ -2664,6 +2693,8 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/breakout/src/main/rasm/breakout.rasm"),
             &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+            true,
         ) {
             let index = ASTIndex::new(
                 info.module_namespace(),
@@ -2687,8 +2718,12 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         let (project, helper) = get_helper("../stdlib");
 
         let path = Path::new("../stdlib/src/main/rasm/vec.rasm");
-        if let Some((_, _, info)) = project.get_module(path, &CompileTarget::C(COptions::default()))
-        {
+        if let Some((_, _, info)) = project.get_module(
+            path,
+            &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+            true,
+        ) {
             let start_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
@@ -2878,6 +2913,8 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
                     .unwrap()
                     .to_path_buf(),
                 &CompileTarget::C(COptions::default()),
+                &RasmProfile::Main,
+                true,
             )
             .unwrap();
 
@@ -2906,7 +2943,11 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         let file_name = Path::new(project_path);
         let project = RasmProject::new(file_name.to_path_buf());
 
-        let (helper, errors) = get_ide_helper_from_project(&project);
+        let (helper, errors) = get_ide_helper_from_project(
+            &project,
+            &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+        );
         (project, helper, errors)
     }
 
@@ -2922,7 +2963,11 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         } else {
             RasmProject::new(PathBuf::from(file_name))
         };
-        let (helper, _errors) = get_ide_helper_from_project(&project);
+        let (helper, _errors) = get_ide_helper_from_project(
+            &project,
+            &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+        );
 
         let path = project
             .from_relative_to_root(PathBuf::from(file_name).as_path())
@@ -3019,7 +3064,11 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         } else {
             RasmProject::new(PathBuf::from(file_name))
         };
-        let (helper, _errors) = get_ide_helper_from_project(&project);
+        let (helper, _errors) = get_ide_helper_from_project(
+            &project,
+            &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+        );
 
         let index = get_index(&&project, file_name, row, col);
 

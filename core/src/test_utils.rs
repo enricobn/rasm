@@ -7,9 +7,10 @@ use crate::{
         compile_target::CompileTarget, enh_ast::EnhModuleInfo, enhanced_module::EnhancedASTModule,
         statics::Statics,
     },
+    commandline::RasmProfile,
     enh_type_check::typed_ast::{ASTTypedModule, convert_to_typed_module},
     errors::CompilationError,
-    project::{RasmProject, RasmProjectRunType},
+    project::RasmProject,
     transformations::enrich_container,
     type_check::{ast_modules_container::ASTModulesContainer, ast_type_checker::ASTTypeChecker},
 };
@@ -20,8 +21,7 @@ pub fn project_and_container(
 ) -> (RasmProject, ASTModulesContainer) {
     let project = RasmProject::new(PathBuf::from(project_path));
 
-    let (container, catalog, _errors) =
-        project.container_and_catalog(&RasmProjectRunType::Main, target);
+    let (container, catalog, _errors) = project.container_and_catalog(&RasmProfile::Main, target);
 
     let container = enrich_container(
         &target,
@@ -41,9 +41,9 @@ pub fn project_to_ast_typed_module(
 ) -> Result<(ASTTypedModule, Statics), Vec<CompilationError>> {
     let mut statics = Statics::new();
 
-    let run_type = RasmProjectRunType::Main;
+    let profile = RasmProfile::Main;
 
-    let (container, catalog, _) = project.container_and_catalog(&run_type, &target);
+    let (container, catalog, _) = project.container_and_catalog(&profile, &target);
 
     let container = enrich_container(target, &mut statics, container, &catalog, false, false);
 

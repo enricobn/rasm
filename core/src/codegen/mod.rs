@@ -16,7 +16,7 @@ use lambda::{LambdaCall, LambdaSpace};
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::Parser;
-use rasm_utils::{debug_i, OptionDisplay, SliceDisplay};
+use rasm_utils::{OptionDisplay, SliceDisplay, debug_i};
 
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{
@@ -26,17 +26,17 @@ use crate::codegen::enh_ast::{
 use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 
-use crate::codegen::lambda_in_stack::{can_lambda_be_in_stack, GLOBAL_LAMBDA_IN_STACK};
+use crate::codegen::lambda_in_stack::{GLOBAL_LAMBDA_IN_STACK, can_lambda_be_in_stack};
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::{InlineRegistry, MacroParam, TextMacro, TextMacroEvaluator};
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::commandline::CommandLineOptions;
+use crate::commandline::{CommandLineOptions, RasmProfile};
 use crate::enh_type_check::typed_ast::{
-    convert_to_typed_module, get_type_of_typed_expression, ASTTypedExpression,
-    ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule,
-    ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
-    DefaultFunctionCall, ResolvedGenericTypedTypes,
+    ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
+    ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType, BuiltinTypedTypeKind,
+    DefaultFunctionCall, ResolvedGenericTypedTypes, convert_to_typed_module,
+    get_type_of_typed_expression,
 };
 use crate::enh_type_check::used_functions::UsedFunctions;
 use crate::errors::CompilationError;
@@ -390,7 +390,13 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         function_def: Option<&ASTTypedFunctionDef>,
     );
 
-    fn add_statics(&self, project: &RasmProject, statics: &mut Statics, out_folder: &Path);
+    fn add_statics(
+        &self,
+        project: &RasmProject,
+        profile: &RasmProfile,
+        statics: &mut Statics,
+        out_folder: &Path,
+    );
 
     fn value_to_string(&self, statics: &mut Statics, value_type: &ASTValue) -> String;
 
@@ -492,7 +498,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             &mut body,
             &mut id,
             4,
-            &EnhASTNameSpace::root_namespace(&project, command_line_options.is_test()),
+            &EnhASTNameSpace::main_file_namespace(&project, &command_line_options.profile),
             true,
             &mut function_reference_lambdas,
             &optimized_functions,
@@ -525,7 +531,12 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         self.preamble(&mut generated_code);
 
-        self.add_statics(project, &mut statics, out_folder);
+        self.add_statics(
+            project,
+            &command_line_options.profile,
+            &mut statics,
+            out_folder,
+        );
 
         let (include_code, static_code, initialization) =
             self.generate_statics_code(project, &statics, typed_module, out_folder);
@@ -1961,7 +1972,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     optimized_functions,
                 )
             } else {
-                panic!("Cannot find function, there's a parameter with name '{}', but it's not a lambda", function_call.function_name);
+                panic!(
+                    "Cannot find function, there's a parameter with name '{}', but it's not a lambda",
+                    function_call.function_name
+                );
             }
         } else {
             panic!(
@@ -2483,8 +2497,8 @@ mod tests {
         let sut = CodeGenAsm::new(AsmOptions::default(), false, false);
         let mut statics = Statics::new();
 
-        assert!(sut
-            .called_functions(
+        assert!(
+            sut.called_functions(
                 None,
                 None,
                 "mov    eax, 1; $call(something)",
@@ -2493,7 +2507,8 @@ mod tests {
                 &mut statics,
             )
             .unwrap()
-            .is_empty());
+            .is_empty()
+        );
     }
 
     #[test]
@@ -2501,8 +2516,8 @@ mod tests {
         let sut = CodeGenAsm::new(AsmOptions::default(), false, false);
         let mut statics = Statics::new();
 
-        assert!(sut
-            .called_functions(
+        assert!(
+            sut.called_functions(
                 None,
                 None,
                 "call something",
@@ -2511,7 +2526,8 @@ mod tests {
                 &mut statics,
             )
             .unwrap()
-            .is_empty());
+            .is_empty()
+        );
     }
 
     #[test]
