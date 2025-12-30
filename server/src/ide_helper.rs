@@ -2524,7 +2524,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "we can't rely on breakout"]
     fn test_statement_start_position_breakout() {
         let (project, helper) = get_helper("resources/test/breakout");
 
@@ -2550,7 +2549,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "we can't rely on breakout"]
     fn test_extract_function_breakout() {
         let (project, helper) = get_helper("resources/test/breakout");
 
@@ -2599,7 +2597,6 @@ let newHighScores = highScores.add(score);
     }
 
     #[test]
-    #[ignore = "we can't rely on breakout"]
     fn test_extract_function_breakout_1() {
         let (project, helper) = get_helper("resources/test/breakout");
 
@@ -2643,7 +2640,6 @@ Menu(MenuState(newHighScores));
     }
 
     #[test]
-    #[ignore = "we can't rely on breakout"]
     fn test_extract_function_breakout_2() {
         let (project, helper) = get_helper("resources/test/breakout");
 
@@ -2686,7 +2682,6 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
     }
 
     #[test]
-    #[ignore = "we can't rely on breakout"]
     fn test_signature_help_breakout() {
         let (project, helper) = get_helper("resources/test/breakout");
 
