@@ -478,35 +478,6 @@ impl RasmProject {
         (modules, errors)
     }
 
-    pub fn path_to_module_info(
-        &self,
-        path: &str,
-        command_line_profile: &RasmProfile,
-    ) -> Option<ModuleInfo> {
-        if self.from_file {
-            let main_src_file = self
-                .main_src_file(command_line_profile)
-                .unwrap()
-                .canonicalize()
-                .unwrap();
-            if main_src_file == PathBuf::from(path).canonicalize().unwrap() {
-                let name = main_src_file
-                    .with_extension("")
-                    .file_name()
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_string();
-
-                let namespace = EnhASTNameSpace::new(self.config.package.name.clone(), name);
-
-                return Some(
-                    EnhModuleInfo::new(EnhModuleId::Path(main_src_file), namespace).module_info(),
-                );
-            }
-        }
-        None
-    }
-
     fn targets(&self) -> Vec<String> {
         let targets = vec![NASMI386.to_owned(), C.to_owned()]
             .into_iter()
