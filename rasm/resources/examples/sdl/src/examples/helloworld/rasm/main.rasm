@@ -7,7 +7,7 @@ let ren = sdlCreateRenderer(win);
 sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
 sdlRenderClear(ren);
 
-ttfOpenFont(testResource("DejaVuSerif.ttf"), 20)
+ttfOpenFont(fromRasmSourceFolder("examples/helloworld/resources/DejaVuSerif.ttf"), 20)
 .match(fn(font) {
     let color = SDLColor(255, 0, 0, 255);
 

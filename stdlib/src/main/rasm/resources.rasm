@@ -1,7 +1,7 @@
-pub fn testResource(path: str) -> str {
-    RASMTESTRESOURCEFOLDER.add("/").add(path);
+pub fn fromRasmSourceFolder(path: str) -> str {
+    RASMSOURCEFOLDER.add("/").add(path);
 }
 
 pub fn resource(path: str) -> str {
-    RASMRESOURCEFOLDER.add("/").add(path);
+    RASMSOURCEFOLDER.add("/main/resources/").add(path);
 }

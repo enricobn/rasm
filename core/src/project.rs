@@ -194,24 +194,6 @@ impl RasmProject {
         }
     }
 
-    pub fn main_resources_folder(&self) -> PathBuf {
-        if self.is_dir() {
-            Path::new(&self.root).join(
-                Path::new(
-                    &self
-                        .config
-                        .package
-                        .source_folder
-                        .as_ref()
-                        .unwrap_or(&"src".to_string()),
-                )
-                .join("main/resources"),
-            )
-        } else {
-            Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
-        }
-    }
-
     pub fn test_rasm_folder(&self) -> Option<PathBuf> {
         if self.is_dir() {
             Some(
@@ -232,7 +214,7 @@ impl RasmProject {
         }
     }
 
-    pub fn test_resources_folder(&self) -> PathBuf {
+    pub fn resources_folder(&self, profile: &RasmProfile) -> PathBuf {
         if self.is_dir() {
             Path::new(&self.root).join(
                 Path::new(
@@ -242,7 +224,7 @@ impl RasmProject {
                         .as_ref()
                         .unwrap_or(&"src".to_string()),
                 )
-                .join("test/resources"),
+                .join(&format!("{}/resources", profile.path())),
             )
         } else {
             Path::new(self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
@@ -462,14 +444,8 @@ impl RasmProject {
 
         Self::add_folder(
             &mut resources_body,
-            "RASMRESOURCEFOLDER",
-            self.main_resources_folder(),
-        );
-        // TODO RASMPROFILERESOURCEFOLDER
-        Self::add_folder(
-            &mut resources_body,
-            "RASMTESTRESOURCEFOLDER",
-            self.test_resources_folder(),
+            "RASMSOURCEFOLDER",
+            self.source_folder(),
         );
 
         let resources_module = ASTModule {

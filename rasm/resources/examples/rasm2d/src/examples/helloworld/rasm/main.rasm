@@ -4,7 +4,7 @@ Rasm2DApplication()
 .run(main);
 
 fn main(rend: Rasm2DRenderer) {
-    rend.openFont(testResource("DejaVuSerif.ttf"), 20, fn(font) {
+    rend.openFont(fromRasmSourceFolder("examples/helloworld/resources/DejaVuSerif.ttf"), 20, fn(font) {
         rend.render(
             fn(graphics) {
                 graphics.setColor(RGBAColor(0, 0, 255, 255));
