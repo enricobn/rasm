@@ -737,19 +737,26 @@ impl RasmProject {
         if let Some(source_folder) = source_folder_opt
             && let Some(body) = body_opt
         {
+            let relative_path = diff_paths(
+                path.canonicalize().unwrap(),
+                source_folder.canonicalize().expect(&format!(
+                    "cannot find source folder {}",
+                    source_folder.to_string_lossy()
+                )),
+            )
+            .unwrap()
+            .with_extension("")
+            .to_string_lossy()
+            .to_string();
             let namespace = EnhASTNameSpace::new(
                 self.config.package.name.clone(),
-                diff_paths(
-                    path.canonicalize().unwrap(),
-                    source_folder.canonicalize().expect(&format!(
-                        "cannot find source folder {}",
-                        source_folder.to_string_lossy()
-                    )),
-                )
-                .unwrap()
-                .with_extension("")
-                .to_string_lossy()
-                .to_string(),
+                if command_line_profile == &RasmProfile::Main
+                    || command_line_profile == &RasmProfile::Test
+                {
+                    relative_path
+                } else {
+                    format!("{}_{}", command_line_profile.safe_name(), relative_path)
+                },
             );
             info!(
                 "including file {} namespace {namespace}",
