@@ -112,11 +112,21 @@ impl RasmProject {
     }
 
     pub fn main_src_file(&self, profile: &RasmProfile) -> Option<PathBuf> {
-        self.config
-            .package
-            .main
-            .clone()
-            .map(|it| self.rasm_source_folder(profile).join(Path::new(&it)))
+        let path = if profile == &RasmProfile::Main {
+            self.config
+                .package
+                .main
+                .clone()
+                .map(|it| self.rasm_source_folder(profile).join(Path::new(&it)))
+        } else {
+            Some(self.rasm_source_folder(profile).join("main.rasm"))
+        };
+
+        if let Some(path) = path {
+            if path.exists() { Some(path) } else { None }
+        } else {
+            None
+        }
     }
 
     pub fn out_folder(&self) -> PathBuf {
@@ -331,7 +341,7 @@ impl RasmProject {
             format!(
                 "{}_{}",
                 self.config.package.name,
-                command_line_options.profile.path().replace('/', "_")
+                command_line_options.profile.safe_name()
             )
         }
     }

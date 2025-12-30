@@ -42,6 +42,14 @@ impl RasmProfile {
             RasmProfile::Custom { path } => path,
         }
     }
+
+    pub fn safe_name(&self) -> String {
+        match self {
+            RasmProfile::Main => "main".into(),
+            RasmProfile::Test => "test".into(),
+            RasmProfile::Custom { path } => path.replace('/', "_"),
+        }
+    }
 }
 
 #[derive(Clone)]

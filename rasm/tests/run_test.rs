@@ -1037,7 +1037,7 @@ fn compile_with_target_with_action(
     if profile == RasmProfile::Main {
         format!("{dest}/{file_name}")
     } else {
-        format!("{dest}/{file_name}_{}", profile.path().replace('/', "_"))
+        format!("{dest}/{file_name}_{}", profile.safe_name())
     }
 }
 
