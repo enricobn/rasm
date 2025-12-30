@@ -194,43 +194,6 @@ impl RasmProject {
         }
     }
 
-    pub fn test_rasm_folder(&self) -> Option<PathBuf> {
-        if self.is_dir() {
-            Some(
-                Path::new(&self.root).join(
-                    Path::new(
-                        &self
-                            .config
-                            .package
-                            .source_folder
-                            .as_ref()
-                            .unwrap_or(&"src".to_string()),
-                    )
-                    .join("test/rasm"),
-                ),
-            )
-        } else {
-            None
-        }
-    }
-
-    pub fn resources_folder(&self, profile: &RasmProfile) -> PathBuf {
-        if self.is_dir() {
-            Path::new(&self.root).join(
-                Path::new(
-                    self.config
-                        .package
-                        .source_folder
-                        .as_ref()
-                        .unwrap_or(&"src".to_string()),
-                )
-                .join(&format!("{}/resources", profile.path())),
-            )
-        } else {
-            Path::new(self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
-        }
-    }
-
     pub fn native_source_folder(&self, profile: &RasmProfile, native: &str) -> Option<PathBuf> {
         if self.is_dir() {
             let path = Path::new(&self.root).join(
@@ -294,22 +257,6 @@ impl RasmProject {
                 .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
             if self.root.is_dir() {
                 self.source_folder().canonicalize().unwrap()
-            } else {
-                self.root.parent().unwrap().canonicalize().unwrap()
-            },
-        )
-    }
-
-    pub fn relative_to_root_test(&self, path: &Path) -> Option<PathBuf> {
-        diff_paths(
-            path.canonicalize()
-                .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
-            if self.root.is_dir() {
-                if let Some(test_rasm_folder) = self.test_rasm_folder() {
-                    test_rasm_folder.canonicalize().unwrap()
-                } else {
-                    return None;
-                }
             } else {
                 self.root.parent().unwrap().canonicalize().unwrap()
             },
