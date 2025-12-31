@@ -16,18 +16,11 @@ use crate::{
 
 impl UI {
     pub(crate) fn project_tree(&'_ self) -> Element<'_, Message> {
-        let root_o = self.get_node(
-            0,
-            &self.project.config.package.name,
-            &self.project.source_folder(),
-        );
+        let root_o = self.get_node(0, self.project.name(), &self.project.source_folder());
         let tree = if let Some(root) = root_o {
             ui_tree(root)
         } else {
-            ui_tree(UINode::Node(
-                text(&self.project.config.package.name).into(),
-                Vec::new(),
-            ))
+            ui_tree(UINode::Node(text(self.project.name()).into(), Vec::new()))
         };
 
         Scrollable::with_direction(

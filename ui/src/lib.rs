@@ -117,7 +117,7 @@ impl UI {
             );
         }
 
-        let main = if let Some(main) = &project.config.package.main {
+        let main = if let Some(main) = &project.main() {
             Some(
                 project
                     .from_relative_to_main_src(&profile.principal_sub_project(), Path::new(&main))

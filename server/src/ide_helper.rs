@@ -2774,7 +2774,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         project
             .all_projects()
             .into_iter()
-            .filter(|p| p.config.package.name == "stdlib")
+            .filter(|p| p.name() == "stdlib")
             .collect::<Vec<_>>()
             .first()
             .cloned()

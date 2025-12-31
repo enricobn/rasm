@@ -543,7 +543,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         let include_file = format!(
             "{}_main_include.{}",
-            project.config.package.name.clone(),
+            project.name(),
             target.include_extension()
         );
         if self.split_source() > 0 {

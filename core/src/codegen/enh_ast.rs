@@ -121,12 +121,12 @@ impl EnhASTNameSpace {
     pub fn main_file_namespace(project: &RasmProject, profile: &RasmProfile) -> Self {
         let namespace_path = if profile != &RasmProfile::Main {
             "main".to_string()
-        } else if let Some(p) = &project.config.package.main {
+        } else if let Some(p) = &project.main() {
             p.strip_suffix(".rasm").unwrap().to_string()
         } else {
             String::new()
         };
-        Self::new(project.config.package.name.clone(), namespace_path)
+        Self::new(project.name().to_owned(), namespace_path)
     }
 
     pub const fn global() -> Self {

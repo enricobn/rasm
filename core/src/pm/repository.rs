@@ -127,18 +127,18 @@ impl PackageRepository for LocalPackageRepository {
         project: &RasmProject,
         command_line_options: &CommandLineOptions,
     ) -> Result<(), String> {
-        if project.config.package.main.is_some() {
+        if project.main().is_some() {
             return Err("You cannot install a project with a main".to_owned());
         }
 
         let destination_folder = self
             .repository_folder()
-            .join(project.config.package.name.clone())
-            .join(project.config.package.version.clone());
+            .join(project.name().to_owned())
+            .join(project.version().to_owned());
 
         info!(
             "installing {} to {}",
-            project.root.as_os_str().to_string_lossy(),
+            project.root().as_os_str().to_string_lossy(),
             destination_folder.as_os_str().to_string_lossy()
         );
 
@@ -174,20 +174,15 @@ impl PackageRepository for LocalPackageRepository {
             .unwrap();
 
         fs::copy(
-            project.root.join("rasm.toml"),
+            project.root().join("rasm.toml"),
             destination_folder.join("rasm.toml"),
         )
         .expect("rasm.toml copy failed");
 
-        let source_folder = project
-            .config
-            .package
-            .source_folder
-            .clone()
-            .unwrap_or("src".to_owned());
+        let source_folder = project.source_folder();
 
         if let Err(msg) = copy_dir_all(
-            project.root.join(source_folder.clone()),
+            project.root().join(source_folder.clone()),
             destination_folder.join(source_folder),
         ) {
             panic!("copy failed: {}", msg);
@@ -195,7 +190,7 @@ impl PackageRepository for LocalPackageRepository {
 
         println!(
             "Successfully installed {} to {}",
-            project.config.package.name,
+            project.name(),
             destination_folder.as_os_str().to_string_lossy()
         );
         Ok(())

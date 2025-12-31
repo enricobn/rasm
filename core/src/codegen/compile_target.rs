@@ -25,7 +25,7 @@ use rasm_parser::parser::ast::{
     ASTStatement,
 };
 use rasm_parser::parser::{Parser, ParserError};
-use rasm_utils::OptionDisplay;
+
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::fs::File;
@@ -34,8 +34,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio, exit};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
-
-use toml::Value;
 
 use crate::codegen::asm::backend::Backend;
 use crate::codegen::c::c_compiler::compile_c;
@@ -422,7 +420,7 @@ impl CompileTarget {
 
             let macro_id = format!(
                 "{}_macro_{}",
-                project.config.package.name.clone(),
+                project.name(),
                 COUNT_MACRO_ID.fetch_add(1, Ordering::SeqCst)
             );
 
@@ -1052,45 +1050,7 @@ impl CompileTarget {
 fn get_native_string_array(projects: &[RasmProject], target: &str, key: &str) -> Vec<String> {
     let mut result = projects
         .iter()
-        .flat_map(|it| {
-            if let Some(ref targets) = it.config.targets {
-                if let Some(nasm_i386_value) = targets.get(target) {
-                    if let Value::Table(nasm_i386_table) = nasm_i386_value {
-                        if let Some(value) = nasm_i386_table.get(key) {
-                            if let Value::Array(a) = value {
-                                a.iter().map(|req| {
-                                    if let Value::String(s) = req {
-                                        s.clone()
-                                    } else {
-                                        panic!(
-                                            "{target}/{key} should be an array of strings {}/rasm.toml",
-                                            it.root.to_string_lossy()
-                                        );
-                                    }
-                                }).collect::<Vec<_>>()
-                            } else {
-                                panic!(
-                                    "{target}/{key} should be an array in {}/rasm.toml, but is {}",
-                                    it.root.to_string_lossy(),
-                                    OptionDisplay(&nasm_i386_table.get(key))
-                                );
-                            }
-                        } else {
-                            Vec::new()
-                        }
-                    } else {
-                        panic!(
-                            "{target} should be a table in {}/rasm.toml",
-                            it.root.to_string_lossy()
-                        );
-                    }
-                } else {
-                    Vec::new()
-                }
-            } else {
-                Vec::new()
-            }
-        })
+        .flat_map(|it| it.get_native_string_array(target, key))
         .collect::<Vec<_>>();
 
     result.sort();

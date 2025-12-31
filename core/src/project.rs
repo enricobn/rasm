@@ -17,6 +17,7 @@
  */
 
 use derivative::Derivative;
+use rasm_utils::OptionDisplay;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Display;
 use std::fs;
@@ -57,11 +58,11 @@ const STD_LIB_VERSION: &str = "0.1";
 
 #[derive(Debug, Clone)]
 pub struct RasmProject {
-    pub root: PathBuf,
-    pub config: RasmConfig,
-    pub from_file: bool,
+    root: PathBuf,
+    config: RasmConfig,
+    from_file: bool,
     // TODO don't like them here, is something that has to do with the IDE
-    pub in_memory_files: LinkedHashMap<PathBuf, String>,
+    in_memory_files: LinkedHashMap<PathBuf, String>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -1018,6 +1019,62 @@ impl RasmProject {
             ASTModifiers::public(),
         );
         statements.push(stmt);
+    }
+
+    pub fn name(&self) -> &str {
+        &self.config.package.name
+    }
+
+    pub fn version(&self) -> &str {
+        &self.config.package.version
+    }
+
+    pub fn root(&self) -> &PathBuf {
+        &self.root
+    }
+
+    pub fn get_native_string_array(&self, target: &str, key: &str) -> Vec<String> {
+        if let Some(ref targets) = self.config.targets {
+            if let Some(target_value) = targets.get(target) {
+                if let Value::Table(target_table) = target_value {
+                    if let Some(value) = target_table.get(key) {
+                        if let Value::Array(a) = value {
+                            a.iter().map(|req| {
+                                    if let Value::String(s) = req {
+                                        s.clone()
+                                    } else {
+                                        panic!(
+                                            "{target}/{key} should be an array of strings {}/rasm.toml",
+                                            self.root.to_string_lossy()
+                                        );
+                                    }
+                                }).collect::<Vec<_>>()
+                        } else {
+                            panic!(
+                                "{target}/{key} should be an array in {}/rasm.toml, but is {}",
+                                self.root.to_string_lossy(),
+                                OptionDisplay(&target_table.get(key))
+                            );
+                        }
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    panic!(
+                        "{target} should be a table in {}/rasm.toml",
+                        self.root.to_string_lossy()
+                    );
+                }
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        }
+    }
+
+    pub fn main(&self) -> &Option<String> {
+        &self.config.package.main
     }
 }
 
