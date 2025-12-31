@@ -18,6 +18,8 @@
 
 use strum_macros::Display;
 
+use crate::project::RasmSubProject;
+
 #[derive(PartialEq, Display, Clone)]
 pub enum CommandLineAction {
     Build,
@@ -48,6 +50,12 @@ impl RasmProfile {
             RasmProfile::Main => "main".into(),
             RasmProfile::Test => "test".into(),
             RasmProfile::Custom { path } => path.replace('/', "_"),
+        }
+    }
+
+    pub fn principal_sub_project(&self) -> RasmSubProject {
+        RasmSubProject {
+            path: self.path().to_string(),
         }
     }
 }

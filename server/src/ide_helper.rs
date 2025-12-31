@@ -2377,7 +2377,7 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/simple.rasm"),
             &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
+            &RasmProfile::Main.principal_sub_project(),
             true,
         ) {
             let index = ASTIndex::new(
@@ -2405,7 +2405,7 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/references.rasm"),
             &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
+            &RasmProfile::Main.principal_sub_project(),
             true,
         ) {
             let index = ASTIndex::new(
@@ -2430,7 +2430,7 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/references.rasm"),
             &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
+            &RasmProfile::Main.principal_sub_project(),
             true,
         ) {
             let index = ASTIndex::new(
@@ -2455,7 +2455,7 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/statement_start_position.rasm"),
             &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
+            &RasmProfile::Main.principal_sub_project(),
             true,
         ) {
             let index = ASTIndex::new(
@@ -2480,7 +2480,7 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/statement_start_position.rasm"),
             &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
+            &RasmProfile::Main.principal_sub_project(),
             true,
         ) {
             let index = ASTIndex::new(
@@ -2505,7 +2505,7 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/statement_start_position.rasm"),
             &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
+            &RasmProfile::Main.principal_sub_project(),
             true,
         ) {
             let index = ASTIndex::new(
@@ -2530,7 +2530,7 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/breakout/src/main/rasm/breakout.rasm"),
             &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
+            &RasmProfile::Main.principal_sub_project(),
             true,
         ) {
             let index = ASTIndex::new(
@@ -2557,7 +2557,7 @@ mod tests {
         if let Some((_, _, info)) = project.get_module(
             path,
             &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
+            &RasmProfile::Main.principal_sub_project(),
             true,
         ) {
             let start_index = ASTIndex::new(
@@ -2604,7 +2604,7 @@ let newHighScores = highScores.add(score);
         if let Some((_, _, info)) = project.get_module(
             path,
             &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
+            &RasmProfile::Main.principal_sub_project(),
             true,
         ) {
             let start_index = ASTIndex::new(
@@ -2647,7 +2647,7 @@ Menu(MenuState(newHighScores));
         if let Some((_, _, info)) = project.get_module(
             path,
             &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
+            &RasmProfile::Main.principal_sub_project(),
             true,
         ) {
             let start_index = ASTIndex::new(
@@ -2688,7 +2688,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         if let Some((_, _, info)) = project.get_module(
             Path::new("resources/test/breakout/src/main/rasm/breakout.rasm"),
             &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
+            &RasmProfile::Main.principal_sub_project(),
             true,
         ) {
             let index = ASTIndex::new(
@@ -2716,7 +2716,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         if let Some((_, _, info)) = project.get_module(
             path,
             &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
+            &RasmProfile::Main.principal_sub_project(),
             true,
         ) {
             let start_index = ASTIndex::new(
@@ -2908,7 +2908,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
                     .unwrap()
                     .to_path_buf(),
                 &CompileTarget::C(COptions::default()),
-                &RasmProfile::Main,
+                &RasmProfile::Main.principal_sub_project(),
                 true,
             )
             .unwrap();

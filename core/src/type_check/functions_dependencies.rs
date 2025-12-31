@@ -776,7 +776,12 @@ mod tests {
         let (project, container) = project_and_container(&target, file_path);
 
         let (module, _errors, info) = project
-            .get_module(Path::new(file_path), &target, &RasmProfile::Main, true)
+            .get_module(
+                Path::new(file_path),
+                &target,
+                &RasmProfile::Main.principal_sub_project(),
+                true,
+            )
             .unwrap();
 
         let function = module.functions.first().unwrap();

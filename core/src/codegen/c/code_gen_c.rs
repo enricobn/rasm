@@ -46,7 +46,7 @@ use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
 };
-use crate::project::RasmProject;
+use crate::project::{RasmProject, RasmSubProject};
 use crate::transformations::typed_functions_creator::struct_has_references;
 
 use log::info;
@@ -1276,14 +1276,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         out_folder: &Path,
     ) {
         project.all_projects().iter().for_each(|dependency| {
-            let profiles = if profile == &RasmProfile::Main {
-                vec![&RasmProfile::Main]
+            let sub_projects = if profile == &RasmProfile::Main {
+                vec![RasmSubProject::main()]
             } else {
-                vec![&RasmProfile::Main, profile]
+                vec![RasmSubProject::main(), profile.principal_sub_project()]
             };
 
-            profiles.into_iter().for_each(|it: &RasmProfile| {
-                if let Some(native_source_folder) = dependency.native_source_folder(it, "c") {
+            sub_projects.into_iter().for_each(|it: RasmSubProject| {
+                if let Some(native_source_folder) = dependency.native_source_folder(&it, "c") {
                     if native_source_folder.exists() {
                         WalkDir::new(native_source_folder)
                             .into_iter()

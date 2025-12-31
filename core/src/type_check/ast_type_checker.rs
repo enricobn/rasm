@@ -1572,7 +1572,9 @@ mod tests {
 
         let path = Path::new("../rasm/resources/examples/breakout/src/main/rasm/breakout.rasm");
 
-        let (module, _errors, info) = project.get_module(path, &target, &profile, true).unwrap();
+        let (module, _errors, info) = project
+            .get_module(path, &target, &profile.principal_sub_project(), true)
+            .unwrap();
 
         let mut function_type_checker = ASTTypeChecker::new();
 
@@ -2291,7 +2293,12 @@ mod tests {
         let function_type_checker = ASTTypeChecker::new();
 
         let (module, _, info) = project
-            .get_module(Path::new(file), &target, &RasmProfile::Main, true)
+            .get_module(
+                Path::new(file),
+                &target,
+                &RasmProfile::Main.principal_sub_project(),
+                true,
+            )
             .unwrap();
 
         (

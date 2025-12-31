@@ -120,7 +120,7 @@ impl UI {
         let main = if let Some(main) = &project.config.package.main {
             Some(
                 project
-                    .from_relative_to_main_src(profile, Path::new(&main))
+                    .from_relative_to_main_src(&profile.principal_sub_project(), Path::new(&main))
                     .canonicalize()
                     .unwrap()
                     .to_string_lossy()

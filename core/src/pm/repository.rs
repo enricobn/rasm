@@ -13,7 +13,7 @@ use semver::Version;
 use crate::{
     codegen::compile_target::CompileTarget,
     commandline::{CommandLineAction, CommandLineOptions, RasmProfile},
-    project::RasmProject,
+    project::{RasmProject, RasmSubProject},
 };
 
 pub enum VersionFilter {
@@ -152,7 +152,7 @@ impl PackageRepository for LocalPackageRepository {
             }
         }
 
-        if project.main_src_file(&RasmProfile::Test).is_some() {
+        if project.main_src_file(&RasmSubProject::test()).is_some() {
             let mut test_command_line_options = command_line_options.clone();
             test_command_line_options.action = CommandLineAction::Run;
             test_command_line_options.profile = RasmProfile::Test;

@@ -112,9 +112,9 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
 
     let root_file = project
         .relative_to_main_rasm_source_folder(
-            &state.profile,
+            &state.profile.principal_sub_project(),
             project
-                .main_src_file(&state.profile)
+                .main_src_file(&state.profile.principal_sub_project())
                 .expect("undefined main in rasm.toml")
                 .as_path(),
         )
@@ -132,14 +132,17 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
 
     let mut paths: Vec<PathBuf> = Vec::new();
 
-    for entry in WalkDir::new(&project.rasm_source_folder(&state.profile))
+    for entry in WalkDir::new(&project.rasm_source_folder(&state.profile.principal_sub_project()))
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| !e.file_type().is_dir() && e.file_name().to_str().unwrap().ends_with(".rasm"))
     {
         let f_name = entry.into_path();
         let file = project
-            .relative_to_main_rasm_source_folder(&state.profile, f_name.as_path())
+            .relative_to_main_rasm_source_folder(
+                &state.profile.principal_sub_project(),
+                f_name.as_path(),
+            )
             .unwrap();
         paths.push(file);
     }
@@ -177,13 +180,18 @@ async fn file<'a>(
     let target = &state.target;
 
     let file_path = project
-        .from_relative_to_main_src(profile, Path::new(&src))
+        .from_relative_to_main_src(&profile.principal_sub_project(), Path::new(&src))
         .canonicalize()
         .unwrap();
 
     let (_module, _errors, info) = &state
         .project
-        .get_module(file_path.as_path(), target, profile, true)
+        .get_module(
+            file_path.as_path(),
+            target,
+            &profile.principal_sub_project(),
+            true,
+        )
         .unwrap();
 
     let (container, catalog, _) = project.container_and_catalog(&profile, &target);
@@ -250,7 +258,7 @@ async fn file<'a>(
                         "/file?src={}#_{}_{}",
                         project
                             .relative_to_main_rasm_source_folder(
-                                &state.profile,
+                                &state.profile.principal_sub_project(),
                                 file_name.as_path()
                             )
                             .unwrap_or_else(|| panic!("{:?}", file_name))
