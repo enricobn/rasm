@@ -644,8 +644,8 @@ impl IDEHelper {
         self.catalog.catalog_info(module_id)
     }
 
-    pub fn catalog(&self) -> Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>> {
-        self.catalog.clone_catalog()
+    pub fn info(&self, id: &EnhModuleId) -> Option<ModuleInfo> {
+        self.catalog.info(id)
     }
 }
 
