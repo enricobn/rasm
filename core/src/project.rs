@@ -145,13 +145,13 @@ impl RasmProject {
 
     pub fn main_src_file(&self, sub_project: &RasmSubProject) -> Option<PathBuf> {
         let path = if sub_project.is_main() {
-            self.config
-                .package
-                .main
-                .clone()
-                .map(|it| self.rasm_source_folder(sub_project).join(Path::new(&it)))
+            self.config.package.main.clone().and_then(|main| {
+                self.rasm_source_folder(sub_project)
+                    .map(|it| it.join(Path::new(&main)))
+            })
         } else {
-            Some(self.rasm_source_folder(sub_project).join("main.rasm"))
+            self.rasm_source_folder(sub_project)
+                .map(|it| it.join("main.rasm"))
         };
 
         if let Some(path) = path {
@@ -189,9 +189,9 @@ impl RasmProject {
         */
     }
 
-    pub fn rasm_source_folder(&self, sub_project: &RasmSubProject) -> PathBuf {
+    pub fn rasm_source_folder(&self, sub_project: &RasmSubProject) -> Option<PathBuf> {
         if self.is_dir() {
-            Path::new(&self.root).join(
+            let path = Path::new(&self.root).join(
                 Path::new(
                     &self
                         .config
@@ -202,12 +202,15 @@ impl RasmProject {
                 )
                 .join(&sub_project.path)
                 .join("rasm"),
-            )
+            );
+
+            if path.exists() { Some(path) } else { None }
         } else {
             if !sub_project.is_main() {
-                panic!("Only main profile is supported for one file projects");
+                None
+            } else {
+                Some(Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf())
             }
-            Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
         }
     }
 
@@ -263,11 +266,15 @@ impl RasmProject {
         }
     }
 
-    pub fn from_relative_to_main_src(&self, sub_project: &RasmSubProject, path: &Path) -> PathBuf {
+    pub fn from_relative_to_main_src(
+        &self,
+        sub_project: &RasmSubProject,
+        path: &Path,
+    ) -> Option<PathBuf> {
         if path.is_absolute() {
-            path.to_path_buf()
+            Some(path.to_path_buf())
         } else {
-            self.rasm_source_folder(sub_project).join(path)
+            self.rasm_source_folder(sub_project).map(|it| it.join(path))
         }
     }
 
@@ -276,15 +283,26 @@ impl RasmProject {
         sub_project: &RasmSubProject,
         path: &Path,
     ) -> Option<PathBuf> {
-        diff_paths(
-            path.canonicalize()
-                .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
-            if self.root.is_dir() {
-                self.rasm_source_folder(sub_project).canonicalize().unwrap()
-            } else {
-                self.root.parent().unwrap().canonicalize().unwrap()
-            },
-        )
+        let base = if self.root.is_dir() {
+            self.rasm_source_folder(sub_project)
+                .map(fs::canonicalize)
+                .and_then(|it| it.ok())
+        } else {
+            self.root
+                .parent()
+                .map(fs::canonicalize)
+                .and_then(|it| it.ok())
+        };
+
+        if let Some(base) = base {
+            diff_paths(
+                path.canonicalize()
+                    .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
+                base,
+            )
+        } else {
+            None
+        }
     }
 
     pub fn relative_to_source_folder(&self, path: &Path) -> Option<PathBuf> {
@@ -321,12 +339,14 @@ impl RasmProject {
         let mut errors = Vec::new();
         let mut pairs = Vec::new();
 
-        pairs.push(self.get_modules(
-            self.rasm_source_folder(sub_project),
-            target,
-            sub_project,
-            is_principal_sub_project,
-        ));
+        if let Some(rasm_source_folder) = self.rasm_source_folder(sub_project) {
+            pairs.push(self.get_modules(
+                rasm_source_folder,
+                target,
+                sub_project,
+                is_principal_sub_project,
+            ));
+        }
 
         if let Some(native_folder) = self.native_source_folder(sub_project, target.folder()) {
             pairs.push(self.get_modules(
@@ -358,12 +378,20 @@ impl RasmProject {
                         enable_log(log_enabled);
                         info!("including dependency {}", dependency.config.package.name);
                         //TODO include tests?
-                        let mut dep_modules = dependency.get_modules(
-                            dependency.rasm_source_folder(&RasmSubProject::main()),
-                            target,
-                            &RasmSubProject::main(),
-                            false,
-                        );
+
+                        let mut dep_modules = if let Some(source_folder) =
+                            dependency.rasm_source_folder(&RasmSubProject::main())
+                        {
+                            dependency.get_modules(
+                                source_folder,
+                                target,
+                                &RasmSubProject::main(),
+                                false,
+                            )
+                        } else {
+                            Vec::new()
+                        };
+
                         if let Some(native_source_folder) = dependency
                             .native_source_folder(&RasmSubProject::main(), target.folder())
                         {
@@ -475,7 +503,7 @@ impl RasmProject {
     ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
         if !self
             .rasm_source_folder(&command_line_profile.principal_sub_project())
-            .exists()
+            .is_some()
         {
             panic!(
                 "Cannot find rasm source folder for profile {}",
@@ -648,7 +676,7 @@ impl RasmProject {
         }
 
         let rasm_source_folder = self.rasm_source_folder(sub_project);
-        if rasm_source_folder.exists()
+        if let Some(rasm_source_folder) = rasm_source_folder
             && path
                 .canonicalize()
                 .unwrap()

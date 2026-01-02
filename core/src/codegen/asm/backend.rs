@@ -55,7 +55,7 @@ enum Linker {
 #[derive(Clone)]
 pub struct BackendNasmi386 {
     linker: Linker,
-    libc: bool,
+
     memory_debug: bool,
 }
 
@@ -64,7 +64,6 @@ impl BackendNasmi386 {
         let libc = true; //requires.contains("libc");
         Self {
             linker: if libc { Linker::Gcc } else { Linker::Ld },
-            libc,
             memory_debug,
         }
     }

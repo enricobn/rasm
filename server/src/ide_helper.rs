@@ -1,21 +1,25 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::io;
+use std::path::PathBuf;
 
 use linked_hash_map::LinkedHashMap;
 
 use rasm_core::ast::ast_module_tree::{ASTModuleTree, ASTModuleTreeLocation};
+use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::CompileTarget;
+use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId};
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::{ValContext, ValKind};
 use rasm_core::commandline::RasmProfile;
-use rasm_core::errors::CompilationError;
-use rasm_core::project::RasmProject;
+use rasm_core::errors::{CompilationError, CompilationErrorKind};
+use rasm_core::project::{RasmProject, RasmSubProject};
 use rasm_core::transformations::enrich_container;
 use rasm_core::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
 use rasm_core::type_check::ast_type_checker::{
-    ASTTypeCheckError, ASTTypeCheckInfo, ASTTypeChecker,
+    ASTTypeCheckErroKind, ASTTypeCheckError, ASTTypeCheckInfo, ASTTypeChecker,
 };
+use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::Parser;
@@ -129,8 +133,9 @@ pub struct IDESelectableItem {
 impl Display for IDESelectableItem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!(
-            "{} -> {}",
+            "{} len {} -> {}",
             self.start,
+            self.len,
             OptionDisplay(&self.target)
         ))
     }
@@ -261,32 +266,17 @@ pub struct IDESignatureHelp {
     pub param: usize,
 }
 
-pub fn get_ide_helper_from_project(
-    project: &RasmProject,
-    target: &CompileTarget,
-    profile: &RasmProfile,
-) -> (IDEHelper, Vec<CompilationError>) {
-    let (container, catalog, errors) = project.container_and_catalog(profile, target);
-
-    let container = enrich_container(
-        &target,
-        &mut Statics::new(),
-        container,
-        &catalog,
-        false,
-        false,
-    );
-
-    (IDEHelper::from_container(container), errors)
-}
-
 pub struct IDEHelper {
     modules_container: ASTModulesContainer,
+    catalog: Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>>,
     selectable_items: Vec<IDESelectableItem>,
-    errors: Vec<ASTTypeCheckError>,
+    in_memory_files: HashMap<PathBuf, String>,
+    lexer_and_parser_errors: Vec<CompilationError>,
+    type_check_errors: Vec<ASTTypeCheckError>,
 }
 
 impl IDEHelper {
+    /*
     pub fn from_container(modules_container: ASTModulesContainer) -> IDEHelper {
         let mut selectable_items = Vec::new();
         let mut type_checker = ASTTypeChecker::new();
@@ -354,7 +344,133 @@ impl IDEHelper {
             */
         }
 
-        for entry in type_checker.result.map.values() {
+        let type_check_selectable_items = Self::calculate_selectable_items(&type_checker);
+
+        selectable_items.extend(type_check_selectable_items);
+
+        let errors = type_checker.errors;
+
+        IDEHelper::new(
+            modules_container,
+            type_checker.catalog,
+            selectable_items,
+            Vec::new(),
+            Vec::new(),
+            errors,
+        )
+    }
+    */
+
+    pub fn from_root(root: PathBuf) -> IDEHelper {
+        let project = RasmProject::new(root);
+        IDEHelper::from_project(&project)
+    }
+
+    pub fn from_project(project: &RasmProject) -> IDEHelper {
+        let profile = if project
+            .rasm_source_folder(&RasmSubProject::test())
+            .is_some()
+        {
+            RasmProfile::Test
+        } else {
+            RasmProfile::Main
+        };
+
+        let target = CompileTarget::C(COptions::default());
+
+        let (modules_container, catalog, lexer_and_parser_errors) =
+            project.container_and_catalog(&profile, &target);
+
+        let modules_container = enrich_container(
+            &target,
+            &mut Statics::new(),
+            modules_container,
+            &catalog,
+            false,
+            false,
+        );
+
+        let (selectable_items, type_check_errors) =
+            Self::calculate_selectable_items_and_errors(&modules_container);
+
+        IDEHelper::new(
+            modules_container,
+            Box::new(catalog),
+            selectable_items,
+            lexer_and_parser_errors,
+            type_check_errors,
+        )
+    }
+
+    fn calculate_selectable_items_and_errors(
+        modules_container: &ASTModulesContainer,
+    ) -> (Vec<IDESelectableItem>, Vec<ASTTypeCheckError>) {
+        let mut selectable_items = Vec::new();
+        let mut type_checker = ASTTypeChecker::new();
+
+        let mut static_val_context = ValContext::new(None);
+
+        for (id, namespace, module) in modules_container.modules() {
+            let mut val_context = ValContext::new(None);
+
+            type_checker.add_body(
+                &mut val_context,
+                &mut static_val_context,
+                &module.body,
+                None,
+                &namespace,
+                &id,
+                &modules_container,
+                None,
+            );
+        }
+
+        for (id, namespace, module) in modules_container.modules() {
+            let info = ModuleInfo::new(namespace.clone(), id.clone());
+
+            for function in module.functions.iter() {
+                type_checker.add_function(
+                    &function,
+                    &static_val_context,
+                    &namespace,
+                    &id,
+                    &modules_container,
+                );
+
+                let start = ASTIndex::new(namespace.clone(), id.clone(), function.position.clone());
+
+                selectable_items.push(IDESelectableItem::new(start, function.name.len(), None));
+
+                for par in function.parameters.iter() {
+                    let par_type = &par.ast_type;
+
+                    Self::add_selectable_type(
+                        par_type,
+                        &info,
+                        &modules_container,
+                        &mut selectable_items,
+                    );
+                }
+
+                Self::add_selectable_type(
+                    &function.return_type,
+                    &info,
+                    &modules_container,
+                    &mut selectable_items,
+                );
+            }
+        }
+
+        let type_check_selectable_items = Self::calculate_selectable_items(&type_checker);
+
+        selectable_items.extend(type_check_selectable_items);
+
+        (selectable_items, type_checker.errors)
+    }
+
+    fn calculate_selectable_items(ast_type_checker: &ASTTypeChecker) -> Vec<IDESelectableItem> {
+        let mut selectable_items = Vec::new();
+        for entry in ast_type_checker.result.map.values() {
             let ast_type = entry.filter().clone().and_then(|it| {
                 if let ASTTypeFilter::Exact(exact, _id) = it {
                     Some(exact)
@@ -465,9 +581,7 @@ impl IDEHelper {
             }
         }
 
-        let errors = type_checker.errors;
-
-        IDEHelper::new(modules_container, selectable_items, errors)
+        selectable_items
     }
 
     fn add_selectable_type(
@@ -525,18 +639,32 @@ impl IDEHelper {
             }
         }
     }
+
+    pub fn catalog_info(&self, module_id: &ModuleId) -> Option<(&EnhModuleId, &EnhASTNameSpace)> {
+        self.catalog.catalog_info(module_id)
+    }
+
+    pub fn catalog(&self) -> Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>> {
+        self.catalog.clone_catalog()
+    }
 }
 
 impl IDEHelper {
     fn new(
         modules_container: ASTModulesContainer,
+        catalog: Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>>,
         selectable_items: Vec<IDESelectableItem>,
-        errors: Vec<ASTTypeCheckError>,
+        lexer_and_parser_errors: Vec<CompilationError>,
+        type_check_errors: Vec<ASTTypeCheckError>,
     ) -> Self {
         Self {
             modules_container,
+            catalog,
             selectable_items,
-            errors,
+            in_memory_files: HashMap::new(),
+            lexer_and_parser_errors,
+
+            type_check_errors,
         }
     }
 
@@ -722,8 +850,53 @@ impl IDEHelper {
         }
     }
 
-    pub fn errors(&self) -> &Vec<ASTTypeCheckError> {
-        &self.errors
+    pub fn errors(&self) -> Vec<CompilationError> {
+        let mut compilation_errors: Vec<CompilationError> = self.lexer_and_parser_errors.clone();
+
+        let type_check_errors = self
+            .type_check_errors
+            .iter()
+            .filter(|it| matches!(it.kind(), ASTTypeCheckErroKind::Error))
+            .map(|it| {
+                let path = self
+                    .catalog
+                    .catalog_info(it.index().info().id())
+                    .and_then(|info| info.0.path());
+                CompilationError {
+                    index: EnhASTIndex::from_position(path, it.index().position()),
+                    error_kind: CompilationErrorKind::TypeCheck(
+                        it.message().to_owned(),
+                        Vec::new(),
+                    ),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        compilation_errors.extend(type_check_errors);
+        /*
+        for (path, errors) in self.lexer_errors.iter() {
+            for error in errors {
+                compilation_errors.push(CompilationError {
+                    index: EnhASTIndex::from_position(
+                        Some(path.clone()),
+                        &ASTPosition::new(error.row, error.column),
+                    ),
+                    error_kind: CompilationErrorKind::Lexer(error.message.clone()),
+                });
+            }
+        }
+
+        for (path, errors) in self.parser_errors.iter() {
+            for error in errors {
+                compilation_errors.push(CompilationError {
+                    index: EnhASTIndex::from_position(Some(path.clone()), error.position()),
+                    error_kind: CompilationErrorKind::Parser(error.message.clone()),
+                });
+            }
+        }
+        */
+
+        compilation_errors
     }
 
     pub fn container(&self) -> &ASTModulesContainer {
@@ -1550,6 +1723,49 @@ impl IDEHelper {
 
         None
     }
+
+    pub fn add_in_memory_file(&mut self, path: PathBuf, source: String) {
+        self.in_memory_files
+            .insert(path.canonicalize().unwrap(), source);
+    }
+
+    pub fn reload_in_memory_files(&mut self) {
+        for (path, source) in self.in_memory_files.iter() {
+            let id = ModuleId(path.canonicalize().unwrap().to_string_lossy().to_string());
+
+            self.lexer_and_parser_errors.retain(|e| {
+                if let Some(p) = &e.index.id().path() {
+                    p.ne(path)
+                } else {
+                    true
+                }
+            });
+
+            let lexer = Lexer::new(source.clone());
+
+            let (module, parse_errors) = Parser::new(lexer).parse();
+
+            self.lexer_and_parser_errors.extend(
+                parse_errors
+                    .into_iter()
+                    .map(|e| CompilationError::from_parser_error(e, Some(path.clone()))),
+            );
+
+            if let Some(namespace) = self.modules_container.module_namespace(&id).cloned() {
+                let readonly = self.modules_container.is_readonly_module(&id);
+                self.modules_container.remove_module(&id);
+                self.modules_container
+                    .add(module, namespace, id, true, readonly);
+            }
+        }
+
+        let (selectable_items, type_check_errors) =
+            Self::calculate_selectable_items_and_errors(&self.modules_container);
+
+        self.selectable_items = selectable_items;
+        self.type_check_errors = type_check_errors;
+        self.in_memory_files.clear();
+    }
 }
 
 #[cfg(test)]
@@ -1563,10 +1779,7 @@ mod tests {
     use rasm_core::commandline::RasmProfile;
     use rasm_core::errors::CompilationError;
     use rasm_core::project::RasmProject;
-    use rasm_core::type_check::ast_modules_container::ASTModulesContainer;
-    use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
-    use rasm_parser::lexer::Lexer;
-    use rasm_parser::parser::Parser;
+    use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleNamespace};
     use rasm_parser::parser::ast::{
         ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTFunctionSignature, ASTPosition, ASTType,
     };
@@ -1575,9 +1788,7 @@ mod tests {
 
     use crate::completion_service::{CompletionResult, CompletionTrigger};
 
-    use super::{
-        IDEHelper, IDESelectableItem, IDESelectableItemTarget, get_ide_helper_from_project,
-    };
+    use super::{IDEHelper, IDESelectableItem, IDESelectableItemTarget};
 
     #[test]
     fn simple() {
@@ -2191,32 +2402,32 @@ mod tests {
 
     #[test]
     fn incomplete_source_completion() {
-        let result = get_completion_values_from_str(
-            "let s = \"\";\n\
-            let a = s.\n\
-        fn f1(s: str) {\n\
-        }",
+        let result = get_completion_values(
+            Some(RasmProject::new(PathBuf::from(
+                "resources/test/incomplete_source_completion.rasm",
+            ))),
+            "incomplete_source_completion.rasm",
             2,
             10,
             CompletionTrigger::Character('.'),
         );
 
-        assert_eq!(vec!["f1".to_owned()], result.unwrap());
+        assert!(result.unwrap().iter().any(|it| it == "f1"));
     }
 
     #[test]
     fn incomplete_source_completion_invoked() {
-        let result = get_completion_values_from_str(
-            "let s = \"\";\n\
-            let a = s.\n\
-        fn f1(s: str) {\n\
-        }",
+        let result = get_completion_values(
+            Some(RasmProject::new(PathBuf::from(
+                "resources/test/incomplete_source_completion.rasm",
+            ))),
+            "incomplete_source_completion.rasm",
             2,
             11,
             CompletionTrigger::Invoked,
         );
 
-        assert_eq!(vec!["f1".to_owned()], result.unwrap());
+        assert!(result.unwrap().iter().any(|it| it == "f1"));
     }
 
     #[test]
@@ -2749,6 +2960,39 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         }
     }
 
+    #[test]
+    fn incomplete_source_completion_reload() {
+        let path = PathBuf::from("resources/test/incomplete_source_completion.rasm");
+        let mut helper = IDEHelper::from_project(&RasmProject::new(path.clone()));
+        assert!(!helper.errors().is_empty());
+
+        let new_module_content = "let s = \"\";
+let a = 10;
+fn f1(s: str) {
+}"
+        .to_string();
+        helper.add_in_memory_file(path.clone(), new_module_content.clone());
+
+        helper.reload_in_memory_files();
+        assert!(helper.errors().is_empty());
+
+        let index = ASTIndex::new(
+            ModuleNamespace("incomplete_source_completion:incomplete_source_completion".to_owned()),
+            ModuleId(path.canonicalize().unwrap().to_string_lossy().to_string()),
+            ASTPosition::new(2, 5),
+        );
+
+        let found = helper.find(&index);
+
+        assert!(!found.is_empty());
+
+        assert_eq!(found.len(), 1);
+        assert_eq!(
+            found[0].target.as_ref().unwrap().completion_type(),
+            Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType))
+        );
+    }
+
     fn same_signature(s1: &ASTFunctionSignature, s2: &ASTFunctionSignature) -> bool {
         if s1.parameters_types.len() != s2.parameters_types.len() {
             return false;
@@ -2938,11 +3182,8 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         let file_name = Path::new(project_path);
         let project = RasmProject::new(file_name.to_path_buf());
 
-        let (helper, errors) = get_ide_helper_from_project(
-            &project,
-            &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
-        );
+        let helper = IDEHelper::from_project(&project);
+        let errors = helper.errors();
         (project, helper, errors)
     }
 
@@ -2958,11 +3199,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         } else {
             RasmProject::new(PathBuf::from(file_name))
         };
-        let (helper, _errors) = get_ide_helper_from_project(
-            &project,
-            &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
-        );
+        let helper = IDEHelper::from_project(&project);
 
         let path = project
             .from_relative_to_root(PathBuf::from(file_name).as_path())
@@ -3007,47 +3244,6 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         }
     }
 
-    fn get_completion_values_from_str(
-        content: &str,
-        row: usize,
-        col: usize,
-        trigger: CompletionTrigger,
-    ) -> Result<Vec<String>, String> {
-        let lexer = Lexer::new(content.to_owned());
-        let (module, _errors) = Parser::new(lexer).parse();
-        let module_info =
-            ModuleInfo::new(ModuleNamespace("ns".to_owned()), ModuleId("id".to_owned()));
-
-        let mut container = ASTModulesContainer::new();
-        container.add(
-            module,
-            module_info.namespace().clone(),
-            module_info.id().clone(),
-            true,
-            false,
-        );
-
-        let helper = IDEHelper::from_container(container);
-
-        match helper.get_completions(
-            content.to_owned(),
-            &ASTPosition::new(row, col),
-            &trigger,
-            &module_info,
-        ) {
-            Ok(CompletionResult::Found(items)) => {
-                let mut sorted = items.clone();
-                sorted.sort_by(|a, b| a.sort.cmp(&b.sort));
-
-                //println!("{}", SliceDisplay(&sorted));
-
-                Ok(sorted.iter().map(|it| it.value.clone()).collect::<Vec<_>>())
-            }
-            Ok(CompletionResult::NotFound(message)) => Err(message.to_string()),
-            Err(error) => Err(error.to_string()),
-        }
-    }
-
     fn get_find(
         project: Option<RasmProject>,
         file_name: &str,
@@ -3059,11 +3255,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
         } else {
             RasmProject::new(PathBuf::from(file_name))
         };
-        let (helper, _errors) = get_ide_helper_from_project(
-            &project,
-            &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main,
-        );
+        let helper = IDEHelper::from_project(&project);
 
         let index = get_index(&&project, file_name, row, col);
 

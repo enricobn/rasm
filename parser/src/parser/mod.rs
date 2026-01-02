@@ -477,7 +477,6 @@ impl Parser {
             structs: self.structs,
             types: self.types,
         };
-
         (module, self.errors)
     }
 

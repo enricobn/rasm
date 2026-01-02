@@ -29,11 +29,8 @@ use log::info;
 
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::enh_ast::EnhASTIndex;
-use rasm_core::codegen::statics::Statics;
 use rasm_core::commandline::RasmProfile;
-use rasm_core::transformations::enrich_container;
 use rasm_parser::catalog::ASTIndex;
-use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use serde::Deserialize;
 use walkdir::WalkDir;
 
@@ -132,10 +129,14 @@ async fn root(State(state): State<Arc<ServerState>>) -> Html<String> {
 
     let mut paths: Vec<PathBuf> = Vec::new();
 
-    for entry in WalkDir::new(&project.rasm_source_folder(&state.profile.principal_sub_project()))
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|e| !e.file_type().is_dir() && e.file_name().to_str().unwrap().ends_with(".rasm"))
+    for entry in WalkDir::new(
+        &project
+            .rasm_source_folder(&state.profile.principal_sub_project())
+            .unwrap(),
+    )
+    .into_iter()
+    .filter_map(Result::ok)
+    .filter(|e| !e.file_type().is_dir() && e.file_name().to_str().unwrap().ends_with(".rasm"))
     {
         let f_name = entry.into_path();
         let file = project
@@ -181,6 +182,7 @@ async fn file<'a>(
 
     let file_path = project
         .from_relative_to_main_src(&profile.principal_sub_project(), Path::new(&src))
+        .unwrap()
         .canonicalize()
         .unwrap();
 
@@ -194,6 +196,7 @@ async fn file<'a>(
         )
         .unwrap();
 
+    /*
     let (container, catalog, _) = project.container_and_catalog(&profile, &target);
 
     let container = enrich_container(
@@ -204,8 +207,9 @@ async fn file<'a>(
         false,
         false,
     );
+    */
 
-    let ide_helper = IDEHelper::from_container(container);
+    let ide_helper = IDEHelper::from_project(project);
 
     let result = if let Ok(mut file) = File::open(file_path.clone()) {
         let mut s = String::new();
@@ -247,7 +251,7 @@ async fn file<'a>(
                 let item = vec.remove(0);
                 if let Some((file_name, row, column)) =
                     item.target.and_then(|it| it.index()).and_then(|index| {
-                        let info = catalog.catalog_info(index.module_id());
+                        let info = ide_helper.catalog_info(index.module_id());
                         info.and_then(|(id, _)| {
                             id.path()
                                 .map(|path| (path, index.position().row, index.position().column))

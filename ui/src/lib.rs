@@ -121,6 +121,7 @@ impl UI {
             Some(
                 project
                     .from_relative_to_main_src(&profile.principal_sub_project(), Path::new(&main))
+                    .unwrap()
                     .canonicalize()
                     .unwrap()
                     .to_string_lossy()
