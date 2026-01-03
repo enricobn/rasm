@@ -169,7 +169,7 @@ impl ASTModulesContainer {
                         .or_insert(Vec::new());
 
                     signatures.push(ASTFunctionSignatureEntry::new(
-                        signature.add_generic_prefix(&namespace.0),
+                        signature.add_generic_prefix(&namespace.safe_name()),
                         namespace.clone(),
                         module_id.clone(),
                         ASTPosition::builtin(&position, ft),
@@ -186,7 +186,7 @@ impl ASTModulesContainer {
                         .or_insert(Vec::new());
 
                     signatures.push(ASTFunctionSignatureEntry::new(
-                        signature.add_generic_prefix(&namespace.0),
+                        signature.add_generic_prefix(&namespace.safe_name()),
                         namespace.clone(),
                         module_id.clone(),
                         ASTPosition::builtin(&position, tf),
@@ -236,7 +236,7 @@ impl ASTModulesContainer {
                 .entry(signature.name.clone())
                 .or_insert(Vec::new());
             signatures.push(ASTFunctionSignatureEntry::new(
-                signature.add_generic_prefix(&namespace.0),
+                signature.add_generic_prefix(&namespace.safe_name()),
                 namespace.clone(),
                 module_id.clone(),
                 function.position.clone(),

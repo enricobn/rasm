@@ -1312,7 +1312,7 @@ mod tests {
         ));
 
         assert_eq!(
-            "helloworld_helloworld",
+            "helloworld:helloworld",
             format!("{}", info.unwrap().namespace())
         );
     }

@@ -334,9 +334,12 @@ fn call_expr_dependencies(
                         Ok(rgt) => {
                             for par in function.parameters.iter() {
                                 if par.ast_type.is_generic() {
-                                    let par_type = par.ast_type.clone().add_generic_prefix(
-                                        &format!("{}_{}", module_namespace.0, function.name),
-                                    );
+                                    let par_type =
+                                        par.ast_type.clone().add_generic_prefix(&format!(
+                                            "{}_{}",
+                                            module_namespace.safe_name(),
+                                            function.name
+                                        ));
                                     debug_i!("resolved generic types {rgt}");
                                     if let Some(t) = rgt.substitute(&par_type) {
                                         call_result

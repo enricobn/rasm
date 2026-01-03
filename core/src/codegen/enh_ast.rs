@@ -65,7 +65,7 @@ impl EnhModuleInfo {
     }
 
     pub fn module_namespace(&self) -> ModuleNamespace {
-        ModuleNamespace(self.namespace.safe_name())
+        self.namespace.module_namespace()
     }
 
     pub fn module_id(&self) -> ModuleId {
@@ -159,6 +159,10 @@ impl EnhASTNameSpace {
             ASTModifiers::Private => self == other,
             ASTModifiers::Internal => self.lib == other.lib,
         }
+    }
+
+    pub fn module_namespace(&self) -> ModuleNamespace {
+        ModuleNamespace::new(self.lib.clone(), self.path.clone())
     }
 }
 

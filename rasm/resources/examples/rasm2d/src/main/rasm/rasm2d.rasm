@@ -56,11 +56,11 @@ pub fn run(app: Rasm2DApplication, handler: fn(Rasm2DRenderer) -> ()) {
 // SDL implemenation
 
 pub struct Rasm2DRenderer {
-    private rend: SDLRenderer
+    internal rend: SDLRenderer
 }
 
 pub struct Rasm2DGraphics {
-    private rend: SDLRenderer
+    internal rend: SDLRenderer
 }
 
 struct Rasm2DWindow {

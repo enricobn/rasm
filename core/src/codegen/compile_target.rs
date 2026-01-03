@@ -426,7 +426,7 @@ impl CompileTarget {
 
             container.add(
                 macro_module,
-                ModuleNamespace("".to_owned()),
+                ModuleNamespace::global(),
                 ModuleId(macro_id.clone()),
                 false,
                 true,

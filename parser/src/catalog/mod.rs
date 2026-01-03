@@ -5,39 +5,49 @@ use crate::parser::ast::ASTPosition;
 pub mod modules_catalog;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ModuleNamespace(pub String);
+pub struct ModuleNamespace {
+    internal: String,
+    rest: String,
+}
 
 impl ModuleNamespace {
+    pub fn new(internal: String, rest: String) -> Self {
+        Self { internal, rest }
+    }
+
     pub fn global() -> Self {
-        Self(String::new())
+        Self {
+            internal: String::new(),
+            rest: String::new(),
+        }
     }
 
     pub fn visible_from(
         &self,
         modifiers: &crate::parser::ast::ASTModifiers,
-        function_call_module_namespace: &&ModuleNamespace,
+        namespace: &ModuleNamespace,
     ) -> bool {
         match modifiers {
             crate::parser::ast::ASTModifiers::Public => true,
-            crate::parser::ast::ASTModifiers::Private => &self == function_call_module_namespace,
-            crate::parser::ast::ASTModifiers::Internal => {
-                if self.0.contains(":") && function_call_module_namespace.0.contains(":") {
-                    let self_lib = self.0.split_once(':').unwrap().0;
-                    let function_call_module_namespace_lib =
-                        function_call_module_namespace.0.split_once(':').unwrap().0;
-                    self_lib == function_call_module_namespace_lib
-                } else {
-                    println!("visible_from {} {}", self, function_call_module_namespace);
-                    false
-                }
-            }
+            crate::parser::ast::ASTModifiers::Private => self == namespace,
+            crate::parser::ast::ASTModifiers::Internal => self.internal == namespace.internal,
         }
+    }
+
+    pub fn internal(&self) -> &str {
+        &self.internal
+    }
+
+    pub fn safe_name(&self) -> String {
+        format!("{}_{}", self.internal, self.rest)
+            .replace('/', "_")
+            .replace(':', "_")
     }
 }
 
 impl Display for ModuleNamespace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(&format!("{}:{}", self.internal, self.rest))
     }
 }
 
@@ -111,8 +121,8 @@ impl ASTIndex {
 
     pub fn none() -> Self {
         Self {
-            module_namespace: ModuleNamespace(String::new()),
-            module_id: ModuleId(String::new()),
+            module_namespace: ModuleNamespace::global(),
+            module_id: ModuleId::global(),
             position: ASTPosition::none(),
         }
     }

@@ -334,7 +334,9 @@ impl ASTTypeChecker {
     ) {
         let mut val_context = ValContext::new(None);
 
-        let generics_prefix = function.signature().generics_prefix(&module_namespace.0);
+        let generics_prefix = function
+            .signature()
+            .generics_prefix(&module_namespace.safe_name());
 
         for par in &function.parameters {
             let position = par.position.clone();
@@ -2077,7 +2079,10 @@ mod tests {
             .map
             .values()
             .filter(|it| {
-                it.index().module_namespace().0.contains("type_check_3")
+                it.index()
+                    .module_namespace()
+                    .safe_name()
+                    .contains("type_check_3")
                     && (it.index().position().row == 2 || it.index().position().row == 5)
             })
             .collect_vec();

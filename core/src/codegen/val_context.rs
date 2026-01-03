@@ -125,7 +125,7 @@ impl ValContext {
             ASTModifiers::Public => key,
             ASTModifiers::Private => format!("{}_{}", ast_index.module_namespace(), key),
             ASTModifiers::Internal => {
-                let lib = ast_index.module_namespace().0.split_once(':').unwrap().0;
+                let lib = ast_index.module_namespace().internal();
                 format!("{}_{}", lib, key)
             }
         };
