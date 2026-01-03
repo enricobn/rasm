@@ -1,0 +1,6 @@
+[package]
+name = "profiles"
+version = "1.0.0"
+
+[dependencies]
+stdlib = "0.1"

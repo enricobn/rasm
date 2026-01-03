@@ -29,7 +29,7 @@ pub enum CommandLineAction {
     UI,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum RasmProfile {
     Main,
     Test,

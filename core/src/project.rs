@@ -138,6 +138,42 @@ impl RasmProject {
         }
     }
 
+    pub fn profiles(&self) -> Vec<RasmProfile> {
+        let mut profiles = vec![RasmProfile::Main];
+
+        if self.rasm_source_folder(&RasmSubProject::test()).is_some() {
+            profiles.push(RasmProfile::Test);
+        }
+
+        let examples = self.source_folder().join("examples");
+        if examples.exists() {
+            for entry in fs::read_dir(examples).unwrap().sorted_by(|a, b| {
+                a.as_ref()
+                    .unwrap()
+                    .file_name()
+                    .cmp(&b.as_ref().unwrap().file_name())
+            }) {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    if let Some(example_path) = diff_paths(path, self.source_folder()) {
+                        if self
+                            .rasm_source_folder(&RasmSubProject {
+                                path: example_path.to_str().unwrap().to_string(),
+                            })
+                            .is_some()
+                        {
+                            profiles.push(RasmProfile::Custom {
+                                path: example_path.to_str().unwrap().to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        profiles
+    }
+
     pub fn add_in_memory_file(&mut self, path: PathBuf, source: String) {
         self.in_memory_files
             .insert(path.canonicalize().unwrap(), source);
@@ -1317,6 +1353,25 @@ mod tests {
             }
             println!();
         }
+    }
+
+    #[test]
+    fn test_profiles() {
+        let sut = RasmProject::new(PathBuf::from("resources/test/profiles"));
+
+        assert_eq!(
+            sut.profiles(),
+            vec![
+                RasmProfile::Main,
+                RasmProfile::Test,
+                RasmProfile::Custom {
+                    path: "examples/example1".to_owned()
+                },
+                RasmProfile::Custom {
+                    path: "examples/helloworld".to_owned()
+                }
+            ]
+        );
     }
 
     fn test_project(name: &str, version: &str, dependencies: Vec<(&str, &str)>) -> RasmProject {
