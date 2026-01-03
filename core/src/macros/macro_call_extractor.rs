@@ -296,8 +296,10 @@ fn get_macro_call(
         .filter(|it| &it.signature.name == call.function_name())
         .map(|it| (it, get_macro_result_type(&it.signature.return_type)))
         .filter(|(entry, macro_result_type)| {
-            (entry.signature.modifiers.public
-                || entry.module_info().namespace() == module_namespace)
+            entry
+                .module_info()
+                .namespace()
+                .visible_from(&entry.signature.modifiers, &module_namespace)
                 && macro_result_type.is_some()
         })
         .filter(|(entry, macro_result_type)| match &macro_type {
@@ -632,15 +634,12 @@ pub fn is_ast_module_first_parameter(function: &ASTFunctionSignature) -> bool {
 }
 
 fn ast_modifiers(m: &ASTModifiers, position: &ASTPosition) -> ASTExpression {
-    simple_call(
-        "ASTModifiers",
-        vec![ASTExpression::ASTValueExpression(
-            ASTValue::ASTBooleanValue(m.public),
-            position.copy(),
-        )],
-        position.copy(),
-        None,
-    )
+    let name = match m {
+        ASTModifiers::Public => "ASTModifiers::Public",
+        ASTModifiers::Private => "ASTModifiers::Private",
+        ASTModifiers::Internal => "ASTModifiers::Internal",
+    };
+    simple_call(name, Vec::new(), position.copy(), None)
 }
 
 fn ast_expression_type() -> ASTType {

@@ -4,7 +4,7 @@ let def = ASTEnumDef("ABC",
         ASTEnumVariantDef("A", Vec()),
         ASTEnumVariantDef("B", Vec()),
         ASTEnumVariantDef("C", Vec())),
-    ASTModifiers(false)
+    ASTModifiers::Private()
     );
 
 println(matchMacro(def));

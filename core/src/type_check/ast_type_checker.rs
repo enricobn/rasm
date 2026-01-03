@@ -649,8 +649,9 @@ impl ASTTypeChecker {
                         .cloned()
                         .filter(|it| {
                             &it.signature.name == name
-                                && (&it.namespace == module_namespace
-                                    || it.signature.modifiers.public)
+                                && it
+                                    .namespace
+                                    .visible_from(&it.signature.modifiers, &module_namespace)
                         })
                         .collect_vec();
 
@@ -1107,7 +1108,7 @@ impl ASTTypeChecker {
                 parameters_types,
                 return_type,
                 generics,
-                modifiers: ASTModifiers { public: true },
+                modifiers: ASTModifiers::Public, // TODO is it right?
             };
 
             let entry = ASTFunctionSignatureEntry::new(

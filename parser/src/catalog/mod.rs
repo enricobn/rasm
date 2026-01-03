@@ -11,6 +11,23 @@ impl ModuleNamespace {
     pub fn global() -> Self {
         Self(String::new())
     }
+
+    pub fn visible_from(
+        &self,
+        modifiers: &crate::parser::ast::ASTModifiers,
+        function_call_module_namespace: &&ModuleNamespace,
+    ) -> bool {
+        match modifiers {
+            crate::parser::ast::ASTModifiers::Public => true,
+            crate::parser::ast::ASTModifiers::Private => &self == function_call_module_namespace,
+            crate::parser::ast::ASTModifiers::Internal => {
+                let self_lib = self.0.split_once(':').unwrap().0;
+                let function_call_module_namespace_lib =
+                    function_call_module_namespace.0.split_once(':').unwrap().0;
+                self_lib == function_call_module_namespace_lib
+            }
+        }
+    }
 }
 
 impl Display for ModuleNamespace {

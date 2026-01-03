@@ -24,7 +24,7 @@ pub fn toString(s: ASTStructDef) -> MacroAttributeResult {
             ASTExpressionStatement(propertiesExpression)
         )),
         Vec(),
-        ASTModifiers(true),
+        ASTModifiers::Public(),
         None()
     );
 
@@ -67,7 +67,7 @@ pub fn toString(e: ASTEnumDef) -> -> MacroAttributeResult {
             ASTExpressionStatement(exprs)
         )),
         Vec(),
-        ASTModifiers(true),
+        ASTModifiers::Public(),
         None()
     );
 

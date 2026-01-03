@@ -128,13 +128,12 @@ impl Display for ParserData {
                 write!(f, "LambdaDef({}): {}", def, def.position)
             }
             ParserData::Let(name, is_const, index, modifiers) => {
+                let modifiers = modifiers
+                    .as_ref()
+                    .map(|it| format!("{it}"))
+                    .unwrap_or(String::new());
                 if *is_const {
-                    write!(
-                        f,
-                        "Const({}): {index} pub: {}",
-                        name,
-                        modifiers.as_ref().map(|it| it.public).unwrap_or(false)
-                    )
+                    write!(f, "{modifiers}Const({}): {index}", name,)
                 } else {
                     write!(f, "Let({}): {index}", name)
                 }

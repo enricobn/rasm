@@ -4,13 +4,13 @@ use rasm_parser::{
     catalog::modules_catalog::ModulesCatalog,
     parser::ast::{
         ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-        ASTLambdaDef, ASTModule, ASTParameterDef, ASTStatement, ASTType, ASTValue,
+        ASTLambdaDef, ASTModifiers, ASTModule, ASTParameterDef, ASTStatement, ASTType, ASTValue,
     },
 };
 
 use crate::{
     codegen::enh_ast::{EnhASTNameSpace, EnhModuleId},
-    macros::macro_call_extractor::{is_ast_module_first_parameter, MacroCall, MacroResultType},
+    macros::macro_call_extractor::{MacroCall, MacroResultType, is_ast_module_first_parameter},
     type_check::ast_modules_container::ASTModulesContainer,
 };
 
@@ -139,8 +139,14 @@ fn ast_function_def(function_def: &ASTFunctionDef) -> String {
         None => "None()".to_string(),
     };
 
+    let modifiers = match function_def.modifiers {
+        ASTModifiers::Public => "ASTModifiers::Public()",
+        ASTModifiers::Private => "ASTModifiers::Private()",
+        ASTModifiers::Internal => "ASTModifiers::Internal()",
+    };
+
     format!(
-        "ASTFunctionDef(\"{}\", {parameters}, {}, {body}, {}, ASTModifiers({}), {target})",
+        "ASTFunctionDef(\"{}\", {parameters}, {}, {body}, {}, {modifiers}, {target})",
         function_def.name,
         ast_type(&function_def.return_type),
         vec_of(
@@ -150,7 +156,6 @@ fn ast_function_def(function_def: &ASTFunctionDef) -> String {
                 .map(|it| format!("\"{}\"", it))
                 .collect()
         ),
-        function_def.modifiers.public,
     )
 }
 
@@ -210,10 +215,15 @@ fn ast_statement(statement: &ASTStatement) -> String {
             format!("ASTLetStatement(\"{name}\", {})", ast_expression(e))
         }
         ASTStatement::ASTConstStatement(name, e, _, modifiers) => {
+            let modifiers = match modifiers {
+                ASTModifiers::Public => "ASTModifiers::Public()",
+                ASTModifiers::Private => "ASTModifiers::Private()",
+                ASTModifiers::Internal => "ASTModifiers::Internal()",
+            };
+
             format!(
-                "ASTConstStatement(\"{name}\", {}, ASTModifiers({}))",
+                "ASTConstStatement(\"{name}\", {}, {modifiers})",
                 ast_expression(e),
-                modifiers.public
             )
         }
     }

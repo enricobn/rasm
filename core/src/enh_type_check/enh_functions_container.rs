@@ -654,8 +654,9 @@ impl EnhFunctionsContainer {
                                     enhanced_astmodule.get_type_def(parameter_type)
                                 {
                                     Ok(type_name == expected_type_name
-                                        && (type_def.modifiers().public
-                                            || (type_def.namespace() == expected_namespace))
+                                        && type_def
+                                            .namespace()
+                                            .visible_from(expected_namespace, type_def.modifiers())
                                         && param_types.len() == expected_param_types.len()
                                         && param_types
                                             .iter()

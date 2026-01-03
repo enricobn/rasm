@@ -43,8 +43,10 @@ pub fn toString(stmt: ASTStatement) -> str {
     ).add(";");
 }
 
-pub struct ASTModifiers {
-    public: bool
+pub enum ASTModifiers {
+    Public,
+    Private,
+    Internal
 }
 
 pub enum ASTExpression {
@@ -187,7 +189,7 @@ pub fn toString(def: ASTFunctionDef) -> str {
     let parameters = def.parameters.join(", ");
     let genericTypes = def.genericTypes.join(", ");
 
-    if(def.modifiers.public, "pub ", "")
+    def.modifiers.match({"pub ";}, {"";}, {"internal ";})
     .add("fn ")
     .add(def.name)
     .add(if(genericTypes.len.greater(0), "<".add(genericTypes).add(">"), ""))

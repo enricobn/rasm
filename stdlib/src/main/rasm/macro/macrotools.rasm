@@ -59,7 +59,13 @@ pub fn unwind(s: ASTStatement) -> ASTExpression {
         fn(name, expr, modifiers) { simpleASTCall("ASTConstStatement", vecOf(
             stringASTValue(name),
             unwind(expr),
-            simpleASTCall("ASTModifiers", vecOf(booleanASTValue(modifiers.public)))
+            modifiers.match({
+                simpleASTCall("ASTModifiers::Public", Vec());
+            }, {
+                simpleASTCall("ASTModifiers::Private", Vec());
+            }, {
+                simpleASTCall("ASTModifiers::Internal", Vec());
+            })
         ));}
     );
 }

@@ -999,8 +999,9 @@ impl IDEHelper {
         let filter = ASTTypeFilter::Exact(ast_type.clone(), module_info.clone());
         let mut items = Vec::new();
         for function in modules_container.signatures().iter() {
-            if !function.signature.modifiers.public
-                && &function.namespace != module_info.namespace()
+            if !function
+                .namespace
+                .visible_from(&function.signature.modifiers, &module_info.namespace())
             {
                 continue;
             }
@@ -1066,8 +1067,9 @@ impl IDEHelper {
         }
 
         for function in modules_container.signatures() {
-            if !function.signature.modifiers.public
-                && &function.namespace != module_info.namespace()
+            if !function
+                .namespace
+                .visible_from(&function.signature.modifiers, &module_info.namespace())
             {
                 continue;
             }
@@ -1769,7 +1771,8 @@ mod tests {
     use rasm_core::project::RasmProject;
     use rasm_parser::catalog::ASTIndex;
     use rasm_parser::parser::ast::{
-        ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTFunctionSignature, ASTPosition, ASTType,
+        ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTFunctionSignature, ASTModifiers,
+        ASTPosition, ASTType,
     };
     use rasm_utils::test_utils::{init_minimal_log, read_chunk};
     use rasm_utils::{OptionDisplay, reset_indent};
@@ -2552,7 +2555,9 @@ mod tests {
                     .into_iter()
                     .filter(|it| {
                         same_signature(it, signature)
-                            && (it.modifiers.public || signature.modifiers.public)
+                        // TODO internals?
+                            && (it.modifiers == ASTModifiers::Public
+                                || signature.modifiers == ASTModifiers::Public)
                     })
                     .collect::<Vec<_>>();
                 if same_signatures.len() > 1 {

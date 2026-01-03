@@ -304,10 +304,12 @@ impl EnhancedASTModule {
             if !param_types.iter().all(|param_type| {
                 if let EnhASTType::Custom { .. } = param_type {
                     if let Some(p_type_def) = self.get_type_def(param_type) {
-                        p_type_def.modifiers().public
-                            || p_type_def.namespace() == param_type.namespace()
+                        p_type_def
+                            .namespace()
+                            .visible_from(param_type.namespace(), &p_type_def.modifiers())
                     } else {
                         // TODO we have not found the type definition, should we return an error?
+                        println!("could not find type definition for {param_type}");
                         false
                     }
                 } else {
@@ -320,19 +322,19 @@ impl EnhancedASTModule {
             if let Some(enum_def) = self
                 .enums
                 .iter()
-                .find(|it| &it.name == name && (it.modifiers.public || &it.namespace == namespace))
+                .find(|it| &it.name == name && it.namespace.visible_from(namespace, &it.modifiers))
             {
                 Some(enum_def)
             } else if let Some(struct_def) = self
                 .structs
                 .iter()
-                .find(|it| &it.name == name && (it.modifiers.public || &it.namespace == namespace))
+                .find(|it| &it.name == name && it.namespace.visible_from(namespace, &it.modifiers))
             {
                 Some(struct_def)
             } else if let Some(t) = self
                 .types
                 .iter()
-                .find(|it| &it.name == name && (it.modifiers.public || &it.namespace == namespace))
+                .find(|it| &it.name == name && it.namespace.visible_from(namespace, &it.modifiers))
             {
                 Some(t)
             } else {
@@ -362,22 +364,22 @@ impl EnhancedASTModule {
                             .almost_equal(&function.return_type, self)
                             .unwrap_or(false)
                         && it.rank == function.rank
-                        && (it.modifiers.public
-                            || function.modifiers.public
-                            || (it.namespace == function.namespace))
+                        && it
+                            .namespace
+                            .visible_from(&function.namespace, &it.modifiers)
                 })
                 .collect::<Vec<_>>();
 
             if !similar_functions.is_empty() {
                 let message = format!(
-                "function {it} has the same signature of other functions : {}\nsimilar functions:\n{}",
-                it.index,
-                similar_functions
-                    .iter()
-                    .map(|it| format!("{it} : {}", it.index))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            );
+                    "function {it} has the same signature of other functions : {}\nsimilar functions:\n{}",
+                    it.index,
+                    similar_functions
+                        .iter()
+                        .map(|it| format!("{it} : {}", it.index))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                );
                 errors.push(CompilationError {
                     index: it.index.clone(),
                     error_kind: errors::CompilationErrorKind::Generic(message),

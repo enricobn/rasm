@@ -941,7 +941,7 @@ impl<'a> EnhTypeCheck<'a> {
                 .iter()
                 //.chain(same_in_new_functions.iter())
                 .filter(|it| {
-                    (it.modifiers.public || &it.namespace == namespace)
+                    it.namespace.visible_from(namespace, &it.modifiers)
                         && it.parameters.len() == call.parameters.len()
                         && (!call.is_macro || it.can_be_a_macro())
                 })
@@ -2297,7 +2297,7 @@ impl<'a> EnhTypeCheck<'a> {
                     .iter()
                     .map(|it| &it.0)
                     .filter(|it| {
-                        &it.name == name && (&it.namespace == namespace || it.modifiers.public)
+                        &it.name == name && it.namespace.visible_from(namespace, &it.modifiers)
                     })
                     .collect::<Vec<_>>(),
             );
@@ -2307,7 +2307,7 @@ impl<'a> EnhTypeCheck<'a> {
                     .find_functions_by_original_name(name)
                     .iter()
                     .filter(|it| {
-                        &it.name == name && (&it.namespace == namespace || it.modifiers.public)
+                        &it.name == name && it.namespace.visible_from(namespace, &it.modifiers)
                     })
                     .collect::<Vec<_>>(),
             );

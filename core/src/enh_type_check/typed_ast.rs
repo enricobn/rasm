@@ -521,8 +521,7 @@ impl Display for ASTTypedStatement {
                 f.write_str(&format!("let {name} = {e};\n"))
             }
             ASTTypedStatement::ConstStatement(name, e, _index, _namespace, modifiers) => {
-                let prefix = if modifiers.public { "pub " } else { "" };
-                f.write_str(&format!("{prefix} const {name} = {e};\n"))
+                f.write_str(&format!("{modifiers}const {name} = {e};\n"))
             }
         }
     }

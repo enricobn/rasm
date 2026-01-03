@@ -102,10 +102,10 @@ impl Statics {
     }
 
     pub fn const_key(name: &str, namespace: &EnhASTNameSpace, modifiers: &ASTModifiers) -> String {
-        if modifiers.public {
-            name.to_owned()
-        } else {
-            format!("{}_{name}", namespace.safe_name())
+        match modifiers {
+            ASTModifiers::Public => name.to_owned(),
+            ASTModifiers::Private => format!("{}_{name}", namespace.safe_name()),
+            ASTModifiers::Internal => format!("{}_{name}", namespace.lib()),
         }
     }
 

@@ -121,10 +121,13 @@ impl ValContext {
     ) -> Result<Option<ValKind>, String> {
         debug_i!("adding const val {key} of type {ast_type} to context");
 
-        let key = if modifiers.public {
-            key
-        } else {
-            format!("{}_{}", ast_index.module_namespace(), key)
+        let key = match modifiers {
+            ASTModifiers::Public => key,
+            ASTModifiers::Private => format!("{}_{}", ast_index.module_namespace(), key),
+            ASTModifiers::Internal => {
+                let lib = ast_index.module_namespace().0.split_once(':').unwrap().0;
+                format!("{}_{}", lib, key)
+            }
         };
 
         let result = self.value_to_address.insert(

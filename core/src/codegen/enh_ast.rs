@@ -148,6 +148,18 @@ impl EnhASTNameSpace {
     pub fn is_same_lib(&self, lib: &str) -> bool {
         self.lib == lib
     }
+
+    pub fn lib(&self) -> &str {
+        &self.lib
+    }
+
+    pub fn visible_from(&self, other: &EnhASTNameSpace, modifiers: &ASTModifiers) -> bool {
+        match modifiers {
+            ASTModifiers::Public => true,
+            ASTModifiers::Private => self == other,
+            ASTModifiers::Internal => self.lib == other.lib,
+        }
+    }
 }
 
 impl Display for EnhASTNameSpace {
@@ -196,8 +208,6 @@ impl Display for EnhASTFunctionDef {
             "()".into()
         };
 
-        let modifiers = if self.modifiers.public { "pub " } else { "" };
-
         let fun_or_asm = if let EnhASTFunctionBody::RASMBody(_) = self.body {
             "fn"
         } else {
@@ -212,7 +222,7 @@ impl Display for EnhASTFunctionDef {
             .join(",");
         f.write_str(&format!(
             "{}{} {}{generic_types}({args}) -> {rt}",
-            modifiers, fun_or_asm, self.name
+            self.modifiers, fun_or_asm, self.name
         ))
     }
 }
@@ -684,7 +694,7 @@ impl EnhASTType {
             },
             EnhASTType::Generic(_, _, _) => Ok(self.clone()),
             EnhASTType::Custom {
-                namespace: _,
+                namespace: orig_namespace,
                 name,
                 param_types,
                 index,
@@ -703,7 +713,9 @@ impl EnhASTType {
                         index: index.clone(),
                     })
                 } else {
-                    Err(format!("Cannot find custom type declaration for {self}"))
+                    Err(format!(
+                        "Cannot find custom type declaration for {self}, from original namespace {orig_namespace}"
+                    ))
                 }
             }
             EnhASTType::Unit => Ok(self.clone()),
@@ -1519,8 +1531,7 @@ impl Display for EnhASTStatement {
                 f.write_str(&format!("let {name} = {e};\n"))
             }
             EnhASTStatement::ConstStatement(name, e, _index, _namespace, modifiers) => {
-                let prefix = if modifiers.public { "pub " } else { "" };
-                f.write_str(&format!("{prefix} const {name} = {e};\n"))
+                f.write_str(&format!("{modifiers} const {name} = {e};\n"))
             }
         }
     }

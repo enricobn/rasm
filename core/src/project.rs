@@ -145,7 +145,7 @@ impl RasmProject {
             profiles.push(RasmProfile::Test);
         }
 
-        let examples = self.source_folder().join("examples");
+        let examples = self.root.join(self.source_folder()).join("examples");
         if examples.exists() {
             for entry in fs::read_dir(examples).unwrap().sorted_by(|a, b| {
                 a.as_ref()
@@ -155,7 +155,9 @@ impl RasmProject {
             }) {
                 let path = entry.unwrap().path();
                 if path.is_dir() {
-                    if let Some(example_path) = diff_paths(path, self.source_folder()) {
+                    if let Some(example_path) =
+                        diff_paths(path, self.root.join(self.source_folder()))
+                    {
                         if self
                             .rasm_source_folder(&RasmSubProject {
                                 path: example_path.to_str().unwrap().to_string(),
@@ -252,14 +254,14 @@ impl RasmProject {
 
     pub fn source_folder(&self) -> PathBuf {
         if self.is_dir() {
-            Path::new(&self.root).join(Path::new(
+            PathBuf::from(
                 &self
                     .config
                     .package
                     .source_folder
                     .as_ref()
                     .unwrap_or(&"src".to_string()),
-            ))
+            )
         } else {
             Path::new(&self.config.package.source_folder.as_ref().unwrap()).to_path_buf()
         }
@@ -346,7 +348,7 @@ impl RasmProject {
             path.canonicalize()
                 .unwrap_or_else(|_| panic!("cannot canonicalize {:?}", path.to_str())),
             if self.root.is_dir() {
-                self.source_folder().canonicalize().unwrap()
+                self.root.join(self.source_folder()).canonicalize().unwrap()
             } else {
                 self.root.parent().unwrap().canonicalize().unwrap()
             },
@@ -425,6 +427,7 @@ impl RasmProject {
                                 false,
                             )
                         } else {
+                            println!("no source folder for {}", dependency.config.package.name);
                             Vec::new()
                         };
 
@@ -497,7 +500,7 @@ impl RasmProject {
         Self::add_folder(
             &mut resources_body,
             "RASMSOURCEFOLDER",
-            self.source_folder(),
+            self.root.join(self.source_folder()),
         );
 
         let resources_module = ASTModule {

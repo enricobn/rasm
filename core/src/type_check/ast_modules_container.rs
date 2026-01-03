@@ -291,8 +291,9 @@ impl ASTModulesContainer {
             .iter()
             .filter(|entry| {
                 entry.signature.parameters_types.len() == parameter_types_filter.len()
-                    && (entry.signature.modifiers.public
-                        || &entry.namespace == function_call_module_namespace)
+                    && entry
+                        .namespace
+                        .visible_from(&entry.signature.modifiers, &function_call_module_namespace)
             })
             .filter(|entry| {
                 zip(parameter_types_filter, &entry.signature.parameters_types).all(
@@ -429,7 +430,7 @@ impl ASTModulesContainer {
     ) -> Option<&(ModuleInfo, ASTEnumDef)> {
         self.enum_defs.get(name).and_then(|it| {
             find_one(it.iter(), |(info, e)| {
-                e.modifiers.public || info.namespace() == from_namespace
+                info.namespace().visible_from(&e.modifiers, &from_namespace)
             })
         })
     }
@@ -440,12 +441,12 @@ impl ASTModulesContainer {
 
     pub fn get_struct_def(
         &self,
-        from_module_id: &ModuleNamespace,
+        from_namespace: &ModuleNamespace,
         name: &str,
     ) -> Option<&(ModuleInfo, ASTStructDef)> {
         self.struct_defs.get(name).and_then(|it| {
             find_one(it.iter(), |(info, e)| {
-                e.modifiers.public || info.namespace() == from_module_id
+                info.namespace().visible_from(&e.modifiers, &from_namespace)
             })
         })
     }
@@ -456,12 +457,12 @@ impl ASTModulesContainer {
 
     pub fn get_type_def(
         &self,
-        from_module_id: &ModuleNamespace,
+        from_namespace: &ModuleNamespace,
         name: &str,
     ) -> Option<&(ModuleInfo, ASTTypeDef)> {
         self.type_defs.get(name).and_then(|it| {
             find_one(it.iter(), |(info, e)| {
-                e.modifiers.public || info.namespace() == from_module_id
+                info.namespace().visible_from(&e.modifiers, &from_namespace)
             })
         })
     }

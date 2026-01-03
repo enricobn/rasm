@@ -36,7 +36,7 @@ pub trait FunctionsCreator {
 
                 if property_def.private {
                     for f in &mut property_functions {
-                        f.modifiers.public = false;
+                        f.modifiers = ASTModifiers::Private;
                     }
                 }
 
@@ -47,7 +47,7 @@ pub trait FunctionsCreator {
                 let mut property_setter_function =
                     self.create_function_for_struct_set_property(struct_def, property_def, i);
                 if property_def.private {
-                    property_setter_function.modifiers.public = false;
+                    property_setter_function.modifiers = ASTModifiers::Private;
                 }
                 module.add_function(property_setter_function);
 
@@ -55,7 +55,7 @@ pub trait FunctionsCreator {
                     .create_function_for_struct_set_lambda_property(struct_def, property_def, i);
 
                 if property_def.private {
-                    property_setter_function.modifiers.public = false;
+                    property_setter_function.modifiers = ASTModifiers::Private;
                 }
 
                 module.add_function(property_setter_function);
@@ -70,12 +70,15 @@ pub trait FunctionsCreator {
             let mut position = struct_def.position.clone();
             position.builtin = Some(ASTBuiltinFunctionType::StructConstructor);
 
-            let is_public =
-                struct_def.modifiers.public && !struct_def.properties.iter().any(|p| p.private);
+            let mut modifiers = &struct_def.modifiers;
+
+            if struct_def.properties.iter().any(|p| p.private) {
+                modifiers = &ASTModifiers::Private;
+            }
 
             let function_def = ASTFunctionDef::from_signature(
                 signature,
-                is_public,
+                modifiers.clone(),
                 position,
                 parameters_names,
                 parameters_positions,
@@ -100,7 +103,7 @@ pub trait FunctionsCreator {
 
         let function_def = ASTFunctionDef::from_signature(
             signature,
-            enum_def.modifiers.public,
+            enum_def.modifiers.clone(),
             ASTPosition::builtin(&enum_def.position, ASTBuiltinFunctionType::Match),
             parameters_names,
             parameters_positions,
@@ -128,7 +131,7 @@ pub trait FunctionsCreator {
 
         let function_def = ASTFunctionDef::from_signature(
             signature,
-            enum_def.modifiers.public,
+            enum_def.modifiers.clone(),
             ASTPosition::builtin(&variant.position, ASTBuiltinFunctionType::MatchOne),
             parameters_names,
             parameters_positions,
@@ -166,7 +169,7 @@ pub trait FunctionsCreator {
 
             result.push(ASTFunctionDef::from_signature(
                 lambda_signature,
-                struct_def.modifiers.public,
+                struct_def.modifiers.clone(),
                 ASTPosition::builtin(&property_def.position, ft),
                 lambda_parameters_names,
                 lambda_parameters_positions,
@@ -199,7 +202,7 @@ pub trait FunctionsCreator {
 
         ASTFunctionDef::from_signature(
             signature,
-            struct_def.modifiers.public,
+            struct_def.modifiers.clone(),
             ASTPosition::builtin(&property_def.position, ASTBuiltinFunctionType::StructGetter),
             parameters_names,
             parameters_positions,
@@ -219,7 +222,7 @@ pub trait FunctionsCreator {
 
         ASTFunctionDef::from_signature(
             signature,
-            struct_def.modifiers.public,
+            struct_def.modifiers.clone(),
             ASTPosition::builtin(&property_def.position, ASTBuiltinFunctionType::StructSetter),
             parameters_names,
             parameters_positions,
@@ -239,7 +242,7 @@ pub trait FunctionsCreator {
 
         ASTFunctionDef::from_signature(
             signature,
-            struct_def.modifiers.public,
+            struct_def.modifiers.clone(),
             ASTPosition::builtin(
                 &property_def.position,
                 ASTBuiltinFunctionType::StructLambdaSetter,
@@ -349,7 +352,7 @@ pub trait FunctionsCreator {
 
             let function_def = ASTFunctionDef::from_signature(
                 signature,
-                enum_def.modifiers.public,
+                enum_def.modifiers.clone(),
                 variant.position.clone(),
                 parameters_names,
                 parameters_positions,

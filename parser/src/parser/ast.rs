@@ -218,7 +218,11 @@ impl ASTFunctionSignature {
 
 impl Display for ASTFunctionDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let modifiers = if self.modifiers.public { "pub " } else { "" };
+        let modifiers = match self.modifiers {
+            ASTModifiers::Public => "pub ",
+            ASTModifiers::Private => "",
+            ASTModifiers::Internal => "internal ",
+        };
         let generic_types = if self.generic_types.is_empty() {
             "".into()
         } else {
@@ -267,7 +271,7 @@ impl ASTFunctionDef {
 
     pub fn from_signature(
         signature: ASTFunctionSignature,
-        is_public: bool,
+        modifiers: ASTModifiers,
         position: ASTPosition,
         parameters_names: Vec<String>,
         parameters_positions: Vec<ASTPosition>,
@@ -293,7 +297,7 @@ impl ASTFunctionDef {
             body,
             generic_types: signature.generics,
             position,
-            modifiers: ASTModifiers { public: is_public },
+            modifiers,
             target,
         }
     }
@@ -855,29 +859,40 @@ impl Display for ASTStatement {
                 f.write_str(&format!("{keyword} {name} = {e};\n"))
             }
             ASTStatement::ASTConstStatement(name, e, _, modifiers) => {
-                let keyword = if modifiers.public {
-                    "pub const"
-                } else {
-                    "const"
-                };
-                f.write_str(&format!("{keyword} {name} = {e};\n"))
+                f.write_str(&format!("{modifiers}const {name} = {e};\n"))
             }
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ASTModifiers {
-    pub public: bool,
+pub enum ASTModifiers {
+    Public,
+    Private,
+    Internal,
+}
+
+impl Display for ASTModifiers {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ASTModifiers::Public => f.write_str("pub "),
+            ASTModifiers::Private => f.write_str(""),
+            ASTModifiers::Internal => f.write_str("internal "),
+        }
+    }
 }
 
 impl ASTModifiers {
     pub fn public() -> Self {
-        Self { public: true }
+        ASTModifiers::Public
     }
 
     pub fn private() -> Self {
-        Self { public: false }
+        ASTModifiers::Private
+    }
+
+    pub fn internal() -> Self {
+        ASTModifiers::Internal
     }
 }
 

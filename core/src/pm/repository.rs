@@ -183,9 +183,13 @@ impl PackageRepository for LocalPackageRepository {
 
         if let Err(msg) = copy_dir_all(
             project.root().join(source_folder.clone()),
-            destination_folder.join(source_folder),
+            destination_folder.join(source_folder.clone()),
         ) {
-            panic!("copy failed: {}", msg);
+            panic!(
+                "copy failed {}: {}",
+                source_folder.as_os_str().to_string_lossy(),
+                msg
+            );
         }
 
         println!(

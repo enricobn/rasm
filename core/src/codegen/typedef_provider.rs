@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use log::debug;
-use rasm_utils::{find_one, SliceDisplay};
+use rasm_utils::{SliceDisplay, find_one};
 use std::iter::zip;
 
 use crate::codegen::enh_ast::{EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
@@ -48,7 +48,9 @@ pub trait TypeDefProvider {
                     it.custom_ast_type_name()
                         .map(|n| &n == name)
                         .unwrap_or(false)
-                        && (it.modifiers.public || &it.namespace == ast_type.namespace())
+                        && it
+                            .namespace
+                            .visible_from(ast_type.namespace(), &it.modifiers)
                 })
                 .map(|it| it.namespace().clone())
                 .collect::<Vec<_>>();
@@ -60,7 +62,9 @@ pub trait TypeDefProvider {
                     it.custom_ast_type_name()
                         .map(|n| &n == name)
                         .unwrap_or(false)
-                        && (it.modifiers.public || &it.namespace == ast_type.namespace())
+                        && it
+                            .namespace
+                            .visible_from(ast_type.namespace(), &it.modifiers)
                 })
                 .map(|it| it.namespace().clone())
                 .collect::<Vec<_>>();
@@ -72,7 +76,9 @@ pub trait TypeDefProvider {
                     it.custom_ast_type_name()
                         .map(|n| &n == name)
                         .unwrap_or(false)
-                        && (it.modifiers.public || &it.namespace == ast_type.namespace())
+                        && it
+                            .namespace
+                            .visible_from(ast_type.namespace(), &it.modifiers)
                 })
                 .map(|it| it.namespace().clone())
                 .collect::<Vec<_>>();
@@ -132,7 +138,7 @@ pub trait TypeDefProvider {
         name: &str,
     ) -> Option<&ASTTypedEnumDef> {
         find_one(self.enums().iter(), |it| {
-            (it.modifiers.public || &it.namespace == namespace) && it.name.starts_with(name)
+            it.namespace.visible_from(namespace, &it.modifiers) && it.name.starts_with(name)
         })
     }
 
@@ -142,7 +148,7 @@ pub trait TypeDefProvider {
         name: &str,
     ) -> Option<&ASTTypedStructDef> {
         find_one(self.structs().iter(), |it| {
-            (it.modifiers.public || &it.namespace == namespace) && it.name.starts_with(name)
+            it.namespace.visible_from(namespace, &it.modifiers) && it.name.starts_with(name)
         })
     }
 
@@ -152,7 +158,7 @@ pub trait TypeDefProvider {
         name: &str,
     ) -> Option<&ASTTypedTypeDef> {
         find_one(self.types().iter(), |it| {
-            (it.modifiers.public || &it.namespace == namespace) && it.name.starts_with(name)
+            it.namespace.visible_from(namespace, &it.modifiers) && it.name.starts_with(name)
         })
     }
 
@@ -187,7 +193,7 @@ pub trait TypeDefProvider {
                 index: _,
             } = &it.ast_type
             {
-                (it.modifiers.public || &it.namespace == namespace) && ast_type_name == name
+                it.namespace.visible_from(namespace, &it.modifiers) && ast_type_name == name
             } else {
                 panic!()
             }
@@ -201,7 +207,7 @@ pub trait TypeDefProvider {
                 index: _,
             } = &it.ast_type
             {
-                (it.modifiers.public || &it.namespace == namespace) && ast_type_name == name
+                it.namespace.visible_from(namespace, &it.modifiers) && ast_type_name == name
             } else {
                 panic!()
             }
@@ -310,7 +316,7 @@ pub trait TypeDefProvider {
                     index: _,
                 } => {
                     it.original_name == type_to_find
-                        && (it.modifiers.public || &it.namespace == ast_type_namespace)
+                        && it.namespace.visible_from(ast_type_namespace, &it.modifiers)
                 }
                 EnhASTType::Unit => false,
             }
