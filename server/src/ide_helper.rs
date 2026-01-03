@@ -647,6 +647,44 @@ impl IDEHelper {
     pub fn info(&self, id: &EnhModuleId) -> Option<ModuleInfo> {
         self.catalog.info(id)
     }
+
+    pub fn ast_index(&self, path: &PathBuf, row: usize, column: usize) -> Option<ASTIndex> {
+        self.get_ast_index_with_builtin(path, row, column, None)
+    }
+
+    pub fn ast_index_with_builtin(
+        &self,
+        path: &PathBuf,
+        row: usize,
+        column: usize,
+        builtin_type: ASTBuiltinFunctionType,
+    ) -> Option<ASTIndex> {
+        self.get_ast_index_with_builtin(path, row, column, Some(builtin_type))
+    }
+
+    fn get_ast_index_with_builtin(
+        &self,
+        path: &PathBuf,
+        row: usize,
+        column: usize,
+        builtin_type: Option<ASTBuiltinFunctionType>,
+    ) -> Option<ASTIndex> {
+        if let Ok(path) = path.canonicalize() {
+            if let Some(info) = self.catalog.info(&EnhModuleId::Path(path)) {
+                let position = if let Some(builtin_type) = builtin_type {
+                    ASTPosition::builtin(&ASTPosition::new(row, column), builtin_type)
+                } else {
+                    ASTPosition::new(row, column)
+                };
+                return Some(ASTIndex::new(
+                    info.namespace().clone(),
+                    info.id().clone(),
+                    position,
+                ));
+            }
+        }
+        None
+    }
 }
 
 impl IDEHelper {
@@ -1226,7 +1264,8 @@ impl IDEHelper {
                 println!("edit {} : {}", edit.from.module_id(), edit.from.position());
             }
             */
-            // TODO we want to be able to rename symbols of the current lib
+            // TODO we want to be able to rename symbols of the current lib.
+            //      What does it mean????
             Err("Rename of symbols outside current library.".to_owned())
         } else {
             // TODO it can happen for example renaming a type that is the type of a property in a struct, because there are multiple
@@ -1731,7 +1770,12 @@ impl IDEHelper {
 
     pub fn reload_in_memory_files(&mut self) {
         for (path, source) in self.in_memory_files.iter() {
-            let id = ModuleId(path.canonicalize().unwrap().to_string_lossy().to_string());
+            let id = if let Some(module_info) = self.catalog.info(&EnhModuleId::Path(path.clone()))
+            {
+                module_info.id().clone()
+            } else {
+                continue;
+            };
 
             self.lexer_and_parser_errors.retain(|e| {
                 if let Some(p) = &e.index.id().path() {
@@ -1779,7 +1823,7 @@ mod tests {
     use rasm_core::commandline::RasmProfile;
     use rasm_core::errors::CompilationError;
     use rasm_core::project::RasmProject;
-    use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleNamespace};
+    use rasm_parser::catalog::ASTIndex;
     use rasm_parser::parser::ast::{
         ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTFunctionSignature, ASTPosition, ASTType,
     };
@@ -2378,7 +2422,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "we can't rely on breakout"]
     fn rename_in_multiple_modules() {
         test_rename_with_module_ns(
             "resources/test/breakout",
@@ -2583,179 +2626,124 @@ mod tests {
     fn test_statement_start_position_simple() {
         init_minimal_log();
 
-        let (project, helper) = get_helper("resources/test/simple.rasm");
+        let (_, helper) = get_helper("resources/test/simple.rasm");
 
-        if let Some((_, _, info)) = project.get_module(
-            Path::new("resources/test/simple.rasm"),
-            &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main.principal_sub_project(),
-            true,
-        ) {
-            let index = ASTIndex::new(
-                info.module_namespace(),
-                info.module_id(),
-                ASTPosition::new(3, 13),
-            );
+        let path = PathBuf::from("resources/test/simple.rasm");
 
-            reset_indent!();
+        let index = helper.ast_index(&path, 3, 13).unwrap();
 
-            if let Some(i) = helper.statement_start_position(&index) {
-                assert_eq!(ASTPosition::new(3, 1), i);
-            } else {
-                panic!("Cannot find statement.");
-            }
+        reset_indent!();
+
+        if let Some(i) = helper.statement_start_position(&index) {
+            assert_eq!(ASTPosition::new(3, 1), i);
         } else {
-            panic!("Cannot find module.");
+            panic!("Cannot find statement.");
         }
     }
 
     #[test]
     fn test_statement_start_position_lambda() {
-        let (project, helper) = get_helper("resources/test/references.rasm");
+        let (_, helper) = get_helper("resources/test/references.rasm");
 
-        if let Some((_, _, info)) = project.get_module(
-            Path::new("resources/test/references.rasm"),
-            &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main.principal_sub_project(),
-            true,
-        ) {
-            let index = ASTIndex::new(
-                info.module_namespace(),
-                info.module_id(),
-                ASTPosition::new(3, 13),
-            );
-            if let Some(i) = helper.statement_start_position(&index) {
-                assert_eq!(ASTPosition::new(3, 5), i);
-            } else {
-                panic!("Cannot find statement.");
-            }
+        let index = helper
+            .ast_index(&PathBuf::from("resources/test/references.rasm"), 3, 13)
+            .unwrap();
+
+        if let Some(i) = helper.statement_start_position(&index) {
+            assert_eq!(ASTPosition::new(3, 5), i);
         } else {
-            panic!("Cannot find module.");
+            panic!("Cannot find statement.");
         }
     }
 
     #[test]
     fn test_statement_start_position_dot_notation() {
-        let (project, helper) = get_helper("resources/test/references.rasm");
+        let (_, helper) = get_helper("resources/test/references.rasm");
 
-        if let Some((_, _, info)) = project.get_module(
-            Path::new("resources/test/references.rasm"),
-            &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main.principal_sub_project(),
-            true,
-        ) {
-            let index = ASTIndex::new(
-                info.module_namespace(),
-                info.module_id(),
-                ASTPosition::new(2, 10),
-            );
-            if let Some(i) = helper.statement_start_position(&index) {
-                assert_eq!(ASTPosition::new(1, 1), i);
-            } else {
-                panic!("Cannot find statement.");
-            }
+        let index = helper
+            .ast_index(&PathBuf::from("resources/test/references.rasm"), 2, 10)
+            .unwrap();
+
+        if let Some(i) = helper.statement_start_position(&index) {
+            assert_eq!(ASTPosition::new(1, 1), i);
         } else {
-            panic!("Cannot find module.");
+            panic!("Cannot find statement.");
         }
     }
 
     #[test]
     fn test_statement_start_position_corner_case1() {
-        let (project, helper) = get_helper("resources/test/statement_start_position.rasm");
+        let (_, helper) = get_helper("resources/test/statement_start_position.rasm");
 
-        if let Some((_, _, info)) = project.get_module(
-            Path::new("resources/test/statement_start_position.rasm"),
-            &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main.principal_sub_project(),
-            true,
-        ) {
-            let index = ASTIndex::new(
-                info.module_namespace(),
-                info.module_id(),
-                ASTPosition::new(6, 4),
-            );
-            if let Some(i) = helper.statement_start_position(&index) {
-                assert_eq!(ASTPosition::new(3, 1), i);
-            } else {
-                panic!("Cannot find statement.");
-            }
+        let index = helper
+            .ast_index(
+                &PathBuf::from("resources/test/statement_start_position.rasm"),
+                6,
+                4,
+            )
+            .unwrap();
+
+        if let Some(i) = helper.statement_start_position(&index) {
+            assert_eq!(ASTPosition::new(3, 1), i);
         } else {
-            panic!("Cannot find module.");
+            panic!("Cannot find statement.");
         }
     }
 
     #[test]
     fn test_statement_start_position_corner_case2() {
-        let (project, helper) = get_helper("resources/test/statement_start_position.rasm");
+        let (_, helper) = get_helper("resources/test/statement_start_position.rasm");
 
-        if let Some((_, _, info)) = project.get_module(
-            Path::new("resources/test/statement_start_position.rasm"),
-            &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main.principal_sub_project(),
-            true,
-        ) {
-            let index = ASTIndex::new(
-                info.module_namespace(),
-                info.module_id(),
-                ASTPosition::new(1, 9),
-            );
-            if let Some(i) = helper.statement_start_position(&index) {
-                assert_eq!(ASTPosition::new(1, 1), i);
-            } else {
-                panic!("Cannot find statement.");
-            }
+        let index = helper
+            .ast_index(
+                &PathBuf::from("resources/test/statement_start_position.rasm"),
+                1,
+                9,
+            )
+            .unwrap();
+
+        if let Some(i) = helper.statement_start_position(&index) {
+            assert_eq!(ASTPosition::new(1, 1), i);
         } else {
-            panic!("Cannot find module.");
+            panic!("Cannot find statement.");
         }
     }
 
     #[test]
     fn test_statement_start_position_in_function() {
-        let (project, helper) = get_helper("resources/test/statement_start_position.rasm");
+        let (_, helper) = get_helper("resources/test/statement_start_position.rasm");
 
-        if let Some((_, _, info)) = project.get_module(
-            Path::new("resources/test/statement_start_position.rasm"),
-            &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main.principal_sub_project(),
-            true,
-        ) {
-            let index = ASTIndex::new(
-                info.module_namespace(),
-                info.module_id(),
-                ASTPosition::new(17, 13),
-            );
-            if let Some(i) = helper.statement_start_position(&index) {
-                assert_eq!(ASTPosition::new(17, 5), i);
-            } else {
-                panic!("Cannot find statement.");
-            }
+        let index = helper
+            .ast_index(
+                &PathBuf::from("resources/test/statement_start_position.rasm"),
+                17,
+                13,
+            )
+            .unwrap();
+
+        if let Some(i) = helper.statement_start_position(&index) {
+            assert_eq!(ASTPosition::new(17, 5), i);
         } else {
-            panic!("Cannot find module.");
+            panic!("Cannot find statement.");
         }
     }
 
     #[test]
     fn test_statement_start_position_breakout() {
-        let (project, helper) = get_helper("resources/test/breakout");
+        let (_, helper) = get_helper("resources/test/breakout");
 
-        if let Some((_, _, info)) = project.get_module(
-            Path::new("resources/test/breakout/src/main/rasm/breakout.rasm"),
-            &CompileTarget::C(COptions::default()),
-            &RasmProfile::Main.principal_sub_project(),
-            true,
-        ) {
-            let index = ASTIndex::new(
-                info.module_namespace(),
-                info.module_id(),
-                ASTPosition::new(158, 31),
-            );
-            if let Some(i) = helper.statement_start_position(&index) {
-                assert_eq!(ASTPosition::new(158, 5), i);
-            } else {
-                panic!("Cannot find statement.");
-            }
+        let index = helper
+            .ast_index(
+                &PathBuf::from("resources/test/breakout/src/main/rasm/breakout.rasm"),
+                158,
+                31,
+            )
+            .unwrap();
+
+        if let Some(i) = helper.statement_start_position(&index) {
+            assert_eq!(ASTPosition::new(158, 5), i);
         } else {
-            panic!("Cannot find module.");
+            panic!("Cannot find statement.");
         }
     }
 
@@ -2976,11 +2964,7 @@ fn f1(s: str) {
         helper.reload_in_memory_files();
         assert!(helper.errors().is_empty());
 
-        let index = ASTIndex::new(
-            ModuleNamespace("incomplete_source_completion:incomplete_source_completion".to_owned()),
-            ModuleId(path.canonicalize().unwrap().to_string_lossy().to_string()),
-            ASTPosition::new(2, 5),
-        );
+        let index = helper.ast_index(&path, 2, 5).unwrap();
 
         let found = helper.find(&index);
 
