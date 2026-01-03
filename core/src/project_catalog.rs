@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use rasm_parser::catalog::{
-    modules_catalog::ModulesCatalog, ModuleId, ModuleInfo, ModuleNamespace,
+    ModuleId, ModuleInfo, ModuleNamespace, modules_catalog::ModulesCatalog,
 };
 
 use crate::codegen::enh_ast::{EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
@@ -26,6 +26,15 @@ impl RasmProjectCatalog {
             map: HashMap::new(),
             map_namespaces: HashMap::new(),
             enh_map: HashMap::new(),
+        }
+    }
+
+    pub fn extend(&mut self, profile_catalog: impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>) {
+        for (enh_id, enh_namespace, _, _) in profile_catalog.catalog() {
+            if self.map.contains_key(enh_id) {
+                continue;
+            }
+            self.add(enh_id.clone(), enh_namespace.clone());
         }
     }
 }

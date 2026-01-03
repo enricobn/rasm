@@ -674,6 +674,18 @@ impl ASTModulesContainer {
             module.body.clear();
         }
     }
+
+    pub fn extend(&mut self, profile_modules_container: ASTModulesContainer) {
+        self.modules.extend(profile_modules_container.modules);
+        self.struct_defs
+            .extend(profile_modules_container.struct_defs);
+        self.enum_defs.extend(profile_modules_container.enum_defs);
+        self.type_defs.extend(profile_modules_container.type_defs);
+        self.signatures.extend(profile_modules_container.signatures);
+        self.readonly_modules
+            .extend(profile_modules_container.readonly_modules);
+        self.trees.extend(profile_modules_container.trees);
+    }
 }
 
 #[derive(Debug, Clone)]

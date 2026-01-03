@@ -11,9 +11,9 @@ use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId};
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::{ValContext, ValKind};
-use rasm_core::commandline::RasmProfile;
 use rasm_core::errors::{CompilationError, CompilationErrorKind};
-use rasm_core::project::{RasmProject, RasmSubProject};
+use rasm_core::project::RasmProject;
+use rasm_core::project_catalog::RasmProjectCatalog;
 use rasm_core::transformations::enrich_container;
 use rasm_core::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
 use rasm_core::type_check::ast_type_checker::{
@@ -282,31 +282,60 @@ impl IDEHelper {
     }
 
     pub fn from_project(project: &RasmProject) -> IDEHelper {
-        let profile = if project
-            .rasm_source_folder(&RasmSubProject::test())
-            .is_some()
-        {
-            RasmProfile::Test
-        } else {
-            RasmProfile::Main
-        };
-
         let target = CompileTarget::C(COptions::default());
 
-        let (modules_container, catalog, lexer_and_parser_errors) =
-            project.container_and_catalog(&profile, &target);
+        let mut modules_container = ASTModulesContainer::new();
+        let mut selectable_items = Vec::new();
+        let mut lexer_and_parser_errors = Vec::new();
+        let mut type_check_errors = Vec::new();
+        let mut catalog = RasmProjectCatalog::new();
 
-        let modules_container = enrich_container(
-            &target,
-            &mut Statics::new(),
-            modules_container,
-            &catalog,
-            false,
-            false,
-        );
+        for profile in project.profiles() {
+            let (profile_modules_container, profile_catalog, profile_lexer_and_parser_errors) =
+                project.container_and_catalog(&profile, &target);
 
-        let (selectable_items, type_check_errors) =
-            Self::calculate_selectable_items_and_errors(&modules_container);
+            let profile_modules_container = enrich_container(
+                &target,
+                &mut Statics::new(),
+                profile_modules_container,
+                &profile_catalog,
+                false,
+                false,
+            );
+
+            let (profile_selectable_items, profile_type_check_errors) =
+                Self::calculate_selectable_items_and_errors(&profile_modules_container);
+
+            for selectable_item in profile_selectable_items {
+                if !selectable_items
+                    .iter()
+                    .any(|item: &IDESelectableItem| item.start == selectable_item.start)
+                {
+                    selectable_items.push(selectable_item);
+                }
+            }
+
+            for error in profile_type_check_errors {
+                if !type_check_errors
+                    .iter()
+                    .any(|item: &ASTTypeCheckError| &item.index() == &error.index())
+                {
+                    type_check_errors.push(error);
+                }
+            }
+
+            for error in profile_lexer_and_parser_errors.iter() {
+                if !lexer_and_parser_errors
+                    .iter()
+                    .any(|item: &CompilationError| item.index == error.index)
+                {
+                    lexer_and_parser_errors.push(error.clone());
+                }
+            }
+
+            modules_container.extend(profile_modules_container);
+            catalog.extend(profile_catalog);
+        }
 
         IDEHelper::new(
             modules_container,
