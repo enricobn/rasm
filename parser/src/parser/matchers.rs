@@ -18,5 +18,6 @@ pub fn generic_types_matcher() -> TokensMatcher {
 pub fn modifiers_matcher() -> TokensMatcher {
     let mut modifiers_matcher = TokensMatcher::new("modifiers", Quantifier::AtMostOne);
     modifiers_matcher.add_kind(TokenKind::KeyWord(KeywordKind::Pub));
+    modifiers_matcher.add_kind(TokenKind::KeyWord(KeywordKind::Internal));
     modifiers_matcher
 }

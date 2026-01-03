@@ -21,10 +21,15 @@ impl ModuleNamespace {
             crate::parser::ast::ASTModifiers::Public => true,
             crate::parser::ast::ASTModifiers::Private => &self == function_call_module_namespace,
             crate::parser::ast::ASTModifiers::Internal => {
-                let self_lib = self.0.split_once(':').unwrap().0;
-                let function_call_module_namespace_lib =
-                    function_call_module_namespace.0.split_once(':').unwrap().0;
-                self_lib == function_call_module_namespace_lib
+                if self.0.contains(":") && function_call_module_namespace.0.contains(":") {
+                    let self_lib = self.0.split_once(':').unwrap().0;
+                    let function_call_module_namespace_lib =
+                        function_call_module_namespace.0.split_once(':').unwrap().0;
+                    self_lib == function_call_module_namespace_lib
+                } else {
+                    println!("visible_from {} {}", self, function_call_module_namespace);
+                    false
+                }
             }
         }
     }

@@ -84,6 +84,7 @@ pub fn parse_property(
         ast_type: super::ast::ASTType::ASTUnitType,
         position: parser.get_position(n),
         private: false,
+        internal: false,
     };
 
     loop {
@@ -103,6 +104,9 @@ pub fn parse_property(
                     status = PropertyStatus::Colon
                 } else if let TokenKind::KeyWord(KeywordKind::Private) = token.kind {
                     property_def.private = true;
+                    new_n += 1;
+                } else if let TokenKind::KeyWord(KeywordKind::Internal) = token.kind {
+                    property_def.internal = true;
                     new_n += 1;
                 } else {
                     errors.push(parser.error(

@@ -1,7 +1,7 @@
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, Token, TokenKind};
+use crate::parser::ParserTrait;
 use crate::parser::ast::ASTModifiers;
 use crate::parser::type_params_parser::TypeParamsParser;
-use crate::parser::ParserTrait;
 
 pub struct NativeFnParser<'a> {
     parser: &'a dyn ParserTrait,
@@ -18,6 +18,11 @@ impl<'a> NativeFnParser<'a> {
             if let Some(TokenKind::KeyWord(KeywordKind::Pub)) = self.parser.get_token_kind_n(0) {
                 current_n += 1;
                 ASTModifiers::public()
+            } else if let Some(TokenKind::KeyWord(KeywordKind::Internal)) =
+                self.parser.get_token_kind_n(0)
+            {
+                current_n += 1;
+                ASTModifiers::internal()
             } else {
                 ASTModifiers::private()
             };

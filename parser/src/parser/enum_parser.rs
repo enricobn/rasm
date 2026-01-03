@@ -5,13 +5,13 @@ use linked_hash_map::LinkedHashMap;
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
+use crate::parser::ParserTrait;
 use crate::parser::ast::{ASTEnumVariantDef, ASTModifiers, ASTParameterDef};
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
 use crate::parser::tokens_matcher::{
     Quantifier, TokensMatcher, TokensMatcherResult, TokensMatcherTrait,
 };
 use crate::parser::type_parser::TypeParser;
-use crate::parser::ParserTrait;
 
 pub struct EnumParser {
     matcher: TokensMatcher,
@@ -36,14 +36,22 @@ impl EnumParser {
         self.matcher.match_tokens(parser, 0).map(|result| {
             let param_types = result.group_alphas("type");
             let mut name_index = 1;
-            let modifiers = if result.group_tokens("modifiers").is_empty() {
+            let modifiers_tokens = result.group_tokens("modifiers");
+            let modifiers = if modifiers_tokens.is_empty() {
                 ASTModifiers::private()
             } else {
                 name_index += 1;
-                ASTModifiers::public()
+                if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Pub) {
+                    ASTModifiers::public()
+                } else if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Internal) {
+                    ASTModifiers::internal()
+                } else if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Private) {
+                    ASTModifiers::private()
+                } else {
+                    panic!("unknown modifier");
+                }
             };
             let token = result.tokens().get(name_index).unwrap().clone();
-
             (
                 token,
                 param_types,

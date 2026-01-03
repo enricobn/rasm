@@ -26,11 +26,20 @@ impl StructParser {
     ) -> Option<(Token, Vec<String>, ASTModifiers, usize)> {
         self.matcher.match_tokens(parser, 0).map(|result| {
             let mut i = 1;
-            let modifiers = if result.group_tokens("modifiers").is_empty() {
+            let modifiers_tokens = result.group_tokens("modifiers");
+            let modifiers = if modifiers_tokens.is_empty() {
                 ASTModifiers::private()
             } else {
                 i += 1;
-                ASTModifiers::public()
+                if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Pub) {
+                    ASTModifiers::public()
+                } else if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Internal) {
+                    ASTModifiers::internal()
+                } else if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Private) {
+                    ASTModifiers::private()
+                } else {
+                    panic!("unknown modifier");
+                }
             };
             let param_types = result.group_alphas("type");
             (
@@ -101,6 +110,7 @@ mod tests {
             ast_type: ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
             position: ASTPosition::new(2, 13),
             private: false,
+            internal: false,
         };
 
         let y = ASTStructPropertyDef {
@@ -108,6 +118,7 @@ mod tests {
             ast_type: ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
             position: ASTPosition::new(3, 13),
             private: false,
+            internal: false,
         };
 
         if let Some((struct_def, errors, n)) = parse_result {
@@ -143,6 +154,7 @@ mod tests {
             ast_type: ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
             position: ASTPosition::new(2, 13),
             private: false,
+            internal: false,
         };
 
         let y = ASTStructPropertyDef {
@@ -150,6 +162,7 @@ mod tests {
             ast_type: ASTGenericType(ASTPosition::new(3, 21), "T".into(), Vec::new()),
             position: ASTPosition::new(3, 13),
             private: false,
+            internal: false,
         };
 
         if let Some((struct_def, errors, n)) = parse_result {

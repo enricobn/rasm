@@ -74,6 +74,10 @@ pub trait FunctionsCreator {
 
             if struct_def.properties.iter().any(|p| p.private) {
                 modifiers = &ASTModifiers::Private;
+            } else if modifiers == &ASTModifiers::Public
+                && struct_def.properties.iter().any(|p| p.internal)
+            {
+                modifiers = &ASTModifiers::Internal;
             }
 
             let function_def = ASTFunctionDef::from_signature(

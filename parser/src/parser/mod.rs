@@ -634,12 +634,7 @@ impl Parser {
             self.state.push(ParserState::Let);
             self.state.push(ParserState::Expression);
             self.i = next_i;
-        } else if let Some((name, next_i, is_public)) = self.try_parse_let(true)? {
-            let modifiers = if is_public {
-                ASTModifiers::public()
-            } else {
-                ASTModifiers::private()
-            };
+        } else if let Some((name, next_i, modifiers)) = self.try_parse_let(true)? {
             self.parser_data.push(ParserData::Let(
                 name,
                 true,
@@ -1180,11 +1175,20 @@ impl Parser {
         if let Some(matcher_result) = FUNCTION_DEF_MATCHER.match_tokens(self, 0) {
             let param_types = matcher_result.group_alphas("type");
             let mut name_index = 1;
-            let modifiers = if matcher_result.group_tokens("modifiers").is_empty() {
+            let modifiers_tokens = matcher_result.group_tokens("modifiers");
+            let modifiers = if modifiers_tokens.is_empty() {
                 ASTModifiers::private()
             } else {
                 name_index += 1;
-                ASTModifiers::public()
+                if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Pub) {
+                    ASTModifiers::public()
+                } else if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Internal) {
+                    ASTModifiers::internal()
+                } else if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Private) {
+                    ASTModifiers::private()
+                } else {
+                    panic!("unknown modifier");
+                }
             };
             Ok(Some((
                 matcher_result.get_token_n(name_index).unwrap().clone(),
@@ -1341,29 +1345,34 @@ impl Parser {
         }
         Ok(None)
     }
-    fn try_parse_let(&self, is_const: bool) -> Result<Option<(String, usize, bool)>, String> {
+    fn try_parse_let(
+        &self,
+        is_const: bool,
+    ) -> Result<Option<(String, usize, ASTModifiers)>, String> {
         let kind = if is_const {
             KeywordKind::Const
         } else {
             KeywordKind::Let
         };
 
-        let (is_public, n) =
+        let (modifiers, n) =
             if let Some(&TokenKind::KeyWord(KeywordKind::Pub)) = self.get_token_kind() {
-                (true, 1)
+                (ASTModifiers::Public, 1)
+            } else if let Some(&TokenKind::KeyWord(KeywordKind::Internal)) = self.get_token_kind() {
+                (ASTModifiers::Internal, 1)
             } else {
-                (false, 0)
+                (ASTModifiers::Private, 0)
             };
 
         if Some(&TokenKind::KeyWord(kind)) == self.get_token_kind_n(n) {
-            if !is_const && is_public {
-                return Err("pub is not supported for let".to_owned());
+            if !is_const && modifiers != ASTModifiers::Private {
+                return Err("modifiers are not supported for let".to_owned());
             }
             if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(n + 1) {
                 if let Some(TokenKind::Punctuation(PunctuationKind::Equal)) =
                     self.get_token_kind_n(n + 2)
                 {
-                    return Ok(Some((name.clone(), self.get_i() + 3 + n, is_public)));
+                    return Ok(Some((name.clone(), self.get_i() + 3 + n, modifiers)));
                 } else {
                     return Err(format!(
                         "expected = got {:?}: {}",
@@ -1387,6 +1396,9 @@ impl Parser {
         let modifiers = if let Some(TokenKind::KeyWord(KeywordKind::Pub)) = self.get_token_kind() {
             base_n += 1;
             ASTModifiers::public()
+        } else if let Some(TokenKind::KeyWord(KeywordKind::Internal)) = self.get_token_kind() {
+            base_n += 1;
+            ASTModifiers::internal()
         } else {
             ASTModifiers::private()
         };

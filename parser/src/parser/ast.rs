@@ -636,6 +636,7 @@ pub struct ASTStructPropertyDef {
     pub ast_type: ASTType,
     pub position: ASTPosition,
     pub private: bool,
+    pub internal: bool,
 }
 
 impl Display for ASTStructPropertyDef {
