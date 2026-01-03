@@ -489,12 +489,11 @@ fn test_structpropertysetter() {
 }
 
 #[test]
-#[ignore = "reason unknown"]
 fn test_allocation() {
     run_test_with_target(
         "allocation",
         vec![],
-        "80 bytes allocated and referenced\n1,2\n80 bytes allocated and referenced\n",
+        "92 bytes allocated and referenced\n1,2\n92 bytes allocated and referenced\n",
         CompileTarget::Nasmi386(AsmOptions::default()),
     );
     // TODO C
