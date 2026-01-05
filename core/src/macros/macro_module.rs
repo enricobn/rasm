@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::atomic::AtomicUsize};
 
+use itertools::Itertools;
 use rasm_parser::{
     catalog::modules_catalog::ModulesCatalog,
     parser::ast::{
@@ -139,11 +140,7 @@ fn ast_function_def(function_def: &ASTFunctionDef) -> String {
         None => "None()".to_string(),
     };
 
-    let modifiers = match function_def.modifiers {
-        ASTModifiers::Public => "ASTModifiers::Public()",
-        ASTModifiers::Private => "ASTModifiers::Private()",
-        ASTModifiers::Internal => "ASTModifiers::Internal()",
-    };
+    let modifiers = ast_modifiers(&function_def.modifiers);
 
     format!(
         "ASTFunctionDef(\"{}\", {parameters}, {}, {body}, {}, {modifiers}, {target})",
@@ -215,17 +212,28 @@ fn ast_statement(statement: &ASTStatement) -> String {
             format!("ASTLetStatement(\"{name}\", {})", ast_expression(e))
         }
         ASTStatement::ASTConstStatement(name, e, _, modifiers) => {
-            let modifiers = match modifiers {
-                ASTModifiers::Public => "ASTModifiers::Public()",
-                ASTModifiers::Private => "ASTModifiers::Private()",
-                ASTModifiers::Internal => "ASTModifiers::Internal()",
-            };
+            let modifiers = ast_modifiers(modifiers);
 
             format!(
                 "ASTConstStatement(\"{name}\", {}, {modifiers})",
                 ast_expression(e),
             )
         }
+    }
+}
+
+fn ast_modifiers(modifiers: &ASTModifiers) -> String {
+    match modifiers {
+        ASTModifiers::Public => "ASTModifiers::Public()".to_owned(),
+        ASTModifiers::Private => "ASTModifiers::Private()".to_owned(),
+        ASTModifiers::Internal(internals) => format!(
+            "ASTModifiers::Internal({})",
+            internals
+                .iter()
+                .map(|it| format!("\"{}\"", it))
+                .collect_vec()
+                .join(",")
+        ),
     }
 }
 
@@ -336,7 +344,7 @@ mod tests {
                     return_type: ASTType::ASTUnitType,
                     name: "testMacroCall".to_string(),
                     generics: vec![],
-                    modifiers: ASTModifiers::public(),
+                    modifiers: ASTModifiers::Public,
                 },
                 in_function: None,
             }],

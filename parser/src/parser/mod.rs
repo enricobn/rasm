@@ -1,10 +1,11 @@
 use ast::ASTPosition;
+
 use lazy_static::lazy_static;
 use properties_parser::parse_properties;
 use std::fmt::{Display, Formatter};
 use strum_macros::Display;
 
-use crate::lexer::Lexer;
+use crate::lexer::LexerError;
 use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
@@ -18,6 +19,7 @@ use crate::parser::ast::{
 };
 use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
+use crate::parser::modifiers_parser::{try_parse_ast_modifiers, try_parse_ast_modifiers_tokens};
 use crate::parser::struct_parser::StructParser;
 use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
@@ -29,6 +31,7 @@ pub mod ast;
 pub mod builtin_functions;
 mod enum_parser;
 mod matchers;
+pub mod modifiers_parser;
 pub mod properties_parser;
 mod struct_parser;
 #[cfg(test)]
@@ -168,11 +171,11 @@ enum ParserState {
 }
 
 impl Parser {
-    pub fn new(lexer: Lexer) -> Self {
-        //let (lexer_tokens, lexer_errors) = lexer.process();
+    pub fn new(lexer: impl IntoIterator<Item = (Option<Token>, Vec<LexerError>)>) -> Self {
         let mut lexer_errors = Vec::new();
 
         let tokens = lexer
+            .into_iter()
             .filter(|(token_o, errs)| {
                 lexer_errors.extend(errs.clone());
 
@@ -515,22 +518,25 @@ impl Parser {
         } else if let Some((name_token, generic_types, modifiers, next_i)) =
             self.try_parse_function_def()?
         {
-            let name = name_token.alpha().unwrap().clone();
-
-            let function_def = ASTFunctionDef {
-                name,
-                parameters: Vec::new(),
-                body: RASMBody(Vec::new()),
-                return_type: ASTType::ASTUnitType,
-                generic_types,
-                position: name_token.position,
-                modifiers,
-                target: None,
-            };
-            self.parser_data.push(ParserData::FunctionDef(function_def));
-            self.state.push(ParserState::FunctionDef);
-            self.state.push(ParserState::FunctionDefParameter);
-            self.i = next_i;
+            if let Some(name) = name_token.alpha() {
+                let function_def = ASTFunctionDef {
+                    name,
+                    parameters: Vec::new(),
+                    body: RASMBody(Vec::new()),
+                    return_type: ASTType::ASTUnitType,
+                    generic_types,
+                    position: name_token.position,
+                    modifiers,
+                    target: None,
+                };
+                self.parser_data.push(ParserData::FunctionDef(function_def));
+                self.state.push(ParserState::FunctionDef);
+                self.state.push(ParserState::FunctionDefParameter);
+                self.i = next_i;
+            } else {
+                self.add_error(format!("Expected function name, but got {}", name_token));
+                self.i += 1;
+            }
         } else if let Some((name_token, param_types, modifiers, next_i)) =
             NativeFnParser::new(self).try_parse()?
         {
@@ -549,18 +555,25 @@ impl Parser {
             self.state.push(ParserState::FunctionDef);
             self.state.push(ParserState::FunctionDefParameter);
             self.i = next_i;
-        } else if let Some((name, type_params, modifiers, next_i)) = ENUM_PARSER.try_parse(self) {
-            self.parser_data.push(ParserData::EnumDef(ASTEnumDef {
-                name: name.alpha().unwrap(),
-                type_parameters: type_params,
-                variants: Vec::new(),
-                position: name.position.clone(),
-                modifiers,
-                attribute_macros: self.attributes_macros.clone(),
-            }));
-            self.attributes_macros.clear();
-            self.state.push(ParserState::EnumDef);
-            self.i = next_i;
+        } else if let Some((name_token, type_params, modifiers, next_i)) =
+            ENUM_PARSER.try_parse(self)
+        {
+            if let Some(name) = name_token.alpha() {
+                self.parser_data.push(ParserData::EnumDef(ASTEnumDef {
+                    name,
+                    type_parameters: type_params,
+                    variants: Vec::new(),
+                    position: name_token.position.clone(),
+                    modifiers,
+                    attribute_macros: self.attributes_macros.clone(),
+                }));
+                self.attributes_macros.clear();
+                self.state.push(ParserState::EnumDef);
+                self.i = next_i;
+            } else {
+                self.add_error(format!("Expected enum name, but got {}", name_token));
+                self.i += 1;
+            }
         } else if let Some((name_token, type_params, modifiers, next_i)) =
             STRUCT_PARSER.try_parse(self)
         {
@@ -762,7 +775,7 @@ impl Parser {
             return_type: ASTType::ASTUnitType,
             generic_types: Vec::new(),
             position: ASTPosition::none(),
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
             target: None,
         };
         self.parser_data
@@ -1174,24 +1187,12 @@ impl Parser {
     ) -> Result<Option<(Token, Vec<String>, ASTModifiers, usize)>, String> {
         if let Some(matcher_result) = FUNCTION_DEF_MATCHER.match_tokens(self, 0) {
             let param_types = matcher_result.group_alphas("type");
-            let mut name_index = 1;
             let modifiers_tokens = matcher_result.group_tokens("modifiers");
-            let modifiers = if modifiers_tokens.is_empty() {
-                ASTModifiers::private()
-            } else {
-                name_index += 1;
-                if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Pub) {
-                    ASTModifiers::public()
-                } else if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Internal) {
-                    ASTModifiers::internal()
-                } else if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Private) {
-                    ASTModifiers::private()
-                } else {
-                    panic!("unknown modifier");
-                }
-            };
+
+            let (modifiers, new_index) = try_parse_ast_modifiers_tokens(modifiers_tokens.clone())?;
+
             Ok(Some((
-                matcher_result.get_token_n(name_index).unwrap().clone(),
+                self.get_token_n(new_index + 1).unwrap().clone(),
                 param_types,
                 modifiers,
                 self.get_i() + matcher_result.next_n(),
@@ -1355,14 +1356,7 @@ impl Parser {
             KeywordKind::Let
         };
 
-        let (modifiers, n) =
-            if let Some(&TokenKind::KeyWord(KeywordKind::Pub)) = self.get_token_kind() {
-                (ASTModifiers::Public, 1)
-            } else if let Some(&TokenKind::KeyWord(KeywordKind::Internal)) = self.get_token_kind() {
-                (ASTModifiers::Internal, 1)
-            } else {
-                (ASTModifiers::Private, 0)
-            };
+        let (modifiers, n) = try_parse_ast_modifiers(self, 0)?;
 
         if Some(&TokenKind::KeyWord(kind)) == self.get_token_kind_n(n) {
             if !is_const && modifiers != ASTModifiers::Private {
@@ -1392,16 +1386,7 @@ impl Parser {
     }
 
     fn parse_type_def(&self) -> Result<Option<(ASTTypeDef, usize)>, String> {
-        let mut base_n = 0;
-        let modifiers = if let Some(TokenKind::KeyWord(KeywordKind::Pub)) = self.get_token_kind() {
-            base_n += 1;
-            ASTModifiers::public()
-        } else if let Some(TokenKind::KeyWord(KeywordKind::Internal)) = self.get_token_kind() {
-            base_n += 1;
-            ASTModifiers::internal()
-        } else {
-            ASTModifiers::private()
-        };
+        let (modifiers, base_n) = try_parse_ast_modifiers(self, 0)?;
         if let Some(TokenKind::KeyWord(KeywordKind::Type)) = self.get_token_kind_n(base_n) {
             if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(base_n + 1) {
                 let (type_parameters, next_i) = if let Some((type_parameters, next_i)) =
@@ -1590,7 +1575,7 @@ mod tests {
             return_type: ASTType::ASTUnitType,
             generic_types: vec!["T".into(), "T1".into()],
             position: ASTPosition::new(1, 4),
-            modifiers: ASTModifiers::private(),
+            modifiers: ASTModifiers::Private,
             target: None,
         };
 
@@ -1828,6 +1813,19 @@ mod tests {
         let t = module.types.get(0).unwrap();
 
         assert_eq!(t.body, " hasReferences = false ");
+    }
+
+    #[test]
+    fn pub_fn() {
+        let (mut module, errors) = parse_with_errors("resources/test/pub_fn.rasm");
+
+        assert!(errors.is_empty());
+
+        let f = module.functions.remove(0);
+
+        if let ASTFunctionBody::RASMBody(ref body) = f.body {
+            assert_eq!(1, body.len());
+        }
     }
 
     fn parse(source: &str) -> ASTModule {

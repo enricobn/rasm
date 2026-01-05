@@ -4,8 +4,8 @@ use linked_hash_map::LinkedHashMap;
 
 use crate::lexer::tokens::TokenKind::AlphaNumeric;
 use crate::lexer::tokens::{Token, TokenKind};
-use crate::parser::tokens_group::TokensGroup;
 use crate::parser::ParserTrait;
+use crate::parser::tokens_group::TokensGroup;
 
 pub trait TokensMatcherTrait: Debug + Sync + Display {
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult>;
@@ -144,11 +144,34 @@ impl TokensMatcherResult {
         result
     }
 
-    pub fn group_tokens(&self, name: &str) -> Vec<Token> {
+    pub fn group_values(&self, name: &str) -> Vec<Token> {
         let mut result: Vec<Token> = if let Some(results) = self.groups_results.get(name) {
             results
                 .iter()
                 .flat_map(|group_result| group_result.values.iter().cloned())
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        let mut x = self
+            .groups_results
+            .values()
+            .flatten()
+            .flat_map(|group_result| group_result.group_values(name))
+            .collect();
+
+        result.append(&mut x);
+
+        result
+    }
+
+    pub fn group_tokens(&self, name: &str) -> Vec<Token> {
+        let mut result: Vec<Token> = if let Some(results) = self.groups_results.get(name) {
+            results
+                .iter()
+                .flat_map(|group_result| group_result.tokens.iter())
+                .cloned()
                 .collect()
         } else {
             Vec::new()
@@ -167,7 +190,7 @@ impl TokensMatcherResult {
     }
 
     pub fn group_alphas(&self, name: &str) -> Vec<String> {
-        self.group_tokens(name)
+        self.group_values(name)
             .iter()
             .flat_map(|it| it.alpha().into_iter())
             .collect()
@@ -210,9 +233,50 @@ impl KindTokenMatcher {
 #[derive(Debug, Clone)]
 pub struct AlphanumericTokenMatcher {}
 
+impl Display for AlphanumericTokenMatcher {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "a")
+    }
+}
+
 impl AlphanumericTokenMatcher {
     pub fn new() -> Self {
         Self {}
+    }
+}
+
+impl TokenMatcher for AlphanumericTokenMatcher {
+    fn match_token(&self, kind: &TokenKind) -> Option<TokenKind> {
+        if let AlphaNumeric(name) = kind {
+            Some(AlphaNumeric(name.clone()))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StringLiteralTokenMatcher {}
+
+impl Display for StringLiteralTokenMatcher {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "s")
+    }
+}
+
+impl StringLiteralTokenMatcher {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl TokenMatcher for StringLiteralTokenMatcher {
+    fn match_token(&self, kind: &TokenKind) -> Option<TokenKind> {
+        if let TokenKind::StringLiteral(value) = kind {
+            Some(TokenKind::StringLiteral(value.clone()))
+        } else {
+            None
+        }
     }
 }
 
@@ -246,22 +310,6 @@ where
 
     fn name(&self) -> Vec<String> {
         vec![]
-    }
-}
-
-impl TokenMatcher for AlphanumericTokenMatcher {
-    fn match_token(&self, kind: &TokenKind) -> Option<TokenKind> {
-        if let AlphaNumeric(name) = kind {
-            Some(AlphaNumeric(name.clone()))
-        } else {
-            None
-        }
-    }
-}
-
-impl Display for AlphanumericTokenMatcher {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "a")
     }
 }
 
@@ -460,8 +508,8 @@ mod tests {
                 match_result.kinds()
             );
             assert_eq!(vec!["Option".to_string()], match_result.alphas());
-            assert!(match_result.group_tokens("type").is_empty());
-            assert!(match_result.group_tokens("unknown").is_empty());
+            assert!(match_result.group_values("type").is_empty());
+            assert!(match_result.group_values("unknown").is_empty());
             assert_eq!(3, match_result.next_n());
         } else {
             panic!()

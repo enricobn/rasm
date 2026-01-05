@@ -2,6 +2,7 @@ use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, Token, Token
 use crate::parser::ParserTrait;
 use crate::parser::ast::ASTModifiers;
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
+use crate::parser::modifiers_parser::try_parse_ast_modifiers_tokens;
 use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
 
 pub struct StructParser {
@@ -24,30 +25,20 @@ impl StructParser {
         &self,
         parser: &dyn ParserTrait,
     ) -> Option<(Token, Vec<String>, ASTModifiers, usize)> {
-        self.matcher.match_tokens(parser, 0).map(|result| {
-            let mut i = 1;
+        self.matcher.match_tokens(parser, 0).and_then(|result| {
             let modifiers_tokens = result.group_tokens("modifiers");
-            let modifiers = if modifiers_tokens.is_empty() {
-                ASTModifiers::private()
+
+            if let Ok((modifiers, new_index)) = try_parse_ast_modifiers_tokens(modifiers_tokens) {
+                let param_types = result.group_alphas("type");
+                Some((
+                    result.tokens().get(new_index + 1).unwrap().clone(),
+                    param_types,
+                    modifiers,
+                    parser.get_i() + result.next_n(),
+                ))
             } else {
-                i += 1;
-                if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Pub) {
-                    ASTModifiers::public()
-                } else if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Internal) {
-                    ASTModifiers::internal()
-                } else if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Private) {
-                    ASTModifiers::private()
-                } else {
-                    panic!("unknown modifier");
-                }
-            };
-            let param_types = result.group_alphas("type");
-            (
-                result.tokens().get(i).unwrap().clone(),
-                param_types,
-                modifiers,
-                parser.get_i() + result.next_n(),
-            )
+                None
+            }
         })
     }
 }
@@ -109,16 +100,14 @@ mod tests {
             name: "x".into(),
             ast_type: ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
             position: ASTPosition::new(2, 13),
-            private: false,
-            internal: false,
+            modifiers: None,
         };
 
         let y = ASTStructPropertyDef {
             name: "y".into(),
             ast_type: ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
             position: ASTPosition::new(3, 13),
-            private: false,
-            internal: false,
+            modifiers: None,
         };
 
         if let Some((struct_def, errors, n)) = parse_result {
@@ -129,7 +118,7 @@ mod tests {
                     type_parameters: vec![],
                     properties: vec![x, y],
                     position: ASTPosition::new(1, 8),
-                    modifiers: ASTModifiers::private(),
+                    modifiers: ASTModifiers::Private,
                     attribute_macros: vec![],
                 }
             ));
@@ -153,16 +142,14 @@ mod tests {
             name: "index".into(),
             ast_type: ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
             position: ASTPosition::new(2, 13),
-            private: false,
-            internal: false,
+            modifiers: None,
         };
 
         let y = ASTStructPropertyDef {
             name: "value".into(),
             ast_type: ASTGenericType(ASTPosition::new(3, 21), "T".into(), Vec::new()),
             position: ASTPosition::new(3, 13),
-            private: false,
-            internal: false,
+            modifiers: None,
         };
 
         if let Some((struct_def, errors, n)) = parse_result {
@@ -173,12 +160,33 @@ mod tests {
                     type_parameters: vec!["T".into()],
                     properties: vec![x, y],
                     position: ASTPosition::new(1, 8),
-                    modifiers: ASTModifiers::private(),
+                    modifiers: ASTModifiers::Private,
                     attribute_macros: vec![],
                 }
             ));
             assert_eq!(n, 14);
             assert!(errors.is_empty());
+        } else {
+            panic!()
+        }
+    }
+
+    #[test]
+    fn test_internals() {
+        let parse_result = try_parse_struct(
+            "internal(\"lib\") struct Point {
+            x: int,
+            y: int
+        }",
+        );
+
+        if let Some((struct_def, errors, n)) = parse_result {
+            assert!(errors.is_empty());
+            assert_eq!(
+                struct_def.modifiers,
+                ASTModifiers::Internal(vec!["lib".to_owned()])
+            );
+            assert_eq!(n, 15);
         } else {
             panic!()
         }

@@ -159,6 +159,16 @@ where
     filter.get(0).cloned()
 }
 
+pub trait StrVecToStrings {
+    fn to_strings(self) -> Vec<String>;
+}
+
+impl StrVecToStrings for Vec<&str> {
+    fn to_strings(self) -> Vec<String> {
+        self.into_iter().map(|s| s.to_owned()).collect()
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use std::collections::HashMap;

@@ -1,5 +1,6 @@
 use anymap::AnyMap;
 use linked_hash_map::LinkedHashMap;
+use rasm_parser::catalog::ModuleNamespace;
 use rasm_parser::parser::ast::ASTModifiers;
 
 use crate::codegen::enh_ast::EnhASTType;
@@ -82,12 +83,29 @@ impl Statics {
         ast_type: EnhASTType,
         namespace: &EnhASTNameSpace,
         modifiers: &ASTModifiers,
-    ) {
-        let const_key = Self::const_key(&name, namespace, modifiers);
+    ) -> Option<String> {
+        let mut result = None;
 
+        let const_key = Self::enh_const_key(&name, namespace, &ASTModifiers::Private);
         if self.const_map.contains_key(&const_key) {
-            panic!("already added value for const {const_key}");
+            result = Some(format!("Already added value for const {name}"));
         }
+
+        let const_key = Self::enh_const_key(
+            &name,
+            namespace,
+            &ASTModifiers::Internal(vec![namespace.lib().to_owned()]),
+        );
+        if self.const_map.contains_key(&const_key) {
+            result = Some(format!("Already added value for const {name}"));
+        }
+
+        let const_key = Self::enh_const_key(&name, namespace, &ASTModifiers::Public);
+        if self.const_map.contains_key(&const_key) {
+            result = Some(format!("Already added value for const {name}"));
+        }
+
+        let const_key = Self::enh_const_key(&name, namespace, modifiers);
 
         self.insert(const_key.clone(), MemoryValue::Mem(1, MemoryUnit::Words));
 
@@ -99,13 +117,27 @@ impl Statics {
                 modifiers: modifiers.clone(),
             },
         );
+        result
     }
 
-    pub fn const_key(name: &str, namespace: &EnhASTNameSpace, modifiers: &ASTModifiers) -> String {
+    pub fn enh_const_key(
+        name: &str,
+        namespace: &EnhASTNameSpace,
+        modifiers: &ASTModifiers,
+    ) -> String {
         match modifiers {
             ASTModifiers::Public => name.to_owned(),
             ASTModifiers::Private => format!("{}_{name}", namespace.safe_name()),
-            ASTModifiers::Internal => format!("{}_{name}", namespace.lib()),
+            ASTModifiers::Internal(internals) => format!("{}_{name}", namespace.lib()),
+        }
+    }
+
+    pub fn const_key(name: &str, namespace: &ModuleNamespace, modifiers: &ASTModifiers) -> String {
+        match modifiers {
+            ASTModifiers::Public => name.to_owned(),
+            ASTModifiers::Private => format!("{}_{name}", namespace.safe_name()),
+            // TODO: this is a hack
+            ASTModifiers::Internal(internals) => format!("{}_{name}", namespace.internal()),
         }
     }
 
@@ -116,7 +148,7 @@ impl Statics {
         namespace: &EnhASTNameSpace,
         modifiers: &ASTModifiers,
     ) -> String {
-        let const_key = Self::const_key(&name, namespace, modifiers);
+        let const_key = Self::enh_const_key(&name, namespace, modifiers);
 
         if self.const_typed_map.contains_key(&const_key) {
             panic!("already added value for const {const_key}");
@@ -134,12 +166,20 @@ impl Statics {
     }
 
     pub fn get_const(&self, name: &str, namespace: &EnhASTNameSpace) -> Option<&ConstEntry> {
-        let const_key = Self::const_key(&name, namespace, &ASTModifiers::private());
+        let const_key = Self::enh_const_key(&name, namespace, &ASTModifiers::Private);
 
         if let Some(entry) = self.const_map.get(&const_key) {
             return Some(entry);
         }
-        let const_key = Self::const_key(&name, namespace, &ASTModifiers::public());
+        let const_key = Self::enh_const_key(
+            &name,
+            namespace,
+            &ASTModifiers::Internal(vec![namespace.lib().to_owned()]),
+        );
+        if let Some(entry) = self.const_map.get(&const_key) {
+            return Some(entry);
+        }
+        let const_key = Self::enh_const_key(&name, namespace, &ASTModifiers::Public);
         self.const_map.get(&const_key)
     }
 
@@ -148,12 +188,21 @@ impl Statics {
         name: &str,
         namespace: &EnhASTNameSpace,
     ) -> Option<&ConstTypedEntry> {
-        let const_key = Self::const_key(&name, namespace, &ASTModifiers::private());
+        let const_key = Self::enh_const_key(&name, namespace, &ASTModifiers::Private);
 
         if let Some(entry) = self.const_typed_map.get(&const_key) {
             return Some(entry);
         }
-        let const_key = Self::const_key(&name, namespace, &ASTModifiers::public());
+
+        let const_key = Self::enh_const_key(
+            &name,
+            namespace,
+            &ASTModifiers::Internal(vec![namespace.lib().to_owned()]),
+        );
+        if let Some(entry) = self.const_typed_map.get(&const_key) {
+            return Some(entry);
+        }
+        let const_key = Self::enh_const_key(&name, namespace, &ASTModifiers::Public);
         self.const_typed_map.get(&const_key)
     }
 

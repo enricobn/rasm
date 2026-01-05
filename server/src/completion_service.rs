@@ -214,7 +214,7 @@ mod tests {
             generics: vec![],
             parameters_types: vec![ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType)],
             return_type: ASTType::ASTUnitType,
-            modifiers: ASTModifiers::private(),
+            modifiers: ASTModifiers::Private,
         };
 
         let mut function2 = function1.clone();

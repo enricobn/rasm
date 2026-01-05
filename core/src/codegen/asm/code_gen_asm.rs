@@ -776,7 +776,7 @@ impl CodeGenAsm {
         modifiers: Option<&ASTModifiers>,
     ) -> usize {
         let key = if is_const {
-            &Statics::const_key(name, namespace, modifiers.unwrap())
+            &Statics::enh_const_key(name, namespace, modifiers.unwrap())
         } else {
             name
         };
@@ -1300,7 +1300,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         let label = statics.add_str(value);
 
         if is_const {
-            let key = Statics::const_key(name, namespace, modifiers.unwrap());
+            let key = Statics::enh_const_key(name, namespace, modifiers.unwrap());
 
             self.indirect_move_with_tmp(
                 body,
@@ -1342,7 +1342,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         let wl = self.backend.word_len();
 
         if is_const {
-            let key = Statics::const_key(name, namespace, modifiers.unwrap());
+            let key = Statics::enh_const_key(name, namespace, modifiers.unwrap());
 
             self.add(
                 body,
@@ -1760,7 +1760,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
     ) {
         if is_const {
             if let Some(entry) = statics.get_typed_const(name, namespace) {
-                let key = Statics::const_key(name, namespace, &entry.modifiers);
+                let key = Statics::enh_const_key(name, namespace, &entry.modifiers);
                 code_gen_context.stack_vals.reserve_local_val(&key);
                 return;
             }

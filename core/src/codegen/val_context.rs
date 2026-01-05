@@ -8,6 +8,8 @@ use rasm_parser::{
     parser::ast::{ASTBuiltinTypeKind, ASTModifiers, ASTParameterDef, ASTPosition, ASTType},
 };
 
+use crate::codegen::statics::Statics;
+
 static COUNT_UNKNOWN_LAMBDA_PAR: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone, Debug)]
@@ -121,14 +123,7 @@ impl ValContext {
     ) -> Result<Option<ValKind>, String> {
         debug_i!("adding const val {key} of type {ast_type} to context");
 
-        let key = match modifiers {
-            ASTModifiers::Public => key,
-            ASTModifiers::Private => format!("{}_{}", ast_index.module_namespace(), key),
-            ASTModifiers::Internal => {
-                let lib = ast_index.module_namespace().internal();
-                format!("{}_{}", lib, key)
-            }
-        };
+        let key = Statics::const_key(&key, ast_index.module_namespace(), modifiers);
 
         let result = self.value_to_address.insert(
             key.clone(),
@@ -183,6 +178,28 @@ impl ValContext {
         let result = self.value_to_address.get(&format!("{}_{}", namespace, key));
         if result.is_none() {
             self.value_to_address.get(key)
+        } else {
+            result
+        }
+    }
+
+    pub fn get_const(&self, original_key: &str, namespace: &ModuleNamespace) -> Option<&ValKind> {
+        let key = Statics::const_key(&original_key, namespace, &ASTModifiers::Private);
+        let result = self.value_to_address.get(&key);
+        if result.is_none() {
+            let key = Statics::const_key(
+                &original_key,
+                namespace,
+                &ASTModifiers::Internal(vec![namespace.internal().to_owned()]),
+            );
+
+            let result = self.value_to_address.get(&key);
+            if result.is_none() {
+                let key = Statics::const_key(&original_key, namespace, &ASTModifiers::Public);
+                self.value_to_address.get(&key)
+            } else {
+                result
+            }
         } else {
             result
         }

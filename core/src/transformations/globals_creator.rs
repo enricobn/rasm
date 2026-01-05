@@ -30,7 +30,7 @@ pub fn add_folder(
                 ),
                 EnhASTIndex::none(),
                 EnhASTNameSpace::global(),
-                ASTModifiers::public(),
+                ASTModifiers::Public,
             ),
         );
     }

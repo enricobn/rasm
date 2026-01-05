@@ -100,7 +100,7 @@ mod tests {
     use crate::{
         codegen::{
             enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType},
-            lambda_in_stack::{can_lambda_be_in_stack, GLOBAL_LAMBDA_IN_STACK},
+            lambda_in_stack::{GLOBAL_LAMBDA_IN_STACK, can_lambda_be_in_stack},
             typedef_provider::DummyTypeDefProvider,
         },
         enh_type_check::typed_ast::{
@@ -198,7 +198,7 @@ mod tests {
 
         types.push(ASTTypedTypeDef {
             namespace: EnhASTNameSpace::global(),
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
             original_name: "OT".to_owned(),
             name: "OuterType".to_owned(),
             generic_types,
@@ -231,7 +231,7 @@ mod tests {
         };
         ASTTypedStructDef {
             namespace: EnhASTNameSpace::global(),
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
             name: name.clone(),
             properties,
             ast_type: EnhASTType::Custom {

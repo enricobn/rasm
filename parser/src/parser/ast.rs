@@ -218,11 +218,7 @@ impl ASTFunctionSignature {
 
 impl Display for ASTFunctionDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let modifiers = match self.modifiers {
-            ASTModifiers::Public => "pub ",
-            ASTModifiers::Private => "",
-            ASTModifiers::Internal => "internal ",
-        };
+        let modifiers = format!("{}", self.modifiers);
         let generic_types = if self.generic_types.is_empty() {
             "".into()
         } else {
@@ -635,8 +631,7 @@ pub struct ASTStructPropertyDef {
     pub name: String,
     pub ast_type: ASTType,
     pub position: ASTPosition,
-    pub private: bool,
-    pub internal: bool,
+    pub modifiers: Option<ASTModifiers>,
 }
 
 impl Display for ASTStructPropertyDef {
@@ -870,7 +865,7 @@ impl Display for ASTStatement {
 pub enum ASTModifiers {
     Public,
     Private,
-    Internal,
+    Internal(Vec<String>),
 }
 
 impl Display for ASTModifiers {
@@ -878,22 +873,14 @@ impl Display for ASTModifiers {
         match self {
             ASTModifiers::Public => f.write_str("pub "),
             ASTModifiers::Private => f.write_str(""),
-            ASTModifiers::Internal => f.write_str("internal "),
+            ASTModifiers::Internal(internals) => {
+                let internals = internals.iter().map(|it| format!("\"{}\"", it)).join(",");
+                if internals.is_empty() {
+                    return f.write_str("internal ");
+                }
+                f.write_str(&format!("internal({internals}) "))
+            }
         }
-    }
-}
-
-impl ASTModifiers {
-    pub fn public() -> Self {
-        ASTModifiers::Public
-    }
-
-    pub fn private() -> Self {
-        ASTModifiers::Private
-    }
-
-    pub fn internal() -> Self {
-        ASTModifiers::Internal
     }
 }
 
@@ -1175,7 +1162,7 @@ mod tests {
             body: ASTFunctionBody::RASMBody(vec![]),
             generic_types: vec!["T".to_string()],
             position: ASTPosition::none(),
-            modifiers: ASTModifiers::private(),
+            modifiers: ASTModifiers::Private,
             target: None,
         };
 

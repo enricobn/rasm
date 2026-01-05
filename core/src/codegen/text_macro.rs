@@ -19,10 +19,10 @@ use crate::enh_type_check::typed_ast::{
     DefaultFunctionCall,
 };
 use crate::type_check::substitute;
-use rasm_parser::lexer::tokens::Token;
 use rasm_parser::lexer::Lexer;
-use rasm_parser::parser::type_parser::TypeParser;
+use rasm_parser::lexer::tokens::Token;
 use rasm_parser::parser::ParserTrait;
+use rasm_parser::parser::type_parser::TypeParser;
 use rasm_utils::{OptionDisplay, SliceDisplay};
 
 use super::asm::code_gen_asm::CodeGenAsm;
@@ -286,7 +286,7 @@ impl TextMacroEvaluator {
 
         let context_generic_types = if let Some(f) = function_def {
             let mut result = Vec::new(); //f.generic_types.clone();
-                                         // TODO should we use var_types?
+            // TODO should we use var_types?
             for ((name, _var_types), _t) in f
                 .resolved_generic_types
                 .clone()
@@ -864,20 +864,20 @@ impl TextMacroEval for AddRefMacro {
             return Ok(String::new());
         }
         let (address, ast_typed_type) = match text_macro.parameters.get(0) {
-                Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
-                    (address, ast_typed_type)
-                }
-                Some(MacroParam::Ref(address, _ast_type, Some(ast_typed_type))) => {
-                    (address, ast_typed_type)
-                }
-                _ => panic!(
-                    "Error: addRef/deref macro, a typed type must be specified in function {}:{} but got {}: {}",
-                    OptionDisplay(&function_def),
-                    OptionDisplay(&function_def.map(|it|&it.index)),
-                    text_macro.parameters.get(0).unwrap(),
-                    text_macro.index
-                ),
-            };
+            Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
+                (address, ast_typed_type)
+            }
+            Some(MacroParam::Ref(address, _ast_type, Some(ast_typed_type))) => {
+                (address, ast_typed_type)
+            }
+            _ => panic!(
+                "Error: addRef/deref macro, a typed type must be specified in function {}:{} but got {}: {}",
+                OptionDisplay(&function_def),
+                OptionDisplay(&function_def.map(|it| &it.index)),
+                text_macro.parameters.get(0).unwrap(),
+                text_macro.index
+            ),
+        };
 
         let type_name = match ast_typed_type {
             ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => "str".to_string(),
@@ -1270,7 +1270,7 @@ mod tests {
             return_type: EnhASTType::Unit,
             index: EnhASTIndex::none(),
             resolved_generic_types: EnhResolvedGenericTypes::new(),
-            modifiers: ASTModifiers::private(),
+            modifiers: ASTModifiers::Private,
             namespace: EnhASTNameSpace::global(),
             rank: 0,
             target: None,

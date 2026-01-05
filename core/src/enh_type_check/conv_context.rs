@@ -672,7 +672,7 @@ mod tests {
         EnhASTEnumDef {
             namespace: EnhASTNameSpace::new("std".to_string(), "result".to_string()),
             name: "Result".to_string(),
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
             variants: vec![],
             type_parameters: vec!["T".to_string()],
             index: EnhASTIndex::none(),
@@ -695,7 +695,7 @@ mod tests {
             type_parameters: vec![],
             properties: vec![],
             index: EnhASTIndex::none(),
-            modifiers: ASTModifiers::private(),
+            modifiers: ASTModifiers::Private,
         }
     }
 }

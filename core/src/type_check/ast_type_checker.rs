@@ -633,7 +633,7 @@ impl ASTTypeChecker {
                             kind.index(module_namespace, module_id),
                         ),
                     );
-                } else if let Some(kind) = statics.get(name, module_namespace) {
+                } else if let Some(kind) = statics.get_const(name, module_namespace) {
                     self.insert(
                         index.clone(),
                         ASTTypeCheckEntry::reference(

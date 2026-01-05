@@ -634,12 +634,18 @@ pub fn is_ast_module_first_parameter(function: &ASTFunctionSignature) -> bool {
 }
 
 fn ast_modifiers(m: &ASTModifiers, position: &ASTPosition) -> ASTExpression {
-    let name = match m {
-        ASTModifiers::Public => "ASTModifiers::Public",
-        ASTModifiers::Private => "ASTModifiers::Private",
-        ASTModifiers::Internal => "ASTModifiers::Internal",
+    let (name, parameters) = match m {
+        ASTModifiers::Public => ("ASTModifiers::Public", Vec::new()),
+        ASTModifiers::Private => ("ASTModifiers::Private", Vec::new()),
+        ASTModifiers::Internal(internals) => (
+            "ASTModifiers::Internal",
+            internals
+                .iter()
+                .map(|it| string_value(it, position.copy()))
+                .collect_vec(),
+        ),
     };
-    simple_call(name, Vec::new(), position.copy(), None)
+    simple_call(name, parameters, position.copy(), None)
 }
 
 fn ast_expression_type() -> ASTType {

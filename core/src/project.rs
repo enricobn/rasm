@@ -1083,7 +1083,7 @@ impl RasmProject {
             name.to_owned(),
             ASTExpression::ASTValueExpression(ASTValue::ASTStringValue(path), ASTPosition::none()),
             ASTPosition::none(),
-            ASTModifiers::public(),
+            ASTModifiers::Public,
         );
         statements.push(stmt);
     }

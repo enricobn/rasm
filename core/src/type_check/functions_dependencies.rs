@@ -226,7 +226,7 @@ fn function_dependencies_inner(
         let mut call_result = ASTFunctionsDependencies::new();
         if let Some(call_type_check_entry) = ast_type_check.result.get_by_index(&call_index) {
             match call_type_check_entry.info() {
-                ASTTypeCheckInfo::Call(_, vec, is_macro) => {
+                ASTTypeCheckInfo::Call(_, vec, _) => {
                     for (inner_signature, inner_signature_index) in vec.iter() {
                         debug_i!("call to function {inner_signature} : {inner_signature_index}");
                         indent!();
@@ -431,7 +431,7 @@ fn function_dependencies_inner_2(
                 call.position().clone(),
             )) {
                 match call_type_check_entry.info() {
-                    ASTTypeCheckInfo::Call(_, vec, is_macro) => {
+                    ASTTypeCheckInfo::Call(_, vec, _) => {
                         for (signature, index) in vec.iter() {
                             debug_i!("call to function {signature}");
                             indent!();

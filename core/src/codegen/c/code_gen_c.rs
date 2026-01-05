@@ -1621,7 +1621,7 @@ mod tests {
             generic_types: Vec::new(),
             resolved_generic_types: EnhResolvedGenericTypes::new(),
             index: EnhASTIndex::none(),
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
             namespace: EnhASTNameSpace::global(),
             rank: 0,
             target: None,

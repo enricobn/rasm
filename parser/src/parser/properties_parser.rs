@@ -1,4 +1,7 @@
-use crate::lexer::tokens::{KeywordKind, PunctuationKind, TokenKind};
+use crate::{
+    lexer::tokens::{PunctuationKind, TokenKind},
+    parser::modifiers_parser::try_parse_ast_modifiers,
+};
 
 use super::{ParserError, ParserTrait, ast::ASTStructPropertyDef, type_parser::TypeParser};
 
@@ -83,8 +86,7 @@ pub fn parse_property(
         name: String::new(),
         ast_type: super::ast::ASTType::ASTUnitType,
         position: parser.get_position(n),
-        private: false,
-        internal: false,
+        modifiers: None,
     };
 
     loop {
@@ -102,19 +104,20 @@ pub fn parse_property(
                     property_def.position = token.position.clone();
                     new_n += 1;
                     status = PropertyStatus::Colon
-                } else if let TokenKind::KeyWord(KeywordKind::Private) = token.kind {
-                    property_def.private = true;
-                    new_n += 1;
-                } else if let TokenKind::KeyWord(KeywordKind::Internal) = token.kind {
-                    property_def.internal = true;
-                    new_n += 1;
                 } else {
-                    errors.push(parser.error(
-                        new_n,
-                        format!("Expected an identifier, but found {}", token.kind),
-                    ));
-                    new_n += 1;
-                    break;
+                    match try_parse_ast_modifiers(parser, new_n) {
+                        Ok((modifiers, new_n_1)) => {
+                            property_def.modifiers = Some(modifiers);
+                            new_n = new_n_1;
+                        }
+                        Err(error) => {
+                            errors.push(
+                                parser.error(new_n, format!("Error parsing modifiers: {}", error)),
+                            );
+                            new_n += 1;
+                            break;
+                        }
+                    }
                 }
             }
             PropertyStatus::Type => {

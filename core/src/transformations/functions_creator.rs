@@ -34,9 +34,9 @@ pub trait FunctionsCreator {
                 let mut property_functions =
                     self.create_functions_for_struct_get_property(struct_def, property_def, i);
 
-                if property_def.private {
+                if let Some(modifiers) = &property_def.modifiers {
                     for f in &mut property_functions {
-                        f.modifiers = ASTModifiers::Private;
+                        f.modifiers = modifiers.clone();
                     }
                 }
 
@@ -46,16 +46,16 @@ pub trait FunctionsCreator {
 
                 let mut property_setter_function =
                     self.create_function_for_struct_set_property(struct_def, property_def, i);
-                if property_def.private {
-                    property_setter_function.modifiers = ASTModifiers::Private;
+                if let Some(modifiers) = &property_def.modifiers {
+                    property_setter_function.modifiers = modifiers.clone();
                 }
                 module.add_function(property_setter_function);
 
                 let mut property_setter_function = self
                     .create_function_for_struct_set_lambda_property(struct_def, property_def, i);
 
-                if property_def.private {
-                    property_setter_function.modifiers = ASTModifiers::Private;
+                if let Some(modifiers) = &property_def.modifiers {
+                    property_setter_function.modifiers = modifiers.clone();
                 }
 
                 module.add_function(property_setter_function);
@@ -70,19 +70,53 @@ pub trait FunctionsCreator {
             let mut position = struct_def.position.clone();
             position.builtin = Some(ASTBuiltinFunctionType::StructConstructor);
 
-            let mut modifiers = &struct_def.modifiers;
+            let mut modifiers = struct_def.modifiers.clone();
 
-            if struct_def.properties.iter().any(|p| p.private) {
-                modifiers = &ASTModifiers::Private;
-            } else if modifiers == &ASTModifiers::Public
-                && struct_def.properties.iter().any(|p| p.internal)
-            {
-                modifiers = &ASTModifiers::Internal;
+            // here we try to merge property modifiers, to change the constructor modifiers, accordingly
+            if &modifiers != &ASTModifiers::Private {
+                let properties_modifiers = struct_def
+                    .properties
+                    .iter()
+                    .flat_map(|p| p.modifiers.iter())
+                    .collect::<Vec<_>>();
+                let mut property_modifier = None;
+                for p_modifier in properties_modifiers {
+                    match p_modifier {
+                        ASTModifiers::Public => {}
+                        ASTModifiers::Private => {
+                            property_modifier = Some(ASTModifiers::Private);
+                            break;
+                        }
+                        ASTModifiers::Internal(internals) => {
+                            if let Some(ASTModifiers::Internal(ref pm)) = property_modifier {
+                                if internals != pm {
+                                    // TODO it should raise an error
+                                    panic!("Incompatible property internal modifiers");
+                                }
+                            // it cannot be private, because if it is private, we already exited from the loop
+                            } else {
+                                if let ASTModifiers::Internal(smodifiers) = &modifiers {
+                                    if smodifiers != internals {
+                                        // TODO it should raise an error
+                                        panic!("Incompatible property internal modifiers");
+                                    }
+                                } else {
+                                    property_modifier =
+                                        Some(ASTModifiers::Internal(internals.clone()));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let Some(m) = property_modifier {
+                    modifiers = m;
+                }
             }
 
             let function_def = ASTFunctionDef::from_signature(
                 signature,
-                modifiers.clone(),
+                modifiers,
                 position,
                 parameters_names,
                 parameters_positions,
@@ -509,7 +543,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
                 &ASTPosition::none(),
                 ASTBuiltinFunctionType::Other(name.to_owned()),
             ),
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
             target: None,
         };
 
@@ -545,7 +579,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
                 &ASTPosition::none(),
                 ASTBuiltinFunctionType::Other(name.to_owned()),
             ),
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
             target: None,
         };
 

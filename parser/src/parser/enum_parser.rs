@@ -8,6 +8,7 @@ use crate::lexer::tokens::{
 use crate::parser::ParserTrait;
 use crate::parser::ast::{ASTEnumVariantDef, ASTModifiers, ASTParameterDef};
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
+use crate::parser::modifiers_parser::try_parse_ast_modifiers_tokens;
 use crate::parser::tokens_matcher::{
     Quantifier, TokensMatcher, TokensMatcherResult, TokensMatcherTrait,
 };
@@ -33,31 +34,20 @@ impl EnumParser {
         &self,
         parser: &dyn ParserTrait,
     ) -> Option<(Token, Vec<String>, ASTModifiers, usize)> {
-        self.matcher.match_tokens(parser, 0).map(|result| {
+        self.matcher.match_tokens(parser, 0).and_then(|result| {
             let param_types = result.group_alphas("type");
-            let mut name_index = 1;
             let modifiers_tokens = result.group_tokens("modifiers");
-            let modifiers = if modifiers_tokens.is_empty() {
-                ASTModifiers::private()
+            if let Ok((modifiers, new_index)) = try_parse_ast_modifiers_tokens(modifiers_tokens) {
+                let token = result.tokens().get(new_index + 1).unwrap().clone();
+                Some((
+                    token,
+                    param_types,
+                    modifiers,
+                    parser.get_i() + result.next_n(),
+                ))
             } else {
-                name_index += 1;
-                if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Pub) {
-                    ASTModifiers::public()
-                } else if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Internal) {
-                    ASTModifiers::internal()
-                } else if &modifiers_tokens[0].kind == &TokenKind::KeyWord(KeywordKind::Private) {
-                    ASTModifiers::private()
-                } else {
-                    panic!("unknown modifier");
-                }
-            };
-            let token = result.tokens().get(name_index).unwrap().clone();
-            (
-                token,
-                param_types,
-                modifiers,
-                parser.get_i() + result.next_n(),
-            )
+                None
+            }
         })
     }
 
@@ -94,7 +84,7 @@ impl EnumParser {
                 .map(|result| {
                     let name_token = result.tokens().first().unwrap();
 
-                    let parameters_tokens = result.group_tokens("parameter");
+                    let parameters_tokens = result.group_values("parameter");
 
                     let type_result = result.group_results("parameter_type");
 
@@ -291,7 +281,7 @@ mod tests {
             Some((
                 Token::new(TokenKind::AlphaNumeric("Option".to_owned()), 1, 6),
                 vec!["T".to_owned()],
-                ASTModifiers::private(),
+                ASTModifiers::Private,
                 6
             ))
         );
@@ -327,7 +317,7 @@ mod tests {
             assert_eq!(parse_result.0.type_parameters, vec!["T".to_string()]);
             assert_eq!(parse_result.0.variants, vec![empty, some]);
             assert_eq!(parse_result.0.position, ASTPosition::new(1, 6));
-            assert_eq!(parse_result.0.modifiers, ASTModifiers::private());
+            assert_eq!(parse_result.0.modifiers, ASTModifiers::Private);
             assert_eq!(parse_result.1, 15);
         } else {
             panic!();
@@ -523,7 +513,7 @@ mod tests {
                 };
 
                 assert_eq!(vec![empty, some], variants);
-                assert_eq!(modifiers, ASTModifiers::private());
+                assert_eq!(modifiers, ASTModifiers::Private);
                 assert_eq!(15, next_i);
             } else {
                 panic!();
@@ -581,7 +571,7 @@ mod tests {
                 };
 
                 assert_eq!(variants, vec![full, empty]);
-                assert_eq!(modifiers, ASTModifiers::private());
+                assert_eq!(modifiers, ASTModifiers::Private);
                 assert_eq!(next_i, 22);
             } else {
                 panic!();
@@ -625,7 +615,7 @@ mod tests {
 
                 assert_eq!(variants, vec![left, right]);
                 assert_eq!(type_parameters, vec!["L", "R"]);
-                assert_eq!(modifiers, ASTModifiers::private());
+                assert_eq!(modifiers, ASTModifiers::Private);
                 assert_eq!(next_i, 22);
             } else {
                 panic!();
@@ -665,7 +655,7 @@ mod tests {
             assert_eq!(parse_result.0.type_parameters, vec!["T".to_string()]);
             assert_eq!(parse_result.0.variants, vec![empty, some]);
             assert_eq!(parse_result.0.position, ASTPosition::new(1, 10));
-            assert_eq!(parse_result.0.modifiers, ASTModifiers::public());
+            assert_eq!(parse_result.0.modifiers, ASTModifiers::Public);
             assert_eq!(parse_result.1, 16);
         } else {
             panic!();

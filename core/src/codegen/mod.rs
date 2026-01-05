@@ -1123,7 +1123,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         body.push_str(&bf);
                     }
 
-                    let key = Statics::const_key(name, namespace, modifiers.unwrap());
+                    let key = Statics::enh_const_key(name, namespace, modifiers.unwrap());
 
                     self.set_let_const_for_function_call_result(
                         &key,

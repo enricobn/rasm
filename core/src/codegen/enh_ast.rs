@@ -157,7 +157,9 @@ impl EnhASTNameSpace {
         match modifiers {
             ASTModifiers::Public => true,
             ASTModifiers::Private => self == other,
-            ASTModifiers::Internal => self.lib == other.lib,
+            ASTModifiers::Internal(internals) => {
+                self.lib == other.lib || internals.contains(&other.lib)
+            }
         }
     }
 
@@ -1975,7 +1977,7 @@ mod tests {
             generic_types: vec!["T".to_string()],
             resolved_generic_types: EnhResolvedGenericTypes::new(),
             index: EnhASTIndex::none(),
-            modifiers: ASTModifiers::private(),
+            modifiers: ASTModifiers::Private,
             namespace: EnhASTNameSpace {
                 lib: "".to_string(),
                 path: "".to_string(),

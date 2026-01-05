@@ -1734,7 +1734,15 @@ impl<'a> EnhTypeCheck<'a> {
                     )?;
 
                     if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
-                        statics.add_const(name.clone(), ast_type, namespace, modifiers);
+                        if let Some(error) =
+                            statics.add_const(name.clone(), ast_type, namespace, modifiers)
+                        {
+                            return Err(EnhTypeCheckError::new(
+                                index.clone(),
+                                error,
+                                self.stack.clone(),
+                            ));
+                        }
                     } else {
                         return Err(EnhTypeCheckError::new(
                             index.clone(),
@@ -2547,7 +2555,7 @@ mod tests {
             generic_types: vec![],
             resolved_generic_types: EnhResolvedGenericTypes::new(),
             index: EnhASTIndex::none(),
-            modifiers: ASTModifiers::private(),
+            modifiers: ASTModifiers::Private,
             namespace: EnhASTNameSpace::global(),
             rank: 0,
             target: None,

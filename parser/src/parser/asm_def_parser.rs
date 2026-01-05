@@ -1,6 +1,7 @@
 use crate::lexer::tokens::{BracketKind, BracketStatus, KeywordKind, Token, TokenKind};
 use crate::parser::ParserTrait;
 use crate::parser::ast::ASTModifiers;
+use crate::parser::modifiers_parser::try_parse_ast_modifiers;
 use crate::parser::type_params_parser::TypeParamsParser;
 
 pub struct NativeFnParser<'a> {
@@ -13,19 +14,7 @@ impl<'a> NativeFnParser<'a> {
     }
 
     pub fn try_parse(&self) -> Result<Option<(Token, Vec<String>, ASTModifiers, usize)>, String> {
-        let mut current_n = 0;
-        let modifiers =
-            if let Some(TokenKind::KeyWord(KeywordKind::Pub)) = self.parser.get_token_kind_n(0) {
-                current_n += 1;
-                ASTModifiers::public()
-            } else if let Some(TokenKind::KeyWord(KeywordKind::Internal)) =
-                self.parser.get_token_kind_n(0)
-            {
-                current_n += 1;
-                ASTModifiers::internal()
-            } else {
-                ASTModifiers::private()
-            };
+        let (modifiers, current_n) = try_parse_ast_modifiers(self.parser, 0)?;
 
         if let Some((function_name, type_params, next_i)) = self.try_parse_no_inline(current_n)? {
             return Ok(Some((function_name, type_params, modifiers, next_i)));
@@ -81,7 +70,7 @@ mod tests {
 
         assert_eq!(
             parse_result,
-            Some((expected_token, vec!["T".into()], ASTModifiers::private(), 6)),
+            Some((expected_token, vec!["T".into()], ASTModifiers::Private, 6)),
         );
     }
 

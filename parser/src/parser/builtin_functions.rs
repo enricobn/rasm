@@ -46,7 +46,7 @@ impl BuiltinFunctions {
             generics: enum_def.type_parameters.clone(),
             parameters_types,
             return_type,
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -111,7 +111,7 @@ impl BuiltinFunctions {
             generics,
             parameters_types,
             return_type,
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -188,7 +188,7 @@ impl BuiltinFunctions {
             generics: param_types,
             parameters_types,
             return_type,
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -291,7 +291,7 @@ impl BuiltinFunctions {
             generics: struct_def.type_parameters.clone(),
             parameters_types,
             return_type,
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -395,7 +395,7 @@ impl BuiltinFunctions {
             generics: struct_def.type_parameters.clone(),
             parameters_types,
             return_type: lambda_return_type,
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -440,7 +440,7 @@ impl BuiltinFunctions {
             generics: struct_def.type_parameters.clone(),
             parameters_types,
             return_type: property_def.ast_type.clone(),
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -497,7 +497,7 @@ impl BuiltinFunctions {
             generics: struct_def.type_parameters.clone(),
             parameters_types,
             return_type: ast_type,
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -559,7 +559,7 @@ impl BuiltinFunctions {
             generics: struct_def.type_parameters.clone(),
             parameters_types,
             return_type: ast_type,
-            modifiers: ASTModifiers::public(),
+            modifiers: ASTModifiers::Public,
         };
         (parameters_names, parameters_positions, signature)
     }
