@@ -31,7 +31,12 @@ impl ModuleNamespace {
             crate::parser::ast::ASTModifiers::Public => true,
             crate::parser::ast::ASTModifiers::Private => self == namespace,
             crate::parser::ast::ASTModifiers::Internal(internals) => {
-                self.internal == namespace.internal || internals.contains(&namespace.internal)
+                if let Some(internals) = internals {
+                    if internals == &namespace.internal {
+                        return true;
+                    }
+                }
+                self.internal == namespace.internal
             }
         }
     }

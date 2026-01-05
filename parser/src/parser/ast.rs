@@ -865,7 +865,7 @@ impl Display for ASTStatement {
 pub enum ASTModifiers {
     Public,
     Private,
-    Internal(Vec<String>),
+    Internal(Option<String>),
 }
 
 impl Display for ASTModifiers {

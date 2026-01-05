@@ -94,7 +94,7 @@ impl Statics {
         let const_key = Self::enh_const_key(
             &name,
             namespace,
-            &ASTModifiers::Internal(vec![namespace.lib().to_owned()]),
+            &ASTModifiers::Internal(Some(namespace.lib().to_owned())),
         );
         if self.const_map.contains_key(&const_key) {
             result = Some(format!("Already added value for const {name}"));
@@ -128,7 +128,14 @@ impl Statics {
         match modifiers {
             ASTModifiers::Public => name.to_owned(),
             ASTModifiers::Private => format!("{}_{name}", namespace.safe_name()),
-            ASTModifiers::Internal(internals) => format!("{}_{name}", namespace.lib()),
+            ASTModifiers::Internal(internals) => {
+                let internal = if let Some(internal) = internals {
+                    internal
+                } else {
+                    namespace.lib()
+                };
+                format!("{internal}_{name}")
+            }
         }
     }
 
@@ -137,7 +144,14 @@ impl Statics {
             ASTModifiers::Public => name.to_owned(),
             ASTModifiers::Private => format!("{}_{name}", namespace.safe_name()),
             // TODO: this is a hack
-            ASTModifiers::Internal(internals) => format!("{}_{name}", namespace.internal()),
+            ASTModifiers::Internal(internals) => {
+                let internal = if let Some(internal) = internals {
+                    internal
+                } else {
+                    namespace.internal()
+                };
+                format!("{internal}_{name}")
+            }
         }
     }
 
@@ -174,7 +188,7 @@ impl Statics {
         let const_key = Self::enh_const_key(
             &name,
             namespace,
-            &ASTModifiers::Internal(vec![namespace.lib().to_owned()]),
+            &ASTModifiers::Internal(Some(namespace.lib().to_owned())),
         );
         if let Some(entry) = self.const_map.get(&const_key) {
             return Some(entry);
@@ -197,7 +211,7 @@ impl Statics {
         let const_key = Self::enh_const_key(
             &name,
             namespace,
-            &ASTModifiers::Internal(vec![namespace.lib().to_owned()]),
+            &ASTModifiers::Internal(Some(namespace.lib().to_owned())),
         );
         if let Some(entry) = self.const_typed_map.get(&const_key) {
             return Some(entry);

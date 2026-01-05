@@ -184,7 +184,7 @@ mod tests {
             assert!(errors.is_empty());
             assert_eq!(
                 struct_def.modifiers,
-                ASTModifiers::Internal(vec!["lib".to_owned()])
+                ASTModifiers::Internal(Some("lib".to_owned()))
             );
             assert_eq!(n, 15);
         } else {

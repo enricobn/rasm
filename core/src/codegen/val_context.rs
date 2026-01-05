@@ -190,7 +190,7 @@ impl ValContext {
             let key = Statics::const_key(
                 &original_key,
                 namespace,
-                &ASTModifiers::Internal(vec![namespace.internal().to_owned()]),
+                &ASTModifiers::Internal(Some(namespace.internal().to_owned())),
             );
 
             let result = self.value_to_address.get(&key);

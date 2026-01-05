@@ -54,7 +54,7 @@ pub fn try_parse_ast_modifiers<'a>(
 fn try_parse_internals<'a>(
     parser: &'a dyn ParserTrait,
     n: usize,
-) -> Result<(Vec<String>, usize), String> {
+) -> Result<(Option<String>, usize), String> {
     let mut current_n = n;
     let mut result = Vec::new();
     if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
@@ -113,27 +113,31 @@ fn try_parse_internals<'a>(
             current_n += 1;
         }
     }
-    Ok((result, current_n))
+
+    // we ry to parse even more internals, but for now are not supported
+    let internals = if result.len() > 1 {
+        return Err("Only one internal allowed".to_owned());
+    } else if result.len() == 0 {
+        None
+    } else {
+        Some(result[0].clone())
+    };
+    Ok((internals, current_n))
 }
 
 #[cfg(test)]
 mod tests {
-    use rasm_utils::StrVecToStrings;
-
     use crate::parser::ast::ASTModifiers;
 
     #[test]
     fn simple() {
         let (modifiers, next_n) = super::try_parse_ast_modifiers(
-            &crate::parser::test_utils::get_parser("internal(\"a\", \"b\")"),
+            &crate::parser::test_utils::get_parser("internal(\"a\")"),
             0,
         )
         .unwrap();
-        assert_eq!(
-            modifiers,
-            ASTModifiers::Internal(vec!["a", "b"].to_strings())
-        );
-        assert_eq!(next_n, 6);
+        assert_eq!(modifiers, ASTModifiers::Internal(Some("a".to_owned())));
+        assert_eq!(next_n, 4);
     }
 
     #[test]
@@ -141,7 +145,7 @@ mod tests {
         let (modifiers, next_n) =
             super::try_parse_ast_modifiers(&crate::parser::test_utils::get_parser("internal"), 0)
                 .unwrap();
-        assert_eq!(modifiers, ASTModifiers::Internal(Vec::new()));
+        assert_eq!(modifiers, ASTModifiers::Internal(None));
         assert_eq!(next_n, 1);
     }
 

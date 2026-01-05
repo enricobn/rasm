@@ -158,7 +158,13 @@ impl EnhASTNameSpace {
             ASTModifiers::Public => true,
             ASTModifiers::Private => self == other,
             ASTModifiers::Internal(internals) => {
-                self.lib == other.lib || internals.contains(&other.lib)
+                if let Some(internals) = internals {
+                    if internals == &other.lib {
+                        return true;
+                    }
+                }
+
+                self.lib == other.lib
             }
         }
     }
