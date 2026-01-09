@@ -647,11 +647,9 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
             &mut body,
             vec![
                 &format!(
-                    "$call(print, 1:File, \"{}::{}, invalid value \")",
+                    "$call(println, \"{}::{}, invalid value \", [eax])",
                     enum_def.name, name
                 ),
-                "$call(print, 1:File, [eax])",
-                "$call(print, 1:File, \"\\n\")",
                 ".end:",
                 "pop ebx",
             ],
