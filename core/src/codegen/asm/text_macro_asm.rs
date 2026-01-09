@@ -2,11 +2,11 @@ use rasm_utils::debug_i;
 
 use crate::{
     codegen::{
+        CodeGen,
         statics::Statics,
         text_macro::{MacroParam, TextMacro, TextMacroEval},
         type_def_body::TypeDefBodyTarget,
         typedef_provider::TypeDefProvider,
-        CodeGen,
     },
     enh_type_check::typed_ast::{ASTTypedFunctionDef, DefaultFunctionCall},
 };
@@ -140,6 +140,9 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
                     let i = index - 1;
                     match it {
                         MacroParam::Plain(s, _, _) => {
+                            if s.contains("ebx") {
+                                panic!("Error in ccall macro, you cannot use ebx as a parameter");
+                            }
                             format!("    mov {ws} {tmp_register}, {s}\n    mov {ws} [{sp}+{}], {tmp_register}\n", i * wl)
                         }
                         MacroParam::StringLiteral(s) => {
