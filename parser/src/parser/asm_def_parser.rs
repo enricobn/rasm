@@ -17,7 +17,12 @@ impl<'a> NativeFnParser<'a> {
         let (modifiers, current_n) = try_parse_ast_modifiers(self.parser, 0)?;
 
         if let Some((function_name, type_params, next_i)) = self.try_parse_no_inline(current_n)? {
-            return Ok(Some((function_name, type_params, modifiers, next_i)));
+            return Ok(Some((
+                function_name,
+                type_params,
+                modifiers.unwrap_or(ASTModifiers::Private),
+                next_i,
+            )));
         }
         Ok(None)
     }

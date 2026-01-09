@@ -38,6 +38,7 @@ impl EnumParser {
             let param_types = result.group_alphas("type");
             let modifiers_tokens = result.group_tokens("modifiers");
             if let Ok((modifiers, new_index)) = try_parse_ast_modifiers_tokens(modifiers_tokens) {
+                let modifiers = modifiers.unwrap_or(ASTModifiers::Private);
                 let token = result.tokens().get(new_index + 1).unwrap().clone();
                 Some((
                     token,

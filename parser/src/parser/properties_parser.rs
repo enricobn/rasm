@@ -5,7 +5,9 @@ use crate::{
 
 use super::{ParserError, ParserTrait, ast::ASTStructPropertyDef, type_parser::TypeParser};
 
+#[derive(Debug)]
 enum PropertyStatus {
+    Modifiers,
     Name,
     Colon,
     Type,
@@ -81,7 +83,7 @@ pub fn parse_property(
 ) -> (Option<ASTStructPropertyDef>, Vec<ParserError>, usize) {
     let mut errors = Vec::new();
     let mut new_n = n;
-    let mut status = PropertyStatus::Name;
+    let mut status = PropertyStatus::Modifiers;
     let mut property_def = ASTStructPropertyDef {
         name: String::new(),
         ast_type: super::ast::ASTType::ASTUnitType,
@@ -98,27 +100,33 @@ pub fn parse_property(
             }
         };
         match status {
+            PropertyStatus::Modifiers => {
+                match try_parse_ast_modifiers(parser, new_n) {
+                    Ok((modifiers, new_n_1)) => {
+                        property_def.modifiers = modifiers;
+                        new_n = new_n_1;
+                    }
+                    Err(error) => {
+                        errors.push(
+                            parser.error(new_n, format!("Error parsing modifiers: {}", error)),
+                        );
+                        new_n += 1;
+                        break;
+                    }
+                }
+                status = PropertyStatus::Name
+            }
             PropertyStatus::Name => {
                 if let TokenKind::AlphaNumeric(ref name) = token.kind {
                     property_def.name = name.clone();
                     property_def.position = token.position.clone();
-                    new_n += 1;
-                    status = PropertyStatus::Colon
                 } else {
-                    match try_parse_ast_modifiers(parser, new_n) {
-                        Ok((modifiers, new_n_1)) => {
-                            property_def.modifiers = Some(modifiers);
-                            new_n = new_n_1;
-                        }
-                        Err(error) => {
-                            errors.push(
-                                parser.error(new_n, format!("Error parsing modifiers: {}", error)),
-                            );
-                            new_n += 1;
-                            break;
-                        }
-                    }
+                    errors.push(
+                        parser.error(new_n, format!("Expected a name, but found {}", token.kind)),
+                    );
                 }
+                new_n += 1;
+                status = PropertyStatus::Colon
             }
             PropertyStatus::Type => {
                 let type_parser = TypeParser::new(parser);
@@ -288,15 +296,28 @@ mod tests {
         let parser = get_parser("v: M<String>");
 
         let (property, errors, n) = parse_property(&parser, &["M".to_owned()], 0);
+        assert!(errors.is_empty());
 
         let p = property.unwrap();
-        println!("errors {}", SliceDisplay(&errors));
         assert_eq!(p.name, "v");
         assert_eq!(format!("{}", p.ast_type), "M<String>");
         if !matches!(p.ast_type, ASTType::ASTGenericType(_, _, _)) {
             panic!("expected a generic type");
         }
-        assert!(errors.is_empty());
         assert_eq!(6, n);
+    }
+
+    #[test]
+    fn test_parse_private_modifier() {
+        let parser = get_parser("private v: int");
+
+        let (property, errors, n) = parse_property(&parser, &[], 0);
+        assert_eq!(errors, Vec::new());
+
+        let p = property.unwrap();
+        assert_eq!(p.name, "v");
+        assert_eq!(format!("{}", p.ast_type), "int");
+
+        assert_eq!(4, n);
     }
 }

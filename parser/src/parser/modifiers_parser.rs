@@ -15,7 +15,7 @@ enum InternalState {
 
 pub fn try_parse_ast_modifiers_tokens<'a>(
     tokens: Vec<Token>,
-) -> Result<(ASTModifiers, usize), String> {
+) -> Result<(Option<ASTModifiers>, usize), String> {
     let tokens = tokens
         .into_iter()
         .map(|it| (Some(it), Vec::new() as Vec<LexerError>))
@@ -27,26 +27,26 @@ pub fn try_parse_ast_modifiers_tokens<'a>(
 pub fn try_parse_ast_modifiers<'a>(
     parser: &'a dyn ParserTrait,
     n: usize,
-) -> Result<(ASTModifiers, usize), String> {
+) -> Result<(Option<ASTModifiers>, usize), String> {
     let mut current_n = n;
     let modifiers =
         if let Some(TokenKind::KeyWord(KeywordKind::Pub)) = parser.get_token_kind_n(current_n) {
             current_n += 1;
-            ASTModifiers::Public
+            Some(ASTModifiers::Public)
         } else if let Some(TokenKind::KeyWord(KeywordKind::Internal)) =
             parser.get_token_kind_n(current_n)
         {
             current_n += 1;
             let (internals, new_n) = try_parse_internals(parser, current_n)?;
             current_n = new_n;
-            ASTModifiers::Internal(internals)
+            Some(ASTModifiers::Internal(internals))
         } else if let Some(TokenKind::KeyWord(KeywordKind::Private)) =
             parser.get_token_kind_n(current_n)
         {
             current_n += 1;
-            ASTModifiers::Private
+            Some(ASTModifiers::Private)
         } else {
-            ASTModifiers::Private
+            None
         };
     Ok((modifiers, current_n))
 }
@@ -136,7 +136,10 @@ mod tests {
             0,
         )
         .unwrap();
-        assert_eq!(modifiers, ASTModifiers::Internal(Some("a".to_owned())));
+        assert_eq!(
+            modifiers,
+            Some(ASTModifiers::Internal(Some("a".to_owned())))
+        );
         assert_eq!(next_n, 4);
     }
 
@@ -145,7 +148,7 @@ mod tests {
         let (modifiers, next_n) =
             super::try_parse_ast_modifiers(&crate::parser::test_utils::get_parser("internal"), 0)
                 .unwrap();
-        assert_eq!(modifiers, ASTModifiers::Internal(None));
+        assert_eq!(modifiers, Some(ASTModifiers::Internal(None)));
         assert_eq!(next_n, 1);
     }
 
@@ -154,7 +157,7 @@ mod tests {
         let (modifiers, next_n) =
             super::try_parse_ast_modifiers(&crate::parser::test_utils::get_parser("private"), 0)
                 .unwrap();
-        assert_eq!(modifiers, ASTModifiers::Private);
+        assert_eq!(modifiers, Some(ASTModifiers::Private));
         assert_eq!(next_n, 1);
     }
 
@@ -163,7 +166,7 @@ mod tests {
         let (modifiers, next_n) =
             super::try_parse_ast_modifiers(&crate::parser::test_utils::get_parser("pub"), 0)
                 .unwrap();
-        assert_eq!(modifiers, ASTModifiers::Public);
+        assert_eq!(modifiers, Some(ASTModifiers::Public));
         assert_eq!(next_n, 1);
     }
 }

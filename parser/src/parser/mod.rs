@@ -55,7 +55,7 @@ lazy_static! {
     };
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ParserError {
     position: ASTPosition,
     pub message: String,
@@ -1190,7 +1190,7 @@ impl Parser {
             let modifiers_tokens = matcher_result.group_tokens("modifiers");
 
             let (modifiers, new_index) = try_parse_ast_modifiers_tokens(modifiers_tokens.clone())?;
-
+            let modifiers = modifiers.unwrap_or(ASTModifiers::Private);
             Ok(Some((
                 self.get_token_n(new_index + 1).unwrap().clone(),
                 param_types,
@@ -1357,6 +1357,7 @@ impl Parser {
         };
 
         let (modifiers, n) = try_parse_ast_modifiers(self, 0)?;
+        let modifiers = modifiers.unwrap_or(ASTModifiers::Private);
 
         if Some(&TokenKind::KeyWord(kind)) == self.get_token_kind_n(n) {
             if !is_const && modifiers != ASTModifiers::Private {
@@ -1387,6 +1388,7 @@ impl Parser {
 
     fn parse_type_def(&self) -> Result<Option<(ASTTypeDef, usize)>, String> {
         let (modifiers, base_n) = try_parse_ast_modifiers(self, 0)?;
+        let modifiers = modifiers.unwrap_or(ASTModifiers::Private);
         if let Some(TokenKind::KeyWord(KeywordKind::Type)) = self.get_token_kind_n(base_n) {
             if let Some(TokenKind::AlphaNumeric(name)) = self.get_token_kind_n(base_n + 1) {
                 let (type_parameters, next_i) = if let Some((type_parameters, next_i)) =
