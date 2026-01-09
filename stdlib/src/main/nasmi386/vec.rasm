@@ -557,11 +557,11 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
 
     mov     dword ebx, $vec
     mov     dword ebx, [ebx]    ; the address of the allocated memory
-    mov     dword ecx, [ebx]    ; size
-    inc     ecx               ; for the new element, now in ecx we have the new size
+    mov     dword ecx, [ebx]    ; the size of the Vec is in the first 4 bytes
+    inc     ecx                 ; for the new element, now in ecx we have the new size
 
     mov     edx,ecx
-    inc     edx               ; to store the size itself
+    inc     edx                 ; to store the size itself
     ; naive * 4
     add     edx, edx
     add     edx, edx
@@ -574,7 +574,7 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
     mov     dword eax, [eax]
     $call(memcopy, ebx, eax, edx)
 
-    mov      dword [eax], ecx ; the size
+    mov     dword [eax], ecx ; the size
     add     dword eax,edx
     mov     dword edx,$o
     mov     dword [eax],edx
