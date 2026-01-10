@@ -92,6 +92,10 @@ pub fn fillRect(graphics: Rasm2DGraphics, rect: Rect2D) {
     sdlRenderFillRect(graphics.rend, SDLRect(rect.x, rect.y, rect.w, rect.h));
 }
 
+pub fn fillRect(graphics: Rasm2DGraphics, x: int, y: int, width: int, height: int) {
+    sdlRenderFillRect(graphics.rend, x, y, width, height);
+}
+
 fn present(graphics: Rasm2DGraphics) {
     sdlRenderPresent(graphics.rend);
 }
