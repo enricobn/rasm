@@ -3,7 +3,13 @@ use std::{collections::HashMap, path::PathBuf, process::Command};
 use rasm_parser::{
     catalog::{ModuleId, modules_catalog::ModulesCatalog},
     lexer::Lexer,
-    parser::{Parser, ParserError, ast::ASTModule},
+    parser::{
+        Parser, ParserError,
+        ast::{
+            ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTLambdaDef, ASTModule, ASTPosition,
+            ASTStatement,
+        },
+    },
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
@@ -14,12 +20,12 @@ use crate::{
     },
     commandline::{CommandLineAction, CommandLineOptions},
     errors::CompilationError,
-    macros::macro_call_extractor::MacroCall,
+    macros::macro_call_extractor::{MacroCall, MacroResultType},
     project::RasmProject,
     type_check::ast_modules_container::ASTModulesContainer,
 };
 
-pub fn compile_macros<'a>(
+fn compile_macros_internal<'a>(
     project: &RasmProject,
     target: &CompileTarget,
     macros_modules_container: ASTModulesContainer,
@@ -96,6 +102,245 @@ pub fn compile_macros<'a>(
             .push(it);
     }
     Ok(macro_modules_map)
+}
+
+pub fn compile_macros<'a>(
+    project: &RasmProject,
+    target: &CompileTarget,
+    container: ASTModulesContainer,
+    new_catalog: Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>>,
+    command_line_options: &CommandLineOptions,
+    calls: Vec<&'a MacroCall>,
+    out_folder: &PathBuf,
+    macro_out_file: &PathBuf,
+    original_container: &mut ASTModulesContainer,
+) -> Result<(), Vec<CompilationError>> {
+    let macro_modules_map = compile_macros_internal(
+        project,
+        target,
+        container,
+        new_catalog,
+        command_line_options,
+        calls,
+        &out_folder,
+        &macro_out_file,
+    )?;
+
+    for (key, value) in macro_modules_map {
+        if let Some((mut module, module_namespace)) = original_container.remove_module(&key) {
+            for (call, (new_module, _)) in value {
+                match call.macro_result_type {
+                    MacroResultType::Statement => {
+                        replace_statements_in_module(&mut module, &call.position, new_module.body);
+                        module.functions.extend(new_module.functions);
+                    }
+                    MacroResultType::Expression => {
+                        if new_module.body.len() != 1 {
+                            return Err(vec![CompilationError::generic_none(format!(
+                                "Expected one single expression, evaluating macro {}",
+                                call.transformed_macro
+                            ))]);
+                        }
+
+                        let statement = new_module.body[0].clone();
+
+                        let expression =
+                            if let ASTStatement::ASTExpressionStatement(e, _) = statement {
+                                e
+                            } else {
+                                return Err(vec![CompilationError::generic_none(format!(
+                                    "Expected expression statement, evaluating macro {}",
+                                    call.transformed_macro
+                                ))]);
+                            };
+
+                        // TODO otimize
+                        replace_expression_in_module(&mut module, &call.position, &expression);
+                        module.functions.extend(new_module.functions);
+                    }
+                    MacroResultType::Attribute => {
+                        module.functions.extend(new_module.functions);
+                    }
+                }
+            }
+
+            for s in module.structs.iter_mut() {
+                s.attribute_macros.clear();
+            }
+
+            for e in module.enums.iter_mut() {
+                e.attribute_macros.clear();
+            }
+
+            // println!("new module:\n{module}");
+
+            original_container.add(module, module_namespace.clone(), key.clone(), false, false);
+        }
+    }
+    Ok(())
+}
+
+fn replace_statements_in_module(
+    module: &mut ASTModule,
+    position: &ASTPosition,
+    new_body: Vec<ASTStatement>,
+) {
+    replace_statements_in_body(&mut module.body, position, new_body.clone());
+
+    for function in module.functions.iter_mut() {
+        if let ASTFunctionBody::RASMBody(ref mut body) = function.body {
+            replace_statements_in_body(body, position, new_body.clone());
+        }
+    }
+
+    //println!("{module}");
+}
+
+fn replace_statements_in_body(
+    body: &mut Vec<ASTStatement>,
+    position: &ASTPosition,
+    new_body: Vec<ASTStatement>,
+) {
+    if let Some(mut i) = body
+        .iter()
+        .enumerate()
+        .find(|(_, it)| {
+            if let ASTStatement::ASTExpressionStatement(expr, _) = it {
+                expr.position().id == position.id
+            } else {
+                false
+            }
+        })
+        .map(|(i, _)| i)
+    {
+        body.remove(i);
+
+        for statement in new_body.iter() {
+            body.insert(i, statement.clone());
+            i += 1;
+        }
+    }
+
+    for statement in body.iter_mut() {
+        match statement {
+            ASTStatement::ASTExpressionStatement(expr, _) => {
+                replace_statements_in_expression(expr, position, new_body.clone());
+            }
+            ASTStatement::ASTLetStatement(_, expr, _) => {
+                replace_statements_in_expression(expr, position, new_body.clone());
+            }
+            ASTStatement::ASTConstStatement(_, expr, _, _) => {
+                replace_statements_in_expression(expr, position, new_body.clone());
+            }
+        }
+    }
+}
+
+fn replace_statements_in_expression(
+    expr: &mut ASTExpression,
+    position: &ASTPosition,
+    new_body: Vec<ASTStatement>,
+) {
+    match expr {
+        ASTExpression::ASTFunctionCallExpression(astfunction_call) => {
+            for parameter in astfunction_call.parameters_mut() {
+                replace_statements_in_expression(parameter, position, new_body.clone());
+            }
+        }
+        ASTExpression::ASTValueRefExpression(_, _) => {}
+        ASTExpression::ASTValueExpression(_, _) => {}
+        ASTExpression::ASTLambdaExpression(astlambda_def) => {
+            replace_statements_in_body(&mut astlambda_def.body, position, new_body);
+        }
+    }
+}
+
+fn replace_expression_in_module(
+    module: &mut ASTModule,
+    position: &ASTPosition,
+    expression: &ASTExpression,
+) {
+    module.body = replace_expression_in_body(&module.body, position, expression);
+
+    for function in module.functions.iter_mut() {
+        if let ASTFunctionBody::RASMBody(ref mut body) = function.body {
+            *body = replace_expression_in_body(body, position, expression);
+        }
+    }
+
+    // println!("module:\n{module}");
+}
+
+fn replace_expression_in_body(
+    body: &Vec<ASTStatement>,
+    position: &ASTPosition,
+    expression: &ASTExpression,
+) -> Vec<ASTStatement> {
+    let mut new_body = Vec::new();
+    for statement in body.iter() {
+        match statement {
+            ASTStatement::ASTExpressionStatement(astexpression, astposition) => {
+                new_body.push(ASTStatement::ASTExpressionStatement(
+                    replace_expression_in_expression(astexpression, position, &expression),
+                    astposition.clone(),
+                ));
+            }
+            ASTStatement::ASTLetStatement(name, astexpression, astposition) => {
+                new_body.push(ASTStatement::ASTLetStatement(
+                    name.clone(),
+                    replace_expression_in_expression(astexpression, position, &expression),
+                    astposition.clone(),
+                ));
+            }
+            ASTStatement::ASTConstStatement(name, astexpression, astposition, astmodifiers) => {
+                new_body.push(ASTStatement::ASTConstStatement(
+                    name.clone(),
+                    replace_expression_in_expression(astexpression, position, &expression),
+                    astposition.clone(),
+                    astmodifiers.clone(),
+                ));
+            }
+        }
+    }
+
+    new_body
+}
+
+fn replace_expression_in_expression(
+    from: &ASTExpression,
+    position: &ASTPosition,
+    to: &ASTExpression,
+) -> ASTExpression {
+    if from.position().id == position.id {
+        to.clone()
+    } else {
+        match from {
+            ASTExpression::ASTFunctionCallExpression(call) => {
+                let new_parameters = call
+                    .parameters()
+                    .iter()
+                    .map(|it| replace_expression_in_expression(it, position, to))
+                    .collect::<Vec<_>>();
+                ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
+                    call.function_name().clone(),
+                    new_parameters,
+                    call.position().copy(),
+                    call.generics().clone(),
+                    call.target().clone(),
+                    call.is_macro(),
+                ))
+            }
+            ASTExpression::ASTValueRefExpression(_, _) => from.clone(),
+            ASTExpression::ASTValueExpression(_, _) => from.clone(),
+            ASTExpression::ASTLambdaExpression(lambda_def) => {
+                ASTExpression::ASTLambdaExpression(ASTLambdaDef {
+                    parameter_names: lambda_def.parameter_names.clone(),
+                    body: replace_expression_in_body(&lambda_def.body, position, &to),
+                    position: lambda_def.position.copy(),
+                })
+            }
+        }
+    }
 }
 
 fn evaluate_macro(

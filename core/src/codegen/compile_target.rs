@@ -20,11 +20,6 @@ use log::info;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ModuleId, ModuleNamespace};
 
-use rasm_parser::parser::ast::{
-    ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTLambdaDef, ASTModule, ASTPosition,
-    ASTStatement,
-};
-
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -48,7 +43,7 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{AsmOptions, CodeGen, get_typed_module};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::CompilationError;
-use crate::macros::macro_call_extractor::{MacroResultType, extract_macro_calls};
+use crate::macros::macro_call_extractor::extract_macro_calls;
 use crate::macros::macro_compiler::compile_macros;
 use crate::macros::macro_module::create_macro_module;
 use crate::project::RasmProject;
@@ -412,75 +407,10 @@ impl CompileTarget {
             );
 
             let macro_out_file = out_folder.join(macro_id.clone());
-            /*
+
             info!("compiling macro module");
 
-            let clo = CommandLineOptions {
-                action: CommandLineAction::Build,
-                memory_debug: false,
-                print_code: false,
-                print_memory: false,
-                only_compile: false,
-                out: command_line_options.out.clone(),
-                release: command_line_options.release,
-                arguments: Vec::new(),
-                include_tests: Vec::new(),
-                debug: false,
-                profile: RasmProfile::Main,
-            };
-
-            if let Err(errors) = self.compile(
-                &project,
-                container,
-                new_catalog.as_ref(),
-                &clo,
-                out_folder.clone(),
-                macro_out_file.clone(),
-            ) {
-                eprintln!("Errors compiling macro module");
-
-                return Err(errors);
-            }
-
-            // TODO move code in macro module
-
-            let macro_modules = calls
-                .par_iter()
-                .map(|it| {
-                    (
-                        *it,
-                        Self::evaluate_macro(new_catalog.as_ref(), macro_out_file.clone(), it),
-                    )
-                })
-                .collect::<Vec<_>>();
-
-            let macro_errors = macro_modules
-                .iter()
-                .flat_map(|it| it.1.1.iter())
-                .collect::<Vec<_>>();
-
-            if !macro_errors.is_empty() {
-                eprintln!("Errors evaluating macros");
-                return Err(macro_errors
-                    .into_iter()
-                    .map(|it| CompilationError::from_parser_error(it.clone(), None))
-                    .collect());
-            }
-
-            let mut macro_modules_map: HashMap<
-                ModuleId,
-                Vec<(&MacroCall, (ASTModule, Vec<ParserError>))>,
-            > = HashMap::new();
-
-            for it in macro_modules {
-                macro_modules_map
-                    .entry(it.0.module_id.clone())
-                    .or_insert(Vec::new())
-                    .push(it);
-            }
-            */
-
-            let macro_modules_map = compile_macros(
+            compile_macros(
                 project,
                 self,
                 container,
@@ -489,74 +419,8 @@ impl CompileTarget {
                 calls,
                 &out_folder,
                 &macro_out_file,
+                &mut original_container,
             )?;
-
-            for (key, value) in macro_modules_map {
-                if let Some((mut module, module_namespace)) = original_container.remove_module(&key)
-                {
-                    for (call, (new_module, _)) in value {
-                        match call.macro_result_type {
-                            MacroResultType::Statement => {
-                                self.replace_statements_in_module(
-                                    &mut module,
-                                    &call.position,
-                                    new_module.body,
-                                );
-                                module.functions.extend(new_module.functions);
-                            }
-                            MacroResultType::Expression => {
-                                if new_module.body.len() != 1 {
-                                    return Err(vec![CompilationError::generic_none(format!(
-                                        "Expected one single expression, evaluating macro {}",
-                                        call.transformed_macro
-                                    ))]);
-                                }
-
-                                let statement = new_module.body[0].clone();
-
-                                let expression =
-                                    if let ASTStatement::ASTExpressionStatement(e, _) = statement {
-                                        e
-                                    } else {
-                                        return Err(vec![CompilationError::generic_none(format!(
-                                            "Expected expression statement, evaluating macro {}",
-                                            call.transformed_macro
-                                        ))]);
-                                    };
-
-                                // TODO otimize
-                                self.replace_expression_in_module(
-                                    &mut module,
-                                    &call.position,
-                                    &expression,
-                                );
-                                module.functions.extend(new_module.functions);
-                            }
-                            MacroResultType::Attribute => {
-                                module.functions.extend(new_module.functions);
-                            }
-                        }
-                    }
-
-                    for s in module.structs.iter_mut() {
-                        s.attribute_macros.clear();
-                    }
-
-                    for e in module.enums.iter_mut() {
-                        e.attribute_macros.clear();
-                    }
-
-                    // println!("new module:\n{module}");
-
-                    original_container.add(
-                        module,
-                        module_namespace.clone(),
-                        key.clone(),
-                        false,
-                        false,
-                    );
-                }
-            }
 
             let out_file = out_folder.join(
                 project
@@ -580,175 +444,6 @@ impl CompileTarget {
                 return Err(errors);
             }
             return Ok(());
-        }
-    }
-
-    fn replace_statements_in_module(
-        &self,
-        module: &mut ASTModule,
-        position: &ASTPosition,
-        new_body: Vec<ASTStatement>,
-    ) {
-        self.replace_statements_in_body(&mut module.body, position, new_body.clone());
-
-        for function in module.functions.iter_mut() {
-            if let ASTFunctionBody::RASMBody(ref mut body) = function.body {
-                self.replace_statements_in_body(body, position, new_body.clone());
-            }
-        }
-
-        //println!("{module}");
-    }
-
-    fn replace_statements_in_body(
-        &self,
-        body: &mut Vec<ASTStatement>,
-        position: &ASTPosition,
-        new_body: Vec<ASTStatement>,
-    ) {
-        if let Some(mut i) = body
-            .iter()
-            .enumerate()
-            .find(|(_, it)| {
-                if let ASTStatement::ASTExpressionStatement(expr, _) = it {
-                    expr.position().id == position.id
-                } else {
-                    false
-                }
-            })
-            .map(|(i, _)| i)
-        {
-            body.remove(i);
-
-            for statement in new_body.iter() {
-                body.insert(i, statement.clone());
-                i += 1;
-            }
-        }
-
-        for statement in body.iter_mut() {
-            match statement {
-                ASTStatement::ASTExpressionStatement(expr, _) => {
-                    self.replace_statements_in_expression(expr, position, new_body.clone());
-                }
-                ASTStatement::ASTLetStatement(_, expr, _) => {
-                    self.replace_statements_in_expression(expr, position, new_body.clone());
-                }
-                ASTStatement::ASTConstStatement(_, expr, _, _) => {
-                    self.replace_statements_in_expression(expr, position, new_body.clone());
-                }
-            }
-        }
-    }
-
-    fn replace_statements_in_expression(
-        &self,
-        expr: &mut ASTExpression,
-        position: &ASTPosition,
-        new_body: Vec<ASTStatement>,
-    ) {
-        match expr {
-            ASTExpression::ASTFunctionCallExpression(astfunction_call) => {
-                for parameter in astfunction_call.parameters_mut() {
-                    self.replace_statements_in_expression(parameter, position, new_body.clone());
-                }
-            }
-            ASTExpression::ASTValueRefExpression(_, _) => {}
-            ASTExpression::ASTValueExpression(_, _) => {}
-            ASTExpression::ASTLambdaExpression(astlambda_def) => {
-                self.replace_statements_in_body(&mut astlambda_def.body, position, new_body);
-            }
-        }
-    }
-
-    fn replace_expression_in_module(
-        &self,
-        module: &mut ASTModule,
-        position: &ASTPosition,
-        expression: &ASTExpression,
-    ) {
-        module.body = self.replace_expression_in_body(&module.body, position, expression);
-
-        for function in module.functions.iter_mut() {
-            if let ASTFunctionBody::RASMBody(ref mut body) = function.body {
-                *body = self.replace_expression_in_body(body, position, expression);
-            }
-        }
-
-        // println!("module:\n{module}");
-    }
-
-    fn replace_expression_in_body(
-        &self,
-        body: &Vec<ASTStatement>,
-        position: &ASTPosition,
-        expression: &ASTExpression,
-    ) -> Vec<ASTStatement> {
-        let mut new_body = Vec::new();
-        for statement in body.iter() {
-            match statement {
-                ASTStatement::ASTExpressionStatement(astexpression, astposition) => {
-                    new_body.push(ASTStatement::ASTExpressionStatement(
-                        self.replace_expression_in_expression(astexpression, position, &expression),
-                        astposition.clone(),
-                    ));
-                }
-                ASTStatement::ASTLetStatement(name, astexpression, astposition) => {
-                    new_body.push(ASTStatement::ASTLetStatement(
-                        name.clone(),
-                        self.replace_expression_in_expression(astexpression, position, &expression),
-                        astposition.clone(),
-                    ));
-                }
-                ASTStatement::ASTConstStatement(name, astexpression, astposition, astmodifiers) => {
-                    new_body.push(ASTStatement::ASTConstStatement(
-                        name.clone(),
-                        self.replace_expression_in_expression(astexpression, position, &expression),
-                        astposition.clone(),
-                        astmodifiers.clone(),
-                    ));
-                }
-            }
-        }
-
-        new_body
-    }
-
-    fn replace_expression_in_expression(
-        &self,
-        from: &ASTExpression,
-        position: &ASTPosition,
-        to: &ASTExpression,
-    ) -> ASTExpression {
-        if from.position().id == position.id {
-            to.clone()
-        } else {
-            match from {
-                ASTExpression::ASTFunctionCallExpression(call) => {
-                    let new_parameters = call
-                        .parameters()
-                        .iter()
-                        .map(|it| self.replace_expression_in_expression(it, position, to))
-                        .collect::<Vec<_>>();
-                    ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
-                        call.function_name().clone(),
-                        new_parameters,
-                        call.position().copy(),
-                        call.generics().clone(),
-                        call.target().clone(),
-                        call.is_macro(),
-                    ))
-                }
-                ASTExpression::ASTValueRefExpression(_, _) => from.clone(),
-                ASTExpression::ASTValueExpression(_, _) => from.clone(),
-                ASTExpression::ASTLambdaExpression(lambda_def) => {
-                    ASTExpression::ASTLambdaExpression(ASTLambdaDef {
-                        parameter_names: lambda_def.parameter_names.clone(),
-                        body: self.replace_expression_in_body(&lambda_def.body, position, &to),
-                        position: lambda_def.position.copy(),
-                    })
-                }
-            }
         }
     }
 
