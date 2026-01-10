@@ -26,6 +26,7 @@ pub enum CommandLineAction {
     Install,
     Run,
     Server,
+    Test,
     UI,
 }
 
@@ -75,10 +76,15 @@ pub struct CommandLineOptions {
     pub profile: RasmProfile,
 }
 
-impl Default for CommandLineOptions {
-    fn default() -> Self {
+impl CommandLineOptions {
+    pub fn new(action: CommandLineAction) -> Self {
+        let profile = if action == CommandLineAction::Test {
+            RasmProfile::Test
+        } else {
+            RasmProfile::Main
+        };
         Self {
-            action: CommandLineAction::Run,
+            action,
             memory_debug: false,
             print_code: false,
             print_memory: false,
@@ -88,7 +94,7 @@ impl Default for CommandLineOptions {
             arguments: Vec::new(),
             include_tests: Vec::new(),
             debug: false,
-            profile: RasmProfile::Test,
+            profile,
         }
     }
 }

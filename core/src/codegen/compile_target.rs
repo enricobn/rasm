@@ -19,15 +19,12 @@
 use log::info;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ModuleId, ModuleNamespace};
-use rasm_parser::lexer::Lexer;
+
 use rasm_parser::parser::ast::{
     ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTLambdaDef, ASTModule, ASTPosition,
     ASTStatement,
 };
-use rasm_parser::parser::{Parser, ParserError};
 
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -41,7 +38,7 @@ use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator_c::CFunctionsCreator;
 use crate::codegen::c::options::COptions;
 use crate::codegen::enh_ast::{
-    EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhBuiltinTypeKind, EnhModuleId, EnhModuleInfo,
+    EnhASTFunctionDef, EnhASTNameSpace, EnhBuiltinTypeKind, EnhModuleId, EnhModuleInfo,
 };
 use crate::codegen::enh_val_context::EnhValContext;
 use crate::codegen::enhanced_module::EnhancedASTModule;
@@ -51,7 +48,8 @@ use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{AsmOptions, CodeGen, get_typed_module};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::CompilationError;
-use crate::macros::macro_call_extractor::{MacroCall, MacroResultType, extract_macro_calls};
+use crate::macros::macro_call_extractor::{MacroResultType, extract_macro_calls};
+use crate::macros::macro_compiler::compile_macros;
 use crate::macros::macro_module::create_macro_module;
 use crate::project::RasmProject;
 use crate::transformations::enrich_container;
@@ -270,9 +268,17 @@ impl CompileTarget {
     pub fn supported_actions(&self) -> Vec<CommandLineAction> {
         match self {
             CompileTarget::Nasmi386(_) => {
-                vec![CommandLineAction::Build, CommandLineAction::Run]
+                vec![
+                    CommandLineAction::Build,
+                    CommandLineAction::Run,
+                    CommandLineAction::Test,
+                ]
             }
-            CompileTarget::C(_) => vec![CommandLineAction::Build, CommandLineAction::Run],
+            CompileTarget::C(_) => vec![
+                CommandLineAction::Build,
+                CommandLineAction::Run,
+                CommandLineAction::Test,
+            ],
         }
     }
 
@@ -333,7 +339,9 @@ impl CompileTarget {
 
         info!("finished in {:?}", start.elapsed());
 
-        if command_line_options.action == CommandLineAction::Run {
+        if command_line_options.action == CommandLineAction::Run
+            || command_line_options.action == CommandLineAction::Test
+        {
             let mut command = Command::new(out_file.to_string_lossy().to_string());
 
             let output = command
@@ -363,25 +371,8 @@ impl CompileTarget {
             )]);
         }
         let extractor = extract_macro_calls(&container, catalog);
-        // macro calls tha are inside a macro function
-        let mut dependent_macro_calls = Vec::new();
-        let mut independent_macro_calls = Vec::new();
 
-        for call in extractor.calls().into_iter() {
-            if let Some(in_function) = &call.in_function {
-                if extractor
-                    .calls()
-                    .iter()
-                    .any(|it| &it.function_signature == in_function)
-                {
-                    dependent_macro_calls.push(call);
-                    continue;
-                }
-            }
-            independent_macro_calls.push(call);
-        }
-
-        if extractor.calls().is_empty() {
+        if extractor.is_empty() {
             self.compile(
                 &project,
                 container,
@@ -391,26 +382,9 @@ impl CompileTarget {
                 out_file,
             )
         } else {
-            let calls = if dependent_macro_calls.is_empty() {
-                independent_macro_calls
-            } else {
-                dependent_macro_calls
-            };
-            let macro_module_body = create_macro_module(&container, catalog, &calls);
+            let calls = extractor.resolvable_calls();
 
-            // println!("macro module:\n{macro_module_body}");
-
-            let (macro_module, macro_module_errors) =
-                Parser::new(Lexer::new(macro_module_body.clone())).parse();
-
-            // it should not happens
-            if !macro_module_errors.is_empty() {
-                eprintln!("Errors parsing macro module:\n{macro_module_body}");
-                return Err(macro_module_errors
-                    .into_iter()
-                    .map(|it| CompilationError::from_parser_error(it, None))
-                    .collect());
-            }
+            let macro_module = create_macro_module(&container, catalog, &calls)?;
 
             let mut original_container = container.clone();
             let orig_catalog = catalog.clone_catalog();
@@ -438,18 +412,32 @@ impl CompileTarget {
             );
 
             let macro_out_file = out_folder.join(macro_id.clone());
-
+            /*
             info!("compiling macro module");
+
+            let clo = CommandLineOptions {
+                action: CommandLineAction::Build,
+                memory_debug: false,
+                print_code: false,
+                print_memory: false,
+                only_compile: false,
+                out: command_line_options.out.clone(),
+                release: command_line_options.release,
+                arguments: Vec::new(),
+                include_tests: Vec::new(),
+                debug: false,
+                profile: RasmProfile::Main,
+            };
 
             if let Err(errors) = self.compile(
                 &project,
                 container,
                 new_catalog.as_ref(),
-                &command_line_options,
+                &clo,
                 out_folder.clone(),
                 macro_out_file.clone(),
             ) {
-                eprintln!("Errors compiling macro module\n{}", macro_module_body);
+                eprintln!("Errors compiling macro module");
 
                 return Err(errors);
             }
@@ -490,6 +478,18 @@ impl CompileTarget {
                     .or_insert(Vec::new())
                     .push(it);
             }
+            */
+
+            let macro_modules_map = compile_macros(
+                project,
+                self,
+                container,
+                new_catalog,
+                command_line_options,
+                calls,
+                &out_folder,
+                &macro_out_file,
+            )?;
 
             for (key, value) in macro_modules_map {
                 if let Some((mut module, module_namespace)) = original_container.remove_module(&key)
@@ -580,66 +580,6 @@ impl CompileTarget {
                 return Err(errors);
             }
             return Ok(());
-        }
-    }
-
-    fn evaluate_macro(
-        catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
-        macro_program: PathBuf,
-        call: &MacroCall,
-    ) -> (ASTModule, Vec<ParserError>) {
-        // println!("evaluating macro:\n{}", call.transformed_macro);
-
-        let mut command = Command::new(macro_program.clone());
-        command.arg(call.id.to_string());
-
-        let output = command.output().unwrap();
-        let output_stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let output_stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-        if !output_stderr.is_empty() {
-            panic!(
-                "Error in macro. Calling {} {}:\n{}",
-                macro_program.to_string_lossy(),
-                call.id,
-                output_stderr
-            );
-        }
-
-        if output_stdout.is_empty() {
-            panic!(
-                "Not output in macro. Calling {} {}",
-                macro_program.to_string_lossy(),
-                call.id
-            );
-        }
-
-        /*
-        println!("calling {} {}", macro_program.to_string_lossy(), call.id);
-        println!("output_stderr:\n{output_stderr}");
-        println!("output_stderr:\n{output_stderr}");
-        */
-
-        let mut output_lines = output_stdout.lines();
-        if let Some(first) = output_lines.next() {
-            let output_string = output_lines.collect::<Vec<_>>().join("\n");
-            if first == "Error" {
-                if let Some(info) = catalog.catalog_info(call.module_id()) {
-                    let index = EnhASTIndex::new(info.0.path(), call.position().clone());
-                    panic!("{} in {}", output_string, index);
-                } else {
-                    panic!("{} in {}", output_string, call.position());
-                }
-            }
-
-            let lexer = Lexer::new(output_string);
-
-            let parser = Parser::new(lexer);
-            let result = parser.parse();
-            // println!("result:\n{}", result.0);
-            result
-        } else {
-            panic!("Expected a macro result.")
         }
     }
 
@@ -812,7 +752,7 @@ impl CompileTarget {
         }
     }
 
-    fn compile(
+    pub fn compile(
         &self,
         project: &RasmProject,
         container: ASTModulesContainer,
@@ -904,7 +844,7 @@ impl CompileTarget {
 
         match self {
             CompileTarget::Nasmi386(options) => match command_line_options.action {
-                CommandLineAction::Build | CommandLineAction::Run => {
+                CommandLineAction::Build | CommandLineAction::Run | CommandLineAction::Test => {
                     if out_paths.len() != 1 {
                         panic!("Only one native file to compile is supported!");
                     }

@@ -3,14 +3,20 @@ use std::{collections::HashMap, sync::atomic::AtomicUsize};
 use itertools::Itertools;
 use rasm_parser::{
     catalog::modules_catalog::ModulesCatalog,
-    parser::ast::{
-        ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-        ASTLambdaDef, ASTModifiers, ASTModule, ASTParameterDef, ASTStatement, ASTType, ASTValue,
+    lexer::Lexer,
+    parser::{
+        Parser,
+        ast::{
+            ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
+            ASTLambdaDef, ASTModifiers, ASTModule, ASTParameterDef, ASTStatement, ASTType,
+            ASTValue,
+        },
     },
 };
 
 use crate::{
     codegen::enh_ast::{EnhASTNameSpace, EnhModuleId},
+    errors::CompilationError,
     macros::macro_call_extractor::{MacroCall, MacroResultType, is_ast_module_first_parameter},
     type_check::ast_modules_container::ASTModulesContainer,
 };
@@ -20,7 +26,7 @@ const ID: AtomicUsize = AtomicUsize::new(0);
 /// Creates a new module from a macro call extractor, with a function for each macro call and a body
 /// that gets a number as an argument, that is the macro id, then calls the related function and
 /// prints the result.
-pub fn create_macro_module(
+fn macro_module_body(
     container: &ASTModulesContainer,
     catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     calls: &Vec<&MacroCall>,
@@ -108,6 +114,30 @@ pub fn create_macro_module(
     // println!("body:\n{}", constants.clone() + &body);
 
     constants + &body
+}
+
+pub fn create_macro_module(
+    container: &ASTModulesContainer,
+    catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    calls: &Vec<&MacroCall>,
+) -> Result<ASTModule, Vec<CompilationError>> {
+    let macro_module_body = macro_module_body(container, catalog, calls);
+
+    // println!("macro module:\n{macro_module_body}");
+
+    let (macro_module, macro_module_errors) =
+        Parser::new(Lexer::new(macro_module_body.clone())).parse();
+
+    // it should not happens
+    if !macro_module_errors.is_empty() {
+        eprintln!("Errors parsing macro module:\n{macro_module_body}");
+        Err(macro_module_errors
+            .into_iter()
+            .map(|it| CompilationError::from_parser_error(it, None))
+            .collect())
+    } else {
+        Ok(macro_module)
+    }
 }
 
 fn ast_module(module: &ASTModule) -> String {
@@ -355,7 +385,11 @@ mod tests {
 
         println!(
             "{}",
-            create_macro_module(&container, &RasmProjectCatalog::new(), &mce.calls())
+            macro_module_body(
+                &container,
+                &RasmProjectCatalog::new(),
+                &mce.resolvable_calls()
+            )
         );
     }
 }

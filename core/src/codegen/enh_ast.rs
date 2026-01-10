@@ -107,7 +107,7 @@ impl EnhASTNameSpace {
             panic!("lib cannot be empty");
         }
         if path.is_empty() {
-            panic!("path cannot be empty");
+            panic!("path cannot be empty for lib '{lib}'");
         }
         if path.ends_with(".rasm") {
             panic!("path should not end with .rasm {path}")

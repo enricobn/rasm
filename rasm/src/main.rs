@@ -1,10 +1,10 @@
 extern crate core;
 
-use std::env;
 use std::io::Write;
 use std::path::Path;
+use std::{env, process::exit};
 
-use clap::{Arg, ArgAction, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 
 use env_logger::Builder;
 use log::info;
@@ -147,47 +147,7 @@ fn main() {
         .cloned()
         .unwrap_or(".".to_string());
 
-    let action = match matches
-        .get_one::<String>("ACTION")
-        .cloned()
-        .unwrap()
-        .as_str()
-    {
-        "build" => CommandLineAction::Build,
-        "install" => CommandLineAction::Install,
-        "run" => CommandLineAction::Run,
-        "server" => CommandLineAction::Server,
-        "ui" => CommandLineAction::UI,
-        it => panic!("Unsupported action {it}"),
-    };
-
-    let command_line_options = CommandLineOptions {
-        action,
-        memory_debug: matches.get_flag("memorydebug"),
-        print_code: matches.get_flag("printcode"),
-        print_memory: matches.get_flag("memoryinfo"),
-        only_compile: matches.get_flag("compile"),
-        out: matches.get_one::<String>("out").cloned(),
-        release: matches.get_flag("release"),
-        arguments: matches
-            .get_one::<String>("arguments")
-            .map_or(Vec::new(), |it| vec![it.clone()]),
-        include_tests: matches
-            .get_one::<String>("include-tests")
-            .map_or(Vec::new(), |it| {
-                it.split(',').map(|it| it.to_string()).into_iter().collect()
-            }),
-        debug: matches.get_flag("debug"),
-        profile: matches
-            .get_one::<String>("profile")
-            .map_or(RasmProfile::Main, |it| match it.as_str() {
-                "main" => RasmProfile::Main,
-                "test" => RasmProfile::Test,
-                path => RasmProfile::Custom {
-                    path: path.to_string(),
-                },
-            }),
-    };
+    let command_line_options = parse_command_line_options(&matches);
 
     let src_path = Path::new(&src);
 
@@ -213,5 +173,60 @@ fn main() {
         debug_i!("project {:?}", project);
 
         target.run(project, command_line_options);
+    }
+}
+
+fn parse_command_line_options(matches: &ArgMatches) -> CommandLineOptions {
+    // ACTION is mandatory, so unwrap
+    let action = match matches.get_one::<String>("ACTION").unwrap().as_str() {
+        "build" => CommandLineAction::Build,
+        "install" => CommandLineAction::Install,
+        "run" => CommandLineAction::Run,
+        "server" => CommandLineAction::Server,
+        "test" => CommandLineAction::Test,
+        "ui" => CommandLineAction::UI,
+        it => panic!("Unsupported action {it}"),
+    };
+
+    let default_profile = if action == CommandLineAction::Test {
+        if let Some(profile) = matches.get_one::<String>("profile") {
+            if profile.as_str() != "test" {
+                eprintln!(
+                    "For test action, only \"test\" or no profile are supported, but got {profile}."
+                );
+                exit(1);
+            }
+        }
+        RasmProfile::Test
+    } else {
+        RasmProfile::Main
+    };
+
+    CommandLineOptions {
+        action,
+        memory_debug: matches.get_flag("memorydebug"),
+        print_code: matches.get_flag("printcode"),
+        print_memory: matches.get_flag("memoryinfo"),
+        only_compile: matches.get_flag("compile"),
+        out: matches.get_one::<String>("out").cloned(),
+        release: matches.get_flag("release"),
+        arguments: matches
+            .get_one::<String>("arguments")
+            .map_or(Vec::new(), |it| vec![it.clone()]),
+        include_tests: matches
+            .get_one::<String>("include-tests")
+            .map_or(Vec::new(), |it| {
+                it.split(',').map(|it| it.to_string()).into_iter().collect()
+            }),
+        debug: matches.get_flag("debug"),
+        profile: matches
+            .get_one::<String>("profile")
+            .map_or(default_profile, |it| match it.as_str() {
+                "main" => RasmProfile::Main,
+                "test" => RasmProfile::Test,
+                path => RasmProfile::Custom {
+                    path: path.to_string(),
+                },
+            }),
     }
 }

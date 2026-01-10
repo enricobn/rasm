@@ -2484,7 +2484,7 @@ mod tests {
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::{AsmOptions, CodeGen};
-    use crate::commandline::CommandLineOptions;
+    use crate::commandline::{CommandLineAction, CommandLineOptions};
     use crate::project::RasmProject;
     use crate::test_utils::project_to_ast_typed_module;
 
@@ -2565,14 +2565,9 @@ mod tests {
 
         let dir = TempDir::new("rasm_int_test").unwrap();
 
-        let result = sut.generate(
-            &project,
-            &target,
-            &typed_module,
-            statics,
-            &CommandLineOptions::default(),
-            dir.path(),
-        );
+        let clo = CommandLineOptions::new(CommandLineAction::Test);
+
+        let result = sut.generate(&project, &target, &typed_module, statics, &clo, dir.path());
 
         assert!(!result.is_empty());
         assert!(result.iter().any(|it| it.0 == "breakout_test.c"));

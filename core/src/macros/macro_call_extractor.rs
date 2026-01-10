@@ -21,11 +21,39 @@ pub struct MacroCallExtractor {
 }
 
 impl MacroCallExtractor {
-    pub fn calls(&self) -> Vec<&MacroCall> {
+    pub fn is_empty(&self) -> bool {
+        self.calls.is_empty() && self.attribute_macros.is_empty()
+    }
+
+    fn calls(&self) -> Vec<&MacroCall> {
         self.calls
             .iter()
             .chain(self.attribute_macros.iter())
             .collect()
+    }
+
+    pub fn resolvable_calls(&self) -> Vec<&MacroCall> {
+        let mut dependent_macro_calls = Vec::new();
+        let mut independent_macro_calls = Vec::new();
+
+        for call in self.calls().into_iter() {
+            if let Some(in_function) = &call.in_function {
+                if self
+                    .calls()
+                    .iter()
+                    .any(|it| &it.function_signature == in_function)
+                {
+                    dependent_macro_calls.push(call);
+                    continue;
+                }
+            }
+            independent_macro_calls.push(call);
+        }
+        if dependent_macro_calls.is_empty() {
+            independent_macro_calls
+        } else {
+            dependent_macro_calls
+        }
     }
 }
 
@@ -1048,4 +1076,30 @@ fn call_empty_vec(position: ASTPosition, ast_type: ASTType) -> ASTExpression {
 
 fn call_none(position: ASTPosition) -> ASTExpression {
     simple_call("None", Vec::new(), position, None)
+}
+
+#[cfg(test)]
+mod test {
+    use std::path::PathBuf;
+
+    use crate::{
+        codegen::{c::options::COptions, compile_target::CompileTarget},
+        commandline::RasmProfile,
+        macros::{macro_call_extractor::extract_macro_calls, macro_module::create_macro_module},
+        project::RasmProject,
+    };
+
+    #[test]
+    fn test() {
+        let project = RasmProject::new(PathBuf::from("resources/test/macro_calls.rasm"));
+        let (container, catalog, _) = project
+            .container_and_catalog(&RasmProfile::Main, &CompileTarget::C(COptions::default()));
+        let extractor = extract_macro_calls(&container, &catalog);
+        assert_eq!(extractor.calls().len(), 10);
+        assert!(!extractor.calls().iter().any(|it| it.in_function.is_some()));
+
+        let macro_module_body =
+            create_macro_module(&container, &catalog, &extractor.calls()).unwrap();
+        println!("{macro_module_body}");
+    }
 }
