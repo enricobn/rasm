@@ -94,6 +94,24 @@ pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
     pop     ecx
 }/
 
+pub native sdlRenderFillRect(ren: SDLRenderer, x: int, y: int, width: int, height: int) /{
+    push    ecx
+    sub     esp, 16
+    mov     dword ecx, $x
+    mov     dword [esp], ecx
+    mov     dword ecx, $y
+    mov     dword [esp + 4], ecx
+    mov     dword ecx, $width
+    mov     dword [esp + 8], ecx
+    mov     dword ecx, $height
+    mov     dword [esp + 12], ecx
+    mov     dword ecx,esp
+
+    $ccall(SDL_RenderFillRect, $ren, ecx)
+    add     esp,16
+    pop     ecx
+}/
+
 pub native sdlRenderCopy(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
     push    ecx
     mov     dword ecx, $rect

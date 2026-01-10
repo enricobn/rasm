@@ -90,6 +90,10 @@ pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
     SDL_RenderFillRect(ren, rect->address);
 }/
 
+pub native sdlRenderFillRect(ren: SDLRenderer, x: int, y: int, width: int, height: int) /{
+    SDL_RenderFillRect(ren, &(SDL_Rect){x, y, width, height});
+}/
+
 pub native sdlRenderCopy(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
     $include(<stdlib.h>)
 
