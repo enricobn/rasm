@@ -499,9 +499,13 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     $realTypeName(T1) result = zero;
 
     for (int i = 0; i < length; i++) {
-        $addRef(result: T1)
+        if (result != zero) {
+            $addRef(result: T1)
+        }
         $realTypeName(T1) tmpResult = $castAddress($accum)->functionPtr(result, array[i], accum);
-        $deref(result: T1)
+        if (result != zero) {
+            $deref(result: T1)
+        }
         result = tmpResult;
     }
 

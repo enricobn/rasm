@@ -486,7 +486,7 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
 
     mov     eax, $zero          ; the actual value
     mov     dword ecx, $vec
-    mov     dword ecx, [ecx]    ; the address of the value in the vector
+    mov     dword ecx, [ecx]    ; the address of the memory allocated for the vector
     mov     dword esi, [ecx]    ; the size of the vector
     cmp     esi,0
     jz      .end
@@ -497,14 +497,22 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
 .loop:
     add     ecx, 4
     push    eax
+    cmp     eax,$zero
+    jz      .no_addref
+
     $addRef(eax: T1)
+.no_addref:
     push    dword [ecx]
     push    eax
     push    dword ebx
     call    [ebx]
     add     esp, 12
     pop     edx
+    
+    cmp     edx,$zero
+    jz      .no_deref
     $deref(edx: T1)
+.no_deref:
     dec     esi
     jnz     .loop
 .end:
