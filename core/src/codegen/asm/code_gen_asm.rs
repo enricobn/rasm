@@ -1526,6 +1526,15 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
     }
 
     fn preamble(&self, code: &mut String) {
+        /*
+        self.add(
+            code,
+            "%define REUSABLE_WARNING_THRESHOLD 100000",
+            None,
+            false,
+        );
+         */
+
         self.add(code, "%macro gotoOnSome 1", None, false);
         self.add(
             code,
@@ -1538,6 +1547,8 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         if self.options.requires.contains(&"libc".to_string()) {
             self.add(code, "%DEFINE LIBC 1", None, false);
             self.add(code, "extern exit", None, true);
+            self.add(code, "extern malloc", None, true);
+            self.add(code, "extern free", None, true);
         }
 
         for e in self.options.externals.iter() {

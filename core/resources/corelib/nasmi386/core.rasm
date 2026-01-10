@@ -125,6 +125,32 @@ pub native rasmalloc(size: int, descr: str) -> int /{
 
     mov dword ebx,$size
     mov dword edx,[_reusable_heap_table_next]
+    %ifdef REUSABLE_WARNING_THRESHOLD
+    mov dword eax, edx
+    sub eax,ecx
+    shr dword eax,2
+    cmp eax,REUSABLE_WARNING_THRESHOLD
+    jb  .reusable_loop
+    push eax
+    $call(print, "reached reusable slots threshold: ")
+    pop eax
+    $call(print, 1:File, eax)
+    $call(println)
+    jmp .end_print_allocation_sizes
+.print_allocation_sizes:
+    cmp     dword ecx,edx
+    je      .end_print_allocation_sizes
+    mov     eax,[ecx]
+    $call(print, "    ")
+    $call(print, 1:File, [eax + 8])
+    $call(println)
+    add     ecx,4
+    jmp    .print_allocation_sizes
+.end_print_allocation_sizes:
+    $call(exitMain,0)
+    ;mov dword ebx,$size
+    ;mov dword edx,[_reusable_heap_table_next]
+%endif
 .reusable_loop:
     cmp     dword ecx,edx
     je      .allocation
@@ -352,7 +378,23 @@ pub native deref(address: int, descr: str) -> int /{
 
     add     ebx,4
     mov     dword [_reusable_heap_table_next],ebx
-
+    %ifdef REUSABLE_WARNING_THRESHOLD
+    push    ecx
+    mov     dword ecx, _reusable_heap_table
+    sub     ebx,ecx
+    shr     dword ebx,2
+    cmp     ebx,REUSABLE_WARNING_THRESHOLD
+    jb      .end_threshold
+    push    eax
+    $call(print, "deref, reached reusable slots threshold: ")
+    $call(print, ebx)
+    $call(print, " ")
+    $call(print, $descr: str)
+    $call(println)
+    pop     eax
+.end_threshold:
+    pop     ecx
+    %endif
     jmp     .end
 .negative_count:
     $call(print, 1:File, "Negative allocation count: ")
