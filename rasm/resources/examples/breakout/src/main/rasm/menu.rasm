@@ -12,22 +12,22 @@ pub fn update(resources: Resources, keys: Vec<int>, menuState: MenuState) -> Sta
     });
 }
 
-pub fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
+pub fn render(ren: Rasm2DGraphics, resources: Resources, menuState : MenuState) {
     let font = resources.font;
 
-    renderText(ren, font, "Rasm BREAKOUT", COLORS.green, 380, 200);
+    ren.renderText(font, "Rasm BREAKOUT", COLORS.green, 380, 200);
 
-    let highScores = take(sort(highScores(menuState), fn(h1, h2) {
+    let highScores = menuState.highScores.sort(fn(h1, h2) {
         let s1 = score(h1);
         let s2 = score(h2);
         cmp(s2, s1);
-    }), 10);
+    }).take(10);
 
-    let last = first(sort(highScores(menuState), fn(h1, h2) {
+    let last = menuState.highScores.sort(fn(h1, h2) {
          let t1 = time(h1);
          let t2 = time(h2);
          cmp(t2, t1);
-     }));
+     }).first;
 
     forEach(enumerate(highScores), fn(enumerateEntry) {
         let index = enumerateEntry.index;
@@ -41,8 +41,8 @@ pub fn render(ren: SDLRenderer, resources: Resources, menuState : MenuState) {
 
         let sScore = padLeft(toString(score), 10);
         let y = add(300, mul(index, 30));
-        renderText(ren, font, sScore, color, 450, y);
+        ren.renderText(font, sScore, color, 450, y);
     });
 
-    renderText(ren, font, "Press SPACE to start", COLORS.red, 380, 700);
+    ren.renderText(font, "Press SPACE to start", COLORS.red, 380, 700);
 }

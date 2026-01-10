@@ -1,9 +1,13 @@
-pub enum SDLKeyboardState {
-    KeyDown,
-    KeyUp
+pub const SDLReleased = 0;
+pub const SDLPressed = 1;
+
+pub struct SDLKeysym {
+    scancode: int,
+    sym: int,
+    mod: int
 }
 
 pub enum SDLEvent {
-    SDLKeyboardEvent(state: SDLKeyboardState, repeat: bool, scancode: int, sym: int),
-    SDLQuitEvent
+    SDLKeyboardEvent(timestamp: int, windowID: int, state: int, repeat: bool, keysym: SDLKeysym),
+    SDLQuitEvent(timestamp: int)
 }

@@ -73,12 +73,14 @@ let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 16)
 ttfQuit();
 sdlQuit();
 
-fn update(message: Message, model: Model) -> Model {
+fn update(model: Model, message: Message) -> Model {
     message.match(fn(event) {
-        event.match(fn(state, repeat, scancode, sym) {
-            if(scancode.eq(41), { sdlQuit(); exitMain(0);}, { }); // 41 -> ESC
-        }, {
-            sdlQuit(); exitMain(0);
+        event.match(fn(timestamp, windowID, state, repeat, keysym) {
+            // println("key pressed ", keysym.scancode);
+            if(keysym.scancode.eq(41), { sdlQuit(); exitMain(0);}, { }); // 41 -> ESC
+        }, fn(timestamp) {
+            sdlQuit(); 
+            exitMain(0);
         });
     }, {});
 
@@ -114,7 +116,7 @@ fn render(ren: SDLRenderer, model: Model) {
 
     model.quads.forEach(fn(quad) {
         sdlSetRenderDrawColor(ren, quad.color);
-        sdlRenderFillRect(ren, SDLRect(quad.x, quad.y, QUADWIDTH, QUADWIDTH));
+        sdlRenderFillRect(ren, quad.x, quad.y, QUADWIDTH, QUADWIDTH);
     });
 
     renderText(ren, model.font, "FPS: ".append(model.fps.fps), WHITE, 10, 10);
@@ -122,8 +124,30 @@ fn render(ren: SDLRenderer, model: Model) {
     sdlRenderPresent(ren);
 }
 
+/*
 fn subscriptions() -> Vec<Message> {
     sdlPollEvent().match(fn(event) {
         vecOf(EventMessage(event));
     }, { vecOf(Tick());});
+}
+*/
+
+fn subscriptions() -> Vec<Message> {
+    let sdlEvents = sdlPollEvents(Vec());
+    if (sdlEvents.len.eq(0), 
+        {
+            vecOf(Tick());
+        }, 
+        {
+            // println(sdlEvents.len);
+            sdlEvents.map(EventMessage);
+        }
+    );
+}
+
+fn sdlPollEvents(events: Vec<SDLEvent>) -> Vec<SDLEvent> {
+    let result = sdlPollEvent().match(fn(event) {
+        sdlPollEvents(events.push(event));
+    }, { events; });
+    result;
 }

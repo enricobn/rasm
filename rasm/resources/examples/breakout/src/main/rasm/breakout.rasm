@@ -4,7 +4,7 @@ pub enum GameResult {
 }
 
 pub struct Resources {
-    font: TTFFont
+    font: Rasm2DFont
 }
 
 pub struct HighScore {
@@ -25,22 +25,22 @@ pub enum Stage {
 }
 
 pub struct Colors {
-    black: SDLColor,
-    blue: SDLColor,
-    green: SDLColor,
-    red: SDLColor,
-    yellow: SDLColor,
-    white: SDLColor
+    black: RGBAColor,
+    blue: RGBAColor,
+    green: RGBAColor,
+    red: RGBAColor,
+    yellow: RGBAColor,
+    white: RGBAColor
 }
 
 pub fn Colors() -> Colors {
     Colors(
-        SDLColor(0, 0, 0, 255),
-        SDLColor(0, 0, 255, 255),
-        SDLColor(0, 255, 0, 255),
-        SDLColor(255, 0, 0, 255),
-        SDLColor(255, 255, 0, 255),
-        SDLColor(255, 255, 255, 255)
+        RGBAColor(0, 0, 0, 255),
+        RGBAColor(0, 0, 255, 255),
+        RGBAColor(0, 255, 0, 255),
+        RGBAColor(255, 0, 0, 255),
+        RGBAColor(255, 255, 0, 255),
+        RGBAColor(255, 255, 255, 255)
     );
 }
 
@@ -60,47 +60,44 @@ pub const HEADERHEIGHT = 30;
 pub const BALLSIZE = 5;
 pub const COLORS = Colors();
 
-if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())); }, { });
-if(ttfInit().eq(0).not, { panic("Error initializing SDL TTF: ".add(sdlGetError())); }, { });
+Rasm2DApplication()
+.width(1024)
+.height(768)
+.title("Breakout")
+.run(main);
 
-let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 24)
-.match(fn(font) {
-    let highScores = loadHighScores();
+fn main(rend: Rasm2DRenderer) {
+    rend.openFont(resource("DejaVuSerif.ttf"), 24, 
+        fn(font) {  
+            let highScores = loadHighScores();
 
-    let initialState = State(Resources(font), Vec(), Menu(MenuState(highScores)), highScores);
+            let initialState = State(Resources(font), Vec(), Menu(MenuState(highScores)), highScores);
 
-    let win = sdlCreateWindow("Breakout", 100, 100, WIDTH, HEIGHT);
-    let ren = win.sdlCreateRenderer();
+            run(rend, initialState, update, render, subscriptions);
+        }
+    );
+}
 
-    run(ren, initialState, update, render, subscriptions);
-
-    ttfCloseFont(font);
-    ren.sdlDestroyRenderer();
-    win.sdlDestroyWindow();
-}, fn(error) {
-    println("Error opening font: ", error);
-});
-
-ttfQuit();
-sdlQuit();
-
-// TODO keys are not as expected, space is 44 but should be 32!
-fn update(message: Message, state: State) -> State {
+fn update(state: State, message: Message) -> State {
     let resources = state.resources;
     let keys = state.keys;
     let stage = state.stage;
     let highScores = state.highScores;
 
     let newKeys = message.match(fn(e) {
-        e.match(fn(keyState, repeat, scancode, sym) {
-            if(scancode.eq(41), { sdlQuit(); exitMain(0);}, { }); // 41 -> ESC
-            keyState.match({
-                keys.push(scancode);
+        e.match(fn(timestamp, windowID, keyState, repeat, keysym) {
+            // println("KeyEvent ", keysym.scancode);
+            // println("  keyState ", keyState);
+            // println("  mod ", keysym.mod);
+            if(keysym.scancode.eq(41), { sdlQuit(); exitMain(0);}, { }); // 41 -> ESC
+            if (keyState.eq(SDLPressed), {
+                keys.push(keysym.scancode);
             }, {
-                keys.filter(neq.curry(scancode));
+                keys.filter(neq.curry(keysym.scancode));
             });
-        }, {
-            sdlQuit(); exitMain(0);
+        }, fn(timestamp) {
+            sdlQuit(); 
+            exitMain(0);
             Vec();
         });
       }, { keys; });
@@ -128,26 +125,36 @@ fn add(highScores: Vec<HighScore>, score: int) -> Vec<HighScore> {
     highScores.push(HighScore(score, now()));
 }
 
-fn render(ren: SDLRenderer, state: State) {
-    sdlSetRenderDrawColor(ren, COLORS.black);
-    sdlRenderClear(ren);
+fn render(ren: Rasm2DRenderer, state: State) {
+    ren.render(
+        fn(graphics) {  
+            graphics.setColor(COLORS.black);
+            graphics.clear();
 
-    let resources = state.resources;
-    let stage = state.stage;
-
-    stage.match(
-        fn(menuState) { render(ren, resources, menuState);}, 
-        fn(gameState) { render(ren, resources, gameState);}
-    );
-
-    sdlRenderPresent(ren);
+            state.stage.match(
+                fn(menuState) { graphics.render(state.resources, menuState);}, 
+                fn(gameState) { graphics.render(state.resources, gameState);}
+            );
+        });
 }
 
 fn subscriptions() -> Vec<Message> {
+    let sdlEvents = sdlPollEvents(Vec());
+    if (sdlEvents.len.eq(0), 
+        {
+            vecOf(Tick());
+        }, 
+        {
+            sdlEvents.map(EventMessage);
+        }
+    );
+}
+
+fn sdlPollEvents(events: Vec<SDLEvent>) -> Vec<SDLEvent> {
     sdlPollEvent().match(fn(event) {
-        // println("an event ", event);
-        vecOf(EventMessage(event));
-    }, { vecOf(Tick());});
+        // println("Event ");
+        sdlPollEvents(events.push(event));
+    }, { events; });
 }
 
 fn loadHighScores() -> Vec<HighScore> {

@@ -1,38 +1,41 @@
 pub native sdlPollEvent() -> Option<SDLEvent> /{
     push    ebx
+    push    ecx
+    push    edx
 
-    $call(rasmalloc, 56, " for temp mem for sdl SDLEvent")
-    ; we do an addref simple because the struct is NULL, for now
-    $call(addRef, eax, "temp mem for sdl SDLEvent")
-    push    eax
+    sub     esp, 56 ; allocating memory in the stack for SDL_Event
+    mov     dword  eax, esp 
+    mov     dword  ebx, esp
 
-    mov     dword  ebx, [eax]
-
-    $ccall(SDL_PollEvent, [eax]) ; we cannot use directly ebx because it's used for the call
+    $ccall(SDL_PollEvent, eax) ; we cannot use directly ebx because it's used during macro call
     cmp     eax,0
-    je      .noKey
+    je      .noEvent
         mov     dword eax,[ebx] ; here we have the event type
         cmp     eax, 768        ; keyDown
-        jne     .noKeyDown
-            $call(SDLKeyboardEvent, [_enum_sdl_sdlevent_SDLKeyboardState_KeyDown]: SDLKeyboardState, 0: bool, [ebx + 16], 0)
-            $addRef(eax:SDLEvent)
-            mov     dword ebx, eax
-            $call(Some, eax:SDLEvent)
-            $deref(ebx:SDLEvent)
-            jmp     .end
-.noKeyDown:
+        je     .keyEvent
         cmp     eax, 769        ; keyUp
-        jne     .noKey    
-            $call(SDLKeyboardEvent, [_enum_sdl_sdlevent_SDLKeyboardState_KeyUp]: SDLKeyboardState, 0: bool, [ebx + 16], 0)
+        je     .keyEvent
+        jmp    .noEvent
+.keyEvent:
+            movzx ecx, word [ebx + 24]   ; zero-extend byte to EAX (32-bit)
+            $call(SDLKeysym, [ebx + 16], [ebx + 20], ecx);
+            push    eax
+            $addRef(eax:SDLKeysym)
+            movzx ecx, byte [ebx + 12]   ; zero-extend byte to EAX (32-bit)
+            movzx edx, byte [ebx + 13]   ; zero-extend byte to EAX (32-bit)
+            $call(SDLKeyboardEvent, [ebx + 4], [ebx + 8], ecx, edx: bool, eax: SDLKeysym)
+            pop   ebx
+            $deref(ebx:SDLKeysym)
             $addRef(eax:SDLEvent)
             mov     dword ebx, eax
             $call(Some, eax:SDLEvent)
             $deref(ebx:SDLEvent)
             jmp     .end
-.noKey:
+.noEvent:
     mov     dword eax,[_enum_stdlib_option_Option_None]
 .end:
-    pop     ebx
-    $call(deref, ebx, "temp mem for sdl SDLEvent")
+    add     esp, 56 ; deallocating memory in the stack for SDL_Event
+    pop     edx
+    pop     ecx
     pop     ebx
 }/

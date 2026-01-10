@@ -1,10 +1,8 @@
-pub native run<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MESSAGE, MODEL) -> MODEL, 
+pub native run<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MODEL, MESSAGE) -> MODEL, 
         render: fn(CTX, MODEL) -> (), subscriptions: fn() -> Vec<MESSAGE>) /{
     push    ebx
     push    ecx
-    push    edx
 
-    mov     dword edx, $model
     mov     dword ebx, $model
 .loop:
     ; $call(printTotalMemory)
@@ -26,11 +24,9 @@ pub native run<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MESSAGE, MO
     ; $printRef(ebx:MODEL)
     $deref(ebx: MODEL)
 .skipRef:
-    mov     dword edx, ebx
     mov     dword ebx, eax
     jmp     .loop
 
-    pop     edx
     pop     ecx
     pop     ebx
 }/

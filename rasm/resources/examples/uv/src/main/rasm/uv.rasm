@@ -1,4 +1,4 @@
-fn singleRun<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MESSAGE, MODEL) -> MODEL, 
+fn singleRun<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MODEL, MESSAGE) -> MODEL, 
     render: fn(CTX, MODEL) -> (), subscriptions: fn() -> Vec<MESSAGE>) -> MODEL {
 
     let messages = subscriptions();
@@ -7,11 +7,17 @@ fn singleRun<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MESSAGE, MODE
         render(ctx, model);
         model;
     }, {
+        /*
         messages.foldLeft(model, fn(prev,curr) {
-            let nm = update(curr, prev);
+            let nm = update(prev, curr);
             render(ctx, nm);
             nm;
         });
+        */
+
+        let newModel = messages.foldLeft(model, update);
+        render(ctx, newModel);
+        newModel;
     });
 
 }

@@ -2,22 +2,17 @@ pub native sdlPollEvent() -> Option<SDLEvent> /{
     SDL_Event event;
     if (SDL_PollEvent(&event)) {
         if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
-            struct RasmPointer_ *state;
-            if (event.type == SDL_KEYDOWN) {
-                state = $enumSimple(KeyDown, SDLKeyboardState);
-            } else {
-                state = $enumSimple(KeyUp, SDLKeyboardState);
-            }
-            $addRef(state: SDLKeyboardState)
-            struct RasmPointer_ *keyboardEvent = $call(SDLKeyboardEvent, state: SDLKeyboardState, event.key.repeat: bool, event.key.keysym.scancode, event.key.keysym.sym);
+            struct RasmPointer_ *keysym = $call(SDLKeysym, event.key.keysym.scancode, event.key.keysym.sym, event.key.keysym.mod);
+            $addRef(keysym: SDLKeysym)
+            struct RasmPointer_ *keyboardEvent = $call(SDLKeyboardEvent, event.key.timestamp, event.key.windowID, event.key.state, event.key.repeat: bool, keysym: SDLKeysym);
+            $deref(keysym: SDLKeysym)
             $addRef(keyboardEvent: SDLEvent)
             void *result = $call(Some, keyboardEvent: SDLEvent);
             $deref(keyboardEvent: SDLEvent)
-            $deref(state: SDLKeyboardState)
             return result;
         } else if (event.type == SDL_QUIT) {
-            struct RasmPointer_ *eventType = $enumSimple(SDLQuitEvent, SDLEvent);
-            return $call(Some, eventType: SDLEvent);
+            struct RasmPointer_ *quitEvent = $call(SDLQuitEvent, event.quit.timestamp);
+            return $call(Some, quitEvent: SDLEvent);
         } else {
             return $enumSimple(None);
         }

@@ -1,7 +1,7 @@
 pub struct Brick {
     x: int,
     y: int,
-    color: SDLColor,
+    color: RGBAColor,
     value: int
 }
 

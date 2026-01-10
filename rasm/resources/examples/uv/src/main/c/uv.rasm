@@ -1,4 +1,4 @@
-pub native run<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MESSAGE, MODEL) -> MODEL, 
+pub native run<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MODEL, MESSAGE) -> MODEL, 
         render: fn(CTX, MODEL) -> (), subscriptions: fn() -> Vec<MESSAGE>) /{
 
     void *currentModel = model;
