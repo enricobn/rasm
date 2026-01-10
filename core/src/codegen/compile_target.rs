@@ -18,13 +18,11 @@
 
 use log::info;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
-use rasm_parser::catalog::{ModuleId, ModuleNamespace};
 
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio, exit};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use crate::codegen::asm::backend::Backend;
@@ -44,8 +42,8 @@ use crate::codegen::{AsmOptions, CodeGen, get_typed_module};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::CompilationError;
 use crate::macros::macro_call_extractor::extract_macro_calls;
-use crate::macros::macro_compiler::compile_macros;
-use crate::macros::macro_module::create_macro_module;
+use crate::macros::macro_compiler::resolve_macros;
+
 use crate::project::RasmProject;
 use crate::transformations::enrich_container;
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
@@ -61,8 +59,6 @@ use super::asm::backend::BackendNasmi386;
 use super::asm::code_gen_asm::CodeGenAsm;
 use super::asm::typed_functions_creator_asm::TypedFunctionsCreatorNasmi386;
 use super::c::typed_function_creator_c::TypedFunctionsCreatorC;
-
-static COUNT_MACRO_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone)]
 pub enum CompileTarget {
@@ -360,11 +356,6 @@ impl CompileTarget {
         out_folder: PathBuf,
         out_file: PathBuf,
     ) -> Result<(), Vec<CompilationError>> {
-        if COUNT_MACRO_ID.load(Ordering::SeqCst) > 10 {
-            return Err(vec![CompilationError::generic_none(
-                "Recursion in macro evaluation".to_owned(),
-            )]);
-        }
         let extractor = extract_macro_calls(&container, catalog);
 
         if extractor.is_empty() {
@@ -377,49 +368,14 @@ impl CompileTarget {
                 out_file,
             )
         } else {
-            let calls = extractor.resolvable_calls();
-
-            let macro_module = create_macro_module(&container, catalog, &calls)?;
-
-            let mut original_container = container.clone();
-            let orig_catalog = catalog.clone_catalog();
-            let mut new_catalog = catalog.clone_catalog();
-
-            container.remove_body();
-
-            let macro_id = format!(
-                "{}_macro_{}",
-                project.name(),
-                COUNT_MACRO_ID.fetch_add(1, Ordering::SeqCst)
-            );
-
-            container.add(
-                macro_module,
-                ModuleNamespace::global(),
-                ModuleId(macro_id.clone()),
-                false,
-                true,
-            );
-
-            new_catalog.add(
-                EnhModuleId::Other(macro_id.clone()),
-                EnhASTNameSpace::global(),
-            );
-
-            let macro_out_file = out_folder.join(macro_id.clone());
-
-            info!("compiling macro module");
-
-            compile_macros(
+            resolve_macros(
                 project,
                 self,
-                container,
-                new_catalog,
+                &extractor,
+                &mut container,
+                catalog,
                 command_line_options,
-                calls,
-                &out_folder,
-                &macro_out_file,
-                &mut original_container,
+                out_folder.clone(),
             )?;
 
             let out_file = out_folder.join(
@@ -432,8 +388,8 @@ impl CompileTarget {
 
             if let Err(errors) = self.process_macro_and_compile(
                 &project,
-                original_container,
-                orig_catalog.as_ref(),
+                container,
+                catalog,
                 &command_line_options,
                 out_folder,
                 out_file.clone(),

@@ -1,7 +1,13 @@
-use std::{collections::HashMap, path::PathBuf, process::Command};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    process::Command,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
+use log::info;
 use rasm_parser::{
-    catalog::{ModuleId, modules_catalog::ModulesCatalog},
+    catalog::{ModuleId, ModuleNamespace, modules_catalog::ModulesCatalog},
     lexer::Lexer,
     parser::{
         Parser, ParserError,
@@ -20,91 +26,75 @@ use crate::{
     },
     commandline::{CommandLineAction, CommandLineOptions},
     errors::CompilationError,
-    macros::macro_call_extractor::{MacroCall, MacroResultType},
+    macros::{
+        macro_call_extractor::{MacroCall, MacroCallExtractor, MacroResultType},
+        macro_module::create_macro_module,
+    },
     project::RasmProject,
     type_check::ast_modules_container::ASTModulesContainer,
 };
 
-fn compile_macros_internal<'a>(
+static COUNT_MACRO_ID: AtomicUsize = AtomicUsize::new(0);
+
+pub fn resolve_macros(
     project: &RasmProject,
     target: &CompileTarget,
-    macros_modules_container: ASTModulesContainer,
-    macros_catalog: Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>>,
+    extractor: &MacroCallExtractor,
+    container: &mut ASTModulesContainer,
+    catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     command_line_options: &CommandLineOptions,
-    calls: Vec<&'a MacroCall>,
-    out_folder: &PathBuf,
-    macro_out_file: &PathBuf,
-) -> Result<
-    HashMap<ModuleId, Vec<(&'a MacroCall, (ASTModule, Vec<ParserError>))>>,
-    Vec<CompilationError>,
-> {
-    let clo = CommandLineOptions {
-        action: CommandLineAction::Build,
-        memory_debug: false,
-        print_code: false,
-        print_memory: false,
-        only_compile: false,
-        out: command_line_options.out.clone(),
-        release: command_line_options.release,
-        arguments: Vec::new(),
-        include_tests: Vec::new(),
-        debug: false,
-        profile: command_line_options.profile.clone(),
-    };
+    out_folder: PathBuf,
+) -> Result<(), Vec<CompilationError>> {
+    let calls = extractor.resolvable_calls();
 
-    if let Err(errors) = target.compile(
-        &project,
-        macros_modules_container,
-        macros_catalog.as_ref(),
-        &clo,
-        out_folder.clone(),
-        macro_out_file.clone(),
-    ) {
-        eprintln!("Errors compiling macro module");
+    let macro_module = create_macro_module(&container, catalog, &calls)?;
 
-        return Err(errors);
+    let mut macro_container = container.clone();
+    let mut new_catalog = catalog.clone_catalog();
+
+    macro_container.remove_body();
+
+    let macro_id = format!(
+        "{}_macro_{}",
+        project.name(),
+        COUNT_MACRO_ID.fetch_add(1, Ordering::SeqCst)
+    );
+
+    if COUNT_MACRO_ID.load(Ordering::SeqCst) > 10 {
+        return Err(vec![CompilationError::generic_none(
+            "More than 10 macro loops, perhaps a recursion in macro evaluation?".to_owned(),
+        )]);
     }
 
-    // TODO move code in macro module
+    macro_container.add(
+        macro_module,
+        ModuleNamespace::global(),
+        ModuleId(macro_id.clone()),
+        false,
+        true,
+    );
 
-    let macro_modules = calls
-        .par_iter()
-        .map(|it| {
-            (
-                *it,
-                evaluate_macro(macros_catalog.as_ref(), macro_out_file.clone(), it),
-            )
-        })
-        .collect::<Vec<_>>();
+    new_catalog.add(
+        EnhModuleId::Other(macro_id.clone()),
+        EnhASTNameSpace::global(),
+    );
 
-    let macro_errors = macro_modules
-        .iter()
-        .flat_map(|it| it.1.1.iter())
-        .collect::<Vec<_>>();
+    let macro_out_file = out_folder.join(macro_id.clone());
 
-    if !macro_errors.is_empty() {
-        eprintln!("Errors evaluating macros");
-        return Err(macro_errors
-            .into_iter()
-            .map(|it| CompilationError::from_parser_error(it.clone(), None))
-            .collect());
-    }
-
-    let mut macro_modules_map: HashMap<
-        ModuleId,
-        Vec<(&'a MacroCall, (ASTModule, Vec<ParserError>))>,
-    > = HashMap::new();
-
-    for it in macro_modules {
-        macro_modules_map
-            .entry(it.0.module_id.clone())
-            .or_insert(Vec::new())
-            .push(it);
-    }
-    Ok(macro_modules_map)
+    compile_macros(
+        project,
+        target,
+        macro_container,
+        new_catalog,
+        command_line_options,
+        calls,
+        &out_folder,
+        &macro_out_file,
+        container,
+    )
 }
 
-pub fn compile_macros<'a>(
+fn compile_macros<'a>(
     project: &RasmProject,
     target: &CompileTarget,
     container: ASTModulesContainer,
@@ -178,6 +168,87 @@ pub fn compile_macros<'a>(
         }
     }
     Ok(())
+}
+
+fn compile_macros_internal<'a>(
+    project: &RasmProject,
+    target: &CompileTarget,
+    macros_modules_container: ASTModulesContainer,
+    macros_catalog: Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>>,
+    command_line_options: &CommandLineOptions,
+    calls: Vec<&'a MacroCall>,
+    out_folder: &PathBuf,
+    macro_out_file: &PathBuf,
+) -> Result<
+    HashMap<ModuleId, Vec<(&'a MacroCall, (ASTModule, Vec<ParserError>))>>,
+    Vec<CompilationError>,
+> {
+    info!("compiling macro module");
+
+    let clo = CommandLineOptions {
+        action: CommandLineAction::Build,
+        memory_debug: false,
+        print_code: false,
+        print_memory: false,
+        only_compile: false,
+        out: command_line_options.out.clone(),
+        release: command_line_options.release,
+        arguments: Vec::new(),
+        include_tests: Vec::new(),
+        debug: false,
+        profile: command_line_options.profile.clone(),
+    };
+
+    if let Err(errors) = target.compile(
+        &project,
+        macros_modules_container,
+        macros_catalog.as_ref(),
+        &clo,
+        out_folder.clone(),
+        macro_out_file.clone(),
+    ) {
+        eprintln!("Errors compiling macro module");
+
+        return Err(errors);
+    }
+
+    info!("evaluating macros");
+
+    let macro_modules = calls
+        .par_iter()
+        .map(|it| {
+            (
+                *it,
+                evaluate_macro(macros_catalog.as_ref(), macro_out_file.clone(), it),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let macro_errors = macro_modules
+        .iter()
+        .flat_map(|it| it.1.1.iter())
+        .collect::<Vec<_>>();
+
+    if !macro_errors.is_empty() {
+        eprintln!("Errors evaluating macros");
+        return Err(macro_errors
+            .into_iter()
+            .map(|it| CompilationError::from_parser_error(it.clone(), None))
+            .collect());
+    }
+
+    let mut macro_modules_map: HashMap<
+        ModuleId,
+        Vec<(&'a MacroCall, (ASTModule, Vec<ParserError>))>,
+    > = HashMap::new();
+
+    for it in macro_modules {
+        macro_modules_map
+            .entry(it.0.module_id.clone())
+            .or_insert(Vec::new())
+            .push(it);
+    }
+    Ok(macro_modules_map)
 }
 
 fn replace_statements_in_module(
