@@ -1,0 +1,6 @@
+fn rasm2DInit() -> Option<str> /{
+    ; TODO handle errors
+    $call(sdlInit)
+    $call(ttfInit)
+    mov     eax, [_enum_stdlib_option_Option_None]
+}/
