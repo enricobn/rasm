@@ -1,10 +1,5 @@
-println(vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
-println(vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
-println(vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
-println(vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
-println(vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
-println(vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
-println(vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
-println(vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
-println(vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
-println(vec!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+println(vec!(1));
+println(vec!(2));
+println(vec!(3));
+println(vec!(4));
+println(vec!(5));

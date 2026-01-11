@@ -1085,7 +1085,7 @@ mod test {
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget},
         commandline::RasmProfile,
-        macros::{macro_call_extractor::extract_macro_calls, macro_module::create_macro_module},
+        macros::macro_call_extractor::extract_macro_calls,
         project::RasmProject,
     };
 
@@ -1095,11 +1095,7 @@ mod test {
         let (container, catalog, _) = project
             .container_and_catalog(&RasmProfile::Main, &CompileTarget::C(COptions::default()));
         let extractor = extract_macro_calls(&container, &catalog);
-        assert_eq!(extractor.calls().len(), 10);
+        assert_eq!(extractor.calls().len(), 5);
         assert!(!extractor.calls().iter().any(|it| it.in_function.is_some()));
-
-        let macro_module_body =
-            create_macro_module(&container, &catalog, &extractor.calls()).unwrap();
-        println!("{macro_module_body}");
     }
 }

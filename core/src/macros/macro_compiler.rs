@@ -244,7 +244,7 @@ fn compile_macros_internal<'a>(
             macro_modules_map
                 .entry(call.module_id.clone())
                 .or_insert(Vec::new())
-                .push((call, module));
+                .insert(0, (call, module));
         }
     }
 
@@ -395,7 +395,7 @@ fn replace_expression_in_expression(
                 ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
                     call.function_name().clone(),
                     new_parameters,
-                    call.position().copy(),
+                    call.position().clone(),
                     call.generics().clone(),
                     call.target().clone(),
                     call.is_macro(),
@@ -407,7 +407,7 @@ fn replace_expression_in_expression(
                 ASTExpression::ASTLambdaExpression(ASTLambdaDef {
                     parameter_names: lambda_def.parameter_names.clone(),
                     body: replace_expression_in_body(&lambda_def.body, position, &to),
-                    position: lambda_def.position.copy(),
+                    position: lambda_def.position.clone(),
                 })
             }
         }
@@ -471,5 +471,48 @@ fn evaluate_macro(
         Ok(result)
     } else {
         Err("Expected a macro result.".to_owned())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use tempdir::TempDir;
+
+    use crate::{
+        codegen::{c::options::COptions, compile_target::CompileTarget},
+        commandline::{CommandLineOptions, RasmProfile},
+        macros::{macro_call_extractor::extract_macro_calls, macro_compiler::resolve_macros},
+        project::RasmProject,
+    };
+
+    #[test]
+    fn test() {
+        let project = RasmProject::new(PathBuf::from("resources/test/macro_calls.rasm"));
+        let target = CompileTarget::C(COptions::default());
+        let profile = RasmProfile::Main;
+        let (mut container, catalog, _) = project.container_and_catalog(&profile, &target);
+        let extractor = extract_macro_calls(&container, &catalog);
+        assert_eq!(extractor.resolvable_calls().len(), 5);
+
+        let command_line_options =
+            CommandLineOptions::new(crate::commandline::CommandLineAction::Run);
+
+        let out_folder = TempDir::new("rasm_macro_calls").unwrap().into_path();
+
+        resolve_macros(
+            &project,
+            &target,
+            &extractor,
+            &mut container,
+            &catalog,
+            &command_line_options,
+            out_folder,
+        )
+        .unwrap();
+
+        let extractor = extract_macro_calls(&container, &catalog);
+        assert_eq!(extractor.resolvable_calls().len(), 0);
     }
 }
