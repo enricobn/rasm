@@ -118,7 +118,7 @@ fn compile_macros<'a>(
 
     for (key, value) in macro_modules_map {
         if let Some((mut module, module_namespace)) = original_container.remove_module(&key) {
-            for (call, (new_module, _)) in value {
+            for (call, new_module) in value {
                 match call.macro_result_type {
                     MacroResultType::Statement => {
                         replace_statements_in_module(&mut module, &call.position, new_module.body);
@@ -179,10 +179,7 @@ fn compile_macros_internal<'a>(
     calls: Vec<&'a MacroCall>,
     out_folder: &PathBuf,
     macro_out_file: &PathBuf,
-) -> Result<
-    HashMap<ModuleId, Vec<(&'a MacroCall, (ASTModule, Vec<ParserError>))>>,
-    Vec<CompilationError>,
-> {
+) -> Result<HashMap<ModuleId, Vec<(&'a MacroCall, ASTModule)>>, Vec<CompilationError>> {
     info!("compiling macro module");
 
     let clo = CommandLineOptions {
@@ -214,7 +211,7 @@ fn compile_macros_internal<'a>(
 
     info!("evaluating macros");
 
-    let macro_modules = calls
+    let evaluation_results = calls
         .par_iter()
         .map(|it| {
             (
@@ -224,30 +221,33 @@ fn compile_macros_internal<'a>(
         })
         .collect::<Vec<_>>();
 
-    let macro_errors = macro_modules
+    let macro_errors = evaluation_results
         .iter()
-        .flat_map(|it| it.1.1.iter())
+        .flat_map(|it| match &it.1 {
+            Ok((_, errors)) => errors
+                .into_iter()
+                .map(|it| CompilationError::from_parser_error(it.clone(), None))
+                .collect(),
+            Err(e) => vec![CompilationError::generic_none(e.clone())],
+        })
         .collect::<Vec<_>>();
 
     if !macro_errors.is_empty() {
         eprintln!("Errors evaluating macros");
-        return Err(macro_errors
-            .into_iter()
-            .map(|it| CompilationError::from_parser_error(it.clone(), None))
-            .collect());
+        return Err(macro_errors);
     }
 
-    let mut macro_modules_map: HashMap<
-        ModuleId,
-        Vec<(&'a MacroCall, (ASTModule, Vec<ParserError>))>,
-    > = HashMap::new();
+    let mut macro_modules_map: HashMap<ModuleId, Vec<(&'a MacroCall, ASTModule)>> = HashMap::new();
 
-    for it in macro_modules {
-        macro_modules_map
-            .entry(it.0.module_id.clone())
-            .or_insert(Vec::new())
-            .push(it);
+    for (call, result) in evaluation_results {
+        if let Ok((module, _)) = result {
+            macro_modules_map
+                .entry(call.module_id.clone())
+                .or_insert(Vec::new())
+                .push((call, module));
+        }
     }
+
     Ok(macro_modules_map)
 }
 
@@ -418,7 +418,7 @@ fn evaluate_macro(
     catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     macro_program: PathBuf,
     call: &MacroCall,
-) -> (ASTModule, Vec<ParserError>) {
+) -> Result<(ASTModule, Vec<ParserError>), String> {
     // println!("evaluating macro:\n{}", call.transformed_macro);
 
     let mut command = Command::new(macro_program.clone());
@@ -429,20 +429,20 @@ fn evaluate_macro(
     let output_stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
     if !output_stderr.is_empty() {
-        panic!(
+        return Err(format!(
             "Error in macro. Calling {} {}:\n{}",
             macro_program.to_string_lossy(),
             call.id,
             output_stderr
-        );
+        ));
     }
 
     if output_stdout.is_empty() {
-        panic!(
+        return Err(format!(
             "Not output in macro. Calling {} {}",
             macro_program.to_string_lossy(),
             call.id
-        );
+        ));
     }
 
     /*
@@ -457,9 +457,9 @@ fn evaluate_macro(
         if first == "Error" {
             if let Some(info) = catalog.catalog_info(call.module_id()) {
                 let index = EnhASTIndex::new(info.0.path(), call.position().clone());
-                panic!("{} in {}", output_string, index);
+                return Err(format!("{} in {}", output_string, index));
             } else {
-                panic!("{} in {}", output_string, call.position());
+                return Err(format!("{} in {}", output_string, call.position()));
             }
         }
 
@@ -468,8 +468,8 @@ fn evaluate_macro(
         let parser = Parser::new(lexer);
         let result = parser.parse();
         // println!("result:\n{}", result.0);
-        result
+        Ok(result)
     } else {
-        panic!("Expected a macro result.")
+        Err("Expected a macro result.".to_owned())
     }
 }
