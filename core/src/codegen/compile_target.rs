@@ -312,7 +312,7 @@ impl CompileTarget {
 
         let out_file = out_folder.join(project.main_out_file_name(&command_line_options));
 
-        if let Err(errors) = self.process_macro_and_compile(
+        if let Err(errors) = self.process_macros_and_compile(
             &project,
             container,
             &catalog,
@@ -347,7 +347,7 @@ impl CompileTarget {
         }
     }
 
-    fn process_macro_and_compile(
+    fn process_macros_and_compile(
         &self,
         project: &RasmProject,
         mut container: ASTModulesContainer,
@@ -359,7 +359,7 @@ impl CompileTarget {
         let extractor = extract_macro_calls(&container, catalog);
 
         if extractor.is_empty() {
-            self.compile(
+            self.compile_no_macro(
                 &project,
                 container,
                 catalog,
@@ -386,7 +386,7 @@ impl CompileTarget {
 
             info!("compiling final module");
 
-            if let Err(errors) = self.process_macro_and_compile(
+            if let Err(errors) = self.process_macros_and_compile(
                 &project,
                 container,
                 catalog,
@@ -403,7 +403,24 @@ impl CompileTarget {
         }
     }
 
-    pub fn compile(
+    /// Compile the given module without processing any macros.
+    /// If you want to process macros, use `process_macros_and_compile`
+    ///
+    /// This function takes an already parsed module and compiles it
+    /// directly, without any macro evaluation.
+    ///
+    /// Note that this function will not support any macros, even
+    /// built-in macros. Any macro calls in the module will result
+    /// in a compilation error.
+    ///
+    /// The function takes in the module to compile, the project that
+    /// the module is a part of, the modules catalog, the command
+    /// line options, the output folder, and the output file.
+    ///
+    /// It returns a result containing either no errors, or a
+    /// vector of compilation errors. If any errors occur during
+    /// compilation, they will be returned in the result.
+    pub fn compile_no_macro(
         &self,
         project: &RasmProject,
         container: ASTModulesContainer,

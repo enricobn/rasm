@@ -1095,7 +1095,7 @@ mod test {
         let (container, catalog, _) = project
             .container_and_catalog(&RasmProfile::Main, &CompileTarget::C(COptions::default()));
         let extractor = extract_macro_calls(&container, &catalog);
-        assert_eq!(extractor.calls().len(), 5);
+        assert_eq!(extractor.calls().len(), 6);
         assert!(!extractor.calls().iter().any(|it| it.in_function.is_some()));
     }
 }

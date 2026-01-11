@@ -196,7 +196,7 @@ fn compile_macros_internal<'a>(
         profile: command_line_options.profile.clone(),
     };
 
-    if let Err(errors) = target.compile(
+    if let Err(errors) = target.compile_no_macro(
         &project,
         macros_modules_container,
         macros_catalog.as_ref(),
@@ -494,7 +494,7 @@ mod tests {
         let profile = RasmProfile::Main;
         let (mut container, catalog, _) = project.container_and_catalog(&profile, &target);
         let extractor = extract_macro_calls(&container, &catalog);
-        assert_eq!(extractor.resolvable_calls().len(), 5);
+        assert_eq!(extractor.resolvable_calls().len(), 6);
 
         let command_line_options =
             CommandLineOptions::new(crate::commandline::CommandLineAction::Run);

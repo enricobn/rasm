@@ -1,5 +1,10 @@
+@toString()
+struct TestStruct {
+    s: str
+}
+
 println(vec!(1));
 println(vec!(2));
 println(vec!(3));
 println(vec!(4));
-println(vec!(5));
+println!("printing Test struct: {}", TestStruct("a string"));
