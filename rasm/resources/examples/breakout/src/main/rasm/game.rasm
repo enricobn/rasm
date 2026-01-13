@@ -127,10 +127,9 @@ fn collision(bricks: Vec<Brick>, ball: Ball) -> Option<Brick> {
     bricks.filter(collides.curry(ball)).first;
 }
 
-pub fn render(ren: Rasm2DGraphics, resources: Resources, gameState : GameState) {
+pub fn render(ren: Rasm2DGraphics, gameState : GameState) {
     let fps = gameState.fps.fps;
     let world = gameState.world;
-    let font = resources.font;
 
     let brickWidth = BRICKWIDTH.sub(2);
     let brickHeight = BRICKHEIGHT.sub(2);
@@ -146,61 +145,21 @@ pub fn render(ren: Rasm2DGraphics, resources: Resources, gameState : GameState) 
 
     ren.setColor(COLORS.blue);
     ren.fillRect(Rect2D(0, 0, WIDTH, HEADERHEIGHT));
-    renderText(ren, font, "Score: ".append(world.score), COLORS.green, 2, 2);
-    renderText(ren, font, "Lives: ".append(world.lives), COLORS.green, 200, 2);
-    renderText(ren, font, "FPS: ".append(fps), COLORS.green, 400, 2);
+    renderText(ren, FONT, "Score: ".append(world.score), COLORS.green, 2, 2);
+    renderText(ren, FONT, "Lives: ".append(world.lives), COLORS.green, 200, 2);
+    renderText(ren, FONT, "FPS: ".append(fps), COLORS.green, 400, 2);
 
     gameState.stage.match(
         fn(time) {
             let restart = RESTARTTIME.sub(now().elapsedTime(time)).divf(1000000);
-            centerAndRelease(ren, resources.font, "Start in ".append(restart.toInt(0).add(1)), HEIGHT.div(2), 
+            centerAndRelease(ren, "Start in ".append(restart.toInt(0).add(1)), HEIGHT.div(2), 
                 COLORS.green);
         }, 
         {  }
     );
 }
 
-// TODO put this in the Rasm2D library, but it depends on WIDTH (it can be passed as an argument)
-fn centerAndRelease(ren: Rasm2DGraphics, font: Rasm2DFont, text: str, y: int, color: RGBAColor) {
-    ren.renderText(font, text, color, WIDTH.sub(text.len.mul(12)).div(2), y);
+// TODO put this in the Rasm2D library, but it depends on WIDTH (it can be passed as an argument?)
+fn centerAndRelease(ren: Rasm2DGraphics, text: str, y: int, color: RGBAColor) {
+    ren.renderText(FONT, text, color, WIDTH.sub(text.len.mul(12)).div(2), y);
 }
-
-
-
-
-/*
-
-
-
-pub struct SDLTextValue {
-    message: str,
-    value: int,
-    ren: SDLRenderer,
-    font: SDLFont,
-    color: SDLColor,
-    text: SDLText
-}
-
-pub fn SDLTextValue(ren: SDLRenderer, font: SDLFont, message: str, value: int, color: SDLColor) -> SDLTextValue {
-    let text = sdlCreateText(ren, font, message.append(value), color);
-    SDLTextValue(message, value, ren, font, color, text);
-}
-
-pub fn update(textValue: SDLTextValue, value: int) -> SDLTextValue {
-    if (value.eq(textValue.value),{
-        textValue;
-    }, 
-    {
-        let text = sdlCreateText(textValue.ren, textValue.font, textValue.message.append(value), textValue.color);
-        release(textValue.text);
-        textValue.value(value).text(text);
-    });
-}
-
-pub fn render(textValue: SDLTextValue, x: int, y: int) {
-    sdlRender(textValue.ren, textValue.text, x, y);
-}
-
-
-
-*/

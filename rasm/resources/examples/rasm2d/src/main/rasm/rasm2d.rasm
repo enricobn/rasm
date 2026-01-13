@@ -17,76 +17,58 @@ pub struct Rasm2DApplication {
     x: int,
     y: int,
     width: int,
-    height: int
+    height: int,
+    internal fonts: Vec<Pair<str,Rasm2DFont>>
 }
 
-pub fn render(rend: Rasm2DRenderer, handler: fn(Rasm2DGraphics) -> ()) {
-    let graphics = Rasm2DGraphics(rend.rend);
+pub fn render(app: Rasm2DApplication, rend: Rasm2DRenderer, handler: fn(Rasm2DGraphics) -> ()) {
+    let graphics = Rasm2DGraphics(rend.rend, app.fonts);
     handler(graphics);
     graphics.present();
 }
 
 pub fn Rasm2DApplication() -> Rasm2DApplication {
-    Rasm2DApplication("Rasm2D", 0, 0, 800, 600);
-}
+    let app = Rasm2DApplication("Rasm2D", 0, 0, 800, 600, Vec());
 
-pub fn run(app: Rasm2DApplication, handler: fn(Rasm2DRenderer) -> ()) {
+    // We must initialize rasm2d here, because the user could load fonts before running the app
     rasm2DInit()
-    .match(
-        fn(error) {  
-            println("Error initializing rasm2d: ", error);
-        }, 
-        {  
-            let window = Rasm2DWindow(app.title, app.x, app.y, app.width, app.height);
-            let renderer = window.createRenderer();
-            handler(renderer);
-            renderer.close();
-            window.close();
-            rasm2dQuit();
-        });
+    .match(fn(error) {
+        println("Error initializing rasm2d: ", error);
+    }, {});
+
+    app;
 }
 
 pub fn run<MODEL,MESSAGE>(app: Rasm2DApplication, initialModel: MODEL, updateHandler: fn(MODEL, MESSAGE) -> MODEL, 
         renderHandler: fn(Rasm2DGraphics, MODEL) -> (), subscriptionsHandler: fn(Rasm2DEvents) -> Vec<MESSAGE>) {
 
-    rasm2DInit()
-    .match(
-        fn(error) {  
-            println("Error initializing rasm2d: ", error);
-        }, 
-        {  
-            let window = Rasm2DWindow(app.title, app.x, app.y, app.width, app.height);
-            let renderer = window.createRenderer();
-            run(renderer, initialModel, updateHandler, fn(r,model) {
-                r.render(
-                    fn(graphics) {
-                        renderHandler(graphics, model);
-                    }
-                );
-            }, {
-                subscriptionsHandler(Rasm2DEvents());
-            });
-            renderer.close();
-            window.close();
-            rasm2dQuit();
-        });
-
+    let window = Rasm2DWindow(app.title, app.x, app.y, app.width, app.height);
+    let renderer = window.createRenderer();
+    run(renderer, initialModel, updateHandler, fn(r,model) {
+        app.render(
+            r,
+            fn(graphics) {
+                renderHandler(graphics, model);
+            }
+        );
+    }, {
+        subscriptionsHandler(Rasm2DEvents());
+    });
+    renderer.close();
+    window.close();
+    app.fonts.forEach(fn(it) { it.second.close(); });
+    rasm2dQuit();
 }
-
-/*
-pub native run<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MODEL, MESSAGE) -> MODEL, 
-        render: fn(CTX, MODEL) -> (), subscriptions: fn() -> Vec<MESSAGE>)
-*/
-
 
 // SDL implemenation
 
 pub struct Rasm2DRenderer {
-    internal rend: SDLRenderer
+    internal rend: SDLRenderer,
 }
 
 pub struct Rasm2DGraphics {
-    internal rend: SDLRenderer
+    internal rend: SDLRenderer,
+    internal fonts: Vec<Pair<str,Rasm2DFont>>
 }
 
 struct Rasm2DWindow {
@@ -133,61 +115,3 @@ fn createRenderer(window: Rasm2DWindow) -> Rasm2DRenderer {
 fn close(rend: Rasm2DRenderer) {
     sdlDestroyRenderer(rend.rend);
 }
-
-// Events
-/*
-pub enum KeyState {
-    Down,
-    Up
-}
-
-pub fn print(state: KeyState) {
-    match(state, { print("Down");}, { print("Up");});
-}
-
-pub struct KeyEvent {
-    key: int,
-    state: KeyState
-}
-
-pub fn print(event: KeyEvent) {
-    let key = key(event);
-    let key = key(event);
-    let state = state(event);
-    print("key=");
-    print(key);
-    print(" state=");
-    print(state);
-}
-
-pub struct SDLText {
-    surface: SDLSurface,
-    texture: SDLTexture
-}
-
-pub fn sdlCreateText(ren: SDLRenderer, font: SDLFont, text: str, color: SDLColor) -> SDLText {
-    let surface = sdlRenderTextSolid(font, text, color);
-    let texture = sdlCreateTextureFromSurface(ren, surface);
-
-    SDLText(surface, texture);
-}
-
-pub fn sdlRenderAndRelease(ren: SDLRenderer, text: SDLText, x: int, y: int) {
-    sdlRender(ren, text, x, y);
-    sdlDestroyTexture(text.texture);
-    sdlFreeSurface(text.surface);
-}
-
-pub fn release(text: SDLText) {
-    release(text.texture);
-    release(text.surface);
-}
-
-pub fn release(texture: SDLTexture) {
-    sdlDestroyTexture(texture);
-}
-
-pub fn release(surface: SDLSurface) {
-    sdlFreeSurface(surface);
-}
-*/

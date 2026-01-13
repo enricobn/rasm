@@ -2,7 +2,7 @@ pub struct MenuState {
     highScores: Vec<HighScore>
 }
 
-pub fn update(resources: Resources, keys: Vec<int>, menuState: MenuState) -> Stage {
+pub fn update(keys: Vec<int>, menuState: MenuState) -> Stage {
     let spacePressed = count(keys, eq.curry(44));
 
     if(eq(spacePressed, 0), {
@@ -12,10 +12,8 @@ pub fn update(resources: Resources, keys: Vec<int>, menuState: MenuState) -> Sta
     });
 }
 
-pub fn render(ren: Rasm2DGraphics, resources: Resources, menuState : MenuState) {
-    let font = resources.font;
-
-    ren.renderText(font, "Rasm BREAKOUT", COLORS.green, 380, 200);
+pub fn render(ren: Rasm2DGraphics, menuState : MenuState) {
+    ren.renderText(FONT, "Rasm BREAKOUT", COLORS.green, 380, 200);
 
     let highScores = menuState.highScores.sort(fn(h1, h2) {
         let s1 = score(h1);
@@ -41,8 +39,8 @@ pub fn render(ren: Rasm2DGraphics, resources: Resources, menuState : MenuState) 
 
         let sScore = padLeft(toString(score), 10);
         let y = add(300, mul(index, 30));
-        ren.renderText(font, sScore, color, 450, y);
+        ren.renderText(FONT, sScore, color, 450, y);
     });
 
-    ren.renderText(font, "Press SPACE to start", COLORS.red, 380, 700);
+    ren.renderText(FONT, "Press SPACE to start", COLORS.red, 380, 700);
 }

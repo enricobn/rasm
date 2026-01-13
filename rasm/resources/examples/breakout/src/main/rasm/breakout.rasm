@@ -13,7 +13,6 @@ pub struct HighScore {
 }
 
 struct State {
-    resources: Resources,
     keys: Vec<int>,
     stage: Stage,
     highScores: Vec<HighScore>
@@ -45,7 +44,9 @@ pub fn Colors() -> Colors {
 }
 
 enum Message {
-    EventMessage(event: SDLEvent),
+    KeyPressed(scancode: int),
+    KeyReleased(scancode: int),
+    Quit,
     Tick
 }
 
@@ -59,62 +60,48 @@ pub const BARY = HEIGHT.sub(BARHEIGHT);
 pub const HEADERHEIGHT = 30;
 pub const BALLSIZE = 5;
 pub const COLORS = Colors();
+pub const FONT = "DejaVuSerif";
+
+let highScores = loadHighScores();
+let initialState = State(Vec(), Menu(MenuState(highScores)), highScores);
 
 Rasm2DApplication()
 .width(1024)
 .height(768)
 .title("Breakout")
-.run(main);
-
-fn main(rend: Rasm2DRenderer) {
-    rend.openFont(resource("DejaVuSerif.ttf"), 24, 
-        fn(font) {  
-            let highScores = loadHighScores();
-
-            let initialState = State(Resources(font), Vec(), Menu(MenuState(highScores)), highScores);
-
-            run(rend, initialState, update, render, subscriptions);
-        }
-    );
-}
+.loadFont(FONT, resource("DejaVuSerif.ttf"), 24)
+.run(initialState, update, render, subscriptions);
 
 fn update(state: State, message: Message) -> State {
-    let resources = state.resources;
     let keys = state.keys;
     let stage = state.stage;
     let highScores = state.highScores;
 
-    let newKeys = message.match(fn(e) {
-        e.match(fn(timestamp, windowID, keyState, repeat, keysym) {
-            // println("KeyEvent ", keysym.scancode);
-            // println("  keyState ", keyState);
-            // println("  mod ", keysym.mod);
-            if(keysym.scancode.eq(41), { sdlQuit(); exitMain(0);}, { }); // 41 -> ESC
-            if (keyState.eq(SDLPressed), {
-                keys.push(keysym.scancode);
-            }, {
-                keys.filter(neq.curry(keysym.scancode));
-            });
-        }, fn(timestamp) {
-            sdlQuit(); 
+    let newKeys = message.match(
+        fn(scancode) {
+            keys.push(scancode);
+        }, fn(scancode) {
+            keys.filter(neq.curry(scancode));
+        }, fn() {
             exitMain(0);
             Vec();
+        }, {
+           keys; 
         });
-      }, { keys; });
 
     match(stage, 
         fn(menuState) {
-            let newStage = update(resources, newKeys, menuState);
-            State(resources, newKeys, newStage, highScores);
+            let newStage = update(newKeys, menuState);
+            State(newKeys, newStage, highScores);
         }, 
         fn(gameState) {
             let gameResult = update(newKeys, gameState);
             gameResult.match(
-                fn(newGameState) { State(resources, newKeys, Game(newGameState), highScores);}, 
+                fn(newGameState) { State(newKeys, Game(newGameState), highScores);}, 
                 fn(score) {
                     let newHighScores = highScores.add(score);
                     writeHighScores(newHighScores);
-                    State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
+                    State(newKeys, Menu(MenuState(newHighScores)), newHighScores);
                 }
             );
         }
@@ -125,36 +112,24 @@ fn add(highScores: Vec<HighScore>, score: int) -> Vec<HighScore> {
     highScores.push(HighScore(score, now()));
 }
 
-fn render(ren: Rasm2DRenderer, state: State) {
-    ren.render(
-        fn(graphics) {  
-            graphics.setColor(COLORS.black);
-            graphics.clear();
+fn render(graphics: Rasm2DGraphics, state: State) {
+    graphics.setColor(COLORS.black);
+    graphics.clear();
 
-            state.stage.match(
-                fn(menuState) { graphics.render(state.resources, menuState);}, 
-                fn(gameState) { graphics.render(state.resources, gameState);}
-            );
-        });
-}
-
-fn subscriptions() -> Vec<Message> {
-    let sdlEvents = sdlPollEvents(Vec());
-    if (sdlEvents.len.eq(0), 
-        {
-            vecOf(Tick());
-        }, 
-        {
-            sdlEvents.map(EventMessage);
-        }
+    state.stage.match(
+        fn(menuState) { graphics.render(menuState);}, 
+        fn(gameState) { graphics.render(gameState);}
     );
 }
 
-fn sdlPollEvents(events: Vec<SDLEvent>) -> Vec<SDLEvent> {
-    sdlPollEvent().match(fn(event) {
-        // println("Event ");
-        sdlPollEvents(events.push(event));
-    }, { events; });
+fn subscriptions(events: Rasm2DEvents) -> Vec<Message> {
+    if(events.quit().or(events.keyPressed(41)), { // 41 == ESC
+        vecOf(Quit());
+    }, {
+        let keys = events.keyPressed.map(KeyPressed)
+            .add(events.keyReleased.map(KeyReleased));
+        if (keys.isEmpty, vecOf(Tick()), keys);
+    });
 }
 
 fn loadHighScores() -> Vec<HighScore> {

@@ -1,30 +1,37 @@
+struct Model {}
+
+enum Message {
+    Quit,
+    Tick
+}
+
+const FONT = "DejaVuSerif";
+
 Rasm2DApplication()
 .width(1024)
 .height(768)
-.run(main);
+.loadFont(FONT, fromRasmSourceFolder("examples/helloworld/resources/DejaVuSerif.ttf"), 20)
+.run(Model(), update, render, subscriptions);
 
-fn main(rend: Rasm2DRenderer) {
-    rend.openFont(fromRasmSourceFolder("examples/helloworld/resources/DejaVuSerif.ttf"), 20, fn(font) {
-        rend.render(
-            fn(graphics) {
-                graphics.setColor(RGBAColor(0, 0, 255, 255));
-                graphics.clear();
-                graphics.renderText(font, "Hello world", RGBAColor(255, 0, 0, 355), 300, 250);
-                graphics.setColor(RGBAColor(0, 255, 0, 255));
-                graphics.fillRect(Rect2D(300, 400, 10, 10));
-            });
-    });
-    sdlDelay(2000);
+fn update(model: Model, message: Message) -> Model {
+    message.match({
+        exitMain(0);
+    }, {});
+    model;
 }
 
-/*
-pub fn loop(title: str, x: int, y: int, width: int, height: int, handler: fn(Rasm2DGraphics) -> ()) {
-   initRasm2D(fn(rasm2d) {
-    rasm2d.createWindow(title, x, y, width, height, fn(window) {
-        window.createRenderer(fn(rend) {
-            rend.createGraphics(handler);
-        });
-    });
-}); 
+fn render(graphics: Rasm2DGraphics, model: Model) {
+    graphics.setColor(RGBAColor(0, 0, 255, 255));
+    graphics.clear();
+    graphics.renderText(FONT, "Hello world", RGBAColor(255, 0, 0, 355), 300, 250);
+    graphics.setColor(RGBAColor(0, 255, 0, 255));
+    graphics.fillRect(Rect2D(300, 400, 10, 10));
 }
-*/
+
+fn subscriptions(events: Rasm2DEvents) -> Vec<Message> {
+    if(events.quit().or(events.keyPressed(41)), { // 41 == ESC
+        vecOf(Quit());
+    }, {
+        vecOf(Tick());
+    });
+}

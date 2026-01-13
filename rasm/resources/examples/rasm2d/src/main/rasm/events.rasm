@@ -21,6 +21,26 @@ fn keyPressedOrReleased(events: Rasm2DEvents, scancode: int, state: int) -> bool
     });
 }
 
+pub fn keyPressed(events: Rasm2DEvents) -> Vec<int> {
+    keyPressedOrReleased(events, SDLPressed);
+}
+
+pub fn keyReleased(events: Rasm2DEvents) -> Vec<int> {
+    keyPressedOrReleased(events, SDLReleased);
+}
+
+fn keyPressedOrReleased(events: Rasm2DEvents, state: int) -> Vec<int> {
+    events.events.foldLeft(Vec(), fn(prev, actual) {
+        actual.matchSDLKeyboardEvent(fn(timestamp, windowID, actualState, repeat, keysym) {
+            if(actualState.eq(state), {
+                prev.push(keysym.scancode);
+            }, { prev;});
+        }, {
+            prev;
+        });
+    });
+}
+
 pub fn quit(events: Rasm2DEvents) -> bool {
     events.events.anyMatch(fn(it) {
         it.matchSDLQuitEvent(fn(timestamp) {
