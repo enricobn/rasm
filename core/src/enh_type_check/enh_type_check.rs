@@ -913,27 +913,11 @@ impl<'a> EnhTypeCheck<'a> {
 
         let mut original_functions = Vec::new();
 
-        if let Some(e) = self.get_type_check_entry(&call.index) {
-            // println!("optimized call {}: {call} -> {e}", call.index);
-            if let ASTTypeCheckInfo::Call(_, vec, _) = e.info() {
-                if vec.len() == 1 {
-                    let (f, index) = vec.first().unwrap();
-
-                    if let Some(f) = module
-                        .find_functions_by_original_name(&f.name)
-                        .iter()
-                        .find(|it| it.index.position.id == index.position().id)
-                    {
-                        if f.generic_types.is_empty() {
-                            // println!("optimized call {call}:{} {f}", call.index);
-                            original_functions = vec![f];
-                        }
-                    }
-                }
-            }
+        if let Some(f) = self.get_single_function(module, call) {
+            original_functions = vec![f];
         }
 
-        let first_type = Self::get_first_type(call, val_context);
+        let first_type = self.get_first_type(module, call, val_context);
 
         if original_functions.is_empty() {
             original_functions = module
@@ -1314,6 +1298,8 @@ impl<'a> EnhTypeCheck<'a> {
     }
 
     fn get_first_type(
+        &self,
+        module: &InputModule,
         call: &EnhASTFunctionCall,
         val_context: &EnhValContext,
     ) -> Option<EnhASTType> {
@@ -1332,7 +1318,45 @@ impl<'a> EnhTypeCheck<'a> {
                     }
                     EnhASTExpression::Value(vt, _) => Some(value_type_to_enh_type(vt)),
                     EnhASTExpression::Any(t) => Some(t.clone()),
+                    EnhASTExpression::ASTFunctionCallExpression(fc) => {
+                        return self
+                            .get_single_function(module, fc)
+                            .map(|it| it.return_type.clone());
+                    }
                     _ => None,
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn get_single_function<'b>(
+        &self,
+        module: &'b InputModule,
+        fc: &'b EnhASTFunctionCall,
+    ) -> Option<&'b EnhASTFunctionDef> {
+        if let Some(e) = self.get_type_check_entry(&fc.index) {
+            if let ASTTypeCheckInfo::Call(_, vec, _) = e.info() {
+                if vec.len() != 1 {
+                    return None;
+                }
+                let (f, index) = vec.first().unwrap();
+
+                if let Some(f) = module
+                    .find_functions_by_original_name(&f.name)
+                    .iter()
+                    .find(|it| it.index.position.id == index.position().id)
+                {
+                    if f.generic_types.is_empty() {
+                        Some(f)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
                 }
             } else {
                 None
