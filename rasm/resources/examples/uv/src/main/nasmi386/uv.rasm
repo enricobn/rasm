@@ -12,7 +12,7 @@ pub native run<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MODEL, MESS
     $call(singleRun,$ctx:CTX,ebx:MODEL,$update,$render,$subscriptions)
     cmp     dword ebx,eax
     jne     .doRef
-    $call(println, "state is the same")
+    ; state is the same
     jmp     .skipRef
 .doRef:
     $addRef(eax: MODEL)
