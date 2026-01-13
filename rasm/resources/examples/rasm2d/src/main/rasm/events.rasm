@@ -4,9 +4,17 @@ pub struct Rasm2DEvents {
 }
 
 pub fn keyPressed(events: Rasm2DEvents, scancode: int) -> bool {
+    keyPressedOrReleased(events, scancode, SDLPressed);
+}
+
+pub fn keyReleased(events: Rasm2DEvents, scancode: int) -> bool {
+    keyPressedOrReleased(events, scancode, SDLReleased);
+}
+
+fn keyPressedOrReleased(events: Rasm2DEvents, scancode: int, state: int) -> bool {
     events.events.anyMatch(fn(it) {
-        it.matchSDLKeyboardEvent(fn(timestamp, windowID, state, repeat, keysym) {
-            state.eq(SDLPressed).and(keysym.scancode.eq(scancode));
+        it.matchSDLKeyboardEvent(fn(timestamp, windowID, actualState, repeat, keysym) {
+            actualState.eq(state).and(keysym.scancode.eq(scancode));
         }, {
             false;
         });
