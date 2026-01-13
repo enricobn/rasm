@@ -3,10 +3,6 @@ pub enum GameResult {
     End(score: int)
 }
 
-pub struct Resources {
-    font: Rasm2DFont
-}
-
 pub struct HighScore {
     score: int,
     time: TimeVal

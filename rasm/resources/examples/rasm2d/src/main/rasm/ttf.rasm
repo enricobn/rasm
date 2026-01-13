@@ -17,21 +17,9 @@ pub fn loadFont(application: Rasm2DApplication, id: str, file: str, size: int) -
         });
 }
 
-pub fn openFont(graphics: Rasm2DRenderer, file: str, size: int, handler: fn(Rasm2DFont) -> ()) {
-    openFont(file, size)
-    .match(
-        fn(font) {  
-            handler(font);
-            font.close();
-        }, 
-        fn(error) {  
-            println("Error opening font: ", error);
-        });
-}
-
 // SDL implementation
 
-pub struct Rasm2DFont {
+internal struct Rasm2DFont {
     private font: TTFFont
 }
 
@@ -51,7 +39,7 @@ pub fn renderText(graphics: Rasm2DGraphics, fontId: str, text: str, color: RGBAC
 
 }
 
-internal fn openFont(file: str, size: int)-> Result<Rasm2DFont,str> {
+fn openFont(file: str, size: int)-> Result<Rasm2DFont,str> {
     ttfOpenFont(file, size)
     .map(fn(font) {
         Rasm2DFont(font);
