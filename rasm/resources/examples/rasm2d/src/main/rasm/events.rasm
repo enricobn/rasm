@@ -1,0 +1,35 @@
+
+pub struct Rasm2DEvents {
+    events: Vec<SDLEvent>
+}
+
+pub fn keyPressed(events: Rasm2DEvents, scancode: int) -> bool {
+    events.events.anyMatch(fn(it) {
+        it.matchSDLKeyboardEvent(fn(timestamp, windowID, state, repeat, keysym) {
+            state.eq(SDLPressed).and(keysym.scancode.eq(scancode));
+        }, {
+            false;
+        });
+    });
+}
+
+pub fn quit(events: Rasm2DEvents) -> bool {
+    events.events.anyMatch(fn(it) {
+        it.matchSDLQuitEvent(fn(timestamp) {
+            true;
+        }, {
+            false;
+        });
+    });
+}
+
+internal fn Rasm2DEvents() -> Rasm2DEvents {
+    Rasm2DEvents(rasm2DSdlPollEvents(Vec()));
+}
+
+fn rasm2DSdlPollEvents(events: Vec<SDLEvent>) -> Vec<SDLEvent> {
+    sdlPollEvent().match(fn(event) {
+        // println("Event ");
+        rasm2DSdlPollEvents(events.push(event));
+    }, { events; });
+}

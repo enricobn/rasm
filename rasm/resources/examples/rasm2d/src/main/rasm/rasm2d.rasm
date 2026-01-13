@@ -20,12 +20,6 @@ pub struct Rasm2DApplication {
     height: int
 }
 
-pub fn createRenderer(window: Rasm2DWindow, handler: fn(Rasm2DRenderer) -> ()) {
-    let renderer = window.createRenderer();
-    handler(renderer);
-    renderer.close();
-}
-
 pub fn render(rend: Rasm2DRenderer, handler: fn(Rasm2DGraphics) -> ()) {
     let graphics = Rasm2DGraphics(rend.rend);
     handler(graphics);
@@ -50,8 +44,40 @@ pub fn run(app: Rasm2DApplication, handler: fn(Rasm2DRenderer) -> ()) {
             window.close();
             rasm2dQuit();
         });
-    
 }
+
+pub fn run<MODEL,MESSAGE>(app: Rasm2DApplication, initialModel: MODEL, updateHandler: fn(MODEL, MESSAGE) -> MODEL, 
+        renderHandler: fn(Rasm2DGraphics, MODEL) -> (), subscriptionsHandler: fn(Rasm2DEvents) -> Vec<MESSAGE>) {
+
+    rasm2DInit()
+    .match(
+        fn(error) {  
+            println("Error initializing rasm2d: ", error);
+        }, 
+        {  
+            let window = Rasm2DWindow(app.title, app.x, app.y, app.width, app.height);
+            let renderer = window.createRenderer();
+            run(renderer, initialModel, updateHandler, fn(r,model) {
+                r.render(
+                    fn(graphics) {
+                        renderHandler(graphics, model);
+                    }
+                );
+            }, {
+                subscriptionsHandler(Rasm2DEvents());
+            });
+            renderer.close();
+            window.close();
+            rasm2dQuit();
+        });
+
+}
+
+/*
+pub native run<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MODEL, MESSAGE) -> MODEL, 
+        render: fn(CTX, MODEL) -> (), subscriptions: fn() -> Vec<MESSAGE>)
+*/
+
 
 // SDL implemenation
 

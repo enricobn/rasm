@@ -5,3 +5,4 @@ version = "0.1.0-alpha.0"
 [dependencies]
 stdlib = "0.1"
 sdl = "0.1"
+uv = "0.1"
