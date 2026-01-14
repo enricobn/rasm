@@ -1586,35 +1586,43 @@ impl EnhASTModule {
     }
 
     pub fn from_ast(module: ASTModule, info: EnhModuleInfo, prefix_generics: bool) -> Self {
+        let body = module
+            .body
+            .into_iter()
+            .map(|it| EnhASTStatement::from_ast(&info.id, &info.namespace, it, None))
+            .collect();
+
+        let functions = module
+            .functions
+            .into_iter()
+            .map(|it| EnhASTFunctionDef::from_ast(&info.id, &info.namespace, it, prefix_generics))
+            .collect();
+
+        let enums = module
+            .enums
+            .into_iter()
+            .map(|it| EnhASTEnumDef::from_ast(&info.id, &info.namespace, it))
+            .collect();
+
+        let structs = module
+            .structs
+            .into_iter()
+            .map(|it| EnhASTStructDef::from_ast(&info.id, &info.namespace, it))
+            .collect();
+
+        let types = module
+            .types
+            .into_iter()
+            .map(|it| EnhASTTypeDef::from_ast(info.path(), info.namespace.clone(), it))
+            .collect();
+
         Self {
             path: info.path().unwrap_or(PathBuf::new()), // TODO I don't like it
-            body: module
-                .body
-                .into_iter()
-                .map(|it| EnhASTStatement::from_ast(&info.id, &info.namespace, it, None))
-                .collect(),
-            functions: module
-                .functions
-                .into_iter()
-                .map(|it| {
-                    EnhASTFunctionDef::from_ast(&info.id, &info.namespace, it, prefix_generics)
-                })
-                .collect(),
-            enums: module
-                .enums
-                .into_iter()
-                .map(|it| EnhASTEnumDef::from_ast(&info.id, &info.namespace, it))
-                .collect(),
-            structs: module
-                .structs
-                .into_iter()
-                .map(|it| EnhASTStructDef::from_ast(&info.id, &info.namespace, it))
-                .collect(),
-            types: module
-                .types
-                .into_iter()
-                .map(|it| EnhASTTypeDef::from_ast(info.path(), info.namespace.clone(), it))
-                .collect(),
+            body,
+            functions,
+            enums,
+            structs,
+            types,
             namespace: info.namespace.clone(),
         }
     }
