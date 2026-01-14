@@ -109,7 +109,7 @@ fn present(graphics: Rasm2DGraphics) {
 }
 
 fn createRenderer(window: Rasm2DWindow) -> Rasm2DRenderer {
-    Rasm2DRenderer(sdlCreateRenderer(window.win));
+    Rasm2DRenderer(sdlCreateRenderer(window.win, -1, SDLRENDERERACCELERATED));
 }
 
 fn close(rend: Rasm2DRenderer) {

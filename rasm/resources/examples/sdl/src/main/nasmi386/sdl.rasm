@@ -17,11 +17,8 @@ pub native sdlDelay(millis: int) /{
     $ccall(SDL_Delay, $millis)
 }/
 
-pub native sdlCreateRenderer(win: SDLWindow) -> SDLRenderer /{
-    ; SDL_RENDERER_ACCELERATED = 0x00000002
-    ; SDL_RENDERER_PRESENTVSYNC = 0x00000004
-    ; TODO for now vsync is always disabled, pass a configuration struct instead
-    $ccall(SDL_CreateRenderer, $win, -1, 2)
+pub native sdlCreateRenderer(win: SDLWindow, index: int, flags: int) -> SDLRenderer /{
+    $ccall(SDL_CreateRenderer, $win, $index, $flags)
 }/
 
 

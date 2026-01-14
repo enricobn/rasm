@@ -42,7 +42,7 @@ argv(1).match(fn(file) {
 
 fn run(start: Vec<Cell>, width: int, height: int, count: int) {
     let win = sdlCreateWindow("Game of life", 100, 100, 1024, 768);
-    let ren = sdlCreateRenderer(win);
+    let ren = sdlCreateRenderer(win, -1, SDLRENDERERACCELERATED);
 
     sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
     sdlRenderClear(ren);

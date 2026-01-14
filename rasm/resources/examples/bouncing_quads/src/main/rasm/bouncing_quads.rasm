@@ -61,7 +61,7 @@ let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 16)
     let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(toInt).getOrElse(5000));
 
     let win = sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT);
-    let ren = sdlCreateRenderer(win);
+    let ren = sdlCreateRenderer(win, -1, SDLRENDERERACCELERATED);
 
     run(ren, initialModel, update, render, subscriptions);
     
