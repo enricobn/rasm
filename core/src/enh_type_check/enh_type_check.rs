@@ -102,7 +102,7 @@ impl<'a> EnhTypeCheck<'a> {
 
     pub fn type_check(
         mut self,
-        module: EnhancedASTModule,
+        mut module: EnhancedASTModule,
         statics: &mut Statics,
         default_functions: Vec<DefaultFunction>,
         mandatory_functions: Vec<DefaultFunction>,
@@ -131,6 +131,21 @@ impl<'a> EnhTypeCheck<'a> {
         }
 
         let mut new_functions = Vec::new();
+
+        // separate const statements, because they must be evaluated first
+        let mut body = Vec::new();
+        let mut others = Vec::new();
+        for statement in module.body {
+            if let EnhASTStatement::ConstStatement(_, _, _, _, _) = statement {
+                body.push(statement);
+            } else {
+                others.push(statement);
+            }
+        }
+
+        body.append(&mut others);
+
+        module.body = body;
 
         let new_body = self
             .transform_statements(
