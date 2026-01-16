@@ -193,61 +193,6 @@ impl BuiltinFunctions {
         (parameters_names, parameters_positions, signature)
     }
 
-    pub fn enum_signatures(
-        enum_def: &ASTEnumDef,
-    ) -> Vec<(ASTFunctionSignature, ASTPosition, ASTBuiltinFunctionType)> {
-        let mut result = Vec::new();
-        result.push((
-            Self::match_signature(enum_def).2,
-            enum_def.position.clone(),
-            ASTBuiltinFunctionType::Match,
-        ));
-        for variant in enum_def.variants.iter() {
-            result.push((
-                Self::enum_variant_constructor_signature(enum_def, variant).2,
-                variant.position.clone(),
-                ASTBuiltinFunctionType::EnumVariantConstructor,
-            ));
-            result.push((
-                Self::match_one_signature(enum_def, variant).2,
-                variant.position.clone(),
-                ASTBuiltinFunctionType::MatchOne,
-            ));
-        }
-        result
-    }
-
-    pub fn struct_signatures(
-        struct_def: &ASTStructDef,
-    ) -> Vec<(ASTFunctionSignature, ASTPosition, ASTBuiltinFunctionType)> {
-        let mut result = Vec::new();
-
-        result.push((
-            Self::struct_constructor_signature(struct_def).2,
-            struct_def.position.clone(),
-            ASTBuiltinFunctionType::StructConstructor,
-        ));
-        for property in struct_def.properties.iter() {
-            result.extend(
-                Self::struct_get_property_signatures(struct_def, property)
-                    .into_iter()
-                    .map(|((_, _, signature), ft)| (signature, property.position.clone(), ft)),
-            );
-
-            result.push((
-                Self::struct_set_property_signature(struct_def, property).2,
-                property.position.clone(),
-                ASTBuiltinFunctionType::StructSetter,
-            ));
-            result.push((
-                Self::struct_set_property_lambda_signature(struct_def, property).2,
-                property.position.clone(),
-                ASTBuiltinFunctionType::StructLambdaSetter,
-            ));
-        }
-        result
-    }
-
     pub fn struct_constructor_signature(
         struct_def: &ASTStructDef,
     ) -> (Vec<String>, Vec<ASTPosition>, ASTFunctionSignature) {

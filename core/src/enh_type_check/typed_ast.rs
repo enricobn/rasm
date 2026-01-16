@@ -28,7 +28,7 @@ use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use crate::enh_type_check::verify;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::type_check::ast_modules_container::ASTModulesContainer;
-use crate::type_check::ast_type_checker::ASTTypeChecker;
+use crate::type_check::ast_type_checker::{ASTTypeCheckErroKind, ASTTypeChecker};
 use crate::type_check::get_new_native_call;
 use rasm_parser::parser::ast::{ASTModifiers, ASTType, ASTValue};
 use rasm_utils::{SliceDisplay, debug_i, dedent, indent};
@@ -736,6 +736,42 @@ pub fn convert_to_typed_module(
     modules_container: &ASTModulesContainer,
     debug: bool,
 ) -> Result<ASTTypedModule, CompilationError> {
+    let mut errors = Vec::new();
+
+    for error in ast_type_checker.errors.iter() {
+        if error.kind() == &ASTTypeCheckErroKind::Fatal {
+            let path = if let Some((enh_id, _)) =
+                modules_catalog.catalog_info(&error.index().module_id())
+            {
+                enh_id.path()
+            } else {
+                None
+            };
+            let index = EnhASTIndex {
+                file_name: path,
+                position: error.index().position().clone(),
+            };
+
+            if errors.iter().any(|e: &EnhTypeCheckError| e.main.0 == index) {
+                continue;
+            }
+
+            errors.push(EnhTypeCheckError::new(
+                index,
+                error.message().to_owned(),
+                Vec::new(),
+            ));
+        }
+    }
+
+    if !errors.is_empty() {
+        return Err(compilation_error(
+            EnhASTIndex::none(),
+            "Type errors".to_owned(),
+            errors,
+        ));
+    }
+
     let type_check = EnhTypeCheck::new(
         target.clone(),
         memory_debug,

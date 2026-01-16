@@ -524,7 +524,6 @@ impl RasmProject {
                 module,
                 info.module_namespace(),
                 info.module_id(),
-                false,
                 !info.namespace.is_same_lib(&self.config.package.name),
             );
             catalog.add(info.id, info.namespace);

@@ -30,6 +30,7 @@ use super::ast_modules_container::{ASTFunctionSignatureEntry, ASTModulesContaine
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypeCheckErroKind {
+    Fatal,
     Error,
     Warning,
 }
@@ -339,6 +340,13 @@ impl ASTTypeChecker {
             .generics_prefix(&module_namespace.safe_name());
 
         for par in &function.parameters {
+            self.check_valid_type(
+                modules_container,
+                module_namespace,
+                module_id,
+                &function.modifiers,
+                &par.ast_type,
+            );
             let position = par.position.clone();
             let par = par.clone().fix_generics(&generics_prefix);
             if let Err(e) =
@@ -351,6 +359,14 @@ impl ASTTypeChecker {
                 ));
             }
         }
+
+        self.check_valid_type(
+            modules_container,
+            module_namespace,
+            module_id,
+            &function.modifiers,
+            &function.return_type,
+        );
 
         // in function body cannot be consts, but we need already defined ones...
         let mut tmp_static_val_context = ValContext::new(Some(static_val_context));
@@ -378,6 +394,71 @@ impl ASTTypeChecker {
                 );
             }
             ASTFunctionBody::NativeBody(_body) => {}
+        }
+    }
+
+    fn check_valid_type(
+        &mut self,
+        modules_container: &ASTModulesContainer,
+        module_namespace: &ModuleNamespace,
+        module_id: &ModuleId,
+        function_modifiers: &ASTModifiers,
+        ast_type: &ASTType,
+    ) {
+        if let ASTType::ASTCustomType {
+            name,
+            param_types: _,
+            position,
+        } = ast_type
+        {
+            let index = ASTIndex::new(
+                module_namespace.clone(),
+                module_id.clone(),
+                position.clone(),
+            );
+            if let Some((info, def)) = modules_container.custom_type_def(module_namespace, name) {
+                if !Self::is_valid_modifier(
+                    function_modifiers,
+                    module_namespace,
+                    def.modifiers(),
+                    info.namespace(),
+                ) {
+                    self.errors.push(ASTTypeCheckError::new(
+                        ASTTypeCheckErroKind::Fatal,
+                        index,
+                        format!("{name} visibility is not compatible with the visibility of the function"),
+                    ));
+                }
+            } else {
+                self.errors.push(ASTTypeCheckError::new(
+                    ASTTypeCheckErroKind::Fatal,
+                    index,
+                    format!("{name} is not defined"),
+                ));
+            }
+        }
+    }
+
+    fn is_valid_modifier(
+        outer: &ASTModifiers,
+        outer_namespace: &ModuleNamespace,
+        inner: &ASTModifiers,
+        inner_namespace: &ModuleNamespace,
+    ) -> bool {
+        match outer {
+            ASTModifiers::Public => inner == &ASTModifiers::Public,
+            ASTModifiers::Private => true,
+            ASTModifiers::Internal(outer_internal) => match inner {
+                ASTModifiers::Public => true,
+                ASTModifiers::Private => false,
+                ASTModifiers::Internal(inner_internals) => {
+                    let oii = outer_namespace.internal().to_owned();
+                    let iii = inner_namespace.internal().to_owned();
+                    let oi = outer_internal.as_ref().unwrap_or(&oii);
+                    let ii = inner_internals.as_ref().unwrap_or(&iii);
+                    oi == ii
+                }
+            },
         }
     }
 

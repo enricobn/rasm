@@ -22,7 +22,8 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use crate::{
     codegen::{
         compile_target::CompileTarget,
-        enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId},
+        enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo},
+        statics::Statics,
     },
     commandline::{CommandLineAction, CommandLineOptions},
     errors::CompilationError,
@@ -31,6 +32,7 @@ use crate::{
         macro_module::create_macro_module,
     },
     project::RasmProject,
+    transformations::enrich_module,
     type_check::ast_modules_container::ASTModulesContainer,
 };
 
@@ -47,7 +49,7 @@ pub fn resolve_macros(
 ) -> Result<(), Vec<CompilationError>> {
     let calls = extractor.resolvable_calls();
 
-    let macro_module = create_macro_module(&container, catalog, &calls)?;
+    let mut macro_module = create_macro_module(&container, catalog, &calls)?;
 
     let mut macro_container = container.clone();
     let mut new_catalog = catalog.clone_catalog();
@@ -66,18 +68,23 @@ pub fn resolve_macros(
         )]);
     }
 
+    let info = EnhModuleInfo::new(
+        EnhModuleId::Other(macro_id.clone()),
+        EnhASTNameSpace::global(),
+    );
+
+    let mut statics = Statics::new();
+
+    enrich_module(target, &mut statics, &mut macro_module, false, &info, false);
+
     macro_container.add(
         macro_module,
         ModuleNamespace::global(),
         ModuleId(macro_id.clone()),
         false,
-        true,
     );
 
-    new_catalog.add(
-        EnhModuleId::Other(macro_id.clone()),
-        EnhASTNameSpace::global(),
-    );
+    new_catalog.add(info.id, info.namespace);
 
     let macro_out_file = out_folder.join(macro_id.clone());
 
@@ -164,7 +171,7 @@ fn compile_macros<'a>(
 
             // println!("new module:\n{module}");
 
-            original_container.add(module, module_namespace.clone(), key.clone(), false, false);
+            original_container.add(module, module_namespace.clone(), key.clone(), false);
         }
     }
     Ok(())

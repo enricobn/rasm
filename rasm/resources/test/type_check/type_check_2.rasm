@@ -1,6 +1,6 @@
 const BALLSIZE = 5;
 
-struct Ball {
+pub struct Ball {
     x: float,
     y: float
 }

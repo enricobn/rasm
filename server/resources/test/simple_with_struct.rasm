@@ -1,0 +1,5 @@
+pub struct S1 {}
+
+pub struct S2 {
+    s1: S1
+}

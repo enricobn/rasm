@@ -1007,7 +1007,10 @@ impl Display for ASTEnumDef {
             .map(|it| format!("  {it}"))
             .collect::<Vec<_>>()
             .join(",\n");
-        f.write_str(&format!("enum {} {{\n{variants}\n}}\n\n", self.name))
+        f.write_str(&format!(
+            "{}enum {} {{\n{variants}\n}}\n\n",
+            self.modifiers, self.name
+        ))
     }
 }
 
@@ -1065,7 +1068,10 @@ impl Display for ASTStructDef {
             .map(|it| format!("  {it}"))
             .collect::<Vec<_>>()
             .join(",\n");
-        f.write_str(&format!("struct {} {{\n{pars}\n}}\n\n", self.name))
+        f.write_str(&format!(
+            "{}struct {} {{\n{pars}\n}}\n\n",
+            self.modifiers, self.name
+        ))
     }
 }
 

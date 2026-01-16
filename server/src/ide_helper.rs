@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-use std::io;
+use std::io::{self};
 use std::path::PathBuf;
 
 use linked_hash_map::LinkedHashMap;
@@ -8,13 +8,13 @@ use linked_hash_map::LinkedHashMap;
 use rasm_core::ast::ast_module_tree::{ASTModuleTree, ASTModuleTreeLocation};
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::CompileTarget;
-use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId};
+use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::{ValContext, ValKind};
 use rasm_core::errors::{CompilationError, CompilationErrorKind};
 use rasm_core::project::RasmProject;
 use rasm_core::project_catalog::RasmProjectCatalog;
-use rasm_core::transformations::enrich_container;
+use rasm_core::transformations::{enrich_container, enrich_module};
 use rasm_core::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
 use rasm_core::type_check::ast_type_checker::{
     ASTTypeCheckErroKind, ASTTypeCheckError, ASTTypeCheckInfo, ASTTypeChecker,
@@ -267,6 +267,7 @@ pub struct IDESignatureHelp {
 }
 
 pub struct IDEHelper {
+    target: CompileTarget,
     modules_container: ASTModulesContainer,
     catalog: Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>>,
     selectable_items: Vec<IDESelectableItem>,
@@ -338,6 +339,7 @@ impl IDEHelper {
         }
 
         IDEHelper::new(
+            target,
             modules_container,
             Box::new(catalog),
             selectable_items,
@@ -349,38 +351,14 @@ impl IDEHelper {
     fn calculate_selectable_items_and_errors(
         modules_container: &ASTModulesContainer,
     ) -> (Vec<IDESelectableItem>, Vec<ASTTypeCheckError>) {
+        let (type_checker, _) = ASTTypeChecker::from_modules_container(modules_container);
+
         let mut selectable_items = Vec::new();
-        let mut type_checker = ASTTypeChecker::new();
-
-        let mut static_val_context = ValContext::new(None);
-
-        for (id, namespace, module) in modules_container.modules() {
-            let mut val_context = ValContext::new(None);
-
-            type_checker.add_body(
-                &mut val_context,
-                &mut static_val_context,
-                &module.body,
-                None,
-                &namespace,
-                &id,
-                &modules_container,
-                None,
-            );
-        }
 
         for (id, namespace, module) in modules_container.modules() {
             let info = ModuleInfo::new(namespace.clone(), id.clone());
 
             for function in module.functions.iter() {
-                type_checker.add_function(
-                    &function,
-                    &static_val_context,
-                    &namespace,
-                    &id,
-                    &modules_container,
-                );
-
                 let start = ASTIndex::new(namespace.clone(), id.clone(), function.position.clone());
 
                 selectable_items.push(IDESelectableItem::new(start, function.name.len(), None));
@@ -405,9 +383,9 @@ impl IDEHelper {
             }
         }
 
-        let type_check_selectable_items = Self::calculate_selectable_items(&type_checker);
+        let mut type_check_selectable_items = Self::calculate_selectable_items(&type_checker);
 
-        selectable_items.extend(type_check_selectable_items);
+        selectable_items.append(&mut type_check_selectable_items);
 
         (selectable_items, type_checker.errors)
     }
@@ -633,6 +611,7 @@ impl IDEHelper {
 
 impl IDEHelper {
     fn new(
+        target: CompileTarget,
         modules_container: ASTModulesContainer,
         catalog: Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>>,
         selectable_items: Vec<IDESelectableItem>,
@@ -640,6 +619,7 @@ impl IDEHelper {
         type_check_errors: Vec<ASTTypeCheckError>,
     ) -> Self {
         Self {
+            target,
             modules_container,
             catalog,
             selectable_items,
@@ -838,7 +818,7 @@ impl IDEHelper {
         let type_check_errors = self
             .type_check_errors
             .iter()
-            .filter(|it| matches!(it.kind(), ASTTypeCheckErroKind::Error))
+            .filter(|it| !matches!(it.kind(), ASTTypeCheckErroKind::Warning))
             .map(|it| {
                 let path = self
                     .catalog
@@ -1421,19 +1401,31 @@ impl IDEHelper {
             (false, new_code)
         };
         let parser = Parser::new(Lexer::new(code.clone()));
-        let (module, errors) = parser.parse();
+        let (mut module, errors) = parser.parse();
 
         if !errors.is_empty() {
             return None;
         }
 
         let mut container = ASTModulesContainer::new();
+
+        if let Some((a, b)) = self.catalog.catalog_info(start_index.module_id()) {
+            let mut statics = Statics::new();
+            enrich_module(
+                &self.target,
+                &mut statics,
+                &mut module,
+                false,
+                &EnhModuleInfo::new(a.clone(), b.clone()),
+                false,
+            );
+        }
+
         container.add(
             module,
             start_index.module_namespace().clone(),
             start_index.module_id().clone(),
             false,
-            true,
         );
 
         let module = container.module(start_index.module_id())?;
@@ -1733,7 +1725,7 @@ impl IDEHelper {
 
             let lexer = Lexer::new(source.clone());
 
-            let (module, parse_errors) = Parser::new(lexer).parse();
+            let (mut module, parse_errors) = Parser::new(lexer).parse();
 
             self.lexer_and_parser_errors.extend(
                 parse_errors
@@ -1744,8 +1736,20 @@ impl IDEHelper {
             if let Some(namespace) = self.modules_container.module_namespace(&id).cloned() {
                 let readonly = self.modules_container.is_readonly_module(&id);
                 self.modules_container.remove_module(&id);
-                self.modules_container
-                    .add(module, namespace, id, true, readonly);
+
+                if let Some((a, b)) = self.catalog.catalog_info(&id) {
+                    let mut statics = Statics::new();
+                    enrich_module(
+                        &self.target,
+                        &mut statics,
+                        &mut module,
+                        false,
+                        &EnhModuleInfo::new(a.clone(), b.clone()),
+                        false,
+                    );
+                }
+
+                self.modules_container.add(module, namespace, id, readonly);
             }
         }
 
@@ -2924,6 +2928,24 @@ fn f1(s: str) {
             found[0].target.as_ref().unwrap().completion_type(),
             Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType))
         );
+    }
+
+    #[test]
+    fn simple_with_struct_reload() {
+        let path = PathBuf::from("resources/test/simple_with_struct.rasm");
+        let mut helper = IDEHelper::from_project(&RasmProject::new(path.clone()));
+        assert!(helper.errors().is_empty());
+
+        let new_module_content = "struct S1 {}
+        
+        pub struct S2 {
+            s1: S1
+            }"
+        .to_string();
+        helper.add_in_memory_file(path.clone(), new_module_content.clone());
+
+        helper.reload_in_memory_files();
+        assert!(!helper.errors().is_empty());
     }
 
     fn same_signature(s1: &ASTFunctionSignature, s2: &ASTFunctionSignature) -> bool {

@@ -18,9 +18,10 @@ pub fn enrich_module(
     info: &EnhModuleInfo,
     debug: bool,
 ) {
-    target
+    let mut functions = target
         .functions_creator(debug, memory_debug)
         .create(module, statics, info);
+    module.functions.append(&mut functions);
 }
 
 pub fn enrich_container(
@@ -48,10 +49,7 @@ pub fn enrich_container(
 
             enrich_module(target, statics, &mut module, memory_debug, &info, debug);
 
-            enriched_container.add(
-                module, ns, id, false, // what means add_builtin???
-                ro,
-            );
+            enriched_container.add(module, ns, id, ro);
         });
 
     // println!("enrich_container takes {:?}", start.elapsed());

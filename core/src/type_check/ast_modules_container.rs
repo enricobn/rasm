@@ -8,12 +8,9 @@ use rasm_utils::{OptionDisplay, SliceDisplay, debug_i, find_one};
 
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
-    parser::{
-        ast::{
-            ASTBuiltinTypeKind, ASTEnumDef, ASTFunctionDef, ASTFunctionSignature, ASTModule,
-            ASTPosition, ASTStructDef, ASTType, ASTTypeDef, CustomTypeDef,
-        },
-        builtin_functions::BuiltinFunctions,
+    parser::ast::{
+        ASTBuiltinTypeKind, ASTEnumDef, ASTFunctionDef, ASTFunctionSignature, ASTModule,
+        ASTPosition, ASTStructDef, ASTType, ASTTypeDef, CustomTypeDef,
     },
 };
 
@@ -157,45 +154,8 @@ impl ASTModulesContainer {
         module: ASTModule,
         namespace: ModuleNamespace,
         module_id: ModuleId,
-        add_builtin: bool,
         readonly: bool,
     ) {
-        if add_builtin {
-            for enum_def in module.enums.iter() {
-                for (signature, position, ft) in BuiltinFunctions::enum_signatures(enum_def) {
-                    let signatures = self
-                        .signatures
-                        .entry(signature.name.clone())
-                        .or_insert(Vec::new());
-
-                    signatures.push(ASTFunctionSignatureEntry::new(
-                        signature.add_generic_prefix(&namespace.safe_name()),
-                        namespace.clone(),
-                        module_id.clone(),
-                        ASTPosition::builtin(&position, ft),
-                        Some(enum_def.name.clone()),
-                    ));
-                }
-            }
-
-            for struct_def in module.structs.iter() {
-                for (signature, position, tf) in BuiltinFunctions::struct_signatures(struct_def) {
-                    let signatures = self
-                        .signatures
-                        .entry(signature.name.clone())
-                        .or_insert(Vec::new());
-
-                    signatures.push(ASTFunctionSignatureEntry::new(
-                        signature.add_generic_prefix(&namespace.safe_name()),
-                        namespace.clone(),
-                        module_id.clone(),
-                        ASTPosition::builtin(&position, tf),
-                        Some(struct_def.name.clone()),
-                    ));
-                }
-            }
-        }
-
         for enum_def in module.enums.iter() {
             let enum_defs = self
                 .enum_defs

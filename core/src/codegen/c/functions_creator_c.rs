@@ -204,7 +204,7 @@ impl FunctionsCreator for CFunctionsCreator {
 
     fn enum_variant_constructor_body(
         &self,
-        _module: &mut ASTModule,
+        _module: &ASTModule,
         enum_def: &ASTEnumDef,
         _statics: &mut Statics,
         variant_num: usize,

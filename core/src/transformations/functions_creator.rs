@@ -18,14 +18,20 @@ use crate::codegen::enh_ast::{
 use rasm_parser::parser::builtin_functions::BuiltinFunctions;
 
 pub trait FunctionsCreator {
-    fn create(&self, module: &mut ASTModule, statics: &mut Statics, info: &EnhModuleInfo) {
+    fn create(
+        &self,
+        module: &ASTModule,
+        statics: &mut Statics,
+        info: &EnhModuleInfo,
+    ) -> Vec<ASTFunctionDef> {
+        let mut functions = Vec::new();
         for enum_def in module.enums.clone().iter() {
-            self.enum_constructors(module, enum_def, statics, info);
+            self.enum_constructors(module, enum_def, statics, info, &mut functions);
 
-            self.create_match_function(module, enum_def);
+            self.create_match_function(enum_def, &mut functions);
 
             for variant in enum_def.variants.iter() {
-                self.create_match_one_function(module, enum_def, variant);
+                self.create_match_one_function(enum_def, variant, &mut functions);
             }
         }
 
@@ -41,7 +47,7 @@ pub trait FunctionsCreator {
                 }
 
                 for f in property_functions {
-                    module.add_function(f);
+                    functions.push(f);
                 }
 
                 let mut property_setter_function =
@@ -49,7 +55,7 @@ pub trait FunctionsCreator {
                 if let Some(modifiers) = &property_def.modifiers {
                     property_setter_function.modifiers = modifiers.clone();
                 }
-                module.add_function(property_setter_function);
+                functions.push(property_setter_function);
 
                 let mut property_setter_function = self
                     .create_function_for_struct_set_lambda_property(struct_def, property_def, i);
@@ -58,7 +64,7 @@ pub trait FunctionsCreator {
                     property_setter_function.modifiers = modifiers.clone();
                 }
 
-                module.add_function(property_setter_function);
+                functions.push(property_setter_function);
             }
 
             let body_str = self.struct_constructor_body(struct_def);
@@ -124,13 +130,14 @@ pub trait FunctionsCreator {
                 Some(struct_def.name.clone()),
             );
 
-            module.add_function(function_def);
+            functions.push(function_def);
         }
+        functions
     }
 
     fn create_globals(&self, module: &mut EnhancedASTModule, statics: &mut Statics);
 
-    fn create_match_function(&self, module: &mut ASTModule, enum_def: &ASTEnumDef) {
+    fn create_match_function(&self, enum_def: &ASTEnumDef, functions: &mut Vec<ASTFunctionDef>) {
         let name = "match";
         let body = self.enum_match_body(name, enum_def);
 
@@ -151,14 +158,14 @@ pub trait FunctionsCreator {
 
         debug_i!("created function {function_def}");
 
-        module.add_function(function_def);
+        functions.push(function_def);
     }
 
     fn create_match_one_function(
         &self,
-        module: &mut ASTModule,
         enum_def: &ASTEnumDef,
         variant: &ASTEnumVariantDef,
+        functions: &mut Vec<ASTFunctionDef>,
     ) {
         let body = self.enum_match_one_body(enum_def, variant);
 
@@ -179,7 +186,7 @@ pub trait FunctionsCreator {
 
         debug_i!("created function {function_def}");
 
-        module.add_function(function_def);
+        functions.push(function_def);
     }
 
     fn create_functions_for_struct_get_property(
@@ -362,10 +369,11 @@ pub trait FunctionsCreator {
 
     fn enum_constructors(
         &self,
-        module: &mut ASTModule,
+        module: &ASTModule,
         enum_def: &ASTEnumDef,
         statics: &mut Statics,
         info: &EnhModuleInfo,
+        functions: &mut Vec<ASTFunctionDef>,
     ) {
         for (variant_num, variant) in enum_def.variants.iter().enumerate() {
             let descr = if self.debug() {
@@ -399,7 +407,7 @@ pub trait FunctionsCreator {
             );
             debug_i!("created function {function_def}");
 
-            module.add_function(function_def);
+            functions.push(function_def);
         }
     }
 
@@ -407,7 +415,7 @@ pub trait FunctionsCreator {
 
     fn enum_variant_constructor_body(
         &self,
-        module: &mut ASTModule,
+        module: &ASTModule,
         enum_def: &ASTEnumDef,
         statics: &mut Statics,
         variant_num: usize,
@@ -901,7 +909,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
 
     fn enum_variant_constructor_body(
         &self,
-        _module: &mut ASTModule,
+        _module: &ASTModule,
         enum_def: &ASTEnumDef,
         statics: &mut Statics,
         variant_num: usize,

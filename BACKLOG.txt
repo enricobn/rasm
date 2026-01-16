@@ -4,6 +4,10 @@ Doing
 
 Bug
 ----
+- if I have a private struct and implement a toString, to use it in println the function must be public,
+  but since it exposes a parameter that is private (the struct) it does not compile, so I have to make 
+  the struct public: structpropertysetter.rasm, lens.rasm, structpropertysetter1.rasm, type_check2.rasm,
+  testmock/src/main/rasm/service.rasm
 - consts are not reliable: if a const is defined with a function call, that uses a const that is defined after, 
   then it will compile, but it will crash at runtime!!! Add a verify or sort them by dependency
 - "Universal Polymorphism" can create an infinite recursion, for example:
