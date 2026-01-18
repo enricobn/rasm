@@ -78,7 +78,7 @@ impl CompileTarget {
         match target.as_str() {
             NASMI386 => {
                 let mut all_projects = vec![project.clone()];
-                all_projects.extend(project.all_projects());
+                all_projects.extend(project.dependencies_projects());
                 let mut requires =
                     get_native_string_array(&all_projects, target.as_str(), "requires");
                 requires.push("libc".to_string());
@@ -101,7 +101,7 @@ impl CompileTarget {
             }
             C => {
                 let mut all_projects = vec![project.clone()];
-                all_projects.extend(project.all_projects());
+                all_projects.extend(project.dependencies_projects());
 
                 let requires = get_native_string_array(&all_projects, target.as_str(), "requires");
                 let includes = get_native_string_array(&all_projects, target.as_str(), "includes");

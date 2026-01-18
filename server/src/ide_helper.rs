@@ -2971,7 +2971,7 @@ fn f1(s: str) {
 
     fn stdlib_project(project: &RasmProject) -> RasmProject {
         project
-            .all_projects()
+            .dependencies_projects()
             .into_iter()
             .filter(|p| p.name() == "stdlib")
             .collect::<Vec<_>>()

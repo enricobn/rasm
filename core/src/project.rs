@@ -410,7 +410,7 @@ impl RasmProject {
         if is_principal_sub_project {
             pairs.append(
                 &mut self
-                    .all_projects()
+                    .dependencies_projects()
                     .into_par_iter()
                     .map(|dependency| {
                         enable_log(log_enabled);
@@ -608,7 +608,7 @@ impl RasmProject {
     pub fn all_targets(&self) -> Vec<String> {
         let mut targets = self.targets();
 
-        for dep in self.all_projects().iter() {
+        for dep in self.dependencies_projects().iter() {
             let dep_targets = dep.targets();
             let mut new_targets = Vec::new();
             for target in targets {
@@ -978,7 +978,7 @@ impl RasmProject {
         package_manager
     }
 
-    pub fn all_projects(&self) -> Vec<RasmProject> {
+    pub fn dependencies_projects(&self) -> Vec<RasmProject> {
         let package_manager = self.package_manager();
 
         let rows = self.all_possible_dependencies(&package_manager).unwrap();

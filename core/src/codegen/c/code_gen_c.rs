@@ -1275,41 +1275,54 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         statics: &mut Statics,
         out_folder: &Path,
     ) {
-        project.all_projects().iter().for_each(|dependency| {
+        let mut all_projects = vec![project.clone()];
+        all_projects.extend(project.dependencies_projects());
+
+        let mut native_source_folders = Vec::new();
+        for dependency in &all_projects {
             let sub_projects = if profile == &RasmProfile::Main {
                 vec![RasmSubProject::main()]
             } else {
                 vec![RasmSubProject::main(), profile.principal_sub_project()]
             };
 
-            sub_projects.into_iter().for_each(|it: RasmSubProject| {
+            for it in sub_projects {
                 if let Some(native_source_folder) = dependency.native_source_folder(&it, "c") {
-                    if native_source_folder.exists() {
-                        WalkDir::new(native_source_folder)
-                            .into_iter()
-                            .filter_map(Result::ok)
-                            .filter(|it| {
-                                it.file_name().to_string_lossy().ends_with(".h")
-                                    || it.file_name().to_string_lossy().ends_with(".c")
-                            })
-                            .for_each(|it| {
-                                CInclude::add_to_statics(
-                                    statics,
-                                    format!("\"{}\"", it.clone().file_name().to_string_lossy()),
-                                );
+                    native_source_folders.push(native_source_folder);
+                }
+            }
+        }
 
-                                let dest = out_folder
-                                    .to_path_buf()
-                                    .join(Path::new(it.file_name().to_string_lossy().as_ref()));
+        native_source_folders.sort();
+        native_source_folders.dedup();
 
-                                info!("including file {}", it.path().to_string_lossy());
+        native_source_folders
+            .iter()
+            .for_each(|native_source_folder| {
+                if native_source_folder.exists() {
+                    WalkDir::new(native_source_folder)
+                        .into_iter()
+                        .filter_map(Result::ok)
+                        .filter(|it| {
+                            it.file_name().to_string_lossy().ends_with(".h")
+                                || it.file_name().to_string_lossy().ends_with(".c")
+                        })
+                        .for_each(|it| {
+                            CInclude::add_to_statics(
+                                statics,
+                                format!("\"{}\"", it.clone().file_name().to_string_lossy()),
+                            );
 
-                                fs::copy(it.clone().into_path(), dest).unwrap();
-                            });
-                    }
+                            let dest = out_folder
+                                .to_path_buf()
+                                .join(Path::new(it.file_name().to_string_lossy().as_ref()));
+
+                            info!("including file {}", it.path().to_string_lossy());
+
+                            fs::copy(it.clone().into_path(), dest).unwrap();
+                        });
                 }
             });
-        });
 
         CLibAssets::iter()
             .filter(|it| it.ends_with(".h"))
