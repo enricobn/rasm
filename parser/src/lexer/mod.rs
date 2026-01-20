@@ -3,7 +3,6 @@ use std::io::Read;
 use std::path::Path;
 
 use log::debug;
-use snailquote::unescape;
 
 use tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, ReservedKind, Token, TokenKind,
@@ -278,23 +277,13 @@ impl Lexer {
                     }
                 }
                 LexStatus::StringEscape => {
-                    if c == '"' {
-                        actual.push(c);
-                    } else {
-                        actual.push('\\');
-                        actual.push(c);
-                    }
+                    Self::unescape(&mut actual, c);
                     status = LexStatus::String;
                 }
                 LexStatus::Char => {
                     if c == '\\' {
                         status = LexStatus::CharEscape;
                     } else if c == '\'' {
-                        let unescaped =
-                            unescape(&format!("\"{}\"", actual.replace("\"", "\\\""))).unwrap();
-                        if unescaped.chars().count() != 1 {
-                            self.add_error("bad char literal".to_string())
-                        }
                         let token = self.some_token(TokenKind::CharLiteral(actual));
                         self.index += 1;
                         self.column += 1;
@@ -304,12 +293,7 @@ impl Lexer {
                     }
                 }
                 LexStatus::CharEscape => {
-                    if c == '\'' {
-                        actual.push(c);
-                    } else {
-                        actual.push('\\');
-                        actual.push(c);
-                    }
+                    Self::unescape(&mut actual, c);
                     status = LexStatus::Char;
                 }
                 LexStatus::AlphaNumeric => {
@@ -398,6 +382,18 @@ impl Lexer {
         }
 
         None
+    }
+
+    fn unescape(actual: &mut String, c: char) {
+        if c == 'n' {
+            actual.push('\n');
+        } else if c == 'r' {
+            actual.push('\r');
+        } else if c == 't' {
+            actual.push('\t');
+        } else {
+            actual.push(c);
+        }
     }
 }
 
@@ -706,6 +702,118 @@ mod tests {
         assert_eq!(2, tokens.len(), "{}", SliceDisplay(&tokens));
 
         assert_eq!(Some("/*\n*/"), token_multiline_comment(&tokens[0]));
+    }
+
+    #[test]
+    fn string_escape() {
+        let lexer = Lexer::new("\"\\\"\"".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert!(errors.is_empty());
+        assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
+
+        if let TokenKind::StringLiteral(s) = &tokens[0].kind {
+            assert_eq!("\"", s);
+        } else {
+            panic!("Expected StringLiteral");
+        }
+    }
+
+    #[test]
+    fn string_escape_1() {
+        let lexer = Lexer::new("\"\\\\\"".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert!(errors.is_empty());
+        assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
+
+        if let TokenKind::StringLiteral(s) = &tokens[0].kind {
+            assert_eq!("\\", s);
+        } else {
+            panic!("Expected StringLiteral");
+        }
+    }
+
+    #[test]
+    fn string_escape_2() {
+        let lexer = Lexer::new("\"\\n\"".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert!(errors.is_empty());
+        assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
+
+        if let TokenKind::StringLiteral(s) = &tokens[0].kind {
+            assert_eq!("\n", s);
+        } else {
+            panic!("Expected StringLiteral");
+        }
+    }
+
+    #[test]
+    fn char_escape() {
+        let lexer = Lexer::new("'\\\"'".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert!(errors.is_empty());
+        assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
+
+        if let TokenKind::CharLiteral(s) = &tokens[0].kind {
+            assert_eq!("\"", s);
+        } else {
+            panic!("Expected StringLiteral");
+        }
+    }
+
+    #[test]
+    fn char_escape1() {
+        let lexer = Lexer::new("'\\\\'".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert!(errors.is_empty());
+        assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
+
+        if let TokenKind::CharLiteral(s) = &tokens[0].kind {
+            assert_eq!("\\", s);
+        } else {
+            panic!("Expected StringLiteral");
+        }
+    }
+
+    #[test]
+    fn char_escape2() {
+        let lexer = Lexer::new("'\\\\'".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert!(errors.is_empty());
+        assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
+
+        if let TokenKind::CharLiteral(s) = &tokens[0].kind {
+            assert_eq!("\\", s);
+        } else {
+            panic!("Expected StringLiteral");
+        }
+    }
+
+        #[test]
+    fn char_escape3() {
+        let lexer = Lexer::new("'\\''".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert!(errors.is_empty());
+        assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
+
+        if let TokenKind::CharLiteral(s) = &tokens[0].kind {
+            assert_eq!("'", s);
+        } else {
+            panic!("Expected StringLiteral");
+        }
     }
 
     fn token_comment(token: &Token) -> Option<&str> {

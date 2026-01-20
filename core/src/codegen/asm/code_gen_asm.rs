@@ -6,7 +6,6 @@ use std::{
 
 use pad::PadStr;
 use rasm_parser::parser::ast::{ASTModifiers, ASTValue};
-use snailquote::unescape;
 
 use crate::{
     codegen::{
@@ -1710,8 +1709,7 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
             }
             ASTValue::ASTCharValue(c) => {
                 let mut b = [0; 4];
-                let unescaped = unescape(&format!("\"{}\"", c.replace("\"", "\\\""))).unwrap();
-                unescaped.chars().next().unwrap().encode_utf8(&mut b);
+                c.chars().next().unwrap().encode_utf8(&mut b);
 
                 let result = Self::array_to_u32_le(&b);
 

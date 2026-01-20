@@ -95,7 +95,10 @@ impl TextMacroEval for CStructDeclarationMacro {
                 )
             }
         } else {
-            panic!("Error in structDeclaration macro. Expected one plain parameter as the name of the var to declare {}", text_macro.index)
+            panic!(
+                "Error in structDeclaration macro. Expected one plain parameter as the name of the var to declare {}",
+                text_macro.index
+            )
         }
     }
 
@@ -173,8 +176,10 @@ impl TextMacroEval for CEnumVariantDeclarationMacro {
                         let safe_name =
                             format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
                         Ok(format!(
-                            "struct RasmPointer_* {var_name}_ = rasmMalloc(sizeof(struct {safe_name}));\n") + 
-                            &format!("struct {safe_name}* {var_name} = (struct {safe_name}*){var_name}_->address;"))
+                            "struct RasmPointer_* {var_name}_ = rasmMalloc(sizeof(struct {safe_name}));\n"
+                        ) + &format!(
+                            "struct {safe_name}* {var_name} = (struct {safe_name}*){var_name}_->address;"
+                        ))
                     } else {
                         panic!(
                             "Error in enumVariantDeclaration macro. Function does not return an enum {}",
@@ -188,10 +193,16 @@ impl TextMacroEval for CEnumVariantDeclarationMacro {
                     )
                 }
             } else {
-                panic!("Error in enumVariantDeclaration macro. Expected the second plain parameter as the name of the variant {}", text_macro.index)
+                panic!(
+                    "Error in enumVariantDeclaration macro. Expected the second plain parameter as the name of the variant {}",
+                    text_macro.index
+                )
             }
         } else {
-            panic!("Error in enumVariantDeclaration macro. Expected the first plain parameter as the name of the var to declare {}", text_macro.index)
+            panic!(
+                "Error in enumVariantDeclaration macro. Expected the first plain parameter as the name of the var to declare {}",
+                text_macro.index
+            )
         }
     }
 
@@ -223,12 +234,14 @@ impl TextMacroEval for CEnumVariantAssignmentMacro {
                         let safe_name =
                             format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
                         let value_address_as_enum = format!("((struct Enum*)value->address)");
-                        Ok(format!("struct {safe_name}* {var_name} = (struct {safe_name}*)((struct RasmPointer_*){value_address_as_enum}->variant)->address;"))
+                        Ok(format!(
+                            "struct {safe_name}* {var_name} = (struct {safe_name}*)((struct RasmPointer_*){value_address_as_enum}->variant)->address;"
+                        ))
                     } else {
                         panic!(
-                                "Error in enumVariantDeclaration macro. Function does not return an enum {}",
-                                text_macro.index
-                            )
+                            "Error in enumVariantDeclaration macro. Function does not return an enum {}",
+                            text_macro.index
+                        )
                     }
                 } else {
                     panic!(
@@ -237,10 +250,16 @@ impl TextMacroEval for CEnumVariantAssignmentMacro {
                     )
                 }
             } else {
-                panic!("Error in enumVariantDeclaration macro. Expected the thirs plain parameter as the name of the variant {}", text_macro.index)
+                panic!(
+                    "Error in enumVariantDeclaration macro. Expected the thirs plain parameter as the name of the variant {}",
+                    text_macro.index
+                )
             }
         } else {
-            panic!("Error in enumVariantDeclaration macro. Expected the secont plain parameter as the name of the var to declare {}", text_macro.index)
+            panic!(
+                "Error in enumVariantDeclaration macro. Expected the secont plain parameter as the name of the var to declare {}",
+                text_macro.index
+            )
         }
     }
 
@@ -270,7 +289,9 @@ impl TextMacroEval for CEnumVariantMacro {
                         let safe_name =
                             format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
                         let value_address_as_enum = format!("((struct Enum*){value}->address)");
-                        Ok(format!("struct {safe_name}* {var_name} = (struct {safe_name}*)((struct RasmPointer_*){value_address_as_enum}->variant)->address;"))
+                        Ok(format!(
+                            "struct {safe_name}* {var_name} = (struct {safe_name}*)((struct RasmPointer_*){value_address_as_enum}->variant)->address;"
+                        ))
                     } else {
                         panic!(
                             "Error in enumVariant macro. Function does not return an enum {}",
@@ -284,10 +305,16 @@ impl TextMacroEval for CEnumVariantMacro {
                     )
                 }
             } else {
-                panic!("Error in enumVariantDeclaration macro. Expected the thirs plain parameter as the name of the variant {}", text_macro.index)
+                panic!(
+                    "Error in enumVariantDeclaration macro. Expected the thirs plain parameter as the name of the variant {}",
+                    text_macro.index
+                )
             }
         } else {
-            panic!("Error in enumVariantDeclaration macro. Expected the secont plain parameter as the name of the var to declare {}", text_macro.index)
+            panic!(
+                "Error in enumVariantDeclaration macro. Expected the secont plain parameter as the name of the var to declare {}",
+                text_macro.index
+            )
         }
     }
 
@@ -334,7 +361,10 @@ impl TextMacroEval for CEnumDeclarationMacro {
                 )
             }
         } else {
-            panic!("Error in enumDeclaration macro. Expected a plain parameter as the name of the var to declare {}", text_macro.index)
+            panic!(
+                "Error in enumDeclaration macro. Expected a plain parameter as the name of the var to declare {}",
+                text_macro.index
+            )
         }
     }
 
@@ -370,7 +400,9 @@ impl TextMacroEval for CCallMacro {
             .skip(1)
             .map(|it| match it {
                 MacroParam::Plain(value, _, _) => value.to_string(),
-                MacroParam::StringLiteral(s) => format!("addStaticStringToHeap(\"{s}\")"),
+                MacroParam::StringLiteral(s) => {
+                    format!("addStaticStringToHeap(\"{}\")", CodeGenC::escape_string(s))
+                }
                 MacroParam::Ref(value, _, _) => value.to_string(),
             })
             .collect::<Vec<_>>();
@@ -421,20 +453,20 @@ impl TextMacroEval for CAddRefMacro {
             return Ok(result);
         }
         let (address, ast_typed_type) = match text_macro.parameters.get(0) {
-                Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
-                    (address, ast_typed_type)
-                }
-                Some(MacroParam::Ref(address, _ast_type, Some(ast_typed_type))) => {
-                    (address, ast_typed_type)
-                }
-                _ => panic!(
-                    "Error: addRef/deref macro, a typed type must be specified in function {}:{} but got {}: {}",
-                    OptionDisplay(&function_def),
-                    OptionDisplay(&function_def.map(|it|&it.index)),
-                    text_macro.parameters.get(0).unwrap(),
-                    text_macro.index
-                ),
-            };
+            Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
+                (address, ast_typed_type)
+            }
+            Some(MacroParam::Ref(address, _ast_type, Some(ast_typed_type))) => {
+                (address, ast_typed_type)
+            }
+            _ => panic!(
+                "Error: addRef/deref macro, a typed type must be specified in function {}:{} but got {}: {}",
+                OptionDisplay(&function_def),
+                OptionDisplay(&function_def.map(|it| &it.index)),
+                text_macro.parameters.get(0).unwrap(),
+                text_macro.index
+            ),
+        };
 
         if let Some(type_name) = get_reference_type_name(ast_typed_type, &TypeDefBodyTarget::C) {
             let descr = &format!("addref macro type {type_name}");
@@ -682,9 +714,9 @@ impl TextMacroEval for CCastAddress {
                 CodeGenC::type_to_string(t, statics)
             ))
         } else {
-            Err(
-                format!("First argument should be a reference to a value, or plain arg with type, but got {value}."
-                ))
+            Err(format!(
+                "First argument should be a reference to a value, or plain arg with type, but got {value}."
+            ))
         }
     }
 
@@ -779,7 +811,10 @@ impl TextMacroEval for CEnumSimpleMacro {
                 )
             }
         } else {
-            panic!("Error in enumVariantDeclaration macro. Expected the thirs plain parameter as the name of the variant {}", text_macro.index)
+            panic!(
+                "Error in enumVariantDeclaration macro. Expected the thirs plain parameter as the name of the variant {}",
+                text_macro.index
+            )
         }
     }
 

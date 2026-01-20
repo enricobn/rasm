@@ -190,10 +190,20 @@ impl CodeGenC {
         }
     }
 
+    // TODO optimize
     pub fn escape_string(s: &str) -> String {
-        let mut result = s.to_string();
-        result = result.replace("\\\\", "\\");
-        result = result.replace("\"", "\\\"");
+        let mut result = String::new();
+
+        for c in s.chars() {
+            match c {
+                '\\' => result.push_str("\\\\"),
+                '\n' => result.push_str("\\n"),
+                '\r' => result.push_str("\\r"),
+                '\t' => result.push_str("\\t"),
+                '"' => result.push_str("\\\""),
+                _ => result.push(c),
+            }
+        }
         result
     }
 
@@ -964,6 +974,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                     None,
                     false,
                 );
+
                 self.add(
                     &mut after,
                     &format!(
@@ -1387,11 +1398,14 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     }
 
     fn split_source(&self) -> usize {
+        0
+        /*
         let num_cpus = num_cpus::get_physical();
         if num_cpus < 2 {
             return 0;
         }
         num_cpus
+        */
     }
 
     fn include_file(&self, file: &str) -> String {
@@ -1625,6 +1639,16 @@ mod tests {
     #[test]
     fn test_escape() {
         assert_eq!(CodeGenC::escape_string("a\"a"), "a\\\"a");
+    }
+
+    #[test]
+    fn test_escape1() {
+        assert_eq!(CodeGenC::escape_string("a\\a"), "a\\\\a");
+    }
+
+    #[test]
+    fn test_escape2() {
+        assert_eq!(CodeGenC::escape_string("a\na"), "a\\na");
     }
 
     fn funtion_def() -> EnhASTFunctionDef {
