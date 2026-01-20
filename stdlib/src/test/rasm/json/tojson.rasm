@@ -1,0 +1,17 @@
+pub fn tojsonSuite() -> TestSuite {
+    TestSuite("tojson")
+    .add("testStruct", testStruct)
+    .add("testEnum", testEnum);
+}
+
+fn testStruct() -> Assertions {
+    let sVec = vecRange(0, 2).map(fn(it) { AStruct(it.add(1), 20);});
+    Assertions()
+    .assertEquals("[{\"x\" : 1, \"y\" : 20}, {\"x\" : 2, \"y\" : 20}]", sVec.json);
+}
+
+fn testEnum() -> Assertions {
+    let eVec = vecOf(Ping(), Pong(), Request("some body"), Response(10, "some data"));
+    Assertions()
+    .assertEquals("[{\"Ping\": null}, {\"Pong\": null}, {\"Request\": {\"body\": \"some body\"}}, {\"Response\": {\"status\": 10, \"data\": \"some data\"}}]", eVec.json);
+}

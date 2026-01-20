@@ -1,14 +1,16 @@
 /**
- *  creates an expression as a funcrion call to build that expression.
+ *  creates an expression as a function call to build that expression.
  *
  *  For example if you have this expression:
- *  add(1, 2)
- *
- *  then it returns: 
- *      ASTFunctionCallExpression("add", vecOf(
+ *  add(1, 2) that as an ASTExpression is
+ *  ASTFunctionCallExpression("add", vecOf(
  *          ASTValueExpression(ASTIntegerValue(1)), 
  *          ASTValueExpression(ASTIntegerValue(2))
  *      ));
+ *
+ *  then it returns an ASTExpression as 
+ *      ASTFunctionCallExpression("ASTFunctionCallExpression", vecOf(ASTValueExpression(ASTStringValue("add")), 
+            ASTFunctionCallExpression("vecOf", vecOf(ASTFunctionCallExpression("ASTFunctionCallExpression", ...
  *
  */
 pub fn unwind(e: ASTExpression) -> ASTExpression {

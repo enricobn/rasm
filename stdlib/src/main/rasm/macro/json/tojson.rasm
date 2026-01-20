@@ -1,0 +1,111 @@
+pub fn json(v: int) -> str {
+    v.toString();
+}
+
+pub fn json(v: float) -> str {
+    v.toString();
+}
+
+pub fn json(v: str) -> str {
+    "\"".add(v).add("\"");
+}
+
+pub fn json<T>(v: Vec<T>) -> str {
+    let s = v.map(json);
+    "[".add(s.join(", ")).add("]");
+}
+
+pub fn json(s: ASTStructDef) -> MacroAttributeResult {
+    let structRef = ASTValueRefExpression("s");
+    
+    let parameters = s.properties.map(fn(p) {
+        simpleASTCall(p.name, vecOf(structRef));
+    });
+
+    let basePropertyExpression = stringASTValue("{");
+
+    let propertiesExpression = 
+        s.properties.zip(parameters, fn(l,r) {Pair(l,r);}).enumerate.foldLeft(
+            basePropertyExpression, 
+            fn(prev, act) { 
+                let propertyJson = simpleASTCall("json", vecOf(act.value.second));
+                let propertyValue = prev.add("\\\"").add(act.value.first.name).add("\\\" : ").append(propertyJson);
+                if (act.index.less(parameters.len.sub(1)), propertyValue.add(", "), propertyValue);
+            }
+        ).add("}");
+
+    let function = ASTFunctionDef(
+        "json",
+        vecOf(ASTParameterDef("s", ASTCustomType(s.name, Vec()))),
+        ASTBuiltinType(ASTStringType()),
+        RASMBody(vecOf(
+            ASTExpressionStatement(propertiesExpression)
+        )),
+        Vec(),
+        ASTModifiers::Public(),
+        None()
+    );
+
+    MacroAttributeOk(vecOf(function));
+}
+
+pub fn json(e: ASTEnumDef) -> MacroAttributeResult {
+    let enumRef = ASTValueRefExpression("value");
+
+    let propertiesExpression = stringASTValue("{");
+
+    let variantsExpressions = e.variants.map(fn(variant) {
+        let variantParamNames = if(variant.parameters.len.eq(0), {
+            Vec();
+        }, {
+            variant.parameters.map(fn(variantParameter) { variantParameter.name; });
+        });
+
+        let expr = 
+        if (variantParamNames.isEmpty(), {
+            stringASTValue("\\\"").add(variant.name).add("\\\": null");
+        }, {
+            variantParamNames.enumerate.foldLeft(
+                stringASTValue("\\\"").add(variant.name).add("\\\": {"), 
+                fn(prev, act) { 
+                    let propertyValue = prev.add("\\\"").add(act.value).add("\\\": ")
+                        .append(simpleASTCall("json", vecOf(ASTValueRefExpression(act.value))));
+                    if (act.index.less(variantParamNames.len.sub(1)), propertyValue.add(", "), propertyValue);
+                }
+            ).add("}");
+        });
+
+        let body = vecOf(ASTExpressionStatement(expr));
+        ASTLambdaExpression(ASTLambdaDef(variantParamNames, body));
+    });
+
+    let exprs = propertiesExpression
+        .add(simpleASTCall("match", vecOf(enumRef).add(variantsExpressions)))
+        .add("}";
+
+    let function = ASTFunctionDef(
+        "json",
+        vecOf(ASTParameterDef("value", ASTCustomType(e.name, Vec()))),
+        ASTBuiltinType(ASTStringType()),
+        RASMBody(vecOf(
+            ASTExpressionStatement(exprs)
+        )),
+        Vec(),
+        ASTModifiers::Public(),
+        None()
+    );
+
+    MacroAttributeOk(vecOf(function));
+}
+
+fn add(a: ASTExpression, s: str) -> ASTExpression {
+    simpleASTCall("add", vecOf(a, ASTValueExpression(ASTStringValue(s))));
+}
+
+fn add(a: ASTExpression, s: ASTExpression) -> ASTExpression {
+    simpleASTCall("add", vecOf(a, s));
+}
+
+fn append(a: ASTExpression, b: ASTExpression) -> ASTExpression {
+    simpleASTCall("append", vecOf(a, b));
+}

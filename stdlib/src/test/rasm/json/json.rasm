@@ -1,0 +1,13 @@
+@json()
+pub struct AStruct {
+    x: int,
+    y: int
+}
+
+@json()
+pub enum Message {
+    Ping,                               // Unit variant (no parameters)
+    Pong,                               // Unit variant
+    Request(body: str),                 // Variant with one parameter
+    Response(status: int, data: str)    // Variant with more parameters
+}
