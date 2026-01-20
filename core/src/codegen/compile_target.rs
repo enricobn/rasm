@@ -359,6 +359,12 @@ impl CompileTarget {
         let extractor = extract_macro_calls(&container, catalog);
 
         if extractor.is_empty() {
+            if command_line_options.print_code {
+                for (_, namespace, module) in container.modules().iter() {
+                    println!("{}\n{}", namespace, module);
+                }
+            }
+
             self.compile_no_macro(
                 &project,
                 container,
