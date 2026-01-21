@@ -1,0 +1,17 @@
+pub fn toStringSuite() -> TestSuite {
+    TestSuite("toString")
+    .add("testStruct", testStruct)
+    .add("testEnum", testEnum);
+}
+
+fn testStruct() -> Assertions {
+    let sVec = vecRange(0, 2).map(fn(it) { AStruct(it.add(1), 20, 30);});
+    Assertions()
+    .assertEquals("[AStruct(1, 20, 30),AStruct(2, 20, 30)]", sVec.toString);
+}
+
+fn testEnum() -> Assertions {
+    let eVec = vecOf(Ping(), Pong(), Request("some body"), Response(10, "some data"));
+    Assertions()
+    .assertEquals("[Message(Ping()),Message(Pong()),Message(Request(some body)),Message(Response(10, some data))]", eVec.toString);
+}

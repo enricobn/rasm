@@ -95,3 +95,9 @@ pub fn floatASTValue(v: float) -> ASTExpression {
 pub fn simpleASTCall(name: str, expressions: Vec<ASTExpression>) -> ASTExpression {
     ASTFunctionCallExpression(ASTFunctionCall(name, expressions, Vec(), None(), false));
 }
+
+internal fn toGenericTypes(v: Vec<str>) -> Vec<ASTType> {
+    v.map(fn(it) { 
+        ASTType::ASTGenericType(it, Vec()); 
+    });
+}

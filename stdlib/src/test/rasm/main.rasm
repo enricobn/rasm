@@ -1,4 +1,22 @@
+@json()
+@toString()
+pub struct AStruct<T> {
+    x: int,
+    y: int,
+    v: T
+}
+
+@json()
+@toString()
+pub enum Message<T> {
+    Ping,                               // Unit variant (no parameters)
+    Pong,                               // Unit variant
+    Request(body: str),                 // Variant with one parameter
+    Response(status: int, data: T)      // Variant with more parameters
+}
+
 let suite = TestSuite("All")
-    .add(tojsonSuite());
+    .add(tojsonSuite())
+    .add(toStringSuite());
 
 suite.run(argv(1));

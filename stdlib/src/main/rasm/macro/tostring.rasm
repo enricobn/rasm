@@ -18,12 +18,12 @@ pub fn toString(s: ASTStructDef) -> MacroAttributeResult {
 
     let function = ASTFunctionDef(
         "toString",
-        vecOf(ASTParameterDef("s", ASTCustomType(s.name, Vec()))),
+        vecOf(ASTParameterDef("s", ASTCustomType(s.name, s.typeParameters.toGenericTypes))),
         ASTBuiltinType(ASTStringType()),
         RASMBody(vecOf(
             ASTExpressionStatement(propertiesExpression)
         )),
-        Vec(),
+        s.typeParameters,
         ASTModifiers::Public(),
         None()
     );
@@ -61,12 +61,12 @@ pub fn toString(e: ASTEnumDef) -> -> MacroAttributeResult {
 
     let function = ASTFunctionDef(
         "toString",
-        vecOf(ASTParameterDef("value", ASTCustomType(e.name, Vec()))),
+        vecOf(ASTParameterDef("value", ASTCustomType(e.name, e.typeParameters.toGenericTypes))),
         ASTBuiltinType(ASTStringType()),
         RASMBody(vecOf(
             ASTExpressionStatement(exprs)
         )),
-        Vec(),
+        e.typeParameters,
         ASTModifiers::Public(),
         None()
     );
