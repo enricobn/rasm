@@ -5,9 +5,9 @@ pub fn tojsonSuite() -> TestSuite {
 }
 
 fn testStruct() -> Assertions {
-    let sVec = vecRange(0, 2).map(fn(it) { AStruct(it.add(1), 20);});
+    let sVec = vecRange(0, 2).map(fn(it) { AStruct(it.add(1), 20, 30);});
     Assertions()
-    .assertEquals("[{\"x\" : 1, \"y\" : 20}, {\"x\" : 2, \"y\" : 20}]", sVec.json);
+    .assertEquals("[{\"x\" : 1, \"y\" : 20, \"v\" : 30}, {\"x\" : 2, \"y\" : 20, \"v\" : 30}]", sVec.json);
 }
 
 fn testEnum() -> Assertions {

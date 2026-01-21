@@ -36,12 +36,14 @@ pub fn json(s: ASTStructDef) -> MacroAttributeResult {
 
     let function = ASTFunctionDef(
         "json",
-        vecOf(ASTParameterDef("s", ASTCustomType(s.name, Vec()))),
+        vecOf(ASTParameterDef("s", ASTCustomType(s.name, s.typeParameters.map(fn(it) { 
+            ASTType::ASTGenericType(it, Vec()); 
+        })))),
         ASTBuiltinType(ASTStringType()),
         RASMBody(vecOf(
             ASTExpressionStatement(propertiesExpression)
         )),
-        Vec(),
+        s.typeParameters,
         ASTModifiers::Public(),
         None()
     );
@@ -85,12 +87,14 @@ pub fn json(e: ASTEnumDef) -> MacroAttributeResult {
 
     let function = ASTFunctionDef(
         "json",
-        vecOf(ASTParameterDef("value", ASTCustomType(e.name, Vec()))),
+        vecOf(ASTParameterDef("value", ASTCustomType(e.name, e.typeParameters.map(fn(it) { 
+            ASTType::ASTGenericType(it, Vec()); 
+        })))),
         ASTBuiltinType(ASTStringType()),
         RASMBody(vecOf(
             ASTExpressionStatement(exprs)
         )),
-        Vec(),
+        e.typeParameters,
         ASTModifiers::Public(),
         None()
     );

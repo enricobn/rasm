@@ -1,13 +1,14 @@
 @json()
-pub struct AStruct {
+pub struct AStruct<T> {
     x: int,
-    y: int
+    y: int,
+    v: T
 }
 
 @json()
-pub enum Message {
+pub enum Message<T> {
     Ping,                               // Unit variant (no parameters)
     Pong,                               // Unit variant
     Request(body: str),                 // Variant with one parameter
-    Response(status: int, data: str)    // Variant with more parameters
+    Response(status: int, data: T)      // Variant with more parameters
 }
