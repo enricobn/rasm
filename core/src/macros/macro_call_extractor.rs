@@ -397,12 +397,9 @@ fn get_macro_call(
 
     let fixed_parameters = match macro_type {
         MacroType::StructAttribute(s) => {
-            let mut parameters = vec![ASTExpression::ASTValueExpression(
-                ASTValue::ASTStringValue(s.name.clone()),
-                call.position().copy(),
-            )];
+            let mut parameters = vec![string_value(&s.name, call.position().copy())];
 
-            parameters.push(call_empty_vec(call.position().copy(), ast_str_type()));
+            parameters.push(vec_or_vec_of_strings(&s.type_parameters, &call.position()));
 
             let mut properties = Vec::new();
 
@@ -444,7 +441,7 @@ fn get_macro_call(
                 call.position().copy(),
             )];
 
-            parameters.push(call_empty_vec(call.position().copy(), ast_str_type()));
+            parameters.push(vec_or_vec_of_strings(&e.type_parameters, &call.position()));
 
             let mut variants = Vec::new();
 
@@ -771,6 +768,22 @@ fn to_ast_type(ast_type: &ASTType, position: ASTPosition) -> ASTExpression {
         ),
         ASTType::ASTUnitType => simple_call("ASTUnitType", Vec::new(), position.copy(), None),
     }
+}
+
+fn vec_or_vec_of_strings(strings: &Vec<String>, position: &ASTPosition) -> ASTExpression {
+    vec_or_vec_of(
+        strings
+            .iter()
+            .map(|it| {
+                ASTExpression::ASTValueExpression(
+                    ASTValue::ASTStringValue(it.clone()),
+                    position.copy(),
+                )
+            })
+            .collect_vec(),
+        position.copy(),
+        ast_str_type(),
+    )
 }
 
 fn vec_or_vec_of(

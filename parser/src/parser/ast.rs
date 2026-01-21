@@ -1001,6 +1001,11 @@ impl CustomTypeDef for ASTEnumDef {
 
 impl Display for ASTEnumDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let generic_types = if self.type_parameters.is_empty() {
+            "".into()
+        } else {
+            format!("<{}>", self.type_parameters.join(","))
+        };
         let variants = self
             .variants
             .iter()
@@ -1008,7 +1013,7 @@ impl Display for ASTEnumDef {
             .collect::<Vec<_>>()
             .join(",\n");
         f.write_str(&format!(
-            "{}enum {} {{\n{variants}\n}}\n\n",
+            "{}enum {}{generic_types} {{\n{variants}\n}}\n\n",
             self.modifiers, self.name
         ))
     }
@@ -1062,6 +1067,11 @@ impl CustomTypeDef for ASTStructDef {
 
 impl Display for ASTStructDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let generic_types = if self.type_parameters.is_empty() {
+            "".into()
+        } else {
+            format!("<{}>", self.type_parameters.join(","))
+        };
         let pars = self
             .properties
             .iter()
@@ -1069,7 +1079,7 @@ impl Display for ASTStructDef {
             .collect::<Vec<_>>()
             .join(",\n");
         f.write_str(&format!(
-            "{}struct {} {{\n{pars}\n}}\n\n",
+            "{}struct {}{generic_types} {{\n{pars}\n}}\n\n",
             self.modifiers, self.name
         ))
     }

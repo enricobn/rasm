@@ -118,7 +118,10 @@ pub fn toString(astType: ASTType) -> str {
     astType.match(
         fn(builtin) { builtin.toString(); },
         fn(name, types) { name; },
-        fn(name, generics) { name; },
+        fn(name, generics) { 
+            let genericTypes = generics.map(toString).join(", ");
+            name.add(if(genericTypes.len.eq(0), "", "<".add(genericTypes).add(">"))); 
+        },
         { "()"; }
     );
 }

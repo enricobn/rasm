@@ -833,8 +833,14 @@ impl ASTTypeChecker {
                         );
                     } else {
                         if function_references.len() > 1 {
+                            let is_generic =
+                                function.map(ASTFunctionDef::is_generic).unwrap_or(false);
                             self.errors.push(ASTTypeCheckError::new(
-                                ASTTypeCheckErroKind::Error,
+                                if is_generic {
+                                    ASTTypeCheckErroKind::Warning
+                                } else {
+                                    ASTTypeCheckErroKind::Error
+                                },
                                 index.clone(),
                                 format!("Cannot find unique function {name}"),
                             ));
@@ -2301,7 +2307,7 @@ mod tests {
             .0
             .errors
             .iter()
-            .filter(|it| it.kind == ASTTypeCheckErroKind::Error)
+            .filter(|it| it.kind == ASTTypeCheckErroKind::Fatal)
             .collect::<Vec<_>>();
 
         for error in errors.iter() {
