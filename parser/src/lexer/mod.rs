@@ -277,7 +277,7 @@ impl Lexer {
                     }
                 }
                 LexStatus::StringEscape => {
-                    Self::unescape(&mut actual, c);
+                    self.unescape(&mut actual, c);
                     status = LexStatus::String;
                 }
                 LexStatus::Char => {
@@ -293,7 +293,7 @@ impl Lexer {
                     }
                 }
                 LexStatus::CharEscape => {
-                    Self::unescape(&mut actual, c);
+                    self.unescape(&mut actual, c);
                     status = LexStatus::Char;
                 }
                 LexStatus::AlphaNumeric => {
@@ -384,13 +384,32 @@ impl Lexer {
         None
     }
 
-    fn unescape(actual: &mut String, c: char) {
+    fn unescape(&mut self, actual: &mut String, c: char) {
         if c == 'n' {
             actual.push('\n');
         } else if c == 'r' {
             actual.push('\r');
         } else if c == 't' {
             actual.push('\t');
+        } else if c.is_ascii_digit() {
+            let mut escape_sequence = c.to_string();
+
+            while self
+                .chars
+                .get(self.index + 1)
+                .map(|it| it.is_ascii_digit())
+                .unwrap_or(false)
+            {
+                escape_sequence.push(self.chars[self.index + 1]);
+                self.index += 1;
+                self.column += 1;
+            }
+
+            let value = u32::from_str_radix(&escape_sequence, 8)
+                .ok()
+                .and_then(|it| char::from_u32(it))
+                .unwrap_or('?');
+            actual.push(value);
         } else {
             actual.push(c);
         }
@@ -800,7 +819,7 @@ mod tests {
         }
     }
 
-        #[test]
+    #[test]
     fn char_escape3() {
         let lexer = Lexer::new("'\\''".to_string());
 
