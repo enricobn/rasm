@@ -1,10 +1,17 @@
 pub fn jsonLexerSuite() -> TestSuite {
     TestSuite("json lexer")
-    .add("testLexer", testLexer);
+    .add("testLexer", testStringLexer)
+    .add("testNumberLexer", testNumberLexer);
 }
 
-fn testLexer() -> Assertions {
+fn testStringLexer() -> Assertions {
     let tokens = lexe("\"Hello world\"");
     Assertions()
-    .assertEquals(1, tokens.len);
+    .assertEquals("[JsonToken(String(Hello world))]", tokens.toString);
+}
+
+fn testNumberLexer() -> Assertions {
+    let tokens = lexe("1234.67");
+    Assertions()
+    .assertEquals("[JsonToken(String(1234)),JsonToken(Dot()),JsonToken(String(67))]", tokens.toString);
 }

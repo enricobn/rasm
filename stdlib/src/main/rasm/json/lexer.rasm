@@ -1,24 +1,24 @@
-internal struct JsonLexer {
-
-}
-
+@toString()
 internal enum BracketKind {
     Brace,
     Square
 }
 
+@toString()
 internal enum BracketStatus {
     Open,
     Close
 }
 
+@toString()
 internal enum JsonToken {
     Bracket(kind: BracketKind, status: BracketStatus),
     Spaces(s: str),
     String(s: str),
     Number(n: str),
     Colon,
-    Comma
+    Comma,
+    Dot
 }
 
 enum LexerStatus {
@@ -33,9 +33,12 @@ struct LexerState {
     actual: str
 }
 
-internal fn lexe(json: str) -> Vec<JsonToken> {
-    json.charsVec.foldLeft(LexerState(Vec(), LexerStatus::None(), ""), lexe)
-        .tokens;
+pub fn lexe(json: str) -> Vec<JsonToken> {
+    let state = json.charsVec.foldLeft(LexerState(Vec(), LexerStatus::None(), ""), lexe);
+    state.status.matchNone(
+        { state.tokens; }, 
+        { lexe(state, '\n').tokens; }); // if not None, there's an ongoing parsing to terminate
+    
 }
 
 fn lexe(state: LexerState, c: char) -> LexerState {
@@ -43,18 +46,36 @@ fn lexe(state: LexerState, c: char) -> LexerState {
         { 
             if(c.eq('"'), {
                 state.status(LexerStatus::String());
-            }, {
+            }).elseIf(c.isNumber, {
+                state.status(LexerStatus::Number())
+                .actual(fn(actual) { actual.append(c);});
+            }).elseIf(c.eq('.'), {
+                state.status(LexerStatus::None())
+                .tokens(fn(tokens) {tokens.push(JsonToken::Dot());});
+            }).else({
                 state;
-            });
+            }).call;
         }, 
         {  
             if(c.eq('"'), {
                 state.status(LexerStatus::None())
                 .tokens(
-                    fn(vec) { vec.push(JsonToken::String(state.actual)); });
+                    fn(vec) { vec.push(JsonToken::String(state.actual)); })
+                .actual("");
             }, {
                 state.actual(fn(actual) { actual.append(c);});
             });
         }, 
-        { state; });
+        { 
+            if(c.isNumber, {
+                state.actual(fn(actual) { actual.append(c);});
+            }, {
+                let newState = state.status(LexerStatus::None())
+                .tokens(
+                    fn(vec) { vec.push(JsonToken::String(state.actual)); })
+                .actual("");
+                // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
+                lexe(newState, c);
+            });
+        });
 }
