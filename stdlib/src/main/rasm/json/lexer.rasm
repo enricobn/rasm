@@ -1,0 +1,60 @@
+internal struct JsonLexer {
+
+}
+
+internal enum BracketKind {
+    Brace,
+    Square
+}
+
+internal enum BracketStatus {
+    Open,
+    Close
+}
+
+internal enum JsonToken {
+    Bracket(kind: BracketKind, status: BracketStatus),
+    Spaces(s: str),
+    String(s: str),
+    Number(n: str),
+    Colon,
+    Comma
+}
+
+enum LexerStatus {
+    None,
+    String,
+    Number
+}
+
+struct LexerState {
+    tokens: Vec<JsonToken>,
+    status: LexerStatus,
+    actual: str
+}
+
+internal fn lexe(json: str) -> Vec<JsonToken> {
+    json.charsVec.foldLeft(LexerState(Vec(), LexerStatus::None(), ""), lexe)
+        .tokens;
+}
+
+fn lexe(state: LexerState, c: char) -> LexerState {
+    state.status.match(
+        { 
+            if(c.eq('"'), {
+                state.status(LexerStatus::String());
+            }, {
+                state;
+            });
+        }, 
+        {  
+            if(c.eq('"'), {
+                state.status(LexerStatus::None())
+                .tokens(
+                    fn(vec) { vec.push(JsonToken::String(state.actual)); });
+            }, {
+                state.actual(fn(actual) { actual.append(c);});
+            });
+        }, 
+        { state; });
+}

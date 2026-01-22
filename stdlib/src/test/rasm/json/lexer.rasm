@@ -1,0 +1,10 @@
+pub fn jsonLexerSuite() -> TestSuite {
+    TestSuite("json lexer")
+    .add("testLexer", testLexer);
+}
+
+fn testLexer() -> Assertions {
+    let tokens = lexe("\"Hello world\"");
+    Assertions()
+    .assertEquals(1, tokens.len);
+}
