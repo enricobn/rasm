@@ -25,11 +25,13 @@ fn testNumberLexer() -> Assertions {
 }
 
 fn testFileLexer() -> Assertions {
-    let s = readFile(fromRasmSourceFolder("test/resources/test.json"));
+    let s = readFile(fromRasmSourceFolder("test/resources/small.json"));
     let tokensResult = lexe(s);
     tokensResult(tokensResult, 
-        fn(assertions, tokens) {  
-            assertions.assertEquals(1, tokens.len);
+        fn(assertions, tokens) {
+            // println();
+            //println(tokens.noSpaces);
+            assertions.assertEquals(74, tokens.len);
         }
     );
 }

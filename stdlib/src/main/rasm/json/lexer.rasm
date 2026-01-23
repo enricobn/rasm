@@ -16,6 +16,8 @@ internal enum JsonToken {
     Spaces(s: str),
     String(s: str),
     Number(n: str),
+    Boolean(b: bool),
+    Null,
     Colon,
     Comma
 }
@@ -24,7 +26,9 @@ enum LexerStatus {
     None,
     String,
     Number,
-    Spaces
+    Spaces,
+    Boolean,
+    Null
 }
 
 struct LexerState {
@@ -34,94 +38,23 @@ struct LexerState {
 }
 
 pub fn lexe(json: str) -> Result<Vec<JsonToken>, str> {
-    let resultState = json.charsVec.foldLeft(Ok(LexerState(Vec(), LexerStatus::None(), "")), lexe);
+    let resultState = json.charsVec.foldLeft(Ok(LexerState(Vec(), LexerStatus::None(), "")), processChar);
     resultState.fmap(fn(state) {
         state.status.matchNone(
         { Ok(state.tokens); }, 
-        { lexe(Ok(state), '\n').map(fn(newState) {newState.tokens;}); }); // if not None, there's an ongoing parsing to terminate
+        { processChar(Ok(state), '\n').map(fn(newState) {newState.tokens;}); }); // if not None, there's an ongoing parsing to terminate
     });
 }
 
-fn lexe(resultState: Result<LexerState, str>, c: char) -> Result<LexerState, str> {
+pub fn noSpaces(tokens: Vec<JsonToken>) -> Vec<JsonToken> {
+    tokens.filter(fn(token) {
+        token.matchSpaces(fn(spaces) { false; }, { true; });
+    });
+}
+
+fn processChar(resultState: Result<LexerState, str>, c: char) -> Result<LexerState, str> {
     resultState.match(fn(state) {
-        state.status.match(
-        { 
-            if(c.eq('"'), {
-                Ok(state.status(LexerStatus::String()));
-            }).elseIf(c.isNumber, {
-                let newState = state.status(LexerStatus::Number())
-                .actual(fn(actual) { actual.append(c);});
-                Ok(newState);
-            }).elseIf(c.eq('.'), {
-                let newState = state.status(LexerStatus::Number())
-                .actual(fn(actual) { actual.add("0").append(c);});
-                Ok(newState);
-            }).elseIf(c.isSpace, {
-                let newState = state.status(LexerStatus::Spaces())
-                .actual(fn(actual) { actual.append(c);});
-                Ok(newState);
-            }).elseIf(c.eq(':'), {
-                Ok(state.tokens(fn(tokens) { tokens.push(JsonToken::Colon()); }));
-            }).elseIf(c.eq(','), {
-                Ok(state.tokens(fn(tokens) { tokens.push(JsonToken::Comma()); }));
-            }).elseIf(c.eq('{'), {
-                let newState = state.tokens(fn(tokens) { 
-                    tokens.push(JsonToken::Bracket(BracketKind::Brace(), BracketStatus::Open())); 
-                });
-                Ok(newState);
-            }).elseIf(c.eq('}'), {
-                let newState = state.tokens(fn(tokens) { 
-                    tokens.push(JsonToken::Bracket(BracketKind::Brace(), BracketStatus::Close())); 
-                });
-                Ok(newState);
-            }).elseIf(c.eq('['), {
-                let newState = state.tokens(fn(tokens) { 
-                    tokens.push(JsonToken::Bracket(BracketKind::Square(), BracketStatus::Open())); 
-                });
-                Ok(newState);
-            }).elseIf(c.eq(']'), {
-                let newState = state.tokens(fn(tokens) { 
-                    tokens.push(JsonToken::Bracket(BracketKind::Square(), BracketStatus::Close())); 
-                });
-                Ok(newState);
-            }).else({
-                Result::Error("Unknown character '".append(c).add("'."));
-            }).call;
-        }, 
-        {  
-            if(c.eq('"'), {
-                let newState = state.status(LexerStatus::None())
-                .tokens(
-                    fn(vec) { vec.push(JsonToken::String(state.actual)); })
-                .actual("");
-                Ok(newState);
-            }, {
-                Ok(state.actual(fn(actual) { actual.append(c);}));
-            });
-        }, 
-        { 
-            if(c.isNumber.or(c.eq('.')), {
-                Ok(state.actual(fn(actual) { actual.append(c);}));
-            }, {
-                let newState = state.status(LexerStatus::None())
-                .tokens(
-                    fn(vec) { vec.push(JsonToken::Number(state.actual)); })
-                .actual("");
-                // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
-                lexe(Ok(newState), c);
-            });
-        }, {
-            if(c.isSpace, {
-                Ok(state.actual(fn(actual) { actual.append(c);}));
-            }, {
-                let newState = state.status(LexerStatus::None())
-                .tokens(
-                    fn(vec) { vec.push(JsonToken::Spaces(state.actual)); })
-                .actual("");
-                // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
-                lexe(Ok(newState), c);
-            });
-        });
+        processChar(state, c);
     }, fn(error) {
         resultState;
     });
@@ -130,4 +63,140 @@ fn lexe(resultState: Result<LexerState, str>, c: char) -> Result<LexerState, str
 
 fn isSpace(c: char) -> bool {
     c.isWhiteSpace.or(c.eq('\n')).or(c.eq('\r'));
+}
+
+fn processChar(state: LexerState, c: char) -> Result<LexerState,str> {
+    state.status.match(
+        { processNone(state, c); }, 
+        { processString(state, c); }, 
+        { processNumber(state, c); }, 
+        { processSpaces(state, c); }, 
+        { processBoolean(c, state); }, 
+        { processNull(c, state); }
+    );
+}
+
+fn processNone(state: LexerState, c: char) -> Result<LexerState,str> {
+    if(c.eq('"'), {
+        Ok(state.status(LexerStatus::String()));
+    }).elseIf(c.isNumber, {
+        let newState = state.status(LexerStatus::Number())
+        .actual(fn(actual) { actual.append(c);});
+        Ok(newState);
+    }).elseIf(c.eq('.'), {
+        let newState = state.status(LexerStatus::Number())
+        .actual(fn(actual) { actual.add("0").append(c);});
+        Ok(newState);
+    }).elseIf(c.isSpace, {
+        let newState = state.status(LexerStatus::Spaces())
+        .actual(fn(actual) { actual.append(c);});
+        Ok(newState);
+    }).elseIf(c.eq(':'), {
+        Ok(state.tokens(fn(tokens) { tokens.push(JsonToken::Colon()); }));
+    }).elseIf(c.eq(','), {
+        Ok(state.tokens(fn(tokens) { tokens.push(JsonToken::Comma()); }));
+    }).elseIf(c.eq('{'), {
+        let newState = state.tokens(fn(tokens) { 
+            tokens.push(JsonToken::Bracket(BracketKind::Brace(), BracketStatus::Open())); 
+        });
+        Ok(newState);
+    }).elseIf(c.eq('}'), {
+        let newState = state.tokens(fn(tokens) { 
+            tokens.push(JsonToken::Bracket(BracketKind::Brace(), BracketStatus::Close())); 
+        });
+        Ok(newState);
+    }).elseIf(c.eq('['), {
+        let newState = state.tokens(fn(tokens) { 
+            tokens.push(JsonToken::Bracket(BracketKind::Square(), BracketStatus::Open())); 
+        });
+        Ok(newState);
+    }).elseIf(c.eq(']'), {
+        let newState = state.tokens(fn(tokens) { 
+            tokens.push(JsonToken::Bracket(BracketKind::Square(), BracketStatus::Close())); 
+        });
+        Ok(newState);
+    }).elseIf(c.eq('f').or(c.eq('t')), {
+        let newState = state.actual(c.toString)
+        .status(LexerStatus::Boolean());
+        Ok(newState);
+    }).elseIf(c.eq('n'), {
+        let newState = state.actual(c.toString)
+        .status(LexerStatus::Null());
+        Ok(newState);
+    }).else({
+        Result::Error("Unknown character '".append(c).add("'."));
+    }).call;
+}
+
+fn processString(state: LexerState, c: char) -> Result<LexerState,str> {
+    if(c.eq('"'), {
+        let newState = state.status(LexerStatus::None())
+        .tokens( fn(vec) { vec.push(JsonToken::String(state.actual)); })
+        .actual("");
+        Ok(newState);
+    }, {
+        Ok(state.actual(fn(actual) { actual.append(c);}));
+    });
+}
+
+fn processNumber(state: LexerState, c: char) -> Result<LexerState,str> {
+    if(c.isNumber.or(c.eq('.')), {
+        Ok(state.actual(fn(actual) { actual.append(c);}));
+    }, {
+        let newState = state.status(LexerStatus::None())
+        .tokens( fn(vec) { vec.push(JsonToken::Number(state.actual)); })
+        .actual("");
+        // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
+        processChar(Ok(newState), c);
+    });
+}
+
+fn processSpaces(state: LexerState, c: char) -> Result<LexerState,str> {
+    if(c.isSpace, {
+        Ok(state.actual(fn(actual) { actual.append(c);}));
+    }, {
+        let newState = state.status(LexerStatus::None())
+        .tokens( fn(vec) { vec.push(JsonToken::Spaces(state.actual)); })
+        .actual("");
+        // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
+        processChar(Ok(newState), c);
+    });
+}
+
+fn processBoolean(c: char, state: LexerState) -> Result<LexerState,str> {
+    if(c.isAlpha, {
+        Ok(state.actual(fn(actual) { actual.append(c);}));
+    }, {
+        if(state.actual.eq("true"), {
+            let newState = state.status(LexerStatus::None())
+                .tokens( fn(vec) { vec.push(JsonToken::Boolean(true)); })
+                .actual("");
+            // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
+            processChar(Ok(newState), c);
+        }).elseIf(state.actual.eq("false"), {
+            let newState = state.status(LexerStatus::None())
+                .tokens( fn(vec) { vec.push(JsonToken::Boolean(false)); })
+                .actual("");
+            // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
+            processChar(Ok(newState), c);
+        }).else({
+            Result::Error("Unable to parse boolean: ".add(state.actual));
+        }).call;
+    });
+}
+
+fn processNull(c: char, state: LexerState) -> Result<LexerState,str> {
+    if(c.isAlpha, {
+        Ok(state.actual(fn(actual) { actual.append(c);}));
+    }, {
+        if(state.actual.eq("null"), {
+            let newState = state.status(LexerStatus::None())
+                .tokens( fn(vec) { vec.push(JsonToken::Null()); })
+                .actual("");
+            // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
+            processChar(Ok(newState), c);
+        },{
+            Result::Error("Unknown value: ".add(state.actual));
+        });
+    });
 }
