@@ -6,20 +6,40 @@ pub fn jsonLexerSuite() -> TestSuite {
 }
 
 fn testStringLexer() -> Assertions {
-    let tokens = lexe("\"Hello world\"");
-    Assertions()
-    .assertEquals("[JsonToken(String(Hello world))]", tokens.toString);
+    let tokensResult = lexe("\"Hello world\"");
+
+    tokensResult(tokensResult, 
+        fn(assertions, tokens) {  
+            assertions.assertEquals("[JsonToken(String(Hello world))]", tokens.toString);
+        }
+    );
 }
 
 fn testNumberLexer() -> Assertions {
-    let tokens = lexe("1234.67");
-    Assertions()
-    .assertEquals("[JsonToken(Number(1234.67))]", tokens.toString);
+    let tokensResult = lexe("1234.67");
+    tokensResult(tokensResult, 
+        fn(assertions, tokens) {  
+            assertions.assertEquals("[JsonToken(Number(1234.67))]", tokens.toString);
+        }
+    );
 }
 
 fn testFileLexer() -> Assertions {
     let s = readFile(fromRasmSourceFolder("test/resources/test.json"));
-    let tokens = lexe(s);
-    Assertions()
-    .assertEquals(1, tokens.len);
+    let tokensResult = lexe(s);
+    tokensResult(tokensResult, 
+        fn(assertions, tokens) {  
+            assertions.assertEquals(1, tokens.len);
+        }
+    );
+}
+
+fn tokensResult(t: Result<Vec<JsonToken>, str>, a: fn(Assertions, Vec<JsonToken>) -> Assertions) -> Assertions {
+    t.match(
+        fn(tokens) {  
+            a(Assertions(), tokens);
+        }, 
+        fn(err) {  
+            Assertions().fail(err);
+        });
 }

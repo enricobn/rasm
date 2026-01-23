@@ -33,77 +33,99 @@ struct LexerState {
     actual: str
 }
 
-pub fn lexe(json: str) -> Vec<JsonToken> {
-    let state = json.charsVec.foldLeft(LexerState(Vec(), LexerStatus::None(), ""), lexe);
-    state.status.matchNone(
-        { state.tokens; }, 
-        { lexe(state, '\n').tokens; }); // if not None, there's an ongoing parsing to terminate
-    
+pub fn lexe(json: str) -> Result<Vec<JsonToken>, str> {
+    let resultState = json.charsVec.foldLeft(Ok(LexerState(Vec(), LexerStatus::None(), "")), lexe);
+    resultState.fmap(fn(state) {
+        state.status.matchNone(
+        { Ok(state.tokens); }, 
+        { lexe(Ok(state), '\n').map(fn(newState) {newState.tokens;}); }); // if not None, there's an ongoing parsing to terminate
+    });
 }
 
-fn lexe(state: LexerState, c: char) -> LexerState {
-    state.status.match(
+fn lexe(resultState: Result<LexerState, str>, c: char) -> Result<LexerState, str> {
+    resultState.match(fn(state) {
+        state.status.match(
         { 
             if(c.eq('"'), {
-                state.status(LexerStatus::String());
+                Ok(state.status(LexerStatus::String()));
             }).elseIf(c.isNumber, {
-                state.status(LexerStatus::Number())
+                let newState = state.status(LexerStatus::Number())
                 .actual(fn(actual) { actual.append(c);});
+                Ok(newState);
             }).elseIf(c.eq('.'), {
-                state.status(LexerStatus::Number())
+                let newState = state.status(LexerStatus::Number())
                 .actual(fn(actual) { actual.add("0").append(c);});
+                Ok(newState);
             }).elseIf(c.isSpace, {
-                state.status(LexerStatus::Spaces())
+                let newState = state.status(LexerStatus::Spaces())
                 .actual(fn(actual) { actual.append(c);});
+                Ok(newState);
             }).elseIf(c.eq(':'), {
-                 state.tokens(fn(tokens) { tokens.push(JsonToken::Colon()); });
+                Ok(state.tokens(fn(tokens) { tokens.push(JsonToken::Colon()); }));
             }).elseIf(c.eq(','), {
-                 state.tokens(fn(tokens) { tokens.push(JsonToken::Comma()); });
+                Ok(state.tokens(fn(tokens) { tokens.push(JsonToken::Comma()); }));
             }).elseIf(c.eq('{'), {
-                 state.tokens(fn(tokens) { tokens.push(JsonToken::Bracket(BracketKind::Brace(), BracketStatus::Open())); });
+                let newState = state.tokens(fn(tokens) { 
+                    tokens.push(JsonToken::Bracket(BracketKind::Brace(), BracketStatus::Open())); 
+                });
+                Ok(newState);
             }).elseIf(c.eq('}'), {
-                 state.tokens(fn(tokens) { tokens.push(JsonToken::Bracket(BracketKind::Brace(), BracketStatus::Close())); });
+                let newState = state.tokens(fn(tokens) { 
+                    tokens.push(JsonToken::Bracket(BracketKind::Brace(), BracketStatus::Close())); 
+                });
+                Ok(newState);
             }).elseIf(c.eq('['), {
-                 state.tokens(fn(tokens) { tokens.push(JsonToken::Bracket(BracketKind::Square(), BracketStatus::Open())); });
+                let newState = state.tokens(fn(tokens) { 
+                    tokens.push(JsonToken::Bracket(BracketKind::Square(), BracketStatus::Open())); 
+                });
+                Ok(newState);
             }).elseIf(c.eq(']'), {
-                 state.tokens(fn(tokens) { tokens.push(JsonToken::Bracket(BracketKind::Square(), BracketStatus::Close())); });
+                let newState = state.tokens(fn(tokens) { 
+                    tokens.push(JsonToken::Bracket(BracketKind::Square(), BracketStatus::Close())); 
+                });
+                Ok(newState);
             }).else({
-                state;
+                Result::Error("Unknown character '".append(c).add("'."));
             }).call;
         }, 
         {  
             if(c.eq('"'), {
-                state.status(LexerStatus::None())
+                let newState = state.status(LexerStatus::None())
                 .tokens(
                     fn(vec) { vec.push(JsonToken::String(state.actual)); })
                 .actual("");
+                Ok(newState);
             }, {
-                state.actual(fn(actual) { actual.append(c);});
+                Ok(state.actual(fn(actual) { actual.append(c);}));
             });
         }, 
         { 
             if(c.isNumber.or(c.eq('.')), {
-                state.actual(fn(actual) { actual.append(c);});
+                Ok(state.actual(fn(actual) { actual.append(c);}));
             }, {
                 let newState = state.status(LexerStatus::None())
                 .tokens(
                     fn(vec) { vec.push(JsonToken::Number(state.actual)); })
                 .actual("");
                 // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
-                lexe(newState, c);
+                lexe(Ok(newState), c);
             });
         }, {
             if(c.isSpace, {
-                state.actual(fn(actual) { actual.append(c);});
+                Ok(state.actual(fn(actual) { actual.append(c);}));
             }, {
                 let newState = state.status(LexerStatus::None())
                 .tokens(
                     fn(vec) { vec.push(JsonToken::Spaces(state.actual)); })
                 .actual("");
                 // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
-                lexe(newState, c);
+                lexe(Ok(newState), c);
             });
         });
+    }, fn(error) {
+        resultState;
+    });
+    
 }
 
 fn isSpace(c: char) -> bool {
