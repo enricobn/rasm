@@ -13,5 +13,5 @@ fn testStringLexer() -> Assertions {
 fn testNumberLexer() -> Assertions {
     let tokens = lexe("1234.67");
     Assertions()
-    .assertEquals("[JsonToken(String(1234)),JsonToken(Dot()),JsonToken(String(67))]", tokens.toString);
+    .assertEquals("[JsonToken(Number(1234.67))]", tokens.toString);
 }

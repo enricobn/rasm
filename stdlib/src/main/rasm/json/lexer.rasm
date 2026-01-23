@@ -17,8 +17,7 @@ internal enum JsonToken {
     String(s: str),
     Number(n: str),
     Colon,
-    Comma,
-    Dot
+    Comma
 }
 
 enum LexerStatus {
@@ -50,8 +49,8 @@ fn lexe(state: LexerState, c: char) -> LexerState {
                 state.status(LexerStatus::Number())
                 .actual(fn(actual) { actual.append(c);});
             }).elseIf(c.eq('.'), {
-                state.status(LexerStatus::None())
-                .tokens(fn(tokens) {tokens.push(JsonToken::Dot());});
+                state.status(LexerStatus::Number())
+                .actual(fn(actual) { actual.add("0").append(c);});
             }).else({
                 state;
             }).call;
@@ -67,12 +66,12 @@ fn lexe(state: LexerState, c: char) -> LexerState {
             });
         }, 
         { 
-            if(c.isNumber, {
+            if(c.isNumber.or(c.eq('.')), {
                 state.actual(fn(actual) { actual.append(c);});
             }, {
                 let newState = state.status(LexerStatus::None())
                 .tokens(
-                    fn(vec) { vec.push(JsonToken::String(state.actual)); })
+                    fn(vec) { vec.push(JsonToken::Number(state.actual)); })
                 .actual("");
                 // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
                 lexe(newState, c);
