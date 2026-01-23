@@ -1,7 +1,8 @@
 pub fn jsonLexerSuite() -> TestSuite {
     TestSuite("json lexer")
     .add("testLexer", testStringLexer)
-    .add("testNumberLexer", testNumberLexer);
+    .add("testNumberLexer", testNumberLexer)
+    .add("testFileLexer", testFileLexer);
 }
 
 fn testStringLexer() -> Assertions {
@@ -14,4 +15,11 @@ fn testNumberLexer() -> Assertions {
     let tokens = lexe("1234.67");
     Assertions()
     .assertEquals("[JsonToken(Number(1234.67))]", tokens.toString);
+}
+
+fn testFileLexer() -> Assertions {
+    let s = readFile(fromRasmSourceFolder("test/resources/test.json"));
+    let tokens = lexe(s);
+    Assertions()
+    .assertEquals(1, tokens.len);
 }

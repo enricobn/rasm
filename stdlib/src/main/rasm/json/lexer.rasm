@@ -23,7 +23,8 @@ internal enum JsonToken {
 enum LexerStatus {
     None,
     String,
-    Number
+    Number,
+    Spaces
 }
 
 struct LexerState {
@@ -51,6 +52,21 @@ fn lexe(state: LexerState, c: char) -> LexerState {
             }).elseIf(c.eq('.'), {
                 state.status(LexerStatus::Number())
                 .actual(fn(actual) { actual.add("0").append(c);});
+            }).elseIf(c.isSpace, {
+                state.status(LexerStatus::Spaces())
+                .actual(fn(actual) { actual.append(c);});
+            }).elseIf(c.eq(':'), {
+                 state.tokens(fn(tokens) { tokens.push(JsonToken::Colon()); });
+            }).elseIf(c.eq(','), {
+                 state.tokens(fn(tokens) { tokens.push(JsonToken::Comma()); });
+            }).elseIf(c.eq('{'), {
+                 state.tokens(fn(tokens) { tokens.push(JsonToken::Bracket(BracketKind::Brace(), BracketStatus::Open())); });
+            }).elseIf(c.eq('}'), {
+                 state.tokens(fn(tokens) { tokens.push(JsonToken::Bracket(BracketKind::Brace(), BracketStatus::Close())); });
+            }).elseIf(c.eq('['), {
+                 state.tokens(fn(tokens) { tokens.push(JsonToken::Bracket(BracketKind::Square(), BracketStatus::Open())); });
+            }).elseIf(c.eq(']'), {
+                 state.tokens(fn(tokens) { tokens.push(JsonToken::Bracket(BracketKind::Square(), BracketStatus::Close())); });
             }).else({
                 state;
             }).call;
@@ -76,5 +92,20 @@ fn lexe(state: LexerState, c: char) -> LexerState {
                 // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
                 lexe(newState, c);
             });
+        }, {
+            if(c.isSpace, {
+                state.actual(fn(actual) { actual.append(c);});
+            }, {
+                let newState = state.status(LexerStatus::None())
+                .tokens(
+                    fn(vec) { vec.push(JsonToken::Spaces(state.actual)); })
+                .actual("");
+                // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
+                lexe(newState, c);
+            });
         });
+}
+
+fn isSpace(c: char) -> bool {
+    c.isWhiteSpace.or(c.eq('\n')).or(c.eq('\r'));
 }
