@@ -8,7 +8,7 @@ use rasm_parser::{
     catalog::ASTIndex,
     parser::ast::{ASTBuiltinTypeKind, ASTType},
 };
-use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
+use rasm_utils::{SliceDisplay, debug_i, dedent, indent};
 
 use super::ast_type_checker::{ASTTypeCheckErroKind, ASTTypeCheckError};
 
@@ -38,6 +38,7 @@ impl ASTResolvedGenericTypes {
     pub fn resolve_generic_types_from_effective_type(
         generic_type: &ASTType,
         effective_type: &ASTType,
+        index: &ASTIndex,
     ) -> Result<Self, ASTTypeCheckError> {
         let mut result = ASTResolvedGenericTypes::new();
         if generic_type == effective_type {
@@ -69,19 +70,21 @@ impl ASTResolvedGenericTypes {
                                 return Err(Self::type_check_error(
                                     ASTTypeCheckErroKind::Error,
                                     "Invalid parameters count.".to_string(),
+                                    index.clone(),
                                 ));
                             }
                             for (i, p_p) in p_parameters.iter().enumerate() {
                                 let e_p = e_parameters.get(i).unwrap();
 
-                                let inner_result = Self::resolve_generic_types_from_effective_type(p_p, e_p)
+                                let inner_result = Self::resolve_generic_types_from_effective_type(p_p, e_p, 
+                                index)
                                 .map_err(|e| {
                                     dedent!();
                                     e.add(ASTTypeCheckErroKind::Error, ASTIndex::none(), format!("lambda param gen type {generic_type}, eff. type {effective_type}"))})?;
 
                                 result.extend(inner_result).map_err(|it| {
                                     dedent!();
-                                    Self::type_check_error(ASTTypeCheckErroKind::Error, it.clone())
+                                    Self::type_check_error(ASTTypeCheckErroKind::Error, it.clone(), index.clone())
                                 })?;
                             }
 
@@ -102,19 +105,25 @@ impl ASTResolvedGenericTypes {
                             }
 
                              */
-                            let inner_result = Self::resolve_generic_types_from_effective_type(p_return_type, e_return_type)
+                            let inner_result = Self::resolve_generic_types_from_effective_type(p_return_type, e_return_type, index)
                             .map_err(|e| {
                                 dedent!();
                                 e.add(ASTTypeCheckErroKind::Error, ASTIndex::none(), format!("in return type gen type {generic_type}, eff. type {effective_type}"))})?;
 
                             result.extend(inner_result).map_err(|it| {
                                 dedent!();
-                                Self::type_check_error(ASTTypeCheckErroKind::Error, it.clone())
+                                Self::type_check_error(ASTTypeCheckErroKind::Error, it.clone(), index.clone())
                             })?;
                         }
                         _ => {
                             dedent!();
-                            return Err(Self::type_check_error(ASTTypeCheckErroKind::Error, format!("unmatched types, generic type is {generic_type}, real type is {effective_type}")));
+                            return Err(Self::type_check_error(
+                                ASTTypeCheckErroKind::Error,
+                                format!(
+                                    "unmatched types, generic type is {generic_type}, real type is {effective_type}"
+                                ),
+                                index.clone()
+                            ));
                         }
                     },
                 }
@@ -145,10 +154,12 @@ impl ASTResolvedGenericTypes {
                             result.extend(
                                 ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                                     var_type, param_type,
+                                    index
                                 )?,
                             ).map_err(|it| Self::type_check_error(
                                 ASTTypeCheckErroKind::Error,
                                 it,
+                                index.clone()
                             ))?;
                         }
                     }
@@ -174,6 +185,7 @@ impl ASTResolvedGenericTypes {
                         return Err(Self::type_check_error(
                             ASTTypeCheckErroKind::Error,
                             format!("unmatched custom type name {g_name} != {e_name}"),
+                            index.clone(),
                         ));
                     }
 
@@ -187,7 +199,7 @@ impl ASTResolvedGenericTypes {
                                 format!("Cannot find parameter {i}"),
                             ));
                         };
-                        let inner_result = Self::resolve_generic_types_from_effective_type(p_p, e_p)
+                        let inner_result = Self::resolve_generic_types_from_effective_type(p_p, e_p, index)
                             .map_err(|e| { dedent!();
                         e.add(ASTTypeCheckErroKind::Error, ASTIndex::none(), format!("in custom type gen type {generic_type} eff type {effective_type}"))})?;
 
@@ -206,8 +218,13 @@ impl ASTResolvedGenericTypes {
                 ASTType::ASTGenericType(_, _, _) => {}
                 _ => {
                     dedent!();
-                    return Err(Self::type_check_error(ASTTypeCheckErroKind::Error, format!(
-                        "unmatched types, generic type is {generic_type}, real type is {effective_type}")));
+                    return Err(Self::type_check_error(
+                        ASTTypeCheckErroKind::Error,
+                        format!(
+                            "unmatched types, generic type is {generic_type}, real type is {effective_type}"
+                        ),
+                        index.clone(),
+                    ));
                 }
             },
             ASTType::ASTUnitType => {}
@@ -217,8 +234,12 @@ impl ASTResolvedGenericTypes {
         Ok(result)
     }
 
-    fn type_check_error(kind: ASTTypeCheckErroKind, message: String) -> ASTTypeCheckError {
-        ASTTypeCheckError::new(kind, ASTIndex::none(), message)
+    fn type_check_error(
+        kind: ASTTypeCheckErroKind,
+        message: String,
+        index: ASTIndex,
+    ) -> ASTTypeCheckError {
+        ASTTypeCheckError::new(kind, index, message)
     }
 
     pub fn get(&self, key: &String, var_types: &Vec<ASTType>) -> Option<&ASTType> {

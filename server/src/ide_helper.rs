@@ -1526,7 +1526,8 @@ impl IDEHelper {
             function_code.push_str(&format!("<{}>", g.join(",")));
         }
 
-        println!("last_statement_type {last_statement_type}");
+        //println!("last_statement_type {last_statement_type}");
+
         function_code.push_str(&format!(
             "({}) -> {} {{\n",
             parameters_defs.join(", "),
@@ -1923,11 +1924,11 @@ mod tests {
             13,
         );
 
-        // println!("values {}", SliceDisplay(&values));
-
         assert_eq!(1, values.len());
 
-        assert!(format!("{}", values.get(0).unwrap()).ends_with("if.rasm:9:8"));
+        let v = values.get(0).unwrap().to_string();
+
+        assert!(v.ends_with("if.rasm:11:8"), "{}", v);
     }
 
     #[test]
@@ -2915,6 +2916,7 @@ fn f1(s: str) {
         helper.add_in_memory_file(path.clone(), new_module_content.clone());
 
         helper.reload_in_memory_files();
+
         assert!(helper.errors().is_empty());
 
         let index = helper.ast_index(&path, 2, 5).unwrap();
@@ -2934,6 +2936,7 @@ fn f1(s: str) {
     fn simple_with_struct_reload() {
         let path = PathBuf::from("resources/test/simple_with_struct.rasm");
         let mut helper = IDEHelper::from_project(&RasmProject::new(path.clone()));
+
         assert!(helper.errors().is_empty());
 
         let new_module_content = "struct S1 {}

@@ -30,7 +30,7 @@ use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::RefType;
 use crate::codegen::type_def_body::TypeDefBodyTarget;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::{get_reference_type_name, CodeGen};
+use crate::codegen::{CodeGen, get_reference_type_name};
 use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedStructDef, ASTTypedType,

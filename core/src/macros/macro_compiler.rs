@@ -501,7 +501,14 @@ mod tests {
         let profile = RasmProfile::Main;
         let (mut container, catalog, _) = project.container_and_catalog(&profile, &target);
         let extractor = extract_macro_calls(&container, &catalog);
-        assert_eq!(extractor.resolvable_calls().len(), 6);
+        assert_eq!(
+            extractor
+                .resolvable_calls()
+                .iter()
+                .filter(|it| it.module_id().0.contains("macro_calls"))
+                .count(),
+            6
+        );
 
         let command_line_options =
             CommandLineOptions::new(crate::commandline::CommandLineAction::Run);

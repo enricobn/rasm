@@ -261,6 +261,7 @@ fn function_dependencies_inner(
                                             function,
                                             module_namespace,
                                             &mut call_result,
+                                            &call_expr_index,
                                         );
                                     }
                                 } else {
@@ -303,6 +304,7 @@ fn call_expr_dependencies(
     function: &ASTFunctionDef,
     module_namespace: &ModuleNamespace,
     call_result: &mut ASTFunctionsDependencies,
+    call_expr_index: &ASTIndex,
 ) {
     let deps = function_dependencies_inner(
         inner_function,
@@ -330,6 +332,7 @@ fn call_expr_dependencies(
                     match ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                         &call_expr_type,
                         ft,
+                        call_expr_index,
                     ) {
                         Ok(rgt) => {
                             for par in function.parameters.iter() {
@@ -457,7 +460,7 @@ fn function_dependencies_inner_2(
                                                     debug_i!("asttype generic {asttype}");
                                                     indent!();
 
-                                                    if let Ok(rgt) = ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(&parameter_type, asttype) {
+                                                    if let Ok(rgt) = ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(&parameter_type, asttype, &e_index) {
                                                         if rgt.len() > 0 {
                                                         debug_i!("resolved generic types {rgt}");
                                                         }

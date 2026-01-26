@@ -998,7 +998,7 @@ impl ASTTypeChecker {
                         if et.is_generic() {
                             if let Ok(rgt) =
                                 ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
-                                    et, eet,
+                                    et, eet, &index,
                                 )
                             {
                                 if let Some(rt) = rgt.substitute(et) {
@@ -1234,6 +1234,7 @@ impl ASTTypeChecker {
                 &parameter_types_filters,
                 expected_expression_type,
                 module_namespace,
+                &index,
             )
             .into_iter()
             .filter(|it| {
@@ -1246,9 +1247,11 @@ impl ASTTypeChecker {
                 ASTTypeCheckErroKind::Error,
                 index.clone(),
                 format!(
-                    "no functions for {}({})",
+                    "no functions for {}({}), expected expression type: {}, call target: {}",
                     call.function_name(),
-                    SliceDisplay(&parameter_types_filters)
+                    SliceDisplay(&parameter_types_filters),
+                    OptionDisplay(&expected_expression_type),
+                    OptionDisplay(call.target())
                 ),
             ));
         } else {
@@ -1403,6 +1406,7 @@ impl ASTTypeChecker {
                 if let Err(e) = ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                     &function_signature.return_type,
                     eet,
+                    &index,
                 )
                 .and_then(|rgt| {
                     resolved_generic_types.extend(rgt).map_err(|e| {
@@ -1488,6 +1492,7 @@ impl ASTTypeChecker {
                 if let Ok(rgt) = ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                     &return_type,
                     eet,
+                    &index,
                 ) {
                     if let Some(rt) = rgt.substitute(&return_type) {
                         return_type = rt;
@@ -1548,7 +1553,7 @@ impl ASTTypeChecker {
     ) -> Vec<ASTTypeCheckError> {
         let mut errors = Vec::new();
 
-        match Self::resolve_type_filter(generic_type, effective_filter) {
+        match Self::resolve_type_filter(generic_type, effective_filter, index) {
             Ok(rgt) => {
                 if let Err(e) = resolved_generic_types.extend(rgt) {
                     errors.push(ASTTypeCheckError::new(
@@ -1567,11 +1572,13 @@ impl ASTTypeChecker {
     pub fn resolve_type_filter(
         generic_type: &ASTType,
         effective_filter: &ASTTypeFilter,
+        index: &ASTIndex,
     ) -> Result<ASTResolvedGenericTypes, ASTTypeCheckError> {
         if let ASTTypeFilter::Exact(effective_type, _) = effective_filter {
             return ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                 generic_type,
                 effective_type,
+                index,
             );
         } else if let ASTTypeFilter::Lambda(n, ret_type) = effective_filter {
             if let Some(rt_filter) = ret_type {
@@ -1580,7 +1587,7 @@ impl ASTTypeChecker {
                         parameters: _,
                         return_type,
                     }) => {
-                        return Self::resolve_type_filter(&return_type, &rt_filter);
+                        return Self::resolve_type_filter(&return_type, &rt_filter, index);
                     }
                     ASTType::ASTGenericType(_, _, _) => {
                         if *n == 0 {
@@ -1593,6 +1600,7 @@ impl ASTTypeChecker {
                                 return ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                                     generic_type,
                                     &ef,
+                                    index
                                 );
                             }
                         }

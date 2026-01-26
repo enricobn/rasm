@@ -235,6 +235,7 @@ impl ASTModulesContainer {
         parameter_types_filter: &Vec<ASTTypeFilter>,
         return_type_filter: Option<&ASTType>,
         function_call_module_namespace: &ModuleNamespace,
+        index: &ASTIndex,
     ) -> Vec<&ASTFunctionSignatureEntry> {
         debug_i!(
             "find_call_vec {function_to_call} {}",
@@ -302,7 +303,7 @@ impl ASTModulesContainer {
                             } else {
                                 t.clone()
                             };
-                            match ASTTypeChecker::resolve_type_filter(&t, filter) {
+                            match ASTTypeChecker::resolve_type_filter(&t, filter, index) {
                                 Ok(t_resolver) => {
                                     if resolver.extend(t_resolver).is_err() {
                                         compatible = false;
@@ -321,6 +322,7 @@ impl ASTModulesContainer {
                                 if let Ok(t_resolver) =
                                 ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                                         rt, rt,
+                                        index
                                     )
                                 {
                                     if resolver.extend(t_resolver).is_err() {
@@ -810,7 +812,10 @@ impl ASTTypeFilter {
 mod tests {
     use std::path::PathBuf;
 
-    use rasm_parser::parser::ast::{ASTBuiltinTypeKind, ASTPosition, ASTType};
+    use rasm_parser::{
+        catalog::ASTIndex,
+        parser::ast::{ASTBuiltinTypeKind, ASTPosition, ASTType},
+    };
 
     use crate::{
         codegen::{c::options::COptions, compile_target::CompileTarget, statics::Statics},
@@ -835,6 +840,7 @@ mod tests {
             ],
             None,
             &ModuleNamespace::global(),
+            &ASTIndex::none(),
         );
         assert_eq!(1, functions.len());
     }
@@ -870,6 +876,7 @@ mod tests {
             ],
             None,
             &ModuleNamespace::global(),
+            &ASTIndex::none(),
         );
         assert_eq!(1, functions.len());
     }
