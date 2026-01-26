@@ -4,18 +4,14 @@ native Vec(length: int, size: int) -> RasmPointer /{
     struct RasmPointer_ *result = rasmMalloc(sizeof(struct Vector));
     struct Vector *new_vec = (struct Vector*)result->address;
     new_vec->length = length;
-    //if (length == 0) {
-    //    new_vec->values = NULL;
-    //} else {
-        new_vec->values = rasmMalloc(size * length);
-    //}
+    new_vec->values = rasmMalloc(size * length);
     return result;
 }/
 
 pub native VecAddRef<T>(address: Vec<T>) /{
-    struct Vector *vector = $castAddress($address);
+    if (address->count == 0) {
+        struct Vector *vector = $castAddress($address);
 
-    if (vector->values != NULL) {
         addRef(vector->values);
 
         $isRef(T, "", "/*")
@@ -29,10 +25,8 @@ pub native VecAddRef<T>(address: Vec<T>) /{
 }/
 
 pub native VecDeref<T>(address: Vec<T>) /{
-    struct Vector *vector = $castAddress($address);
-
-    // TODO remove this optimization, an empty Vec is created with values containing an empty array
-    if (vector->values != NULL) {
+    if (address->count == 1) {
+        struct Vector *vector = $castAddress($address);
 
         $isRef(T, "", "/*")
             $realTypeName(T) *array = ($realTypeName(T) *)vector->values->address;
