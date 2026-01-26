@@ -1,44 +1,17 @@
 pub struct If<T> {
-    value: Option<T>
+    internal cond: bool,
+    internal value: Option<T>
 }
 
 pub fn if<T>(cond: bool, trueValue: T) -> If<T> {
-    If(if(cond, Some(trueValue), None()));
+    // TODO why I must explicitly prefix None? It does not work only in ASTTypeCheker
+    If(cond, if(cond, Some(trueValue), Option::None()));
 }
 
 pub fn elseIf<T>(ifValue: If<T>, cond: bool, trueValue: T) -> If<T> {
-    ifValue.value.match(
-        fn(value) { ifValue; },
-        {if(cond, trueValue); }
-    );
+    if(ifValue.cond, ifValue, { if(cond, trueValue); });
 }
 
 pub fn else<T>(ifValue: If<T>, elseValue: T) -> T {
     ifValue.value.getOrElse(elseValue);
 }
-
-/*
-struct IfLambda<T> {
-    value: Option<fn() -> T>
-}
-
-fn if<T>(cond: bool, trueValue: fn() -> T) -> IfLambda<T> {
-    if(cond, IfLambda(Some(trueValue)), IfLambda(None()));
-}
-
-fn elseIf<T>(ifValue: IfLambda<T>, cond: bool, trueValue: fn() -> T) -> IfLambda<T> {
-    ifValue.value.match(
-        { value -> ifValue; },
-        { -> if(cond, trueValue); }
-    );
-}
-
-fn else<T>(ifValue: IfLambda<T>, elseValue: fn() -> T) -> T {
-    let lambda = ifValue.value.match(
-        { value -> value; },
-        { -> elseValue; }
-    );
-
-    lambda();
-}
-*/
