@@ -19,13 +19,13 @@
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 
+use crate::codegen::TypedValKind;
 use crate::codegen::c::typed_function_creator_c::TypedFunctionsCreatorC;
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
 use crate::codegen::text_macro::RefType;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::TypedValKind;
 use crate::enh_type_check::typed_ast::{ASTTypedType, BuiltinTypedTypeKind};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -294,7 +294,11 @@ impl CStructs {
         }
 
         if let Some(structs) = statics.any_mut::<CStructs>() {
-            if let Some(s) = structs.structs.iter().find(|it| it.map == map) {
+            if let Some(s) = structs
+                .structs
+                .iter()
+                .find(|it| it.name.starts_with("LambdaSpace_") && it.map == map)
+            {
                 return s.name.clone();
             }
         }
