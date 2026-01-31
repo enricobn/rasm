@@ -1,5 +1,6 @@
 const RED = 31;
 const GREEN = 32;
+const BLUE = 34;
 
 pub struct TestSuite {
     name: str,
@@ -20,26 +21,42 @@ pub fn add(suite: TestSuite, s: TestSuite) -> TestSuite {
 }
 
 pub fn run(suite: TestSuite, test: Option<str>) {
-    if(suite.runInternal(test), {
+    if(suite.runInternal(test, 0), {
         exitMain(1);
     }, {});
 }
 
-fn runInternal(suite: TestSuite, test: Option<str>) -> bool {
-    println("Running suite ", suite.name());
+fn runInternal(suite: TestSuite, test: Option<str>, indent: int) -> bool {
+    printIndent(indent);
+    println("Running suite ", color(suite.name(), BLUE));
+    let startTime = now();
     
-    let suitesResult = suite.suites.foldLeft(false, fn(prev, it) { prev.or(it.runInternal(test)); });
+    let suitesResult = suite.suites.foldLeft(false, fn(prev, it) { prev.or(it.runInternal(test, indent.add(2))); });
 
     let testsResult = suite.tests
         .filter(fn(it) { 
             test.match( fn(gen) { gen.eq(it.name()); }, { true; });})
-        .foldLeft(false, fn(prev,it) { prev.or(it.run()); });
+        .foldLeft(false, fn(prev,it) { prev.or(it.run(indent.add(2))); });
+
+    let elapsedTime = elapsedTime(now(), startTime);
+
+    printIndent(indent);
+    print(elapsedTime.div(1000));
+    print(" ms - ");
 
     if (suitesResult.or(testsResult), 
-        { println(suite.name, " ".add(color("Tests failed", RED))); }, 
-        {});
+        {
+            println(color("tests failed", RED));
+        }, 
+        {
+            println(color("ok", GREEN));
+        });
 
     suitesResult.or(testsResult);
+}
+
+fn printIndent(indent: int) {
+    vecRange(0, indent).forEach(fn (i) { print(' ');});
 }
 
 pub struct Assertions {
@@ -51,8 +68,8 @@ pub struct RunTest {
    function: fn() -> Assertions
 }
 
-pub fn run(test: RunTest) -> bool {
-    runTest(test.name, test.function);
+fn run(test: RunTest, indent: int) -> bool {
+    runTest(test.name, test.function, indent);
 }
 
 pub fn Assertions() -> Assertions {
@@ -103,8 +120,9 @@ pub fn assertEquals<T>(assertions: Assertions, expected: T, current: T) -> Asser
     }, {assertions; });
 }
 
-pub fn runTest(name: str, testRun: fn() -> Assertions) -> bool {
-    print(name);
+fn runTest(name: str, testRun: fn() -> Assertions, indent: int) -> bool {
+    printIndent(indent);
+    print(color(name, BLUE));
     let startTime = now();
     let runResult = testRun();
     let elapsedTime = elapsedTime(now(), startTime);
