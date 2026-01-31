@@ -1,0 +1,26 @@
+pub fn jsonLexerSuite() -> TestSuite {
+    TestSuite("Lexer")
+    .add("file", file);
+}
+
+
+fn file() -> Assertions {
+    let s = readFile(fromRasmSourceFolder("test/resources/big.json"));
+    let tokensResult = lexe(s);
+    let result = tokensResult(tokensResult, 
+        fn(assertions, tokens) {
+            assertions.assertEquals(3802, tokens.len);
+        }
+    );
+    result;
+}
+
+fn tokensResult<T>(t: Result<T<JsonToken>, str>, a: fn(Assertions, T<JsonToken>) -> Assertions) -> Assertions {
+    t.match(
+        fn(tokens) {  
+            a(Assertions(), tokens);
+        }, 
+        fn(err) {  
+            Assertions().fail(err);
+        });
+}

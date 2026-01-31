@@ -1,0 +1,5 @@
+let suite = TestSuite("All")
+    .add(vecSuite())
+    .add(jsonSuite());
+
+suite.run(argv(1));
