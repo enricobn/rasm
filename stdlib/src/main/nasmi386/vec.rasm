@@ -587,7 +587,6 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
     mov     dword edx,$o
     mov     dword [eax],edx
     pop     eax
-    ;$call(deref, eax, "for map")
 
     pop     edx
     pop     ecx
