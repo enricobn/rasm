@@ -29,14 +29,12 @@ fn testFileLexer() -> Assertions {
     let tokensResult = lexe(s);
     tokensResult(tokensResult, 
         fn(assertions, tokens) {
-            // println();
-            //println(tokens.noSpaces);
             assertions.assertEquals(74, tokens.len);
         }
     );
 }
 
-fn tokensResult(t: Result<Vec<JsonToken>, str>, a: fn(Assertions, Vec<JsonToken>) -> Assertions) -> Assertions {
+fn tokensResult<T>(t: Result<T<JsonToken>, str>, a: fn(Assertions, T<JsonToken>) -> Assertions) -> Assertions {
     t.match(
         fn(tokens) {  
             a(Assertions(), tokens);
