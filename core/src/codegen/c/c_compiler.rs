@@ -95,7 +95,7 @@ pub fn compile_c(
 
     fs::write(make_file, make_file_content).unwrap();
 
-    let parallelism = format!("-j{}", num_cpus::get_physical());
+    let parallelism = format!("-j{}", num_cpus::get() * 3 / 4);
 
     let mut command = Command::new("make");
 
