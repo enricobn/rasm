@@ -119,6 +119,54 @@ impl CFunctionCallParameters {
 
          */
     }
+
+    fn add_ref_deref(&mut self, type_def_provider: &dyn TypeDefProvider, typed_type: &ASTTypedType, t: &ASTTypedType, statics: &Statics, source: &str) {        if let Some(type_name) = get_reference_type_name(&typed_type, &TypeDefBodyTarget::C) {
+            if type_name == "_fn" {
+                TypedFunctionsCreatorC::addref_deref_lambda(
+                    &self.code_manipulator,
+                    &mut self.before,
+                    RefType::AddRef,
+                    &source,
+                    t,
+                    statics,
+                );
+            } else {
+                CodeGenC::call_add_ref(
+                    &self.code_manipulator,
+                    &mut self.before,
+                    &source,
+                    &type_name,
+                    "",
+                    type_def_provider,
+                );
+            }
+        }
+
+        if let Some(type_name) = get_reference_type_name(&typed_type, &TypeDefBodyTarget::C) {
+            let mut deref_code = String::new();
+
+            if type_name == "_fn" {
+                TypedFunctionsCreatorC::addref_deref_lambda(
+                    &self.code_manipulator,
+                    &mut deref_code,
+                    RefType::Deref,
+                    &source,
+                    t,
+                    statics,
+                );
+            } else {
+                CodeGenC::call_deref(
+                    &self.code_manipulator,
+                    &mut deref_code,
+                    &source,
+                    &type_name,
+                    &type_name,
+                    type_def_provider,
+                );
+            }
+            self.add_on_top_of_after(&deref_code);
+        }
+    }
 }
 
 impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
@@ -201,52 +249,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
             true,
         );
 
-        if let Some(type_name) = get_reference_type_name(&param_type, &TypeDefBodyTarget::C) {
-            if type_name == "_fn" {
-                TypedFunctionsCreatorC::addref_deref_lambda(
-                    &self.code_manipulator,
-                    &mut self.before,
-                    RefType::AddRef,
-                    &tmp_val_name,
-                    t,
-                    statics,
-                );
-            } else {
-                CodeGenC::call_add_ref(
-                    &self.code_manipulator,
-                    &mut self.before,
-                    &tmp_val_name,
-                    &type_name,
-                    "",
-                    module,
-                );
-            }
-        }
-
-        if let Some(type_name) = get_reference_type_name(&param_type, &TypeDefBodyTarget::C) {
-            let mut deref_code = String::new();
-
-            if type_name == "_fn" {
-                TypedFunctionsCreatorC::addref_deref_lambda(
-                    &self.code_manipulator,
-                    &mut deref_code,
-                    RefType::Deref,
-                    &tmp_val_name,
-                    t,
-                    statics,
-                );
-            } else {
-                CodeGenC::call_deref(
-                    &self.code_manipulator,
-                    &mut deref_code,
-                    &tmp_val_name,
-                    &type_name,
-                    &type_name,
-                    module,
-                );
-            }
-            self.add_on_top_of_after(&deref_code);
-        }
+        self.add_ref_deref(module, &param_type, t, statics, &tmp_val_name);
 
         self.parameters_values.insert(name, tmp_val_name);
 
@@ -488,9 +491,10 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         lambda_space: &Option<&LambdaSpace>,
         _indent: usize,
         _code_gen_context: &CodeGenCContext,
-        _statics: &Statics,
+        statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
         typed_type: &ASTTypedType,
+        reused_parameter: bool,
     ) {
         if let Some(ls) = lambda_space {
             if let Some(index_in_lambda_space) = ls.get_index(val_name) {
@@ -532,6 +536,11 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                 true,
             );
         } else {
+            
+            if reused_parameter {
+                self.add_ref_deref(type_def_provider, typed_type, typed_type, statics, val_name);
+            }
+
             self.parameters_values
                 .insert(original_param_name.to_string(), val_name.to_string());
         }
@@ -545,7 +554,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         _indent: usize,
         _code_gen_context: &CodeGenCContext,
         _ast_index: &EnhASTIndex,
-        _statics: &Statics,
+        statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
         typed_type: &ASTTypedType,
     ) {
@@ -575,6 +584,8 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
                 true,
             );
         } else {
+            self.add_ref_deref(type_def_provider, typed_type, typed_type, statics, &value);
+
             self.parameters_values
                 .insert(original_param_name.to_string(), value);
         }
