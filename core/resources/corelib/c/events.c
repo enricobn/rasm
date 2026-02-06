@@ -5,7 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __RASM_MEMORY_DEBUG__
 #define EVENTS_COUNT 1000000
+#else
+#define EVENTS_COUNT 0
+#endif
 
 long addref_count[EVENTS_COUNT];
 long deref_count[EVENTS_COUNT];

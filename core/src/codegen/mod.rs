@@ -557,7 +557,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             project.name(),
             target.include_extension()
         );
-        if self.split_source() > 0 {
+        if !command_line_options.debug && self.split_source() > 0 {
             result.push((include_file.clone(), include_code));
 
             generated_code = format!("{}\n{generated_code}", self.include_file(&include_file));
@@ -602,7 +602,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         let used_functions =
             self.get_used_functions(&functions_generated_code, &generated_code, typed_module);
 
-        if self.split_source() > 0 && !used_functions.is_empty() {
+        if !command_line_options.debug && self.split_source() > 0 && !used_functions.is_empty() {
             let mut i = 0;
             let chunk_size = (used_functions.len() / self.split_source()).max(1);
             for partition in used_functions.chunks(chunk_size) {
