@@ -419,6 +419,16 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn include_file(&self, file: &str) -> String;
 
+    fn additional_files(
+        &'a self,
+        project: &RasmProject,
+        target: &CompileTarget,
+        typed_module: &ASTTypedModule,
+        statics: Statics,
+        command_line_options: &CommandLineOptions,
+        out_folder: &Path,
+    ) -> Vec<(String, String)>;
+
     fn generate(
         &'a self,
         project: &RasmProject,
@@ -630,17 +640,14 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             generated_code,
         ));
 
-        let mut rasm_h = String::new();
-
-        rasm_h.push_str("#define __RASM_MAIN_OUT_FILE__ \"");
-        rasm_h.push_str(&project.main_out_file_name(command_line_options));
-        rasm_h.push_str(".c\"\n");
-
-        if command_line_options.memory_debug {
-            rasm_h.push_str("#define __RASM_MEMORY_DEBUG__\n");
-        }
-
-        result.push(("rasm.h".to_owned(), rasm_h));
+        result.append(&mut self.additional_files(
+            project,
+            target,
+            typed_module,
+            statics,
+            command_line_options,
+            out_folder,
+        ));
 
         result
     }

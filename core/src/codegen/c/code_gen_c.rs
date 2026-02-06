@@ -345,10 +345,15 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         _typed_module: &ASTTypedModule,
         _statics: Statics,
         command_line_options: &CommandLineOptions,
-        _out_folder: &Path,
+        out_folder: &Path,
     ) -> Vec<(String, String)> {
         let mut rasm_h = String::new();
 
+        rasm_h.push_str("#define __RASM_OUT_FOLDER__ \"");
+        rasm_h.push_str(&format!(
+            "{}\"\n",
+            out_folder.canonicalize().unwrap().to_str().unwrap()
+        ));
         rasm_h.push_str("#define __RASM_MAIN_OUT_FILE__ \"");
         rasm_h.push_str(&project.main_out_file_name(command_line_options));
         rasm_h.push_str(".c\"\n");

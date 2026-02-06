@@ -65,11 +65,11 @@ struct EventLine {
 };
 
 int compare_event_line(const void *a, const void *b) {
-  struct EventLine *pa = *(struct EventLine **)a; // ✅ Dereference first
-  struct EventLine *pb = *(struct EventLine **)b; // ✅ Dereference first
+  struct EventLine *pa = *(struct EventLine **)a;
+  struct EventLine *pb = *(struct EventLine **)b;
   if (pa->count > pb->count)
     return -1;
-  if (pa->count < pb->count)
+  else if (pa->count < pb->count)
     return 1;
   return 0;
 }
@@ -92,7 +92,8 @@ void print_events(FILE *file, long *events) {
         compare_event_line);
 
   for (size_t i = 0; i < event_lines_count; i++) {
-    fprintf(file, "line %zu = %ld\n", event_lines[i]->line,
+    fprintf(file, "%s/%s:%zu = %ld\n", __RASM_OUT_FOLDER__,
+            __RASM_MAIN_OUT_FILE__, event_lines[i]->line,
             event_lines[i]->count);
   }
 
@@ -104,10 +105,14 @@ void print_events(FILE *file, long *events) {
 }
 
 void print_all_events() {
+  char file_name[1024];
 
-  FILE *file = fopen("events.txt", "w");
+  snprintf(file_name, sizeof(file_name), "%s/%s-event.txt", __RASM_OUT_FOLDER__,
+           __RASM_MAIN_OUT_FILE__);
+
+  FILE *file = fopen(file_name, "w");
   if (file == NULL) {
-    printf("Error creating event.txt file!\n");
+    printf("Error creating file %s\n", file_name);
     return;
   }
 
