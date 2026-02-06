@@ -1,7 +1,11 @@
 #include "rc_rasm.h"
+#include "events.h"
 #include "fs_allocator.h"
+#include "rasm.h"
 #include "rc_zero_list.h"
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /**
  * Fixed size allocator for struct RasmPointers
@@ -30,6 +34,9 @@ struct RasmPointer_ *rasmMalloc(size_t size) {
   if (size == enum_size) {
     address = fs_alloc(fs_allocator_enum);
   } else {
+#ifdef __RASM_MEMORY_DEBUG__
+    register_event(EVENT_ALLOC);
+#endif
     address = malloc(size);
   }
 
@@ -49,11 +56,13 @@ struct RasmPointer_ *rasmMalloc(size_t size) {
  * RasmPointer_ itself on the fs_allocator
  */
 void rasmFree(struct RasmPointer_ *pointer) {
-
   if (pointer->address >= fs_allocator_enum->mem &&
       pointer->address < enum_max_mem) {
     fs_free(fs_allocator_enum, pointer->address);
   } else {
+#ifdef __RASM_MEMORY_DEBUG__
+    register_event(EVENT_FREE);
+#endif
     free(pointer->address);
   }
   fs_free(fs_allocator, pointer);
@@ -76,13 +85,8 @@ struct RasmPointer_ *addStaticStringToHeap(const char *s) {
 }
 
 struct Void_ *deref(struct RasmPointer_ *address) {
-#ifdef __RASM_DEBUG__
-  if (address == NULL) {
-    printf("NULL address\n");
-    return;
-  }
-
-  printf("deref(%p)", address->address);
+#ifdef __RASM_MEMORY_DEBUG__
+  register_event(EVENT_DEREF);
 #endif
 
   if (--address->count == 0) {
@@ -92,14 +96,8 @@ struct Void_ *deref(struct RasmPointer_ *address) {
 }
 
 struct Void_ *addRef(struct RasmPointer_ *address) {
-
-#ifdef __RASM_DEBUG__
-  if (address == NULL) {
-    printf("NULL address\n");
-    return;
-  }
-
-  printf("addRef(%p)", address->address);
+#ifdef __RASM_MEMORY_DEBUG__
+  register_event(EVENT_ADDREF);
 #endif
 
   if (++address->count == 1) {

@@ -1,7 +1,13 @@
+#pragma once
+
 #include <string.h>
 
-#ifndef _RC_RASM_H
-#define _RC_RASM_H 1
+extern long addref_count[];
+extern long deref_count[];
+extern long free_count[];
+extern long alloc_count[];
+extern long push_zero_count[];
+extern long remove_from_zero_count[];
 
 struct RasmPointer_ {
   void *address;
@@ -37,4 +43,4 @@ struct Void_ *deref(struct RasmPointer_ *address);
 
 struct Void_ *addRef(struct RasmPointer_ *address);
 
-#endif
+void print_all_events();

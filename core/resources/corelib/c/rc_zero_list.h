@@ -1,3 +1,5 @@
+#pragma once
+
 struct RCZeroList {
   struct RasmPointer_ *pointer;
   struct RCZeroList *next;

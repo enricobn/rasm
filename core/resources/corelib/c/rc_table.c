@@ -1,6 +1,5 @@
 #include "rc_table.h"
 #include <stdio.h>
-#include <stdlib.h>
 
 static size_t rc_hash(struct RCTable *table, void *pointer);
 static struct RCEntry *rc_entry(struct RCTable *table, void *pointer);

@@ -78,7 +78,10 @@ pub fn compile_c(
     }
     make_file_content.push_str("\n");
 
-    make_file_content.push_str("LIB =");
+    // TODO for now we must add the libbfd even if it's required only when memory_debug is true,
+    //  but we need to find a way to avoid this, when memory_debug is false
+    make_file_content.push_str("LIB = -lbfd");
+
     for req in options.requires.iter() {
         make_file_content.push_str(&format!(" -l{req}"));
     }

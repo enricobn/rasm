@@ -1,5 +1,7 @@
 #include "rc_zero_list.h"
+#include "events.h"
 #include "fs_allocator.h"
+#include "rasm.h"
 #include "rc_rasm.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,8 +14,9 @@ void init_zero_list() {
 }
 
 void remove_from_zero_list(struct RCZeroList *actual) {
-  // printf("remove_from_zero_list\n");
-  //  print_one_list(actual);
+#ifdef __RASM_MEMORY_DEBUG__
+  register_event(EVENT_REMOVE_FROM_ZERO);
+#endif
 
   struct RCZeroList *prev = actual->prev;
   struct RCZeroList *next = actual->next;
@@ -30,7 +33,10 @@ void remove_from_zero_list(struct RCZeroList *actual) {
 }
 
 void push_zero(struct RasmPointer_ *pointer) {
-  // printf("push_zero\n");
+#ifdef __RASM_MEMORY_DEBUG__
+  register_event(EVENT_PUSH_ZERO);
+#endif
+
   struct RCZeroList *new_zero = fs_alloc(fs_zero_list_allocator);
   new_zero->pointer = pointer;
   new_zero->next = zero_list;
@@ -45,22 +51,13 @@ void push_zero(struct RasmPointer_ *pointer) {
 void free_zero() {
   struct RCZeroList *current = zero_list;
 
-  //  size_t count = 0;
-
   while (current != NULL) {
     struct RasmPointer_ *pointer = current->pointer;
     struct RCZeroList *next = current->next;
     rasmFree(pointer);
     fs_free(fs_zero_list_allocator, current);
     current = next;
-    //    count++;
   }
-
-  /*
-    if (count > 1000) {
-      printf("count zero %zu\n", count);
-    }
-  */
 
   zero_list = NULL;
 }

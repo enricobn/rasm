@@ -40,7 +40,7 @@ struct fs_allocator *fs_allocator_new(size_t size, size_t count) {
  * @param allocator the allocator from which to allocate the memory.
  * @return the address of the allocated memory block.
  */
-void *fs_alloc(struct fs_allocator *allocator) {
+inline void *fs_alloc(struct fs_allocator *allocator) {
   void *result = *allocator->last_free;
   allocator->last_free--;
   return result;
