@@ -109,16 +109,19 @@ void print_events(FILE *file, long *events) {
 }
 
 void print_all_events() {
-  char file_name[1024];
+  char *file_name = malloc(sizeof(char) * 1024);
 
-  snprintf(file_name, sizeof(file_name), "%s/%s-event.txt", __RASM_OUT_FOLDER__,
+  snprintf(file_name, 1024, "%s/%s-event.txt", __RASM_OUT_FOLDER__,
            __RASM_MAIN_OUT_FILE__);
 
   FILE *file = fopen(file_name, "w");
   if (file == NULL) {
+    free(file_name);
     printf("Error creating file %s\n", file_name);
     return;
   }
+
+  free(file_name);
 
   fprintf(file, "addref_count\n");
   print_events(file, addref_count);
