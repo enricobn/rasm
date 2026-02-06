@@ -202,9 +202,12 @@ fn parse_command_line_options(matches: &ArgMatches) -> CommandLineOptions {
         RasmProfile::Main
     };
 
+    let memory_debug = matches.get_flag("memorydebug");
+    let debug = memory_debug || matches.get_flag("debug");
+
     CommandLineOptions {
         action,
-        memory_debug: matches.get_flag("memorydebug"),
+        memory_debug,
         print_code: matches.get_flag("printcode"),
         print_memory: matches.get_flag("memoryinfo"),
         only_compile: matches.get_flag("compile"),
@@ -218,7 +221,7 @@ fn parse_command_line_options(matches: &ArgMatches) -> CommandLineOptions {
             .map_or(Vec::new(), |it| {
                 it.split(',').map(|it| it.to_string()).into_iter().collect()
             }),
-        debug: matches.get_flag("debug"),
+        debug,
         profile: matches
             .get_one::<String>("profile")
             .map_or(default_profile, |it| match it.as_str() {

@@ -1958,4 +1958,16 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
     fn supports_function_duplication_optimization(&self) -> bool {
         false
     }
+
+    fn additional_files(
+        &'a self,
+        _project: &RasmProject,
+        _target: &crate::codegen::compile_target::CompileTarget,
+        _typed_module: &ASTTypedModule,
+        _statics: Statics,
+        _command_line_options: &crate::commandline::CommandLineOptions,
+        _out_folder: &Path,
+    ) -> Vec<(String, String)> {
+        Vec::new()
+    }
 }

@@ -2417,6 +2417,7 @@ mod tests {
     };
     use crate::codegen::statics::Statics;
 
+    use crate::commandline::RasmProfile;
     use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
     use crate::enh_type_check::enh_type_check::EnhTypeCheck;
     use crate::enh_type_check::typed_ast::ASTTypedModule;
@@ -2467,7 +2468,12 @@ mod tests {
     fn test_type_check_vec() {
         let project = file_to_project("vec.rasm");
         // TODO we cannot run asm due to the lack of toString(float)
-        project_to_ast_typed_module(&project, &CompileTarget::C(COptions::default())).unwrap();
+        project_to_ast_typed_module(
+            &project,
+            &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -2802,8 +2808,16 @@ mod tests {
     fn test_project(
         project: RasmProject,
     ) -> Result<(ASTTypedModule, Statics), Vec<CompilationError>> {
-        project_to_ast_typed_module(&project, &CompileTarget::Nasmi386(AsmOptions::default()))?;
-        project_to_ast_typed_module(&project, &CompileTarget::C(COptions::default()))
+        project_to_ast_typed_module(
+            &project,
+            &CompileTarget::Nasmi386(AsmOptions::default()),
+            &RasmProfile::Main,
+        )?;
+        project_to_ast_typed_module(
+            &project,
+            &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+        )
     }
 
     fn file_to_project(test_file: &str) -> RasmProject {

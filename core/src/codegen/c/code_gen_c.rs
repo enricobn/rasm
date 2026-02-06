@@ -32,6 +32,7 @@ use crate::codegen::c::text_macro_c::{
     CStructTypeMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
+use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
 use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::function_call_parameters::FunctionCallParameters;
@@ -41,7 +42,7 @@ use crate::codegen::text_macro::{InlineMacro, InlineRegistry, RefType, TextMacro
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::codegen::{CodeGen, CodeGenOptions, TypedValKind, get_reference_type_name};
-use crate::commandline::RasmProfile;
+use crate::commandline::{CommandLineOptions, RasmProfile};
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
     ASTTypedModule, ASTTypedParameterDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
@@ -337,8 +338,38 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         &self.c_options
     }
 
+    fn additional_files(
+        &'a self,
+        project: &RasmProject,
+        _target: &CompileTarget,
+        _typed_module: &ASTTypedModule,
+        _statics: Statics,
+        command_line_options: &CommandLineOptions,
+        _out_folder: &Path,
+    ) -> Vec<(String, String)> {
+        let mut rasm_h = String::new();
+
+        rasm_h.push_str("#define __RASM_MAIN_OUT_FILE__ \"");
+        rasm_h.push_str(&project.main_out_file_name(command_line_options));
+        rasm_h.push_str(".c\"\n");
+
+        if command_line_options.memory_debug {
+            rasm_h.push_str("#define __RASM_MEMORY_DEBUG__\n");
+        }
+
+        vec![("rasm.h".to_owned(), rasm_h)]
+    }
+
     fn end_main(&self, code: &mut String) {
-        self.add(code, "freeReferences();", None, true);
+        self.add(code, "    freeReferences();", None, true);
+        if self.memory_debug {
+            self.add_rows(
+                code,
+                vec!["    close_stacktraces();", "print_all_events();"],
+                None,
+                false,
+            );
+        }
     }
 
     fn transform_before_in_function_def(&self, _stack: &CodeGenCContext, before: String) -> String {
@@ -962,10 +993,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             self.add_empty_line(&mut include);
         }
 
-        if self.memory_debug {
-            self.add(&mut include, "#define __RASM_DEBUG__", None, false);
-        }
-
         if let Some(strings) = statics.any::<CStrings>() {
             for (value, name) in strings.map.iter() {
                 self.add(
@@ -1203,6 +1230,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             None,
             false,
         );
+
+        if self.memory_debug {
+            self.add(&mut before, "    init_stacktraces();", None, false);
+        }
 
         for s in typed_module.enums.iter() {
             for (i, variant) in s.variants.iter().enumerate() {

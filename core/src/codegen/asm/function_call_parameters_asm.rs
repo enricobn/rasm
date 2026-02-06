@@ -5,6 +5,7 @@ use rasm_parser::parser::ast::ASTValue;
 
 use crate::{
     codegen::{
+        CodeGen, TypedValKind,
         asm::code_gen_asm::STACK_VAL_SIZE_NAME,
         enh_ast::{EnhASTIndex, EnhASTNameSpace},
         enh_val_context::TypedValContext,
@@ -13,7 +14,6 @@ use crate::{
         stack::StackVals,
         statics::{MemoryUnit, MemoryValue, Statics},
         typedef_provider::TypeDefProvider,
-        CodeGen, TypedValKind,
     },
     enh_type_check::typed_ast::{
         ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
@@ -438,6 +438,7 @@ impl<'a> FunctionCallParameters<CodeGenAsmContext> for FunctionCallParametersAsm
         _statics: &Statics,
         _type_def_provider: &dyn TypeDefProvider,
         _typed_type: &ASTTypedType,
+        _reused_parameter: bool,
     ) {
         self.debug_and_before(&format!("adding val {val_name}"), indent);
 

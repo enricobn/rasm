@@ -48,6 +48,7 @@ use rasm_parser::parser::ast::{ASTExpression, ASTModifiers, ASTStatement, ASTVal
 
 pub mod asm;
 pub mod c;
+pub mod code_analyzer;
 mod code_manipulator;
 pub mod compile_target;
 pub mod enh_ast;
@@ -629,6 +630,18 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             generated_code,
         ));
 
+        let mut rasm_h = String::new();
+
+        rasm_h.push_str("#define __RASM_MAIN_OUT_FILE__ \"");
+        rasm_h.push_str(&project.main_out_file_name(command_line_options));
+        rasm_h.push_str(".c\"\n");
+
+        if command_line_options.memory_debug {
+            rasm_h.push_str("#define __RASM_MEMORY_DEBUG__\n");
+        }
+
+        result.push(("rasm.h".to_owned(), rasm_h));
+
         result
     }
 
@@ -812,6 +825,26 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         lambda_calls.append(&mut inner_lambda_calls);
                     }
                     ASTTypedExpression::ValueRef(name, index, namespace) => {
+                        let mut reused_parameter = true;
+
+                        /*
+                        TODO : it's too slow to check if a parameter is reused, here, it should be done for function
+
+                        if let Some(TypedValKind::ParameterRef(_, _)) = context.get(name) {
+                            if let Some(ASTTypedFunctionBody::RASMBody(ref fb)) = body {
+                                if !is_par_reused(fb, name, context) {
+                                    reused_parameter = false;
+                                }
+                            }
+                        }
+
+                        if namespace.safe_name().contains("lexer") {
+                            if !reused_parameter {
+                                println!("not reused parameter {name} : {index}");
+                            }
+                        }
+                        */
+
                         let error_msg = format!(
                             "Cannot find val {}, calling function {}",
                             name, function_call.function_name
@@ -834,6 +867,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             lambda_in_stack,
                             function_reference_lambdas,
                             optimized_functions,
+                            reused_parameter,
                         );
                     }
                     ASTTypedExpression::Lambda(lambda_def) => {
@@ -1313,6 +1347,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         lambda_in_stack: bool,
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
         optimized_functions: &HashMap<String, String>,
+        reused_parameter: bool,
     ) {
         if let Some(val_kind) = context.get(val_name) {
             match val_kind {
@@ -1327,6 +1362,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         statics,
                         typed_module,
                         &par.ast_type,
+                        reused_parameter,
                     );
                 }
 
@@ -1682,6 +1718,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 lambda_in_stack,
                                 function_reference_lambdas,
                                 optimized_functions,
+                                true,
                             );
 
                             before.push_str(&parameters.before());
@@ -2484,7 +2521,7 @@ mod tests {
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::{AsmOptions, CodeGen};
-    use crate::commandline::{CommandLineAction, CommandLineOptions};
+    use crate::commandline::{CommandLineAction, CommandLineOptions, RasmProfile};
     use crate::project::RasmProject;
     use crate::test_utils::project_to_ast_typed_module;
 
@@ -2561,7 +2598,8 @@ mod tests {
         let project = RasmProject::new(PathBuf::from("../rasm/resources/examples/breakout"));
         let target = CompileTarget::C(options);
 
-        let (typed_module, statics) = project_to_ast_typed_module(&project, &target).unwrap();
+        let (typed_module, statics) =
+            project_to_ast_typed_module(&project, &target, &RasmProfile::Main).unwrap();
 
         let dir = TempDir::new("rasm_int_test").unwrap();
 

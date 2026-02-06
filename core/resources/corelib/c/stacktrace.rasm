@@ -1,7 +1,3 @@
 pub native printStacktrace() /{
   print_stack_trace(5);
 }/
-
-pub native printAllEvents() /{
-  print_all_events();
-}/

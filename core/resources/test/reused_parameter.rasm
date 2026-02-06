@@ -1,0 +1,67 @@
+enum BracketKind {
+    Brace,
+    Square
+}
+
+enum BracketStatus {
+    Open,
+    Close
+}
+
+enum JsonToken {
+    Bracket(kind: BracketKind, status: BracketStatus),
+    Spaces(s: str),
+    String(s: str),
+    Number(n: str),
+    Boolean(b: bool),
+    Null,
+    Colon,
+    Comma
+}
+
+enum LexerStatus {
+    None,
+    String,
+    Number,
+    Spaces,
+    Boolean,
+    Null
+}
+
+struct LexerState {
+    tokens: Vec<JsonToken>,
+    status: LexerStatus,
+    actual: str
+}
+
+struct AStruct {
+    i: int
+}
+
+aFunction(0, 0, AStruct(0), 0);
+
+let p = processNumber(LexerState(Vec(), LexerStatus::Null(), ""), 'a');
+
+fn aFunction(reusedParam: int, param: int, reusedParam1: AStruct, reusedParam2: int) {
+    if(true, { println(reusedParam1.i); }, {
+        Some(1).match(fn(v) {
+            println(reusedParam1.i); 
+        }, {});
+    });
+    println(reusedParam.add(reusedParam));
+    println(reusedParam2);
+    println(reusedParam2);
+    println(param);
+}
+
+fn processNumber(state: LexerState, c: char) -> Result<LexerState,str> {
+    if(c.isNumber.or(c.eq('.')), {
+        Ok(state.actual(fn(actual) { actual.append(c);}));
+    }, {
+        let newState = state.status(LexerStatus::None())
+        .tokens( fn(vec) { vec.push(JsonToken::Number(state.actual)); })
+        .actual("");
+        // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
+        Ok(newState);
+    });
+}

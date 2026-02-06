@@ -1,12 +1,12 @@
 use auto_impl::auto_impl;
 use linked_hash_map::LinkedHashMap;
 
+use crate::codegen::TypedValKind;
 use crate::codegen::enh_ast::EnhASTIndex;
 use crate::codegen::enh_val_context::TypedValContext;
 use crate::codegen::lambda::LambdaSpace;
 use crate::codegen::statics::Statics;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::codegen::TypedValKind;
 use crate::enh_type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule,
     ASTTypedStatement, ASTTypedType,
@@ -74,6 +74,7 @@ pub trait FunctionCallParameters<CTX> {
         statics: &Statics,
         type_def_provider: &dyn TypeDefProvider,
         typed_type: &ASTTypedType,
+        reused_parameter: bool,
     );
 
     fn add_let_val_ref(

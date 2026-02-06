@@ -1,6 +1,8 @@
 #include "events.h"
+#include "rasm.h"
 #include "stacktrace.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define EVENTS_COUNT 1000000
@@ -51,38 +53,81 @@ void register_event(enum Event event) {
   struct stacktrace *trace = stack_trace(10);
   for (int i = 0; i < trace->count; i++) {
     struct line_info *info = trace->infos[i];
-    if (endsWith(info->filename, "stdlib_examples_perf.c")) {
+    if (endsWith(info->filename, __RASM_MAIN_OUT_FILE__)) {
       events[info->line]++;
     }
   }
 }
 
-void print_events(long *events) {
+struct EventLine {
+  size_t line;
+  long count;
+};
+
+int compare_event_line(const void *a, const void *b) {
+  struct EventLine *pa = *(struct EventLine **)a; // ✅ Dereference first
+  struct EventLine *pb = *(struct EventLine **)b; // ✅ Dereference first
+  if (pa->count > pb->count)
+    return -1;
+  if (pa->count < pb->count)
+    return 1;
+  return 0;
+}
+
+void print_events(FILE *file, long *events) {
+  struct EventLine **event_lines =
+      malloc(EVENTS_COUNT * sizeof(struct EventLine *));
+  size_t event_lines_count = 0;
 
   for (int i = 0; i < EVENTS_COUNT; i++) {
-    long count = events[i];
-    if (count > 0) {
-      printf("line %d = %ld\n", i, count);
+    if (events[i] > 0) {
+      event_lines[event_lines_count] = malloc(sizeof(struct EventLine));
+      event_lines[event_lines_count]->line = i;
+      event_lines[event_lines_count]->count = events[i];
+      event_lines_count++;
     }
   }
+
+  qsort(event_lines, event_lines_count, sizeof(struct EventLine *),
+        compare_event_line);
+
+  for (size_t i = 0; i < event_lines_count; i++) {
+    fprintf(file, "line %zu = %ld\n", event_lines[i]->line,
+            event_lines[i]->count);
+  }
+
+  // Cleanup
+  for (size_t i = 0; i < event_lines_count; i++) {
+    free(event_lines[i]);
+  }
+  free(event_lines);
 }
 
 void print_all_events() {
-  printf("addref_count\n");
-  print_events(addref_count);
-  printf("\n");
-  printf("deref_count\n");
-  print_events(deref_count);
-  printf("\n");
-  printf("free_count\n");
-  print_events(free_count);
-  printf("\n");
-  printf("alloc_count\n");
-  print_events(alloc_count);
-  printf("\n");
-  printf("push_zero_count\n");
-  print_events(push_zero_count);
-  printf("\n");
-  printf("remove_from_zero_count\n");
-  print_events(remove_from_zero_count);
+
+  FILE *file = fopen("events.txt", "w");
+  if (file == NULL) {
+    printf("Error creating event.txt file!\n");
+    return;
+  }
+
+  fprintf(file, "addref_count\n");
+  print_events(file, addref_count);
+  fprintf(file, "\n");
+  fprintf(file, "deref_count\n");
+  print_events(file, deref_count);
+  fprintf(file, "\n");
+  fprintf(file, "free_count\n");
+  print_events(file, free_count);
+  fprintf(file, "\n");
+  fprintf(file, "alloc_count\n");
+  print_events(file, alloc_count);
+  fprintf(file, "\n");
+  fprintf(file, "push_zero_count\n");
+  print_events(file, push_zero_count);
+  fprintf(file, "\n");
+  fprintf(file, "remove_from_zero_count\n");
+  print_events(file, remove_from_zero_count);
+
+  fclose(file);
 }
