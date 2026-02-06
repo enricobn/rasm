@@ -1,9 +1,10 @@
 Doing
 ------
-- profiles
+- monitoring and optimization
 
 Bug
 ----
+- in stdlib, if.rasm, look at the TODO
 - if I have a private struct and implement a toString, to use it in println the function must be public,
   but since it exposes a parameter that is private (the struct) it does not compile, so I have to make 
   the struct public: structpropertysetter.rasm, lens.rasm, structpropertysetter1.rasm, type_check2.rasm,
@@ -34,12 +35,14 @@ Road to language version 1.0.0 (not compiler)
   
 Major
 -----
+- LIB = -lbfd, only when needed, look at TODO in compile_c
 - command line tool:
   - add "new" for creating a new project
   - add "init" for creating a new project in the current folder
 - I don't like methods to handle "generic prefix" in AST, it should be handled outside the AST modules
-- populate target for ASTFunctionDef, for regular functions (not builtin), with the name of the type of the first 
-  parameter, even if generic when not completely generic (Option<T>)? Adjust code completion
+- populate target for ASTFunctionDef, for regular functions (not builtin), 
+  with the name of the type of the first parameter, even if generic, when not completely generic 
+  (Option<T>)? Adjust code completion
 - sometimes are added structs / enum / functions that are not used. It can be verified compiling with c target the test/enum.rasm
 - rename EnhancedASTModule: it is the untyped container for all the modules in the project
 - move all asm code to backend
@@ -55,7 +58,7 @@ Major
     // This is a valid code
     println(10);
     ...
-    - check for unused parameters, let and static let, it should be an error
+    - check for unused parameters, let (and static let?), it should be an error
 - it would be better if we cannot use .someFunction without parenthesis, if the function does not return anything
 - visibility
   - public (pub)
@@ -73,10 +76,10 @@ Major
       - getters are private
 - optimize
   - can a recursive function's lambda space be reused?
-  - enums in C can be a union?
+  - enums in C can be a unions?
 - threads library
 - use Result in standard library
-- standardize compiler errors with source
+- standardize compiler errors with source (what does it means?)
 
 Minor
 ------
