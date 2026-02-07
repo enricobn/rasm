@@ -16,6 +16,8 @@ first version using perplexity (https://www.perplexity.ai)
 
 #include "stacktrace.h"
 
+#define MAX_STACK_FRAMES 128
+
 struct syms_entry {
   const char *dli_fname;
   bfd *abfd;
@@ -28,14 +30,16 @@ struct syms_entry {
 struct syms_entries {
   struct syms_entry **entries;
   unsigned int count;
+  void *reference_address;
 };
 
 static struct syms_entries *syms_entries = NULL;
 
-void init_stacktraces() {
+void init_stacktraces(void *reference_address) {
   syms_entries = malloc(sizeof(struct syms_entries));
   syms_entries->entries = NULL;
   syms_entries->count = 0;
+  syms_entries->reference_address = reference_address;
 
   bfd_init();
 }
@@ -47,8 +51,6 @@ void close_stacktraces() {
     entry->abfd = NULL;
     free(entry->syms);
     entry->syms = NULL;
-    // free(entry->text_sec);
-    // entry->text_sec = NULL;
     free(entry);
     entry = NULL;
   }
@@ -126,8 +128,6 @@ struct syms_entry *load_symbols_for_pc(void *pc) {
     printf("dladdr failed for %p\n", pc);
     return NULL;
   }
-
-  // printf("Loading symbols for: %s\n", dl_info.dli_fname);
 
   bfd *abfd = bfd_openr(dl_info.dli_fname, NULL);
   if (!abfd || !bfd_check_format(abfd, bfd_object)) {
@@ -231,6 +231,65 @@ struct stacktrace *stack_trace(int max_frames) {
   // free(symbols);
 
   return trace;
+}
+
+struct stacktrace *stack_trace_from_references(unsigned long *references) {
+
+  struct stacktrace *trace = malloc(sizeof(struct stacktrace));
+  trace->infos = malloc(sizeof(struct line_info) * 128);
+  trace->count = 0;
+
+  unsigned long *actual = references;
+
+  while (*actual != 0) {
+    struct line_info *info = line_info_from_reference(*actual);
+    if (info != NULL) {
+      trace->infos[trace->count++] = info;
+    }
+    actual++;
+  }
+
+  return trace;
+}
+
+struct line_info *line_info_from_reference(unsigned long reference) {
+
+  void *addr = syms_entries->reference_address + reference;
+  struct syms_entry *entry = find_or_create_sym_entry(addr);
+  if (entry != NULL) {
+    struct line_info *info = malloc(sizeof(struct line_info));
+    lookup_line_info(entry->abfd, entry->syms, addr, info, entry->text_sec,
+                     entry->sec_vma);
+    // ONLY show BFD if it found something useful
+    if (strcmp(info->filename, "unknown") != 0 || info->line > 0) {
+      return info;
+    } else {
+      free(info);
+      return NULL;
+    }
+  }
+  return NULL;
+}
+
+unsigned long *stack_trace_references(int max_frames) {
+  int frames = max_frames < MAX_STACK_FRAMES ? max_frames : MAX_STACK_FRAMES;
+  // frames + 1 for null terminator
+  unsigned long *result = malloc(sizeof(unsigned long) * (frames + 1));
+  void **addrs = malloc(sizeof(void *) * frames);
+  int count = backtrace(addrs, frames);
+  int result_index = 0;
+  for (int i = 0; i < count; i++) {
+    unsigned long addr = (unsigned long)addrs[i];
+    unsigned long reference_address =
+        (unsigned long)syms_entries->reference_address;
+    if (addr > reference_address) {
+      result[result_index++] = addr - reference_address;
+    }
+  }
+  // Add null terminator
+  result[result_index] = 0;
+  free(addrs);
+  return result;
 }
 
 void print_stack_trace(int max_frames) {

@@ -54,12 +54,15 @@ void register_event(enum Event event) {
     break;
   }
 
-  struct stacktrace *trace = stack_trace(10);
-  for (int i = 0; i < trace->count; i++) {
-    struct line_info *info = trace->infos[i];
-    if (endsWith(info->filename, __RASM_MAIN_OUT_FILE__)) {
-      events[info->line]++;
+  unsigned long *references = stack_trace_references(10);
+  unsigned long *actual = references;
+
+  while (*actual != 0) {
+    unsigned long reference = *actual;
+    if (reference > 0 && reference < EVENTS_COUNT) {
+      events[reference]++;
     }
+    actual++;
   }
 }
 
@@ -85,10 +88,14 @@ void print_events(FILE *file, long *events) {
 
   for (int i = 0; i < EVENTS_COUNT; i++) {
     if (events[i] > 0) {
-      event_lines[event_lines_count] = malloc(sizeof(struct EventLine));
-      event_lines[event_lines_count]->line = i;
-      event_lines[event_lines_count]->count = events[i];
-      event_lines_count++;
+      struct line_info *info = line_info_from_reference(i);
+      if (info != NULL && info->filename &&
+          endsWith(info->filename, __RASM_MAIN_OUT_FILE__)) {
+        event_lines[event_lines_count] = malloc(sizeof(struct EventLine));
+        event_lines[event_lines_count]->line = info->line;
+        event_lines[event_lines_count]->count = events[i];
+        event_lines_count++;
+      }
     }
   }
 

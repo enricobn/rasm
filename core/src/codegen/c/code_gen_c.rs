@@ -370,7 +370,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         if self.memory_debug {
             self.add_rows(
                 code,
-                vec!["    close_stacktraces();", "print_all_events();"],
+                vec!["  print_all_events();", "    close_stacktraces();"],
                 None,
                 false,
             );
@@ -1226,8 +1226,27 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                 "char **argv_;",
                 "struct RCTable *rasm_rc_table;",
                 "",
+                "void rasm_stacktrace_placeholder() {",
+                "    exit(1);",
+                "}",
                 "int main(int argc, char **argv)",
                 "{",
+            ],
+            None,
+            false,
+        );
+
+        if self.memory_debug {
+            self.add(
+                &mut before,
+                "    init_stacktraces(rasm_stacktrace_placeholder);",
+                None,
+                false,
+            );
+        }
+        self.add_rows(
+            &mut before,
+            vec![
                 "    initRasmReferences();",
                 "    argc_ = argc;",
                 "    argv_ = argv;",
@@ -1235,10 +1254,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             None,
             false,
         );
-
-        if self.memory_debug {
-            self.add(&mut before, "    init_stacktraces();", None, false);
-        }
 
         for s in typed_module.enums.iter() {
             for (i, variant) in s.variants.iter().enumerate() {
