@@ -424,7 +424,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         project: &RasmProject,
         target: &CompileTarget,
         typed_module: &ASTTypedModule,
-        statics: Statics,
+        statics: &Statics,
         command_line_options: &CommandLineOptions,
         out_folder: &Path,
     ) -> Vec<(String, String)>;
@@ -434,7 +434,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         project: &RasmProject,
         target: &CompileTarget,
         typed_module: &ASTTypedModule,
-        statics: Statics,
+        statics: &mut Statics,
         command_line_options: &CommandLineOptions,
         out_folder: &Path,
     ) -> Vec<(String, String)> {
@@ -2491,13 +2491,7 @@ pub fn get_reference_type_name(
 ) -> Option<String> {
     match ast_type {
         ASTTypedType::Builtin(BuiltinTypedTypeKind::String) => Some("str".into()),
-        ASTTypedType::Builtin(BuiltinTypedTypeKind::Char) => {
-            if target == &TypeDefBodyTarget::C {
-                Some("char".into())
-            } else {
-                None
-            }
-        }
+        ASTTypedType::Builtin(BuiltinTypedTypeKind::Char) => None,
         ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { .. }) => Some("_fn".into()),
         ASTTypedType::Enum { namespace: _, name } => Some(name.clone()),
         ASTTypedType::Struct { namespace: _, name } => Some(name.clone()),
@@ -2605,14 +2599,21 @@ mod tests {
         let project = RasmProject::new(PathBuf::from("../rasm/resources/examples/breakout"));
         let target = CompileTarget::C(options);
 
-        let (typed_module, statics) =
+        let (typed_module, mut statics) =
             project_to_ast_typed_module(&project, &target, &RasmProfile::Main).unwrap();
 
         let dir = TempDir::new("rasm_int_test").unwrap();
 
         let clo = CommandLineOptions::new(CommandLineAction::Test);
 
-        let result = sut.generate(&project, &target, &typed_module, statics, &clo, dir.path());
+        let result = sut.generate(
+            &project,
+            &target,
+            &typed_module,
+            &mut statics,
+            &clo,
+            dir.path(),
+        );
 
         assert!(!result.is_empty());
         assert!(result.iter().any(|it| it.0 == "breakout_test.c"));

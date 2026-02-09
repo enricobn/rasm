@@ -8,7 +8,9 @@ use std::{
 use log::info;
 
 use crate::{
-    codegen::asm::backend::log_command, commandline::CommandLineOptions, project::RasmProject,
+    codegen::{asm::backend::log_command, c::any::CInclude, statics::Statics},
+    commandline::CommandLineOptions,
+    project::RasmProject,
 };
 
 use rust_embed::RustEmbed;
@@ -26,6 +28,7 @@ pub fn compile_c(
     out_folder: &Path,
     src_paths: Vec<PathBuf>,
     out_file: &PathBuf,
+    statics: &Statics,
 ) -> Result<Output, String> {
     let make_file_template =
         String::from_utf8(CLibAssets::get("Makefile").unwrap().data.to_vec()).unwrap();
@@ -47,7 +50,7 @@ pub fn compile_c(
     make_file_content.push_str("OUT = ");
     make_file_content.push_str(out_file.file_name().unwrap().to_str().unwrap());
 
-    let additional_files = generate_pre_compile_artifacts(out_folder);
+    let additional_files = generate_pre_compile_artifacts(out_folder, statics);
 
     make_file_content.push_str("\nOBJECTS =");
 
@@ -110,7 +113,7 @@ pub fn compile_c(
         .map_err(|err| format!("failed to execute native compiler: {err}"))
 }
 
-fn generate_pre_compile_artifacts(out_folder: &Path) -> Vec<String> {
+fn generate_pre_compile_artifacts(out_folder: &Path, statics: &Statics) -> Vec<String> {
     let mut source_files_to_include = Vec::new();
 
     CLibAssets::iter()
@@ -126,6 +129,15 @@ fn generate_pre_compile_artifacts(out_folder: &Path) -> Vec<String> {
                 panic!()
             }
         });
+
+    if let Some(includes) = statics.any::<CInclude>() {
+        for (name, source) in includes.sources() {
+            let dest = out_folder.to_path_buf().join(name);
+            info!("Including {}", dest.to_string_lossy());
+            source_files_to_include.push(dest.to_string_lossy().to_string());
+            //fs::write(dest, source).unwrap();
+        }
+    }
 
     source_files_to_include
 }

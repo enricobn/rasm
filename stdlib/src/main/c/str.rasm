@@ -1,10 +1,3 @@
-pub  native eq(a: char, b: char) -> bool /{
-    $include(<string.h>)
-    $inline()
-
-    return (strcmp($a->address, $b->address) == 0);
-}/
-
 // from https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
 pub native add(s1: str, s2: str) -> str /{
     $include(<stdlib.h>)
@@ -28,14 +21,16 @@ pub native add(s: str, c: char) -> str /{
     $include(<string.h>)
 
     char* s_ = (char *)$s->address;
-    char* c_ = (char *)$c->address;
+    
+    char buf[5];
+    uint32_to_utf8_str(c, buf, sizeof(buf));
 
-    int len_ = strlen(s_) + strlen(c_);
+    int len_ = strlen(s_) + strlen(buf);
 
     struct RasmPointer_ *result = rasmMalloc(sizeof(char) * (len_ + 1)); // +1 for the null-terminator
     // in real code you would check for errors in malloc here
     strcpy(result->address, s_);
-    strcat(result->address, c_);
+    strcat(result->address, buf);
     ((char *)result->address)[len_] = 0;
     return result;
 }/
@@ -144,16 +139,4 @@ pub native substr(s: str, pos: int, len: int) -> Option<str> /{
     ((char *)dest->address)[len] = 0;
 
     return $call(Some, dest:str);
-}/
-
-pub native isAlpha(c: char) -> bool /{
-    $inline()
-    char *c_ = (char *)c->address;
-    return ((c_[0] >= 'a' && c_[0] <= 'z') || (c_[0] >= 'A' && c_[0] <= 'Z'));
-}/
-
-pub native isNumber(c: char) -> bool /{
-    $inline()
-    char *c_ = (char *)c->address;
-    return (c_[0] >= '0' && c_[0] <= '9');
 }/

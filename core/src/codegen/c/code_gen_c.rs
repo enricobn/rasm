@@ -22,7 +22,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::codegen::c::any::{
-    CConsts, CFunctionsDeclarations, CInclude, CLambdas, CStrings, CStructs,
+    CConsts, CFunctionsDeclarations, CInclude, CIncludeType, CLambdas, CStrings, CStructs,
 };
 use crate::codegen::c::function_call_parameters_c::CFunctionCallParameters;
 use crate::codegen::c::options::COptions;
@@ -115,13 +115,18 @@ impl CodeGenC {
         }
     }
 
+    fn char_to_utf8_int(s: &str) -> u32 {
+        let mut iter = s.chars();
+        iter.next().unwrap() as u32 // Direct scalar value ✓
+    }
+
     pub fn type_to_string(ast_type: &ASTTypedType, statics: &Statics) -> String {
         match ast_type {
             ASTTypedType::Builtin(kind) => match kind {
                 BuiltinTypedTypeKind::String => "char*".to_string(),
                 BuiltinTypedTypeKind::Integer => "long".to_string(),
                 BuiltinTypedTypeKind::Boolean => "char".to_string(),
-                BuiltinTypedTypeKind::Char => "char*".to_string(),
+                BuiltinTypedTypeKind::Char => "uint32_t".to_string(),
                 BuiltinTypedTypeKind::Float => "double".to_string(),
                 BuiltinTypedTypeKind::Lambda {
                     parameters,
@@ -160,7 +165,7 @@ impl CodeGenC {
                 BuiltinTypedTypeKind::String => "struct RasmPointer_*".to_string(),
                 BuiltinTypedTypeKind::Integer => "long".to_string(),
                 BuiltinTypedTypeKind::Boolean => "char".to_string(),
-                BuiltinTypedTypeKind::Char => "struct RasmPointer_*".to_string(),
+                BuiltinTypedTypeKind::Char => "uint32_t".to_string(),
                 BuiltinTypedTypeKind::Float => "double".to_string(),
                 BuiltinTypedTypeKind::Lambda {
                     parameters: _,
@@ -343,7 +348,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         project: &RasmProject,
         _target: &CompileTarget,
         _typed_module: &ASTTypedModule,
-        _statics: Statics,
+        _statics: &Statics,
         command_line_options: &CommandLineOptions,
         out_folder: &Path,
     ) -> Vec<(String, String)> {
@@ -991,8 +996,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         let mut before = String::new();
         let mut after = String::new();
 
+        self.add(&mut include, &format!("#include <stdint.h>"), None, false);
+
         if let Some(includes) = statics.any::<CInclude>() {
-            for inc in includes.unique() {
+            for inc in includes.headers() {
                 self.add(&mut include, &format!("#include {inc}"), None, false);
             }
             self.add_empty_line(&mut include);
@@ -1370,11 +1377,26 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                                 || it.file_name().to_string_lossy().ends_with(".c")
                         })
                         .for_each(|it| {
-                            CInclude::add_to_statics(
-                                statics,
-                                format!("\"{}\"", it.clone().file_name().to_string_lossy()),
-                            );
-
+                            if it.file_name().to_string_lossy().ends_with(".h") {
+                                CInclude::add_to_statics(
+                                    statics,
+                                    CIncludeType::Header(format!(
+                                        "\"{}\"",
+                                        it.clone().file_name().to_string_lossy()
+                                    )),
+                                );
+                            } else {
+                                CInclude::add_to_statics(
+                                    statics,
+                                    CIncludeType::Source(
+                                        format!(
+                                            "\"{}\"",
+                                            it.path().canonicalize().unwrap().to_string_lossy()
+                                        ),
+                                        fs::read_to_string(it.path()).unwrap(),
+                                    ),
+                                );
+                            }
                             let dest = out_folder
                                 .to_path_buf()
                                 .join(Path::new(it.file_name().to_string_lossy().as_ref()));
@@ -1391,7 +1413,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             .for_each(|it| {
                 let dest = out_folder.to_path_buf().join(it.to_string());
                 info!("Including {}", dest.to_string_lossy());
-                CInclude::add_to_statics(statics, format!("\"{it}\""));
+                CInclude::add_to_statics(statics, CIncludeType::Header(format!("\"{it}\"")));
                 if let Some(asset) = CLibAssets::get(&it) {
                     fs::write(dest, asset.data).unwrap();
                 } else {
@@ -1405,7 +1427,18 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             ASTValue::ASTStringValue(v) => CStrings::add_to_statics(statics, v.to_owned()),
             ASTValue::ASTBooleanValue(b) => if *b { "1" } else { "0" }.to_string(),
             ASTValue::ASTIntegerValue(v) => format!("{v}"),
-            ASTValue::ASTCharValue(v) => CStrings::add_to_statics(statics, v.to_owned()),
+            ASTValue::ASTCharValue(v) => {
+                /*
+                let mut buf = [0u8; 4];
+                let utf8_str = v[0].encode_utf8(&mut buf); // F0 9F 98 80 😀
+                println!("{:?}", utf8_str.as_bytes()); // [240, 159, 152, 128]
+
+                // Pack to u32 (big-endian):
+                let utf8_int = u32::from_be_bytes([buf[0], buf[1], buf[2], buf[3]]);
+                */
+
+                format!("{}", Self::char_to_utf8_int(v))
+            }
             ASTValue::ASTFloatValue(v) => format!("{v}"),
         }
     }

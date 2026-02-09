@@ -5,10 +5,10 @@ use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use crate::{
     codegen::{
         compile_target::CompileTarget, enh_ast::EnhModuleInfo, enhanced_module::EnhancedASTModule,
-        statics::Statics,
+        get_typed_module, statics::Statics,
     },
     commandline::RasmProfile,
-    enh_type_check::typed_ast::{ASTTypedModule, convert_to_typed_module},
+    enh_type_check::typed_ast::ASTTypedModule,
     errors::CompilationError,
     project::RasmProject,
     transformations::enrich_container,
@@ -38,12 +38,15 @@ pub fn project_and_container(
 pub fn project_to_ast_typed_module(
     project: &RasmProject,
     target: &CompileTarget,
+    profile: &RasmProfile,
 ) -> Result<(ASTTypedModule, Statics), Vec<CompilationError>> {
     let mut statics = Statics::new();
 
-    let profile = RasmProfile::Main;
+    let (container, catalog, parse_errors) = project.container_and_catalog(&profile, &target);
 
-    let (container, catalog, _) = project.container_and_catalog(&profile, &target);
+    if !parse_errors.is_empty() {
+        return Err(parse_errors);
+    }
 
     let container = enrich_container(target, &mut statics, container, &catalog, false, false);
 
@@ -63,17 +66,12 @@ pub fn project_to_ast_typed_module(
         return Err(errors);
     }
 
-    let mandatory_functions = target.get_mandatory_functions(&module);
-
-    let default_functions = target.get_default_functions(false);
-
-    match convert_to_typed_module(
+    match get_typed_module(
         module,
         false,
-        mandatory_functions,
+        false,
         &mut statics,
-        default_functions,
-        &target,
+        target,
         false,
         ASTTypeChecker::from_modules_container(&container).0,
         &catalog,

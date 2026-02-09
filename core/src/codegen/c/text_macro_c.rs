@@ -17,7 +17,7 @@
  */
 use rasm_utils::OptionDisplay;
 
-use crate::codegen::c::any::CInclude;
+use crate::codegen::c::any::{CInclude, CIncludeType};
 use crate::codegen::c::typed_function_creator_c::TypedFunctionsCreatorC;
 use crate::codegen::enh_ast::EnhASTType;
 use crate::codegen::get_reference_type_name;
@@ -44,10 +44,10 @@ impl TextMacroEval for CIncludeMacro {
     ) -> Result<String, String> {
         match text_macro.parameters.get(0).unwrap() {
             MacroParam::Plain(s, _, _) => {
-                CInclude::add_to_statics(statics, s.clone());
+                CInclude::add_to_statics(statics, CIncludeType::Header(s.clone()));
             }
             MacroParam::StringLiteral(s) => {
-                CInclude::add_to_statics(statics, format!("\"{s}\""));
+                CInclude::add_to_statics(statics, CIncludeType::Header(format!("\"{s}\"")));
             }
             MacroParam::Ref(_, _, _) => {}
         }
@@ -76,7 +76,10 @@ impl TextMacroEval for CStructDeclarationMacro {
         if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {
             if let Some(def) = function_def {
                 if let ASTTypedType::Struct { namespace, name } = &def.return_type {
-                    CInclude::add_to_statics(statics, "<stdlib.h>".to_string()); // for malloc
+                    CInclude::add_to_statics(
+                        statics,
+                        CIncludeType::Header("<stdlib.h>".to_string()),
+                    ); // for malloc
 
                     let safe_name = format!("{}_{}", namespace.safe_name(), name);
                     Ok(format!(
@@ -123,14 +126,14 @@ impl TextMacroEval for CStructTypeMacro {
     ) -> Result<String, String> {
         if let Some(def) = function_def {
             if let ASTTypedType::Struct { namespace, name } = &def.return_type {
-                CInclude::add_to_statics(statics, "<stdlib.h>".to_string()); // for malloc
+                CInclude::add_to_statics(statics, CIncludeType::Header("<stdlib.h>".to_string())); // for malloc
 
                 let safe_name = format!("{}_{}", namespace.safe_name(), name);
                 Ok(format!("struct {safe_name}"))
             } else if let ASTTypedType::Struct { namespace, name } =
                 &def.parameters.first().unwrap().ast_type
             {
-                CInclude::add_to_statics(statics, "<stdlib.h>".to_string()); // for malloc
+                CInclude::add_to_statics(statics, CIncludeType::Header("<stdlib.h>".to_string())); // for malloc
 
                 let safe_name = format!("{}_{}", namespace.safe_name(), name);
                 Ok(format!("struct {safe_name}"))
@@ -171,7 +174,10 @@ impl TextMacroEval for CEnumVariantDeclarationMacro {
             if let Some(MacroParam::Plain(variant_name, _, _)) = text_macro.parameters.get(1) {
                 if let Some(def) = function_def {
                     if let ASTTypedType::Enum { namespace, name } = &def.return_type {
-                        CInclude::add_to_statics(statics, "<stdlib.h>".to_string()); // for malloc
+                        CInclude::add_to_statics(
+                            statics,
+                            CIncludeType::Header("<stdlib.h>".to_string()),
+                        ); // for malloc
 
                         let safe_name =
                             format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
@@ -344,7 +350,10 @@ impl TextMacroEval for CEnumDeclarationMacro {
                     name: _,
                 } = &def.return_type
                 {
-                    CInclude::add_to_statics(statics, "<stdlib.h>".to_string()); // for malloc
+                    CInclude::add_to_statics(
+                        statics,
+                        CIncludeType::Header("<stdlib.h>".to_string()),
+                    ); // for malloc
                     Ok(format!(
                         "struct RasmPointer_* {var_name} = rasmMalloc(sizeof(struct Enum));"
                     ))

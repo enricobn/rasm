@@ -16,7 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::c::any::{CInclude, CLambda, CLambdas, CStrings};
+use crate::codegen::c::any::{CInclude, CIncludeType, CLambda, CLambdas, CStrings};
 use crate::codegen::c::code_gen_c::{CCodeManipulator, CodeGenC};
 use crate::codegen::c::options::COptions;
 use crate::codegen::code_manipulator::CodeManipulator;
@@ -272,7 +272,7 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
         name: &str,
     ) -> LambdaSpace {
         // for malloc
-        CInclude::add_to_statics(statics, "<stdlib.h>".to_string());
+        CInclude::add_to_statics(statics, CIncludeType::Header("<stdlib.h>".to_string()));
 
         // TODO I don't like it: if the _lambda parameter has already been added, remove it, 
         // it will be added after, and here, before creating the lambda, we don't want it

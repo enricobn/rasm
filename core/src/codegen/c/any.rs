@@ -57,8 +57,14 @@ impl CConsts {
     }
 }
 
+#[derive(PartialEq, Eq)]
+pub enum CIncludeType {
+    Header(String),
+    Source(String, String),
+}
+
 pub struct CInclude {
-    vec: Vec<String>,
+    vec: Vec<CIncludeType>,
 }
 
 impl CInclude {
@@ -66,23 +72,40 @@ impl CInclude {
         Self { vec: Vec::new() }
     }
 
-    pub fn add(&mut self, c: String) {
-        self.vec.push(c)
+    pub fn add(&mut self, t: CIncludeType) {
+        self.vec.push(t)
     }
 
-    pub fn unique(&self) -> Vec<String> {
-        let mut includes = self.vec.clone();
+    pub fn headers(&self) -> Vec<String> {
+        let mut includes = self
+            .vec
+            .iter()
+            .filter_map(|it| match it {
+                CIncludeType::Header(s) => Some(s.clone()),
+                CIncludeType::Source(_, _) => None,
+            })
+            .collect_vec();
         includes.sort();
         includes.dedup();
         includes
     }
 
-    pub fn add_to_statics(statics: &mut Statics, inc_string: String) {
+    pub fn sources(&self) -> Vec<(String, String)> {
+        self.vec
+            .iter()
+            .filter_map(|it| match it {
+                CIncludeType::Header(_) => None,
+                CIncludeType::Source(name, content) => Some((name.clone(), content.clone())),
+            })
+            .collect_vec()
+    }
+
+    pub fn add_to_statics(statics: &mut Statics, t: CIncludeType) {
         if let Some(i) = statics.any_mut::<CInclude>() {
-            i.add(inc_string);
+            i.add(t);
         } else {
             let mut i = CInclude::new();
-            i.add(inc_string);
+            i.add(t);
             statics.add_any(i);
         }
     }

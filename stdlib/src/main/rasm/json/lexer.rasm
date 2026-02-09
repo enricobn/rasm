@@ -13,7 +13,6 @@ internal enum BracketStatus {
 @toString()
 internal enum JsonToken {
     Bracket(kind: BracketKind, status: BracketStatus),
-    Spaces(s: str),
     String(s: str),
     Number(n: str),
     Boolean(b: bool),
@@ -43,12 +42,6 @@ pub fn lexe(json: str) -> Result<Vec<JsonToken>, str> {
         state.status.matchNone(
         { Ok(state.tokens); }, 
         { processChar(Ok(state), '\n').map(fn(newState) {newState.tokens;}); }); // if not None, there's an ongoing parsing to terminate
-    });
-}
-
-pub fn noSpaces(tokens: Vec<JsonToken>) -> Vec<JsonToken> {
-    tokens.filter(fn(token) {
-        token.matchSpaces(fn(spaces) { false; }, { true; });
     });
 }
 
@@ -156,7 +149,6 @@ fn processSpaces(state: LexerState, c: char) -> Result<LexerState,str> {
         Ok(state.actual(fn(actual) { actual.append(c);}));
     }, {
         let newState = state.status(LexerStatus::None())
-        .tokens( fn(vec) { vec.push(JsonToken::Spaces(state.actual)); })
         .actual("");
         // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
         processChar(Ok(newState), c);

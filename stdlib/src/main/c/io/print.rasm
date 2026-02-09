@@ -79,7 +79,9 @@ pub native print(file: File, c: char) -> Option<IOError> /{
     if (file == NULL) {
         errno = 9;
     } else {
-        fprintf(file, "%s", (char *)c->address);
+        char buf[5];
+        uint32_to_utf8_str(c, buf, sizeof(buf));
+        fprintf(file, "%s", buf);
     }
     return $call(optIOError);
 }/

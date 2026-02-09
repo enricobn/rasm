@@ -1,3 +1,24 @@
 pub native toString(c: char) -> str /{
-    return c;
+    char buf[5];
+    uint32_to_utf8_str(c, buf, sizeof(buf));
+    return addStaticStringToHeap(buf);
+}/
+
+pub native isAlpha(c: char) -> bool /{
+    char buf[5];
+    uint32_to_utf8_str(c, buf, sizeof(buf));
+    return ((buf[0] >= 'a' && buf[0] <= 'z') || (buf[0] >= 'A' && buf[0] <= 'Z'));
+}/
+
+pub native isNumber(c: char) -> bool /{
+    char buf[5];
+    uint32_to_utf8_str(c, buf, sizeof(buf));
+    return (buf[0] >= '0' && buf[0] <= '9');
+}/
+
+pub  native eq(a: char, b: char) -> bool /{
+    $include(<string.h>)
+    $inline()
+
+    return a == b;
 }/

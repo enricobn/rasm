@@ -29,7 +29,7 @@ fn testFileLexer() -> Assertions {
     let tokensResult = lexe(s);
     tokensResult(tokensResult, 
         fn(assertions, tokens) {
-            assertions.assertEquals(74, tokens.len);
+            assertions.assertEquals(47, tokens.len);
         }
     );
 }

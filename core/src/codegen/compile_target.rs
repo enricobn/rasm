@@ -133,7 +133,7 @@ impl CompileTarget {
     fn generate(
         &self,
         project: &RasmProject,
-        statics: Statics,
+        statics: &mut Statics,
         typed_module: &ASTTypedModule,
         cmd_line_options: &CommandLineOptions,
         out_folder: &Path,
@@ -496,7 +496,7 @@ impl CompileTarget {
 
         let native_codes = self.generate(
             &project,
-            statics,
+            &mut statics,
             &typed_module,
             &command_line_options,
             &out_folder,
@@ -561,6 +561,7 @@ impl CompileTarget {
                     &out_folder,
                     out_paths,
                     &out_file,
+                    &statics,
                 )
                 .map_err(|message| vec![CompilationError::generic_none(message)])?;
 
