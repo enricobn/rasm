@@ -18,6 +18,7 @@ use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::Parser;
 use rasm_utils::{OptionDisplay, SliceDisplay, debug_i};
 
+use crate::codegen::code_analyzer::is_par_reused;
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{
     EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef, EnhASTType,
@@ -834,23 +835,34 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     ASTTypedExpression::ValueRef(name, index, namespace) => {
                         let mut reused_parameter = true;
 
-                        /*
-                        TODO : it's too slow to check if a parameter is reused, here, it should be done for function
-
-                        if let Some(TypedValKind::ParameterRef(_, _)) = context.get(name) {
-                            if let Some(ASTTypedFunctionBody::RASMBody(ref fb)) = body {
-                                if !is_par_reused(fb, name, context) {
+                        let mut found = false;
+                        if let Some(TypedValKind::ParameterRef(_, def)) = context.get(name) {
+                            if let Some(pd) = parent_def {
+                                if pd.parameters.iter().any(|p| p.ast_index == def.ast_index) {
+                                    if let ASTTypedFunctionBody::RASMBody(ref fb) = pd.body {
+                                        found = true;
+                                        if !is_par_reused(fb, def, context) {
+                                            reused_parameter = false;
+                                        }
+                                    }
+                                }
+                            }
+                            if !found && let Some(ASTTypedFunctionBody::RASMBody(ref fb)) = body {
+                                if !is_par_reused(fb, def, context) {
                                     reused_parameter = false;
                                 }
                             }
                         }
 
-                        if namespace.safe_name().contains("lexer") {
-                            if !reused_parameter {
-                                println!("not reused parameter {name} : {index}");
-                            }
+                        //reused_parameter = true;
+
+                        //if namespace.safe_name().contains("vectest") {
+                        /*
+                        if !reused_parameter {
+                            println!("not reused parameter {name} : {index}");
                         }
                         */
+                        //}
 
                         let error_msg = format!(
                             "Cannot find val {}, calling function {}",

@@ -4,7 +4,7 @@ target/
 /local/
 /.vscode/
 debug.log.xml
-tmp/
+tmp*/*
 scores.txt
 callgrind.out.*
 flamegraph.svg

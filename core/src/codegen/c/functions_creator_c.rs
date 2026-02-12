@@ -327,11 +327,12 @@ impl FunctionsCreator for CFunctionsCreator {
             vec![
                 "$include(<string.h>)",
                 "$structDeclaration(newStruct)",
-                &format!("$structType()* s = ($structType()*)newStruct->address;"),
-                "memcpy(s, $castAddress($receiver), sizeof(",
+                "memcpy(newStruct_, $castAddress($receiver), sizeof(",
                 "$structType()",
                 "));",
-                &format!("s->{name} = $castAddress($f)->functionPtr(s->{name}, f);"),
+                &format!(
+                    "newStruct_->{name} = $castAddress($f)->functionPtr(newStruct_->{name}, f);"
+                ),
                 "return newStruct;",
             ],
             None,

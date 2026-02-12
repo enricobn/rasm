@@ -1276,7 +1276,7 @@ impl Display for EnhASTIndex {
                 .as_ref()
                 .map(|it| {
                     if it.exists() {
-                        format!("file:///{}", it.canonicalize().unwrap().to_str().unwrap())
+                        format!("file://{}", it.canonicalize().unwrap().to_str().unwrap())
                     } else {
                         format!("{}", it.to_string_lossy())
                     }

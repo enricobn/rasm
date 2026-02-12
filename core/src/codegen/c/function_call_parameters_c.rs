@@ -539,8 +539,14 @@ impl FunctionCallParameters<CodeGenCContext> for CFunctionCallParameters {
             
             if reused_parameter {
                 self.add_ref_deref(type_def_provider, typed_type, typed_type, statics, val_name);
+            } else {
+                self.code_manipulator.add_comment(
+                    &mut self.before,
+                    &format!("Not reused parameter: {val_name};"),
+                    true,
+                );
             }
-
+            
             self.parameters_values
                 .insert(original_param_name.to_string(), val_name.to_string());
         }

@@ -1,14 +1,10 @@
 pub type Vec<T> /{ hasReferences = true, nativeType = struct Vector* }/
 
 native Vec(length: int, size: int) -> RasmPointer /{
-    /*
     size_t total_length = length * 1.2;
     if (total_length < 10) {
         total_length = 10;
     }
-    */
-    
-    size_t total_length = length;
 
     struct RasmPointer_ *result = rasmMalloc(sizeof(struct Vector));
     struct Vector *new_vec = (struct Vector*)result->address;
@@ -96,15 +92,14 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
     struct RasmPointer_ *values = $castAddress($vec)->values;
     $realTypeName(T) *array = ($realTypeName(T) *)values->address;
 
-    size_t s = sizeof($realTypeName(T));
+    $addRef(o: T);
 
-/*
     if (vec->count == 1 && $castAddress($vec)->total_length != $castAddress($vec)->length) {
-        array[length] = $o;
+        array[length] = o;
         $castAddress($vec)->length++;
         return vec;
     } else {
-*/
+        size_t s = sizeof($realTypeName(T));
         struct RasmPointer_ *result = $call(Vec,length + 1,s);
         struct Vector *result_vec = (struct Vector*)result->address;
         struct RasmPointer_ *result_values = result_vec->values;
@@ -112,10 +107,11 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
 
         memcpy(result_array, array, s * length);
 
-        result_array[length] = $o;
+        result_array[length] = o;
 
+        addRef(result);
         return result;
-//    }
+    }
 }/
 
 pub native len<T>(vec: Vec<T>) -> int /{
@@ -552,6 +548,7 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
                 }
                 to_deref_index = 0;
             }
+            zero = result;
         }
         $isRef(T1, "", "*/")
         result = tmpResult;

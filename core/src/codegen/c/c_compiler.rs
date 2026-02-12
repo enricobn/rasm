@@ -131,11 +131,10 @@ fn generate_pre_compile_artifacts(out_folder: &Path, statics: &Statics) -> Vec<S
         });
 
     if let Some(includes) = statics.any::<CInclude>() {
-        for (name, source) in includes.sources() {
+        for (name, _) in includes.sources() {
             let dest = out_folder.to_path_buf().join(name);
             info!("Including {}", dest.to_string_lossy());
             source_files_to_include.push(dest.to_string_lossy().to_string());
-            //fs::write(dest, source).unwrap();
         }
     }
 
