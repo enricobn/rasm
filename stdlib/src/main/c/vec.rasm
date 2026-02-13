@@ -109,7 +109,6 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
 
         result_array[length] = o;
 
-        addRef(result);
         return result;
     }
 }/
