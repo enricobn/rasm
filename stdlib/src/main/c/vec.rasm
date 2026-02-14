@@ -92,9 +92,10 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
     struct RasmPointer_ *values = $castAddress($vec)->values;
     $realTypeName(T) *array = ($realTypeName(T) *)values->address;
 
-    $addRef(o: T);
+    char optimize = vec->count == 1 && $castAddress($vec)->total_length != $castAddress($vec)->length;
 
-    if (vec->count == 1 && $castAddress($vec)->total_length != $castAddress($vec)->length) {
+    if (optimize) {
+        $addRef(o: T);
         array[length] = o;
         $castAddress($vec)->length++;
         return vec;
@@ -320,14 +321,26 @@ pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     struct RasmPointer_ *values = $castAddress($vec)->values;
     $realTypeName(T) *array = ($realTypeName(T) *)values->address;
 
-    size_t s = sizeof($realTypeName(T1));
-    struct RasmPointer_ *result = $call(Vec,length,s:int);
+    size_t s1 = sizeof($realTypeName(T1));
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result;
+
+    char optimize = 0; //vec->count == 1 && s > s1;
+
+    if (optimize) {
+        result = vec;
+    } else {
+        result = $call(Vec,length,s1:int);
+    }
+
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
     $realTypeName(T1) *result_array = ($realTypeName(T1) *)result_values->address;
 
-    addRef(result);
-    addRef(result_values);
+    if (!optimize) {
+        addRef(result);
+        addRef(result_values);
+    }
 
     for (int i = 0; i < length; i++) {
         $realTypeName(T1) tmp = $castAddress($f)->functionPtr(array[i], f);
@@ -389,8 +402,16 @@ pub native filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     struct RasmPointer_ *values = $castAddress($vec)->values;
     $realTypeName(T) *array = ($realTypeName(T) *)values->address;
 
-    size_t s = sizeof($realTypeName(T));
-    struct RasmPointer_ *result = $call(Vec,length,s:int);
+    struct RasmPointer_ *result;
+    char optimize = 0;  // vec->count == 1
+
+    if (optimize) {
+        result = vec;
+    } {
+        size_t s = sizeof($realTypeName(T));
+        result = $call(Vec,length,s:int);
+    }
+
     struct Vector *result_vec = (struct Vector*)result->address;
     struct RasmPointer_ *result_values = result_vec->values;
     $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;

@@ -5,31 +5,15 @@ pub fn vecSuite() -> TestSuite {
 
 fn foldLeft() -> Assertions {
     let v = vecRange(1, 10000)
-        .map(fn(it) { Some(it);});
+        .map(fn(it) { Some(it);})
+        .filter(fn(it) { it.match(fn(i) { true;}, { false;});});
 
-/*
-    let addrefCount = addrefCount();
-    let derefCount = derefCount();
-    let allocCount = allocCount();
-    let freeCount = freeCount();
-    let pushZeroCount = pushZeroCount();
-    let removeFromZeroCount = removeFromZeroCount();
-*/
-
-    let v1 = 
-    v.foldLeft(Vec<Option<int>>(), 
+    let v1 = v.foldLeft(
+        Vec<Option<int>>(), 
         fn(accum, actual) {  
             accum.push(actual);
-        });
+        }
+    );
         
     Assertions().assertEquals(9999, v1.len);
-    /*
-    println("addref ", addrefCount().sub(addrefCount));
-    println("deref ", derefCount().sub(derefCount));
-    println("pushZero ", pushZeroCount().sub(pushZeroCount));
-    println("removeFromZero ", removeFromZeroCount().sub(removeFromZeroCount));
-    println("alloc ", allocCount().sub(allocCount));
-    println("free ", freeCount().sub(freeCount));
-    */
-
 }
