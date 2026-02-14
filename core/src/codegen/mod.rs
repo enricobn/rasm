@@ -134,7 +134,12 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
     fn create_code_gen_context(&self) -> CTX;
 
-    fn end_main(&self, code: &mut String);
+    fn end_main(
+        &self,
+        code: &mut String,
+        statics: &Statics,
+        type_def_provider: &dyn TypeDefProvider,
+    );
 
     fn transform_before_in_function_def(&self, code_gen_context: &CTX, before: String) -> String;
 
@@ -596,7 +601,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             self.print_memory_info(&mut generated_code, &statics);
         }
 
-        self.end_main(&mut generated_code);
+        self.end_main(&mut generated_code, &statics, typed_module);
 
         self.function_end(&code_gen_context, &mut generated_code, false, None);
 

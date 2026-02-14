@@ -32,6 +32,12 @@ struct fs_allocator *fs_allocator_new(size_t size, size_t count) {
   return result;
 }
 
+void fs_allocator_destroy(struct fs_allocator *allocator) {
+  free(allocator->free);
+  free(allocator->mem);
+  free(allocator);
+}
+
 /**
  * Allocates a block of memory from the given allocator.
  *

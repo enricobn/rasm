@@ -647,7 +647,7 @@ impl CompileTarget {
                     ),
                 ]
             }
-            CompileTarget::C(_) => vec![DefaultFunction::new_0("freeReferences")],
+            CompileTarget::C(_) => Vec::new(),
         };
 
         if print_allocation {

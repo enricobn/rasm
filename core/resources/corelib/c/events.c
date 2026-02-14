@@ -58,6 +58,7 @@ void register_event(enum Event event) {
   unsigned long *actual = references;
 
   while (*actual != 0) {
+    events[0]++;
     unsigned long reference = *actual;
     if (reference > 0 && reference < EVENTS_COUNT) {
       events[reference]++;
@@ -82,11 +83,13 @@ int compare_event_line(const void *a, const void *b) {
 }
 
 void print_events(FILE *file, long *events) {
+  fprintf(file, "total = %ld\n", events[0]);
+
   struct EventLine **event_lines =
       malloc(EVENTS_COUNT * sizeof(struct EventLine *));
   size_t event_lines_count = 0;
 
-  for (int i = 0; i < EVENTS_COUNT; i++) {
+  for (int i = 1; i < EVENTS_COUNT; i++) {
     if (events[i] > 0) {
       struct line_info *info = line_info_from_reference(i);
       if (info != NULL && info->filename &&

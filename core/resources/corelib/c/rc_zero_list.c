@@ -13,6 +13,11 @@ void init_zero_list() {
   fs_zero_list_allocator = fs_allocator_new(sizeof(struct RCZeroList), 1000000);
 }
 
+void destroy_zero_list() {
+  free_zero();
+  fs_allocator_destroy(fs_zero_list_allocator);
+}
+
 void remove_from_zero_list(struct RCZeroList *actual) {
 #ifdef __RASM_MEMORY_DEBUG__
   register_event(EVENT_REMOVE_FROM_ZERO);

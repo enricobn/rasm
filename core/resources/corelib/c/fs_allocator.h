@@ -23,5 +23,6 @@ struct fs_allocator {
 };
 
 struct fs_allocator *fs_allocator_new(size_t size, size_t count);
+void fs_allocator_destroy(struct fs_allocator *allocator);
 void *fs_alloc(struct fs_allocator *allocator);
 void fs_free(struct fs_allocator *allocator, void *address);

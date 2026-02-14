@@ -78,6 +78,12 @@ void initRasmReferences() {
                           fs_allocator_enum->count * fs_allocator_enum->size);
 }
 
+void freeRasmReferences() {
+  destroy_zero_list();
+  fs_allocator_destroy(fs_allocator_enum);
+  fs_allocator_destroy(fs_allocator);
+}
+
 struct RasmPointer_ *addStaticStringToHeap(const char *s) {
   struct RasmPointer_ *result = rasmMalloc(strlen(s) + 1);
   strcpy((char *)result->address, s);
@@ -86,7 +92,7 @@ struct RasmPointer_ *addStaticStringToHeap(const char *s) {
 
 struct Void_ *deref(struct RasmPointer_ *address) {
 #ifdef __RASM_MEMORY_DEBUG__
-  register_event(EVENT_DEREF);
+  // register_event(EVENT_DEREF);
 #endif
 
   if (--address->count == 0) {
@@ -97,7 +103,7 @@ struct Void_ *deref(struct RasmPointer_ *address) {
 
 struct Void_ *addRef(struct RasmPointer_ *address) {
 #ifdef __RASM_MEMORY_DEBUG__
-  register_event(EVENT_ADDREF);
+  // register_event(EVENT_ADDREF);
 #endif
 
   if (++address->count == 1) {

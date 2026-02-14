@@ -23,7 +23,3 @@ pub native argv(i: int) -> Option<str> /{
     }
 
 }/
-
-pub native freeReferences() /{
-    free_zero();
-}/

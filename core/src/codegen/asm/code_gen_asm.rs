@@ -891,7 +891,12 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
         &self.options
     }
 
-    fn end_main(&self, code: &mut String) {
+    fn end_main(
+        &self,
+        code: &mut String,
+        _statics: &Statics,
+        type_def_provider: &dyn TypeDefProvider,
+    ) {
         self.call_function(code, "exitMain", &[("0", None)], None, false, false);
     }
 

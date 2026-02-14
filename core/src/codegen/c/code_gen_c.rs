@@ -370,8 +370,37 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         vec![("rasm.h".to_owned(), rasm_h)]
     }
 
-    fn end_main(&self, code: &mut String) {
-        self.add(code, "    freeReferences();", None, true);
+    fn end_main(
+        &self,
+        code: &mut String,
+        statics: &Statics,
+        type_def_provider: &dyn TypeDefProvider,
+    ) {
+        if let Some(strings) = statics.any::<CStrings>() {
+            for (_, name) in strings.map.iter() {
+                self.add(code, &format!("deref({name});"), None, true);
+            }
+        }
+        //self.add(code, "deref(RASMSOURCEFOLDER);", None, true);
+
+        if let Some(consts) = statics.any::<CConsts>() {
+            for (name, _, _, t) in consts.vec.iter() {
+                if let Some(type_name) = get_reference_type_name(t, &TypeDefBodyTarget::C) {
+                    CodeGenC::call_deref(
+                        &self.code_manipulator,
+                        code,
+                        name,
+                        &type_name,
+                        "",
+                        type_def_provider,
+                    );
+                }
+
+                //self.add(code, &format!("deref({name});"), None, true);
+            }
+        }
+
+        self.add(code, "freeRasmReferences();", None, true);
         if self.memory_debug {
             self.add_rows(
                 code,
@@ -645,6 +674,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                 CodeGenC::real_type_to_string(typed_type)
             ),
             None,
+            typed_type.clone(),
         );
         self.add(before, &format!("{statics_key} = ",), None, true);
     }
@@ -690,6 +720,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                 key.clone(),
                 format!("struct RasmPointer_* {}", &key),
                 None,
+                ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
             );
             self.add(
                 body,
@@ -738,6 +769,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                     entry.key
                 ),
                 Some(value),
+                typed_type.clone(),
             );
         } else {
             self.add(
@@ -1041,7 +1073,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         }
 
         if let Some(consts) = statics.any::<CConsts>() {
-            for (name, def, value) in consts.vec.iter() {
+            for (name, def, value, _) in consts.vec.iter() {
                 self.add(&mut include, &format!("extern {def};"), None, false);
                 self.add(&mut before, &format!("{def};"), None, false);
 
