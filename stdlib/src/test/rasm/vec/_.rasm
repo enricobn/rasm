@@ -1,0 +1,30 @@
+pub fn vecSuite() -> TestSuite {
+    TestSuite("vec")
+    .add("map let unchanged", mapLetUnchanged)
+    .add("sum", sum);
+}
+
+fn mapLetUnchanged() -> Assertions {
+    let v = vecRange(0, 2);
+
+    let v1 = v.map(fn(it) { it.add(1);});
+    let v2 = v.map(fn(it) { it.add(2);});
+    let v3 = v.map(fn(it) { 1.1.add(it);});
+       
+    Assertions()
+    .assertEquals(1, v.sum)
+    .assertEquals(3, v1.sum)
+    .assertEquals(5, v2.sum)
+    .assertEquals("3.200000000", v3.sum.toString);
+}
+
+fn sum() -> Assertions {
+    let v = vecRange(0, 2);
+
+    let v1 = v.map(fn(it) { it.add(1);});
+    let v2 = v.map(fn(it) { 1.1.add(it);});
+       
+    Assertions()
+    .assertEquals(3, v1.sum)
+    .assertEquals("3.200000000", v2.sum.toString);
+}

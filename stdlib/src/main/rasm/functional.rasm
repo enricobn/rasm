@@ -10,3 +10,17 @@ pub fn join<M,T>(items: M<T>, separator: str) -> str {
         );
     });
 }
+
+pub fn sum<M,T>(v: M<T>) -> T {
+    v.foldLeft(zero(), fn(accum, current) {
+        accum.add(current);
+    });
+}
+
+fn zero() -> int {
+    0;
+}
+
+fn zero() -> float {
+    0.0;
+}

@@ -17,6 +17,7 @@ pub enum Message<T> {
 
 let suite = TestSuite("All")
     .add(jsonSuite())
-    .add(macroSuite());
+    .add(macroSuite())
+    .add(vecSuite());
 
 suite.run(argv(1));
