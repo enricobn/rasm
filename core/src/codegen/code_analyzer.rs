@@ -106,17 +106,17 @@ mod tests {
 
         let function = get_function(&project, "aFunction", &RasmProfile::Main);
 
-        let reusedParam = function
+        let reused_aram = function
             .parameters
             .iter()
             .find(|it| it.name == "reusedParam")
             .unwrap();
-        let reusedParam1 = function
+        let reused_param1 = function
             .parameters
             .iter()
             .find(|it| it.name == "reusedParam1")
             .unwrap();
-        let reusedParam2 = function
+        let reused_param2 = function
             .parameters
             .iter()
             .find(|it| it.name == "reusedParam2")
@@ -137,9 +137,9 @@ mod tests {
             _ => panic!(),
         };
 
-        assert!(is_par_reused(body, reusedParam, &context));
-        assert!(is_par_reused(body, reusedParam1, &context));
-        assert!(is_par_reused(body, reusedParam2, &context));
+        assert!(is_par_reused(body, reused_aram, &context));
+        assert!(is_par_reused(body, reused_param1, &context));
+        assert!(is_par_reused(body, reused_param2, &context));
         assert!(!is_par_reused(body, param, &context));
     }
 
