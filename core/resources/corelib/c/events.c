@@ -31,7 +31,7 @@ int endsWith(const char *str1, const char *str2) {
   return strncmp(str1 + len1 - len2, str2, len2) == 0;
 }
 
-void register_event(enum Event event) {
+long *get_events(enum Event event) {
   long *events = NULL;
   switch (event) {
   case EVENT_ADDREF:
@@ -53,6 +53,17 @@ void register_event(enum Event event) {
     events = remove_from_zero_count;
     break;
   }
+
+  return events;
+}
+
+void register_event_no_details(enum Event event) {
+  long *events = get_events(event);
+  events[0]++;
+}
+
+void register_event(enum Event event) {
+  long *events = get_events(event);
 
   unsigned long *references = stack_trace_references(10);
   unsigned long *actual = references;

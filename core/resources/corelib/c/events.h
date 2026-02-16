@@ -8,5 +8,6 @@ enum Event {
 };
 
 void register_event(enum Event event);
+void register_event_no_details(enum Event event);
 
 void print_all_events();
