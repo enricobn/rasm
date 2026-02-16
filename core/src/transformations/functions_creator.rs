@@ -294,7 +294,7 @@ pub trait FunctionsCreator {
             ),
             parameters_names,
             parameters_positions,
-            ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(i, &property_def.name)),
+            ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(i, &property_def)),
             Some(struct_def.name.clone()),
         )
     }
@@ -430,7 +430,7 @@ pub trait FunctionsCreator {
 
     fn struct_setter_body(&self, i: usize, name: &str) -> String;
 
-    fn struct_setter_lambda_body(&self, i: usize, name: &str) -> String;
+    fn struct_setter_lambda_body(&self, i: usize, def: &ASTStructPropertyDef) -> String;
 }
 
 pub struct FunctionsCreatorNasmi386 {
@@ -875,7 +875,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         body
     }
 
-    fn struct_setter_lambda_body(&self, i: usize, _name: &str) -> String {
+    fn struct_setter_lambda_body(&self, i: usize, _def: &ASTStructPropertyDef) -> String {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 

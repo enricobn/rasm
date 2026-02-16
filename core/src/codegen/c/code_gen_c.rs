@@ -27,8 +27,9 @@ use crate::codegen::c::any::{
 use crate::codegen::c::function_call_parameters_c::CFunctionCallParameters;
 use crate::codegen::c::options::COptions;
 use crate::codegen::c::text_macro_c::{
-    CCallMacro, CEnumDeclarationMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
-    CEnumVariantMacro, CIncludeMacro, CRealTypeNameMacro, CStructDeclarationMacro,
+    CAddRefOfLambdaParamTypeMacro, CAddRefOfParamTypeMacro, CCallMacro, CEnumDeclarationMacro,
+    CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro, CEnumVariantMacro, CIncludeMacro,
+    CRealTypeNameMacro, CRealTypeNameOfLambdaParamTypeMacro, CStructDeclarationMacro,
     CStructTypeMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
@@ -931,6 +932,45 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         evaluator.add("enumSimple", CEnumSimpleMacro::new());
         evaluator.add("isRef", CIsRefMacro::new());
         evaluator.add("inline", InlineMacro::new());
+        evaluator.add(
+            "addRefOfLambdaParamType",
+            CAddRefOfLambdaParamTypeMacro::new(
+                CCodeManipulator::new(self.debug),
+                RefType::AddRef,
+                self.c_options.dereference(),
+            ),
+        );
+        evaluator.add(
+            "derefOfLambdaParamType",
+            CAddRefOfLambdaParamTypeMacro::new(
+                CCodeManipulator::new(self.debug),
+                RefType::Deref,
+                self.c_options.dereference(),
+            ),
+        );
+        evaluator.add(
+            "addRefOfParamType",
+            CAddRefOfParamTypeMacro::new(
+                CCodeManipulator::new(self.debug),
+                RefType::AddRef,
+                self.c_options.dereference(),
+            ),
+        );
+        evaluator.add(
+            "derefOfParamType",
+            CAddRefOfParamTypeMacro::new(
+                CCodeManipulator::new(self.debug),
+                RefType::Deref,
+                self.c_options.dereference(),
+            ),
+        );
+        evaluator.add(
+            "realTypeNameOfLambdaParamType",
+            CRealTypeNameOfLambdaParamTypeMacro::new(
+                CCodeManipulator::new(self.debug),
+                self.c_options.dereference(),
+            ),
+        );
 
         evaluator
     }
@@ -1030,12 +1070,19 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
 
         self.add(&mut include, &format!("#include <stdint.h>"), None, false);
 
+        let mut headers = HashSet::new();
+        headers.insert("<stdbool.h>".to_owned());
+        headers.insert("<stdint.h>".to_owned());
         if let Some(includes) = statics.any::<CInclude>() {
             for inc in includes.headers() {
-                self.add(&mut include, &format!("#include {inc}"), None, false);
+                headers.insert(inc.clone());
             }
-            self.add_empty_line(&mut include);
         }
+
+        for inc in headers {
+            self.add(&mut include, &format!("#include {inc}"), None, false);
+        }
+        self.add_empty_line(&mut include);
 
         if let Some(strings) = statics.any::<CStrings>() {
             for (value, name) in strings.map.iter() {

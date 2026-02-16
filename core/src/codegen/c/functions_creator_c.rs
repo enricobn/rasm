@@ -22,7 +22,9 @@ use crate::codegen::enh_ast::EnhModuleInfo;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use crate::transformations::functions_creator::FunctionsCreator;
-use rasm_parser::parser::ast::{ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef};
+use rasm_parser::parser::ast::{
+    ASTEnumDef, ASTEnumVariantDef, ASTModule, ASTStructDef, ASTStructPropertyDef,
+};
 
 use super::code_gen_c::CodeGenC;
 
@@ -307,12 +309,23 @@ impl FunctionsCreator for CFunctionsCreator {
             &mut result,
             vec![
                 "$include(<string.h>)",
+                "struct RasmPointer_ *struct_result = NULL;",
+                "$typeName($receiver) struct_result_ = NULL;",
+                "if(receiver->count == 1) {",
+                "struct_result = receiver;",
+                "struct_result_ = $castAddress($receiver);",
+                &format!("$derefOfParamType($v, struct_result_->{name})"),
+                "$addRef($v)",
+                "} else {",
                 "$structDeclaration(newStruct)",
                 "memcpy(newStruct->address, $receiver->address, sizeof(",
                 "$structType()",
                 "));",
-                &format!("newStruct_->{name} = $v;"),
-                "return newStruct;",
+                "struct_result = newStruct;",
+                "struct_result_ = newStruct->address;",
+                "}",
+                &format!("struct_result_->{name} = $v;"),
+                "return struct_result;",
             ],
             None,
             true,
@@ -320,24 +333,41 @@ impl FunctionsCreator for CFunctionsCreator {
         result
     }
 
-    fn struct_setter_lambda_body(&self, _i: usize, name: &str) -> String {
+    fn struct_setter_lambda_body(&self, _i: usize, def: &ASTStructPropertyDef) -> String {
         let mut result = String::new();
+        let name = &def.name;
         self.code_manipulator.add_rows(
             &mut result,
             vec![
                 "$include(<string.h>)",
+                "struct RasmPointer_ *struct_result = NULL;",
+                "$typeName($receiver) struct_result_ = NULL;",
+                "$realTypeNameOfLambdaParamType($f, 0) old_property_value;",
+                "if(receiver->count == 1) {",
+                "struct_result = receiver;",
+                "struct_result_ = $castAddress($receiver);",
+                &format!("old_property_value = struct_result_->{name};"),
+                "} else {",
                 "$structDeclaration(newStruct)",
                 "memcpy(newStruct_, $castAddress($receiver), sizeof(",
                 "$structType()",
                 "));",
+                "struct_result = newStruct;",
+                "struct_result_ = newStruct_;",
+                "}",
                 &format!(
-                    "newStruct_->{name} = $castAddress($f)->functionPtr(newStruct_->{name}, f);"
+                    "struct_result_->{name} = $castAddress($f)->functionPtr(struct_result_->{name}, f);"
                 ),
-                "return newStruct;",
+                "if(receiver->count == 1) {",
+                &format!("$addRefOfLambdaParamType($f, 0, struct_result_->{name});"),
+                &format!("$derefOfLambdaParamType($f, 0, old_property_value)"),
+                "}",
+                "return struct_result;",
             ],
             None,
             true,
         );
+
         result
     }
 }

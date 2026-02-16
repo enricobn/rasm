@@ -15,10 +15,10 @@
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use rasm_utils::OptionDisplay;
 
 use crate::codegen::c::any::{CInclude, CIncludeType};
 use crate::codegen::c::typed_function_creator_c::TypedFunctionsCreatorC;
+use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::enh_ast::EnhASTType;
 use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
@@ -26,7 +26,8 @@ use crate::codegen::text_macro::{MacroParam, RefType, TextMacro, TextMacroEval};
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::enh_type_check::typed_ast::{
-    ASTTypedFunctionDef, ASTTypedType, CustomTypedTypeDef, DefaultFunctionCall,
+    ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
+    DefaultFunctionCall,
 };
 
 use super::any::CLambdas;
@@ -453,7 +454,7 @@ impl TextMacroEval for CAddRefMacro {
         &self,
         statics: &mut Statics,
         text_macro: &TextMacro,
-        function_def: Option<&ASTTypedFunctionDef>,
+        _function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
         let mut result = String::new();
@@ -461,73 +462,18 @@ impl TextMacroEval for CAddRefMacro {
         if !self.dereference_enabled {
             return Ok(result);
         }
-        let (address, ast_typed_type) = match text_macro.parameters.get(0) {
-            Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
-                (address, ast_typed_type)
-            }
-            Some(MacroParam::Ref(address, _ast_type, Some(ast_typed_type))) => {
-                (address, ast_typed_type)
-            }
-            _ => panic!(
-                "Error: addRef/deref macro, a typed type must be specified in function {}:{} but got {}: {}",
-                OptionDisplay(&function_def),
-                OptionDisplay(&function_def.map(|it| &it.index)),
-                text_macro.parameters.get(0).unwrap(),
-                text_macro.index
-            ),
-        };
+        let (address, ast_typed_type) = get_par_text_and_type(text_macro, 0)?;
 
-        if let Some(type_name) = get_reference_type_name(ast_typed_type, &TypeDefBodyTarget::C) {
-            let descr = &format!("addref macro type {type_name}");
+        add_ref_deref_code(
+            self.ref_type,
+            statics,
+            type_def_provider,
+            &self.code_manipulator,
+            &mut result,
+            &address,
+            &ast_typed_type,
+        );
 
-            if type_name == "_fn" {
-                match self.ref_type {
-                    RefType::Deref => {
-                        TypedFunctionsCreatorC::addref_deref_lambda(
-                            &self.code_manipulator,
-                            &mut result,
-                            RefType::Deref,
-                            &address,
-                            ast_typed_type,
-                            statics,
-                        );
-                    }
-                    RefType::AddRef => {
-                        TypedFunctionsCreatorC::addref_deref_lambda(
-                            &self.code_manipulator,
-                            &mut result,
-                            RefType::AddRef,
-                            &address,
-                            ast_typed_type,
-                            statics,
-                        );
-                    }
-                }
-            } else {
-                match self.ref_type {
-                    RefType::Deref => {
-                        CodeGenC::call_deref(
-                            &self.code_manipulator,
-                            &mut result,
-                            address,
-                            &type_name,
-                            descr,
-                            type_def_provider,
-                        );
-                    }
-                    RefType::AddRef => {
-                        CodeGenC::call_add_ref(
-                            &self.code_manipulator,
-                            &mut result,
-                            address,
-                            &type_name,
-                            descr,
-                            type_def_provider,
-                        );
-                    }
-                }
-            }
-        }
         Ok(result)
     }
 
@@ -932,4 +878,310 @@ impl TextMacroEval for CIsRefMacro {
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
     }
+}
+
+pub struct CAddRefOfLambdaParamTypeMacro {
+    code_manipulator: CCodeManipulator,
+    ref_type: RefType,
+    dereference_enabled: bool,
+}
+
+impl CAddRefOfLambdaParamTypeMacro {
+    pub fn new(
+        code_manipulator: CCodeManipulator,
+        ref_type: RefType,
+        dereference_enabled: bool,
+    ) -> Self {
+        Self {
+            code_manipulator,
+            ref_type,
+            dereference_enabled,
+        }
+    }
+}
+
+impl TextMacroEval for CAddRefOfLambdaParamTypeMacro {
+    fn eval_macro(
+        &self,
+        statics: &mut Statics,
+        text_macro: &TextMacro,
+        _function_def: Option<&ASTTypedFunctionDef>,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> Result<String, String> {
+        // parameters:
+        // 0: reference to a lambda parameter of the function
+        // 1: position of the lambda parameter (0 based)
+        // 2: value for which add the reference
+        let mut result = String::new();
+
+        if !self.dereference_enabled {
+            return Ok(result);
+        }
+
+        let (_address, lambda_ast_typed_type) = get_par_text_and_type(text_macro, 0)?;
+
+        let par_index = get_par_number(text_macro, 1, "lambda parameter index")?;
+
+        let address = match text_macro.parameters.get(2) {
+            Some(MacroParam::Plain(plain_value, _, _)) => plain_value,
+            _ => {
+                return Err(
+                    "third param shlould be the value for which add the reference".to_owned(),
+                );
+            }
+        };
+
+        let ast_typed_type =
+            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, .. }) =
+                &lambda_ast_typed_type
+            {
+                &parameters[par_index]
+            } else {
+                panic!()
+            };
+
+        add_ref_deref_code(
+            self.ref_type,
+            statics,
+            type_def_provider,
+            &self.code_manipulator,
+            &mut result,
+            address,
+            ast_typed_type,
+        );
+
+        Ok(result)
+    }
+
+    fn is_pre_macro(&self) -> bool {
+        false
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
+    }
+}
+
+pub struct CAddRefOfParamTypeMacro {
+    code_manipulator: CCodeManipulator,
+    ref_type: RefType,
+    dereference_enabled: bool,
+}
+
+impl CAddRefOfParamTypeMacro {
+    pub fn new(
+        code_manipulator: CCodeManipulator,
+        ref_type: RefType,
+        dereference_enabled: bool,
+    ) -> Self {
+        Self {
+            code_manipulator,
+            ref_type,
+            dereference_enabled,
+        }
+    }
+}
+
+impl TextMacroEval for CAddRefOfParamTypeMacro {
+    fn eval_macro(
+        &self,
+        statics: &mut Statics,
+        text_macro: &TextMacro,
+        _function_def: Option<&ASTTypedFunctionDef>,
+        type_def_provider: &dyn TypeDefProvider,
+    ) -> Result<String, String> {
+        // parameters:
+        // 0: reference to a parameter of the function
+        // 1: value for which add the reference
+        let mut result = String::new();
+
+        if !self.dereference_enabled {
+            return Ok(result);
+        }
+
+        let (_address, ast_typed_type) = get_par_text_and_type(text_macro, 0)?;
+
+        let address = match text_macro.parameters.get(1) {
+            Some(MacroParam::Plain(plain_value, _, _)) => plain_value,
+            _ => panic!(),
+        };
+
+        add_ref_deref_code(
+            self.ref_type,
+            statics,
+            type_def_provider,
+            &self.code_manipulator,
+            &mut result,
+            address,
+            &ast_typed_type,
+        );
+
+        Ok(result)
+    }
+
+    fn is_pre_macro(&self) -> bool {
+        false
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
+    }
+}
+
+pub struct CRealTypeNameOfLambdaParamTypeMacro {
+    code_manipulator: CCodeManipulator,
+    dereference_enabled: bool,
+}
+
+impl CRealTypeNameOfLambdaParamTypeMacro {
+    pub fn new(code_manipulator: CCodeManipulator, dereference_enabled: bool) -> Self {
+        Self {
+            code_manipulator,
+
+            dereference_enabled,
+        }
+    }
+}
+
+impl TextMacroEval for CRealTypeNameOfLambdaParamTypeMacro {
+    fn eval_macro(
+        &self,
+        _statics: &mut Statics,
+        text_macro: &TextMacro,
+        _function_def: Option<&ASTTypedFunctionDef>,
+        _type_def_provider: &dyn TypeDefProvider,
+    ) -> Result<String, String> {
+        // parameters:
+        // 0: reference to a lambda parameter of the function
+        // 1: position of the lambda parameter (0 based)
+        let mut result = String::new();
+
+        if !self.dereference_enabled {
+            return Ok(result);
+        }
+
+        let (_address, lambda_ast_typed_type) = get_par_text_and_type(text_macro, 0)?;
+
+        let par_index = get_par_number(text_macro, 1, "lambda parameter index")?;
+
+        let ast_typed_type =
+            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, .. }) =
+                &lambda_ast_typed_type
+            {
+                &parameters[par_index]
+            } else {
+                panic!()
+            };
+
+        let type_name = CodeGenC::real_type_to_string(ast_typed_type);
+        self.code_manipulator
+            .add(&mut result, &type_name, None, true);
+
+        Ok(result)
+    }
+
+    fn is_pre_macro(&self) -> bool {
+        false
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
+    }
+}
+
+fn add_ref_deref_code(
+    ref_type: RefType,
+    statics: &Statics,
+    type_def_provider: &dyn TypeDefProvider,
+    code_manipulator: &CCodeManipulator,
+    out: &mut String,
+    address: &str,
+    ast_typed_type: &ASTTypedType,
+) {
+    if let Some(type_name) = get_reference_type_name(ast_typed_type, &TypeDefBodyTarget::C) {
+        let descr = &format!("addref macro type {type_name}");
+
+        if type_name == "_fn" {
+            match ref_type {
+                RefType::Deref => {
+                    TypedFunctionsCreatorC::addref_deref_lambda(
+                        code_manipulator,
+                        out,
+                        RefType::Deref,
+                        &address,
+                        ast_typed_type,
+                        statics,
+                    );
+                }
+                RefType::AddRef => {
+                    TypedFunctionsCreatorC::addref_deref_lambda(
+                        code_manipulator,
+                        out,
+                        RefType::AddRef,
+                        &address,
+                        ast_typed_type,
+                        statics,
+                    );
+                }
+            }
+        } else {
+            match ref_type {
+                RefType::Deref => {
+                    CodeGenC::call_deref(
+                        code_manipulator,
+                        out,
+                        address,
+                        &type_name,
+                        descr,
+                        type_def_provider,
+                    );
+                }
+                RefType::AddRef => {
+                    CodeGenC::call_add_ref(
+                        code_manipulator,
+                        out,
+                        address,
+                        &type_name,
+                        descr,
+                        type_def_provider,
+                    );
+                }
+            }
+        }
+    }
+}
+
+fn get_par_number(
+    text_macro: &TextMacro,
+    par_index: usize,
+    message: &str,
+) -> Result<usize, String> {
+    let number = match text_macro.parameters.get(par_index) {
+        Some(MacroParam::Plain(plain_value, _, _)) => plain_value
+            .parse::<usize>()
+            .map_err(|_| format!("Param {par_index}, should be the {message} as a number"))?,
+        _ => {
+            return Err(format!(
+                "Param {par_index}, should be the {message} as a number"
+            ));
+        }
+    };
+    Ok(number)
+}
+
+fn get_par_text_and_type(
+    text_macro: &TextMacro,
+    par_index: usize,
+) -> Result<(String, ASTTypedType), String> {
+    let (address, ast_typed_type) = match text_macro.parameters.get(par_index) {
+        Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
+            (address, ast_typed_type)
+        }
+        Some(MacroParam::Ref(address, _ast_type, Some(ast_typed_type))) => {
+            (address, ast_typed_type)
+        }
+        _ => return Err(format!("Cannot determine the type of param {par_index}")),
+    };
+
+    Ok((address.clone(), ast_typed_type.clone()))
 }
