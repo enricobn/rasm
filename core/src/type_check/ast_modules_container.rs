@@ -342,6 +342,7 @@ impl ASTModulesContainer {
         }
 
         if result.len() > 1
+            && parameter_types_filter.len() > 0
             && parameter_types_filter
                 .iter()
                 .all(|f| !f.is_generic_or_any())
