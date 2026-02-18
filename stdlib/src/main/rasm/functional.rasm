@@ -24,3 +24,7 @@ fn zero() -> int {
 fn zero() -> float {
     0.0;
 }
+
+fn zero() -> str {
+    "";
+}
