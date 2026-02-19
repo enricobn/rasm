@@ -16,19 +16,28 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::codegen::enh_ast::EnhASTIndex;
+use crate::codegen::TypedValKind;
+use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace};
+use crate::codegen::enh_val_context::TypedValContext;
 use crate::enh_type_check::typed_ast::{
     ASTTypedExpression, ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef,
-    ASTTypedModule, ASTTypedStatement,
+    ASTTypedModule, ASTTypedParameterDef, ASTTypedStatement, ASTTypedType,
 };
 
 pub trait TraverseTypedAST {
     fn traverse(&mut self, module: &ASTTypedModule) {
-        self.traverse_body(&module.body);
+        let mut val_context = TypedValContext::new(None);
+        self.traverse_body(&module.body, &mut val_context);
 
         for function in module.functions_by_name.values() {
+            let mut val_context = TypedValContext::new(Some(&val_context));
+            for par in function.parameters.iter() {
+                val_context.insert_let(par.name.clone(), par.ast_type.clone(), None);
+            }
             match &function.body {
-                ASTTypedFunctionBody::RASMBody(rasm_body) => self.traverse_body(rasm_body),
+                ASTTypedFunctionBody::RASMBody(rasm_body) => {
+                    self.traverse_body(rasm_body, &mut val_context)
+                }
                 ASTTypedFunctionBody::NativeBody(native_code) => {
                     self.found_asm(module, function, native_code);
                 }
@@ -37,41 +46,68 @@ pub trait TraverseTypedAST {
         }
     }
 
-    fn traverse_body(&mut self, body: &[ASTTypedStatement]) {
+    fn traverse_body(&mut self, body: &[ASTTypedStatement], val_context: &mut TypedValContext) {
         for statement in body {
-            self.traverse_statement(statement);
+            self.traverse_statement(statement, val_context);
         }
     }
 
-    fn traverse_statement(&mut self, statement: &ASTTypedStatement) {
+    fn traverse_statement(
+        &mut self,
+        statement: &ASTTypedStatement,
+        val_context: &mut TypedValContext,
+    ) {
         match statement {
-            ASTTypedStatement::Expression(expr) => self.traverse_expression(expr),
+            ASTTypedStatement::Expression(expr) => self.traverse_expression(expr, val_context),
             ASTTypedStatement::LetStatement(name, expr, index) => {
-                self.traverse_expression(expr);
+                // TODO this is a hack, we insert always a unit type
+                val_context.insert_let(name.clone(), ASTTypedType::Unit, None);
+                self.traverse_expression(expr, val_context);
                 self.found_let(name, false, index);
             }
             ASTTypedStatement::ConstStatement(name, expr, index, _namespace, _modifiers) => {
-                self.traverse_expression(expr);
+                self.traverse_expression(expr, val_context);
                 self.found_let(name, true, index);
             }
         }
     }
 
-    fn traverse_expression(&mut self, expr: &ASTTypedExpression) {
+    fn traverse_expression(
+        &mut self,
+        expr: &ASTTypedExpression,
+        val_context: &mut TypedValContext,
+    ) {
         match expr {
             ASTTypedExpression::ASTFunctionCallExpression(call) => {
                 for par in call.parameters.iter() {
-                    self.traverse_expression(par);
+                    self.traverse_expression(par, val_context);
                 }
                 self.found_call(call);
             }
-            ASTTypedExpression::ValueRef(_, _, _) => {}
+            ASTTypedExpression::ValueRef(name, enh_index, namespace) => {
+                if let Some(kind) = val_context.get(name) {
+                    self.found_value_ref(name, enh_index, namespace, kind);
+                }
+            }
             ASTTypedExpression::Value(_, _) => {}
             ASTTypedExpression::Lambda(lambda_def) => {
-                self.traverse_body(&lambda_def.body);
+                let mut val_context = TypedValContext::new(Some(val_context));
+                for (i, (name, index)) in lambda_def.parameter_names.iter().enumerate() {
+                    let par = ASTTypedParameterDef::new(name, ASTTypedType::Unit, index.clone());
+                    val_context.insert_par(name.clone(), i, par);
+                }
+                self.traverse_body(&lambda_def.body, &mut val_context);
             }
         }
     }
+
+    fn found_value_ref(
+        &mut self,
+        name: &str,
+        index: &EnhASTIndex,
+        namespace: &EnhASTNameSpace,
+        val_kind: &TypedValKind,
+    );
 
     fn found_call(&mut self, call: &ASTTypedFunctionCall);
 

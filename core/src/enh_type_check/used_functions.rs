@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::codegen::TypedValKind;
 use crate::codegen::enh_ast::EnhASTIndex;
 use crate::enh_type_check::traverse_typed_ast::TraverseTypedAST;
 use crate::enh_type_check::typed_ast::{ASTTypedFunctionCall, ASTTypedFunctionDef, ASTTypedModule};
@@ -84,6 +85,15 @@ impl TraverseTypedAST for UsedFunctions {
         }
 
          */
+    }
+
+    fn found_value_ref(
+        &mut self,
+        _name: &str,
+        _index: &EnhASTIndex,
+        _namespace: &crate::codegen::enh_ast::EnhASTNameSpace,
+        _kind: &TypedValKind,
+    ) {
     }
 }
 

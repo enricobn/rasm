@@ -1,88 +1,69 @@
+use std::collections::HashSet;
+
 use crate::{
-    codegen::{TypedValKind, enh_val_context::TypedValContext},
-    enh_type_check::typed_ast::{ASTTypedExpression, ASTTypedParameterDef, ASTTypedStatement},
+    codegen::{TypedValKind, enh_ast::EnhASTIndex, enh_val_context::TypedValContext},
+    enh_type_check::{
+        traverse_typed_ast::TraverseTypedAST,
+        typed_ast::{ASTTypedFunctionBody, ASTTypedFunctionCall, ASTTypedFunctionDef},
+    },
 };
 
-pub fn is_par_reused(
-    body: &Vec<ASTTypedStatement>,
-    def: &ASTTypedParameterDef,
-    context: &TypedValContext,
-) -> bool {
-    let mut found = false;
-    explore_body(body, def, &mut found, context)
+pub struct ReusedParametersScanner {
+    parameters: HashSet<EnhASTIndex>,
+    reused: HashSet<EnhASTIndex>,
 }
 
-fn explore_body(
-    body: &Vec<ASTTypedStatement>,
-    def: &ASTTypedParameterDef,
-    found: &mut bool,
-    context: &TypedValContext,
-) -> bool {
-    for statement in body.iter() {
-        match statement {
-            ASTTypedStatement::Expression(expr) => {
-                if explore_expr(expr, def, found, context) {
-                    return true;
-                }
-            }
-            ASTTypedStatement::LetStatement(_, expr, _) => {
-                if explore_expr(expr, def, found, context) {
-                    return true;
-                }
-            }
-            ASTTypedStatement::ConstStatement(_, _, _, _, _) => {}
+impl ReusedParametersScanner {
+    fn new() -> ReusedParametersScanner {
+        ReusedParametersScanner {
+            parameters: HashSet::new(),
+            reused: HashSet::new(),
         }
     }
-    false
 }
 
-fn explore_expr(
-    expr: &ASTTypedExpression,
-    def: &ASTTypedParameterDef,
-    found: &mut bool,
-    context: &TypedValContext,
-) -> bool {
-    match expr {
-        ASTTypedExpression::ASTFunctionCallExpression(call) => {
-            for parameter in &call.parameters {
-                if explore_expr(parameter, def, found, context) {
-                    return true;
-                }
-            }
-        }
-        ASTTypedExpression::ValueRef(_, _, _) => {
-            if is_ref_to_par(expr, def, context) {
-                if *found {
-                    return true;
-                } else {
-                    *found = true;
-                }
-            }
-        }
-        ASTTypedExpression::Value(_, _) => {}
-        ASTTypedExpression::Lambda(asttyped_lambda_def) => {
-            if explore_body(&asttyped_lambda_def.body, def, found, context) {
-                return true;
+impl TraverseTypedAST for ReusedParametersScanner {
+    fn found_value_ref(
+        &mut self,
+        _name: &str,
+        _index: &EnhASTIndex,
+        _namespace: &super::enh_ast::EnhASTNameSpace,
+        kind: &TypedValKind,
+    ) {
+        if let TypedValKind::ParameterRef(_, def) = kind {
+            if !self.parameters.insert(def.ast_index.clone()) {
+                self.reused.insert(def.ast_index.clone());
             }
         }
     }
-    false
+
+    fn found_call(&mut self, _call: &ASTTypedFunctionCall) {}
+
+    fn found_let(&mut self, _name: &str, _is_const: bool, _index: &EnhASTIndex) {}
+
+    fn found_function_def(&mut self, _function: &ASTTypedFunctionDef) {}
+
+    fn found_asm(
+        &mut self,
+        _module: &crate::enh_type_check::typed_ast::ASTTypedModule,
+        _function: &ASTTypedFunctionDef,
+        _native_code: &str,
+    ) {
+    }
 }
 
-fn is_ref_to_par(
-    expr: &ASTTypedExpression,
-    def: &ASTTypedParameterDef,
-    context: &TypedValContext,
-) -> bool {
-    if let ASTTypedExpression::ValueRef(ref_name, _, _) = expr {
-        if ref_name == &def.name {
-            if let Some(TypedValKind::ParameterRef(_, pd)) = context.get(&def.name) {
-                // println!("found ref to parameter {name}");
-                return pd.ast_index == def.ast_index;
-            }
-        }
+pub fn reused_params(
+    def: &ASTTypedFunctionDef,
+    val_context: &TypedValContext,
+) -> HashSet<EnhASTIndex> {
+    if let ASTTypedFunctionBody::RASMBody(body) = &def.body {
+        let mut reused = ReusedParametersScanner::new();
+        let mut context = val_context.clone();
+        reused.traverse_body(body, &mut context);
+        reused.reused
+    } else {
+        HashSet::new()
     }
-    false
 }
 
 #[cfg(test)]
@@ -91,11 +72,11 @@ mod tests {
 
     use crate::{
         codegen::{
-            c::options::COptions, code_analyzer::is_par_reused, compile_target::CompileTarget,
+            c::options::COptions, code_analyzer::reused_params, compile_target::CompileTarget,
             enh_val_context::TypedValContext,
         },
         commandline::RasmProfile,
-        enh_type_check::typed_ast::{ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedStatement},
+        enh_type_check::typed_ast::ASTTypedFunctionDef,
         project::RasmProject,
         test_utils::project_to_ast_typed_module,
     };
@@ -132,15 +113,12 @@ mod tests {
             context.insert_par(param.name.clone(), 0, param.clone());
         }
 
-        let body = match &function.body {
-            ASTTypedFunctionBody::RASMBody(body) => body,
-            _ => panic!(),
-        };
+        let reused = reused_params(&function, &mut context);
 
-        assert!(is_par_reused(body, reused_aram, &context));
-        assert!(is_par_reused(body, reused_param1, &context));
-        assert!(is_par_reused(body, reused_param2, &context));
-        assert!(!is_par_reused(body, param, &context));
+        assert!(reused.contains(&reused_aram.ast_index));
+        assert!(reused.contains(&reused_param1.ast_index));
+        assert!(reused.contains(&reused_param2.ast_index));
+        assert!(!reused.contains(&param.ast_index));
     }
 
     #[test]
@@ -148,17 +126,6 @@ mod tests {
         let project = RasmProject::new(PathBuf::from("resources/test/reused_parameter.rasm"));
 
         let function = get_function(&project, "processNumber", &RasmProfile::Main);
-
-        let mut context = TypedValContext::new(None);
-
-        for param in function.parameters.iter() {
-            context.insert_par(param.name.clone(), 0, param.clone());
-        }
-
-        let body = match &function.body {
-            ASTTypedFunctionBody::RASMBody(body) => body,
-            _ => panic!(),
-        };
 
         let c = function
             .parameters
@@ -171,47 +138,16 @@ mod tests {
             .find(|it| it.name == "state")
             .unwrap();
 
-        assert!(is_par_reused(body, c, &context));
-        assert!(is_par_reused(body, state, &context));
-    }
+        let mut context = TypedValContext::new(None);
 
-    fn check_function(
-        project: &RasmProject,
-        name: &str,
-        profile: &RasmProfile,
-        f: fn(&Vec<ASTTypedStatement>, &TypedValContext),
-    ) {
-        let (typed_module, _) = match project_to_ast_typed_module(
-            &project,
-            &CompileTarget::C(COptions::default()),
-            profile,
-        ) {
-            Ok(it) => it,
-            Err(errors) => {
-                for error in errors.iter() {
-                    println!("{error}");
-                }
-                panic!();
-            }
-        };
-
-        let (_, def) = typed_module
-            .functions_by_name
-            .iter()
-            .find(|it| it.1.original_name == name)
-            .unwrap();
-
-        if let ASTTypedFunctionBody::RASMBody(body) = &def.body {
-            let mut context = TypedValContext::new(None);
-
-            for param in def.parameters.iter() {
-                context.insert_par(param.name.clone(), 0, param.clone());
-            }
-
-            f(body, &context);
-        } else {
-            panic!();
+        for param in function.parameters.iter() {
+            context.insert_par(param.name.clone(), 0, param.clone());
         }
+
+        let reused = reused_params(&function, &mut context);
+
+        assert!(reused.contains(&c.ast_index));
+        assert!(reused.contains(&state.ast_index));
     }
 
     fn get_function<'a>(

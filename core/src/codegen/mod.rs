@@ -1,5 +1,5 @@
 use core::panic;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 use std::ops::Deref;
 use std::path::Path;
@@ -18,7 +18,7 @@ use rasm_parser::lexer::Lexer;
 use rasm_parser::parser::Parser;
 use rasm_utils::{OptionDisplay, SliceDisplay, debug_i};
 
-use crate::codegen::code_analyzer::is_par_reused;
+use crate::codegen::code_analyzer::reused_params;
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{
     EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef, EnhASTType,
@@ -700,6 +700,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         lambda_in_stack: bool,
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
         optimized_functions: &HashMap<String, String>,
+        reused_params: &HashSet<EnhASTIndex>,
     ) -> Vec<LambdaCall> {
         let mut lambda_calls = Vec::new();
 
@@ -820,6 +821,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             function_reference_lambdas,
                             optimized_functions,
                             &non_optimized_function_name,
+                            reused_params,
                         );
 
                         call_parameters.add_on_top_of_after(&af.join("\n"));
@@ -840,34 +842,9 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     ASTTypedExpression::ValueRef(name, index, namespace) => {
                         let mut reused_parameter = true;
 
-                        let mut found = false;
                         if let Some(TypedValKind::ParameterRef(_, def)) = context.get(name) {
-                            if let Some(pd) = parent_def {
-                                if pd.parameters.iter().any(|p| p.ast_index == def.ast_index) {
-                                    if let ASTTypedFunctionBody::RASMBody(ref fb) = pd.body {
-                                        found = true;
-                                        if !is_par_reused(fb, def, context) {
-                                            reused_parameter = false;
-                                        }
-                                    }
-                                }
-                            }
-                            if !found && let Some(ASTTypedFunctionBody::RASMBody(ref fb)) = body {
-                                if !is_par_reused(fb, def, context) {
-                                    reused_parameter = false;
-                                }
-                            }
+                            reused_parameter = reused_params.contains(&def.ast_index);
                         }
-
-                        //reused_parameter = true;
-
-                        //if namespace.safe_name().contains("vectest") {
-                        /*
-                        if !reused_parameter {
-                            println!("not reused parameter {name} : {index}");
-                        }
-                        */
-                        //}
 
                         let error_msg = format!(
                             "Cannot find val {}, calling function {}",
@@ -1102,6 +1079,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         lambda_in_stack: bool,
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
         optimized_functions: &HashMap<String, String>,
+        reused_params: &HashSet<EnhASTIndex>,
     ) -> Vec<LambdaCall> {
         self.define_let(code_gen_context, name, is_const, statics, namespace);
 
@@ -1171,6 +1149,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             function_reference_lambdas,
                             optimized_functions,
                             &original_call.function_name,
+                            reused_params,
                         ),
                         call.index.clone(),
                     )
@@ -1649,6 +1628,11 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
         optimized_functions: &HashMap<String, String>,
     ) {
+        let reused_params = if let Some(f) = function_def {
+            reused_params(f, context)
+        } else {
+            HashSet::new()
+        };
         let inline = function_def
             .map(|it| InlineRegistry::is_inline(statics, it))
             .unwrap_or(false);
@@ -1701,6 +1685,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 function_reference_lambdas,
                                 optimized_functions,
                                 &non_optimized_function_name,
+                                &reused_params,
                             );
 
                             before.push_str(&bf);
@@ -1848,6 +1833,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         lambda_in_stack,
                         function_reference_lambdas,
                         optimized_functions,
+                        &reused_params,
                     );
                     lambda_calls.append(&mut new_lambda_calls);
                 }
@@ -1872,6 +1858,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                         lambda_in_stack,
                         function_reference_lambdas,
                         optimized_functions,
+                        &reused_params,
                     );
                     lambda_calls.append(&mut new_lambda_calls);
                 }
@@ -1905,6 +1892,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         function_reference_lambdas: &mut HashMap<String, LambdaCall>,
         optimized_functions: &HashMap<String, String>,
         non_optimized_function_name: &str,
+        reused_params: &HashSet<EnhASTIndex>,
     ) -> (String, String, Vec<String>, Vec<LambdaCall>) {
         // before, after, lambda calls
         let mut before = String::new();
@@ -1956,6 +1944,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 lambda_in_stack,
                 function_reference_lambdas,
                 optimized_functions,
+                reused_params,
             )
         } else if let Some(kind) = context.get(&function_call.function_name) {
             let ast_type = kind.typed_type();
@@ -2031,6 +2020,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     lambda_in_stack,
                     function_reference_lambdas,
                     optimized_functions,
+                    reused_params,
                 )
             } else {
                 panic!(
