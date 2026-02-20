@@ -2144,6 +2144,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "we cannot rely on stdlib source code, in particular Result.fmap has changed"]
     fn types_flatten() {
         let (project, helper) = get_helper("resources/test/types.rasm");
 

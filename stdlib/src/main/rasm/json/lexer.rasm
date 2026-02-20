@@ -41,7 +41,8 @@ pub fn lexe(json: str) -> Result<Vec<JsonToken>, str> {
     resultState.fmap(fn(state) {
         state.status.matchNone(
         { Ok(state.tokens); }, 
-        { processChar(Ok(state), '\n').map(fn(newState) {newState.tokens;}); }); // if not None, there's an ongoing parsing to terminate
+        // if not None, there's an ongoing lexing to terminate
+        { processChar(Ok(state), '\n').map(fn(newState) {newState.tokens;}); });
     });
 }
 
@@ -49,7 +50,7 @@ fn processChar(resultState: Result<LexerState, str>, c: char) -> Result<LexerSta
     resultState.match(fn(state) {
         processChar(state, c);
     }, fn(error) {
-        resultState;
+        Error(error);
     });
     
 }
@@ -60,13 +61,13 @@ fn isSpace(c: char) -> bool {
 
 fn processChar(state: LexerState, c: char) -> Result<LexerState,str> {
     state.status.match(
-        { processNone(state, c); }, 
-        { processString(state, c); }, 
-        { processNumber(state, c); }, 
-        { processSpaces(state, c); }, 
-        { processBoolean(c, state); }, 
-        { processNull(c, state); }
-    );
+        { processNone; }, 
+        { processString; }, 
+        { processNumber; }, 
+        { processSpaces; }, 
+        { processBoolean; }, 
+        { processNull; }
+    ).call(state, c);
 }
 
 fn processNone(state: LexerState, c: char) -> Result<LexerState,str> {
@@ -74,15 +75,15 @@ fn processNone(state: LexerState, c: char) -> Result<LexerState,str> {
         Ok(state.status(LexerStatus::String()));
     }).elseIf(c.isNumber, {
         let newState = state.status(LexerStatus::Number())
-        .actual(fn(actual) { actual.append(c);});
+            .actual(fn(actual) { actual.append(c);});
         Ok(newState);
     }).elseIf(c.eq('.'), {
         let newState = state.status(LexerStatus::Number())
-        .actual(fn(actual) { actual.add("0").append(c);});
+            .actual(fn(actual) { actual.add("0").append(c);});
         Ok(newState);
     }).elseIf(c.isSpace, {
         let newState = state.status(LexerStatus::Spaces())
-        .actual(fn(actual) { actual.append(c);});
+            .actual(fn(actual) { actual.append(c);});
         Ok(newState);
     }).elseIf(c.eq(':'), {
         Ok(state.tokens(fn(tokens) { tokens.push(JsonToken::Colon()); }));
@@ -110,11 +111,11 @@ fn processNone(state: LexerState, c: char) -> Result<LexerState,str> {
         Ok(newState);
     }).elseIf(c.eq('f').or(c.eq('t')), {
         let newState = state.actual(c.toString)
-        .status(LexerStatus::Boolean());
+            .status(LexerStatus::Boolean());
         Ok(newState);
     }).elseIf(c.eq('n'), {
         let newState = state.actual(c.toString)
-        .status(LexerStatus::Null());
+            .status(LexerStatus::Null());
         Ok(newState);
     }).else({
         Result::Error("Unknown character '".append(c).add("'."));
@@ -124,8 +125,8 @@ fn processNone(state: LexerState, c: char) -> Result<LexerState,str> {
 fn processString(state: LexerState, c: char) -> Result<LexerState,str> {
     if(c.eq('"'), {
         let newState = state.status(LexerStatus::None())
-        .tokens( fn(vec) { vec.push(JsonToken::String(state.actual)); })
-        .actual("");
+            .tokens( fn(vec) { vec.push(JsonToken::String(state.actual)); })
+            .actual("");
         Ok(newState);
     }, {
         Ok(state.actual(fn(actual) { actual.append(c);}));
@@ -137,10 +138,10 @@ fn processNumber(state: LexerState, c: char) -> Result<LexerState,str> {
         Ok(state.actual(fn(actual) { actual.append(c);}));
     }, {
         let newState = state.status(LexerStatus::None())
-        .tokens( fn(vec) { vec.push(JsonToken::Number(state.actual)); })
-        .actual("");
+            .tokens( fn(vec) { vec.push(JsonToken::Number(state.actual)); })
+            .actual("");
         // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
-        processChar(Ok(newState), c);
+        processChar(newState, c);
     });
 }
 
@@ -149,13 +150,13 @@ fn processSpaces(state: LexerState, c: char) -> Result<LexerState,str> {
         Ok(state.actual(fn(actual) { actual.append(c);}));
     }, {
         let newState = state.status(LexerStatus::None())
-        .actual("");
+            .actual("");
         // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
-        processChar(Ok(newState), c);
+        processChar(newState, c);
     });
 }
 
-fn processBoolean(c: char, state: LexerState) -> Result<LexerState,str> {
+fn processBoolean(state: LexerState, c: char) -> Result<LexerState,str> {
     if(c.isAlpha, {
         Ok(state.actual(fn(actual) { actual.append(c);}));
     }, {
@@ -164,20 +165,20 @@ fn processBoolean(c: char, state: LexerState) -> Result<LexerState,str> {
                 .tokens( fn(vec) { vec.push(JsonToken::Boolean(true)); })
                 .actual("");
             // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
-            processChar(Ok(newState), c);
+            processChar(newState, c);
         }).elseIf(state.actual.eq("false"), {
             let newState = state.status(LexerStatus::None())
                 .tokens( fn(vec) { vec.push(JsonToken::Boolean(false)); })
                 .actual("");
             // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
-            processChar(Ok(newState), c);
+            processChar(newState, c);
         }).else({
             Result::Error("Unable to parse boolean: ".add(state.actual));
         }).call;
     });
 }
 
-fn processNull(c: char, state: LexerState) -> Result<LexerState,str> {
+fn processNull(state: LexerState, c: char) -> Result<LexerState,str> {
     if(c.isAlpha, {
         Ok(state.actual(fn(actual) { actual.append(c);}));
     }, {
@@ -186,7 +187,7 @@ fn processNull(c: char, state: LexerState) -> Result<LexerState,str> {
                 .tokens( fn(vec) { vec.push(JsonToken::Null()); })
                 .actual("");
             // I must parse the char, otherwise it get lost. It seems elegant, but invokes a recursion...
-            processChar(Ok(newState), c);
+            processChar(newState, c);
         },{
             Result::Error("Unknown value: ".add(state.actual));
         });

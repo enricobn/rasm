@@ -15,5 +15,5 @@ pub fn flatten<OK,ERROR>(r: Result<Result<OK,ERROR>,ERROR>) -> Result<OK,ERROR> 
 }
 
 pub fn fmap<OK,ERROR,T>(l: Result<OK,ERROR>, f: fn(OK) -> Result<T,ERROR>) -> Result<T,ERROR> {
-    flatten(map(l, f));
+    l.match(f, Error);
 }
