@@ -462,7 +462,45 @@ impl TextMacroEval for CAddRefMacro {
         if !self.dereference_enabled {
             return Ok(result);
         }
-        let (address, ast_typed_type) = get_par_text_and_type(text_macro, 0)?;
+
+        // we take the expression and the type from the first parameter
+        let (expression, ast_typed_type) = if text_macro.parameters.len() == 1 {
+            get_par_text_and_type(text_macro, 0)?
+        // we take the type from the first parameter, and the expression from the second
+        } else if text_macro.parameters.len() == 2 {
+            let (_, ast_typed_type) = get_par_text_and_type(text_macro, 0)?;
+            (get_par_text(text_macro, 1)?, ast_typed_type)
+        // we take the lambda type from the first parameter, the expression from the second,
+        // and the lambda parameter index from the third with which we determine the type of the expression
+        } else if text_macro.parameters.len() == 3 {
+            let (_address, lambda_ast_typed_type) = get_par_text_and_type(text_macro, 0)?;
+
+            let par_index = get_par_number(text_macro, 2, "lambda parameter index")?;
+
+            let expression = match text_macro.parameters.get(1) {
+                Some(MacroParam::Plain(plain_value, _, _)) => plain_value,
+                _ => {
+                    return Err(
+                        "third param shlould be the value for which add the reference".to_owned(),
+                    );
+                }
+            };
+
+            let ast_typed_type =
+                if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, .. }) =
+                    &lambda_ast_typed_type
+                {
+                    &parameters[par_index]
+                } else {
+                    return Err(
+                        "Error in addRef macro, expected a lambda as first parameter".to_owned(),
+                    );
+                };
+
+            (expression.clone(), ast_typed_type.clone())
+        } else {
+            return Err("Error in addRef macro, expected one, two or three parameters".to_owned());
+        };
 
         add_ref_deref_code(
             self.ref_type,
@@ -470,7 +508,7 @@ impl TextMacroEval for CAddRefMacro {
             type_def_provider,
             &self.code_manipulator,
             &mut result,
-            &address,
+            &expression,
             &ast_typed_type,
         );
 
@@ -502,36 +540,9 @@ impl TextMacroEval for CTypeNameMacro {
         function_def: Option<&ASTTypedFunctionDef>,
         _type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
-        let value = text_macro.parameters.get(0).unwrap();
-        if let MacroParam::Ref(_name, _ast_type, ast_type_type) = value {
-            let t = ast_type_type.clone().unwrap();
+        let t = get_type_from_parameter(text_macro, 0, statics, function_def)?;
 
-            CLambdas::add_to_statics_if_lambda(&t, statics);
-
-            Ok(CodeGenC::type_to_string(&t, statics))
-        } else if let MacroParam::Plain(name, _, _) = value {
-            if let Some(def) = function_def {
-                let resolved_generic_types =
-                    def.resolved_generic_types.clone().remove_generics_prefix();
-
-                // TODO type classes, I would like to resolve something like M<T>
-                //let gen_name = format!("{}_{}:{}", def.namespace, def.name, name);
-                if let Some(t) = resolved_generic_types.get(&name, &Vec::new()) {
-                    CLambdas::add_to_statics_if_lambda(&t, statics);
-
-                    Ok(CodeGenC::type_to_string(&t, statics))
-                } else {
-                    panic!(
-                        "Cannot find generic type {name} : {} in {}",
-                        resolved_generic_types, text_macro.index
-                    )
-                }
-            } else {
-                panic!("Cannot resolve generic type {name} without a function.")
-            }
-        } else {
-            panic!("First argument should be a reference to a value.")
-        }
+        Ok(CodeGenC::type_to_string(&t, statics))
     }
 
     fn is_pre_macro(&self) -> bool {
@@ -557,75 +568,11 @@ impl TextMacroEval for CRealTypeNameMacro {
         statics: &mut Statics,
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
+        _type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
-        let value = text_macro.parameters.get(0).unwrap();
-        if let MacroParam::Ref(_name, _ast_type, Some(t)) = value {
-            CLambdas::add_to_statics_if_lambda(t, statics);
+        let t = get_type_from_parameter(text_macro, 0, statics, function_def)?;
 
-            Ok(CodeGenC::real_type_to_string(t))
-        } else if let MacroParam::Plain(_name, _ast_type, Some(t)) = value {
-            CLambdas::add_to_statics_if_lambda(t, statics);
-
-            Ok(CodeGenC::real_type_to_string(t))
-        } else if let MacroParam::Plain(name, _, _) = value {
-            if let Some(def) = function_def {
-                let resolved_generic_types =
-                    def.resolved_generic_types.clone().remove_generics_prefix();
-
-                // TODO it does not resolve generic types like Option<T>, nor type classes like M<T>, nor primitive types,
-                // but only T, or a non generic, custom type
-
-                /*
-                let generic_names = resolved_generic_types
-                    .keys()
-                    .into_iter()
-                    .cloned()
-                    .collect::<Vec<String>>();
-
-                let lexer = Lexer::new(name.to_owned());
-
-                let parser = Parser::new(lexer);
-                if let Some((ast_type, _)) =
-                    TypeParser::new(&parser).try_parse_ast_type(0, &generic_names)?
-                {
-                    println!("realTypeName ast_type: {ast_type:?}");
-
-                    if let Some(ast_typed_type) =
-                        type_def_provider.get_ast_typed_type_from_type_name(&name)
-                    {
-                        println!("  ast_typed_type: {ast_typed_type:?}");
-                    }
-                };
-                */
-
-                if let Some(t) = type_def_provider.get_ast_typed_type_from_type_name(&name) {
-                    CLambdas::add_to_statics_if_lambda(&t, statics);
-
-                    return Ok(CodeGenC::real_type_to_string(&t));
-                }
-
-                //let gen_name = format!("{}_{}:{}", def.namespace, def.name, name);
-                if let Some(t) = resolved_generic_types.get(&name, &Vec::new()) {
-                    CLambdas::add_to_statics_if_lambda(&t, statics);
-
-                    Ok(CodeGenC::real_type_to_string(&t))
-                } else {
-                    println!("def: {}", def);
-                    println!("resolved_generic_types: {}", def.resolved_generic_types);
-                    Err(format!(
-                        "Cannot find generic type {name} : {} in {}",
-                        resolved_generic_types, text_macro.index
-                    ))
-                }
-            } else {
-                Err(format!(
-                    "Cannot resolve type for {name} without a function."
-                ))
-            }
-        } else {
-            Err(format!("Cannot resolve type for {value}."))
-        }
+        Ok(CodeGenC::real_type_to_string(&t))
     }
 
     fn is_pre_macro(&self) -> bool {
@@ -880,154 +827,6 @@ impl TextMacroEval for CIsRefMacro {
     }
 }
 
-pub struct CAddRefOfLambdaParamTypeMacro {
-    code_manipulator: CCodeManipulator,
-    ref_type: RefType,
-    dereference_enabled: bool,
-}
-
-impl CAddRefOfLambdaParamTypeMacro {
-    pub fn new(
-        code_manipulator: CCodeManipulator,
-        ref_type: RefType,
-        dereference_enabled: bool,
-    ) -> Self {
-        Self {
-            code_manipulator,
-            ref_type,
-            dereference_enabled,
-        }
-    }
-}
-
-impl TextMacroEval for CAddRefOfLambdaParamTypeMacro {
-    fn eval_macro(
-        &self,
-        statics: &mut Statics,
-        text_macro: &TextMacro,
-        _function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
-    ) -> Result<String, String> {
-        // parameters:
-        // 0: reference to a lambda parameter of the function
-        // 1: position of the lambda parameter (0 based)
-        // 2: value for which add the reference
-        let mut result = String::new();
-
-        if !self.dereference_enabled {
-            return Ok(result);
-        }
-
-        let (_address, lambda_ast_typed_type) = get_par_text_and_type(text_macro, 0)?;
-
-        let par_index = get_par_number(text_macro, 1, "lambda parameter index")?;
-
-        let address = match text_macro.parameters.get(2) {
-            Some(MacroParam::Plain(plain_value, _, _)) => plain_value,
-            _ => {
-                return Err(
-                    "third param shlould be the value for which add the reference".to_owned(),
-                );
-            }
-        };
-
-        let ast_typed_type =
-            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, .. }) =
-                &lambda_ast_typed_type
-            {
-                &parameters[par_index]
-            } else {
-                panic!()
-            };
-
-        add_ref_deref_code(
-            self.ref_type,
-            statics,
-            type_def_provider,
-            &self.code_manipulator,
-            &mut result,
-            address,
-            ast_typed_type,
-        );
-
-        Ok(result)
-    }
-
-    fn is_pre_macro(&self) -> bool {
-        false
-    }
-
-    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
-        Vec::new()
-    }
-}
-
-pub struct CAddRefOfParamTypeMacro {
-    code_manipulator: CCodeManipulator,
-    ref_type: RefType,
-    dereference_enabled: bool,
-}
-
-impl CAddRefOfParamTypeMacro {
-    pub fn new(
-        code_manipulator: CCodeManipulator,
-        ref_type: RefType,
-        dereference_enabled: bool,
-    ) -> Self {
-        Self {
-            code_manipulator,
-            ref_type,
-            dereference_enabled,
-        }
-    }
-}
-
-impl TextMacroEval for CAddRefOfParamTypeMacro {
-    fn eval_macro(
-        &self,
-        statics: &mut Statics,
-        text_macro: &TextMacro,
-        _function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
-    ) -> Result<String, String> {
-        // parameters:
-        // 0: reference to a parameter of the function
-        // 1: value for which add the reference
-        let mut result = String::new();
-
-        if !self.dereference_enabled {
-            return Ok(result);
-        }
-
-        let (_address, ast_typed_type) = get_par_text_and_type(text_macro, 0)?;
-
-        let address = match text_macro.parameters.get(1) {
-            Some(MacroParam::Plain(plain_value, _, _)) => plain_value,
-            _ => panic!(),
-        };
-
-        add_ref_deref_code(
-            self.ref_type,
-            statics,
-            type_def_provider,
-            &self.code_manipulator,
-            &mut result,
-            address,
-            &ast_typed_type,
-        );
-
-        Ok(result)
-    }
-
-    fn is_pre_macro(&self) -> bool {
-        false
-    }
-
-    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
-        Vec::new()
-    }
-}
-
 pub struct CRealTypeNameOfLambdaParamTypeMacro {
     code_manipulator: CCodeManipulator,
     dereference_enabled: bool,
@@ -1037,7 +836,6 @@ impl CRealTypeNameOfLambdaParamTypeMacro {
     pub fn new(code_manipulator: CCodeManipulator, dereference_enabled: bool) -> Self {
         Self {
             code_manipulator,
-
             dereference_enabled,
         }
     }
@@ -1184,4 +982,54 @@ fn get_par_text_and_type(
     };
 
     Ok((address.clone(), ast_typed_type.clone()))
+}
+
+fn get_par_text(text_macro: &TextMacro, par_index: usize) -> Result<String, String> {
+    return match text_macro.parameters.get(par_index) {
+        Some(MacroParam::Plain(address, _ast_type, _ast_typed_type)) => Ok(address.clone()),
+        _ => return Err(format!("Expected plain text for param {par_index}")),
+    };
+}
+
+fn get_type_from_parameter(
+    text_macro: &TextMacro,
+    par_index: usize,
+    statics: &mut Statics,
+    function_def: Option<&ASTTypedFunctionDef>,
+) -> Result<ASTTypedType, String> {
+    let value = text_macro
+        .parameters
+        .get(par_index)
+        .ok_or(format!("Expected param {par_index}"))?;
+    if let MacroParam::Ref(_name, _ast_type, Some(ast_type_type)) = value {
+        CLambdas::add_to_statics_if_lambda(ast_type_type, statics);
+
+        Ok(ast_type_type.clone())
+    } else if let MacroParam::Plain(name, _, _) = value {
+        if let Some(def) = function_def {
+            let resolved_generic_types =
+                def.resolved_generic_types.clone().remove_generics_prefix();
+
+            // TODO type classes, I would like to resolve something like M<T>
+            //let gen_name = format!("{}_{}:{}", def.namespace, def.name, name);
+            if let Some(t) = resolved_generic_types.get(&name, &Vec::new()) {
+                CLambdas::add_to_statics_if_lambda(&t, statics);
+
+                Ok(t.clone())
+            } else {
+                Err(format!(
+                    "Cannot find generic type {name} : {} in {}",
+                    resolved_generic_types, text_macro.index
+                ))
+            }
+        } else {
+            Err(format!(
+                "Cannot resolve generic type {name} without a function."
+            ))
+        }
+    } else {
+        Err(format!(
+            "Argument {par_index} should be a reference or a type."
+        ))
+    }
 }

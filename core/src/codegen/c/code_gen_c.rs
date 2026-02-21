@@ -27,10 +27,9 @@ use crate::codegen::c::any::{
 use crate::codegen::c::function_call_parameters_c::CFunctionCallParameters;
 use crate::codegen::c::options::COptions;
 use crate::codegen::c::text_macro_c::{
-    CAddRefOfLambdaParamTypeMacro, CAddRefOfParamTypeMacro, CCallMacro, CEnumDeclarationMacro,
-    CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro, CEnumVariantMacro, CIncludeMacro,
-    CRealTypeNameMacro, CRealTypeNameOfLambdaParamTypeMacro, CStructDeclarationMacro,
-    CStructTypeMacro,
+    CCallMacro, CEnumDeclarationMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
+    CEnumVariantMacro, CIncludeMacro, CRealTypeNameMacro, CRealTypeNameOfLambdaParamTypeMacro,
+    CStructDeclarationMacro, CStructTypeMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::compile_target::CompileTarget;
@@ -932,38 +931,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         evaluator.add("enumSimple", CEnumSimpleMacro::new());
         evaluator.add("isRef", CIsRefMacro::new());
         evaluator.add("inline", InlineMacro::new());
-        evaluator.add(
-            "addRefOfLambdaParamType",
-            CAddRefOfLambdaParamTypeMacro::new(
-                CCodeManipulator::new(self.debug),
-                RefType::AddRef,
-                self.c_options.dereference(),
-            ),
-        );
-        evaluator.add(
-            "derefOfLambdaParamType",
-            CAddRefOfLambdaParamTypeMacro::new(
-                CCodeManipulator::new(self.debug),
-                RefType::Deref,
-                self.c_options.dereference(),
-            ),
-        );
-        evaluator.add(
-            "addRefOfParamType",
-            CAddRefOfParamTypeMacro::new(
-                CCodeManipulator::new(self.debug),
-                RefType::AddRef,
-                self.c_options.dereference(),
-            ),
-        );
-        evaluator.add(
-            "derefOfParamType",
-            CAddRefOfParamTypeMacro::new(
-                CCodeManipulator::new(self.debug),
-                RefType::Deref,
-                self.c_options.dereference(),
-            ),
-        );
         evaluator.add(
             "realTypeNameOfLambdaParamType",
             CRealTypeNameOfLambdaParamTypeMacro::new(
