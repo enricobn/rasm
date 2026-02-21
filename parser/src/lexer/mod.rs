@@ -191,21 +191,9 @@ impl Lexer {
 
             match status {
                 LexStatus::None => {
-                    if actual == "//" || actual == "/*" {
+                    if actual == "/" && (c == '/' || c == '*') {
                         let row = self.row;
-                        let column = self.column - 2;
-                        if c == '\n' {
-                            if actual == "//" {
-                                let token = self.some_token(TokenKind::Comment(actual));
-                                self.row += 1;
-                                self.column = 1;
-                                self.index += 1;
-                                return token;
-                            } else {
-                                self.row += 1;
-                                self.column = 0;
-                            }
-                        }
+                        let column = self.column - 1;
                         actual.push(c);
 
                         status = LexStatus::Comment(row, column);
@@ -215,7 +203,7 @@ impl Lexer {
                         self.column = 1;
                         self.row += 1;
                         return token;
-                    } else if c == '/' || c == '*' || c == '-' {
+                    } else if c == '/' || c == '-' {
                         actual.push(c);
                     } else if actual == "/" && c == '{' {
                         actual.clear();
@@ -234,8 +222,10 @@ impl Lexer {
                         self.index += 1;
                         return token;
                     } else if c.is_whitespace() {
+                        if !actual.is_empty() {
+                            self.add_error(format!("Whitespace, but actual={}", actual));
+                        }
                         status = LexStatus::WhiteSpace;
-                        actual.push(c);
                     } else if c == '"' {
                         status = LexStatus::String;
                     } else if c.is_ascii_digit() {
@@ -251,14 +241,10 @@ impl Lexer {
                     }
                 }
                 LexStatus::WhiteSpace => {
-                    if c != '\n' && c.is_whitespace() {
-                        actual.push(c);
-                    } else {
-                        //self.chars.next_back();
-                        if actual.chars().any(|it| !it.is_whitespace()) {
-                            self.add_error(format!("invalid chars in {actual}"));
-                        }
-                        return self.some_token(TokenKind::WhiteSpaces(actual));
+                    // we don't care about white spaces
+                    if c == '\n' || !c.is_whitespace() {
+                        status = LexStatus::None;
+                        continue;
                     }
                 }
                 LexStatus::String => {
@@ -506,28 +492,20 @@ mod tests {
             vec![
                 Comment("// test4.rasm file".into()),
                 KeyWord(KeywordKind::Fn),
-                WhiteSpaces(" ".into()),
                 AlphaNumeric("add".into()),
                 Bracket(Round, Open),
                 AlphaNumeric("a".into()),
                 Punctuation(Colon),
-                WhiteSpaces(" ".into()),
                 Reserved(ReservedKind::INT),
                 Punctuation(Comma),
-                WhiteSpaces(" ".into()),
                 AlphaNumeric("b".into()),
                 Punctuation(Colon),
-                WhiteSpaces(" ".into()),
                 Reserved(ReservedKind::INT),
                 Bracket(Round, Close),
-                WhiteSpaces(" ".into()),
                 Punctuation(RightArrow),
-                WhiteSpaces(" ".into()),
                 Reserved(ReservedKind::INT),
-                WhiteSpaces(" ".into()),
                 Bracket(Brace, Open),
                 EndOfLine,
-                WhiteSpaces("    ".into()),
                 AlphaNumeric("AType".into()),
                 Punctuation(Colon),
                 Punctuation(Colon),
@@ -535,7 +513,6 @@ mod tests {
                 Bracket(Round, Open),
                 AlphaNumeric("a".into()),
                 Punctuation(Comma),
-                WhiteSpaces(" ".into()),
                 AlphaNumeric("b".into()),
                 Bracket(Round, Close),
                 EndOfLine,
@@ -600,15 +577,12 @@ mod tests {
             vec![
                 Comment("// test7.rasm file".into()),
                 KeyWord(KeywordKind::Fn),
-                WhiteSpaces(" ".into()),
                 AlphaNumeric("add".into()),
                 Bracket(Round, Open),
                 AlphaNumeric("s".into()),
                 Punctuation(Colon),
-                WhiteSpaces(" ".into()),
                 Reserved(ReservedKind::STR),
                 Bracket(Round, Close),
-                WhiteSpaces(" ".into()),
                 Bracket(Brace, Open),
                 Bracket(Brace, Close),
             ],
@@ -624,10 +598,8 @@ mod tests {
 
         assert!(errors.is_empty());
 
-        //let lst: Vec<TokenKind> = tokens.into_iter().map(|it| it.kind).collect();
-
-        assert_eq!(tokens.get(3).unwrap().kind, KeyWord(KeywordKind::Fn));
-        assert_eq!(tokens.get(3).unwrap().position.row, 2);
+        assert_eq!(tokens.get(2).unwrap().kind, KeyWord(KeywordKind::Fn));
+        assert_eq!(tokens.get(2).unwrap().position.row, 2);
     }
 
     #[test]
@@ -652,7 +624,10 @@ mod tests {
     fn test_invalid_chars() {
         let lexer = Lexer::new("let a = f.len - 1;".to_string());
 
-        let (_tokens, errors) = lexer.process();
+        let (tokens, errors) = lexer.process();
+        for token in tokens {
+            println!("{:?}", token);
+        }
 
         assert!(!errors.is_empty());
     }
@@ -662,6 +637,19 @@ mod tests {
         let lexer = Lexer::new("let a = f.len /1;".to_string());
 
         let (_tokens, errors) = lexer.process();
+
+        assert!(!errors.is_empty());
+    }
+
+    #[test]
+    fn test_invalid_chars_2() {
+        let lexer = Lexer::new("let a = f.len - > 1;".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        for token in tokens {
+            println!("{:?}", token);
+        }
 
         assert!(!errors.is_empty());
     }
@@ -686,11 +674,11 @@ mod tests {
         let (tokens, errors) = lexer.process();
 
         assert!(errors.is_empty());
-        assert_eq!(10, tokens.len());
+        assert_eq!(7, tokens.len());
 
         assert_eq!(Some("//"), token_comment(&tokens[0]));
         assert_eq!(
-            "comment, Let, WS, 'a', WS, =, WS, 1, ;, EOL",
+            "comment, Let, 'a', =, 1, ;, EOL",
             format!("{}", SliceDisplay(&tokens))
         );
     }
@@ -702,11 +690,11 @@ mod tests {
         let (tokens, errors) = lexer.process();
 
         assert!(errors.is_empty());
-        assert_eq!(11, tokens.len());
+        assert_eq!(8, tokens.len());
 
         assert_eq!(Some("//"), token_comment(&tokens[0]));
         assert_eq!(
-            "comment, EOL, Let, WS, 'a', WS, =, WS, 1, ;, EOL",
+            "comment, EOL, Let, 'a', =, 1, ;, EOL",
             format!("{}", SliceDisplay(&tokens))
         );
     }
@@ -849,6 +837,47 @@ mod tests {
         } else {
             None
         }
+    }
+
+    #[test]
+    fn negative_number() {
+        let lexer = Lexer::new("let a = -1;".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert_eq!(
+            vec![
+                TokenKind::KeyWord(KeywordKind::Let),
+                TokenKind::AlphaNumeric("a".into()),
+                TokenKind::Punctuation(Equal),
+                TokenKind::Number("-1".into()),
+                TokenKind::Punctuation(SemiColon),
+            ],
+            tokens.iter().map(|it| it.kind.clone()).collect::<Vec<_>>()
+        );
+
+        assert!(errors.is_empty());
+    }
+
+    #[test]
+    fn right_arrow() {
+        let lexer = Lexer::new("fn a() -> str".to_string());
+
+        let (tokens, errors) = lexer.process();
+
+        assert_eq!(
+            vec![
+                TokenKind::KeyWord(KeywordKind::Fn),
+                TokenKind::AlphaNumeric("a".into()),
+                TokenKind::Bracket(BracketKind::Round, BracketStatus::Open),
+                TokenKind::Bracket(BracketKind::Round, BracketStatus::Close),
+                TokenKind::Punctuation(RightArrow),
+                TokenKind::Reserved(ReservedKind::STR),
+            ],
+            tokens.iter().map(|it| it.kind.clone()).collect::<Vec<_>>()
+        );
+
+        assert!(errors.is_empty());
     }
 
     /*
