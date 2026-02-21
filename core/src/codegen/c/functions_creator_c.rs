@@ -342,7 +342,7 @@ impl FunctionsCreator for CFunctionsCreator {
                 "$include(<string.h>)",
                 "struct RasmPointer_ *struct_result = NULL;",
                 "$typeName($receiver) struct_result_ = NULL;",
-                "$realTypeNameOfLambdaParamType($f, 0) old_property_value;",
+                "$realTypeName($f, 0) old_property_value;",
                 "if(receiver->count == 1) {",
                 "struct_result = receiver;",
                 "struct_result_ = $castAddress($receiver);",

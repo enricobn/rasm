@@ -28,8 +28,8 @@ use crate::codegen::c::function_call_parameters_c::CFunctionCallParameters;
 use crate::codegen::c::options::COptions;
 use crate::codegen::c::text_macro_c::{
     CCallMacro, CEnumDeclarationMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
-    CEnumVariantMacro, CIncludeMacro, CRealTypeNameMacro, CRealTypeNameOfLambdaParamTypeMacro,
-    CStructDeclarationMacro, CStructTypeMacro,
+    CEnumVariantMacro, CIncludeMacro, CRealTypeNameMacro, CStructDeclarationMacro,
+    CStructTypeMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::compile_target::CompileTarget;
@@ -931,13 +931,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         evaluator.add("enumSimple", CEnumSimpleMacro::new());
         evaluator.add("isRef", CIsRefMacro::new());
         evaluator.add("inline", InlineMacro::new());
-        evaluator.add(
-            "realTypeNameOfLambdaParamType",
-            CRealTypeNameOfLambdaParamTypeMacro::new(
-                CCodeManipulator::new(self.debug),
-                self.c_options.dereference(),
-            ),
-        );
 
         evaluator
     }

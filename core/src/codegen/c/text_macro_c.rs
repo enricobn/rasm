@@ -18,7 +18,6 @@
 
 use crate::codegen::c::any::{CInclude, CIncludeType};
 use crate::codegen::c::typed_function_creator_c::TypedFunctionsCreatorC;
-use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::enh_ast::EnhASTType;
 use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
@@ -481,7 +480,8 @@ impl TextMacroEval for CAddRefMacro {
                 Some(MacroParam::Plain(plain_value, _, _)) => plain_value,
                 _ => {
                     return Err(
-                        "third param shlould be the value for which add the reference".to_owned(),
+                        "second argument should be the value for which add the reference"
+                            .to_owned(),
                     );
                 }
             };
@@ -499,7 +499,10 @@ impl TextMacroEval for CAddRefMacro {
 
             (expression.clone(), ast_typed_type.clone())
         } else {
-            return Err("Error in addRef macro, expected one, two or three parameters".to_owned());
+            return Err(format!(
+                "Error in {} macro, expected one, two or three parameters",
+                self.ref_type.function_name()
+            ));
         };
 
         add_ref_deref_code(
@@ -570,7 +573,26 @@ impl TextMacroEval for CRealTypeNameMacro {
         function_def: Option<&ASTTypedFunctionDef>,
         _type_def_provider: &dyn TypeDefProvider,
     ) -> Result<String, String> {
-        let t = get_type_from_parameter(text_macro, 0, statics, function_def)?;
+        let t = if text_macro.parameters.len() == 1 {
+            get_type_from_parameter(text_macro, 0, statics, function_def)?
+        } else {
+            let lambda_ast_typed_type =
+                get_type_from_parameter(text_macro, 0, statics, function_def)?;
+            let index = get_par_number(text_macro, 1, "lambda parameter index")?;
+            let ast_typed_type =
+                if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, .. }) =
+                    &lambda_ast_typed_type
+                {
+                    &parameters[index]
+                } else {
+                    return Err(
+                        "Error in realTypeName macro, expected a lambda as first parameter"
+                            .to_owned(),
+                    );
+                };
+
+            ast_typed_type.clone()
+        };
 
         Ok(CodeGenC::real_type_to_string(&t))
     }
@@ -816,66 +838,6 @@ impl TextMacroEval for CIsRefMacro {
         } else {
             Err(format!("First argument should be a reference to a value."))
         }
-    }
-
-    fn is_pre_macro(&self) -> bool {
-        false
-    }
-
-    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
-        Vec::new()
-    }
-}
-
-pub struct CRealTypeNameOfLambdaParamTypeMacro {
-    code_manipulator: CCodeManipulator,
-    dereference_enabled: bool,
-}
-
-impl CRealTypeNameOfLambdaParamTypeMacro {
-    pub fn new(code_manipulator: CCodeManipulator, dereference_enabled: bool) -> Self {
-        Self {
-            code_manipulator,
-            dereference_enabled,
-        }
-    }
-}
-
-impl TextMacroEval for CRealTypeNameOfLambdaParamTypeMacro {
-    fn eval_macro(
-        &self,
-        _statics: &mut Statics,
-        text_macro: &TextMacro,
-        _function_def: Option<&ASTTypedFunctionDef>,
-        _type_def_provider: &dyn TypeDefProvider,
-    ) -> Result<String, String> {
-        // parameters:
-        // 0: reference to a lambda parameter of the function
-        // 1: position of the lambda parameter (0 based)
-        let mut result = String::new();
-
-        if !self.dereference_enabled {
-            return Ok(result);
-        }
-
-        let (_address, lambda_ast_typed_type) = get_par_text_and_type(text_macro, 0)?;
-
-        let par_index = get_par_number(text_macro, 1, "lambda parameter index")?;
-
-        let ast_typed_type =
-            if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, .. }) =
-                &lambda_ast_typed_type
-            {
-                &parameters[par_index]
-            } else {
-                panic!()
-            };
-
-        let type_name = CodeGenC::real_type_to_string(ast_typed_type);
-        self.code_manipulator
-            .add(&mut result, &type_name, None, true);
-
-        Ok(result)
     }
 
     fn is_pre_macro(&self) -> bool {
