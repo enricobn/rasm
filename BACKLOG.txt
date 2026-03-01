@@ -35,6 +35,7 @@ Road to language version 1.0.0 (not compiler)
   
 Major
 -----
+- are default_function_calls in TextMacro needed?
 - LIB = -lbfd, only when needed, look at TODO in compile_c
 - command line tool:
   - add "new" for creating a new project

@@ -918,6 +918,13 @@ impl<'a> EnhTypeCheck<'a> {
         );
         indent!();
 
+        // if call.original_function_name.contains("Some") {
+        //     println!(
+        //         "call.original_function_name == {}, name={}, {call} index : {}",
+        //         call.original_function_name, call.function_name, call.index
+        //     );
+        // }
+
         let mut valid_functions: Vec<(
             EnhASTFunctionDef,
             usize,
@@ -1591,7 +1598,14 @@ impl<'a> EnhTypeCheck<'a> {
                             )
                         })?;
                     for f in default_function_calls {
-                        let call = f.to_call(new_function_def);
+                        let call = f.to_call(new_function_def).map_err(|it| {
+                            dedent!();
+                            EnhTypeCheckError::new(
+                                new_function_def.index.clone(),
+                                it,
+                                self.stack.clone(),
+                            )
+                        })?;
                         let _new_call = self
                             .transform_call(
                                 module,
@@ -1643,7 +1657,14 @@ impl<'a> EnhTypeCheck<'a> {
                         .collect::<Vec<_>>();
 
                     for (_m, f) in called_functions.iter() {
-                        let call = f.to_call(new_function_def);
+                        let call = f.to_call(new_function_def).map_err(|it| {
+                            dedent!();
+                            EnhTypeCheckError::new(
+                                new_function_def.index.clone(),
+                                it,
+                                self.stack.clone(),
+                            )
+                        })?;
                         let new_call = self
                             .transform_call(
                                 module,

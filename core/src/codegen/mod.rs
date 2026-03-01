@@ -2335,6 +2335,15 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             type_def_provider,
             &|name, _parameter| name == "call",
         )? {
+            // let found_debug = format!("{m}").contains("Some") && format!("{m}").contains("error");
+            // if found_debug {
+            //     println!(
+            //         "found Some error {} {}",
+            //         OptionDisplay(&typed_function_def),
+            //         OptionDisplay(&function_def)
+            //     );
+            //     println!(" for macro {m}");
+            // }
             debug_i!("found call macro {m}");
             let types: Vec<EnhASTType> = m
                 .parameters
@@ -2342,10 +2351,13 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 .skip(1)
                 .map(|it| {
                     let ast_type = match it {
-                        MacroParam::Plain(_, opt_type, _) => match opt_type {
-                            None => EnhASTType::Builtin(EnhBuiltinTypeKind::Integer),
-                            Some(ast_type) => ast_type.clone(),
-                        },
+                        MacroParam::Plain(_, _, Some(typed_type)) => type_def_provider
+                            .get_type_from_typed_type(typed_type)
+                            .ok_or_else(|| format!("Cannot find type {typed_type}"))?,
+                        MacroParam::Plain(_, Some(enh_ast_type), _) => enh_ast_type.clone(),
+                        MacroParam::Plain(_, _, _) => {
+                            EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)
+                        }
                         MacroParam::StringLiteral(_) => {
                             EnhASTType::Builtin(EnhBuiltinTypeKind::String)
                         }
@@ -2405,6 +2417,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     }
                 })
                 .collect::<Result<Vec<EnhASTType>, String>>()?;
+
+            // if found_debug {
+            //     println!("  found debug {m} -> {}", SliceDisplay(&types));
+            // }
 
             let function_name =
                 if let Some(MacroParam::Plain(function_name, _, _)) = m.parameters.get(0) {

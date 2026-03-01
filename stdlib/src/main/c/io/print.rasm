@@ -13,7 +13,8 @@ native optIOError() -> Option<IOError> /{
         return $enumSimple(None);
     } else {
         struct RasmPointer_ *message = addStaticStringToHeap(strerror(errno));
-        void *error = $call(IOError, message: str); //"Error writing to file.";
+        $realTypeName(IOError) error 
+            = $call(IOError, message: str); //"Error writing to file.";
         return $call(Some, error: IOError);
     }
 }/

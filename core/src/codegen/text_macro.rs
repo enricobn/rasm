@@ -166,6 +166,7 @@ impl TextMacroEvaluator {
                     typed_function_def,
                     pre_macro,
                     type_def_provider,
+                    function_def,
                 )? {
                     line_result = line_result.replace(whole, &s);
                 }
@@ -282,6 +283,14 @@ impl TextMacroEvaluator {
         function_def: Option<&EnhASTFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
     ) -> Result<MacroParam, String> {
+        // let is_error = actual_param == "error: IOError";
+        // if is_error {
+        //     println!(
+        //         "found error: IOError {} {}",
+        //         OptionDisplay(&function_def),
+        //         OptionDisplay(&typed_function_def)
+        //     );
+        // }
         let p = actual_param.trim();
 
         let context_generic_types = if let Some(f) = function_def {
@@ -298,21 +307,20 @@ impl TextMacroEvaluator {
                 }
             }
             result
-        /*} else if let Some(f) = typed_function_def {
-        let mut result = Vec::new(); //f.generic_types.clone();
-                                     // TODO should we use var_types?
-        for ((name, _var_types), _t) in f
-            .resolved_generic_types
-            .clone()
-            .remove_generics_prefix()
-            .iter()
-
-        {
-            if !result.contains(&name) {
-                result.push(name.clone());
+        } else if let Some(f) = typed_function_def {
+            let mut result = Vec::new();
+            // TODO should we use var_types?
+            for ((name, _var_types), _t) in f
+                .resolved_generic_types
+                .clone()
+                .remove_generics_prefix()
+                .iter()
+            {
+                if !result.contains(&name) {
+                    result.push(name.clone());
+                }
             }
-        }
-        result*/
+            result
         } else {
             Vec::new()
         };
@@ -330,7 +338,7 @@ impl TextMacroEvaluator {
                             None,
                             type_def_provider,
                             &context_generic_types,
-                            &f.resolved_generic_types.clone(), /*.remove_generics_prefix()*/
+                            &f.resolved_generic_types.clone().remove_generics_prefix(),
                             &f.index.id(),
                             Some(&f.original_name),
                         )?;
@@ -365,7 +373,9 @@ impl TextMacroEvaluator {
                         par_typed_type,
                         type_def_provider,
                         &context_generic_types,
-                        &EnhResolvedGenericTypes::new(),
+                        &f.resolved_generic_types
+                            .to_enh(type_def_provider)
+                            .remove_generics_prefix(),
                         &f.index.id(),
                         Some(&f.original_name),
                     )?;
@@ -403,7 +413,21 @@ impl TextMacroEvaluator {
                     None,
                     type_def_provider,
                     &context_generic_types,
-                    &f.resolved_generic_types, /*.remove_generics_prefix()*/
+                    &f.resolved_generic_types.clone().remove_generics_prefix(),
+                    &f.index.id(),
+                    Some(&f.original_name),
+                )?
+            } else if let Some(f) = typed_function_def {
+                self.parse_typed_argument(
+                    &f.namespace,
+                    p,
+                    None,
+                    type_def_provider,
+                    &context_generic_types,
+                    &&f.resolved_generic_types
+                        .clone()
+                        .to_enh(type_def_provider)
+                        .remove_generics_prefix(),
                     &f.index.id(),
                     Some(&f.original_name),
                 )?
@@ -460,7 +484,8 @@ impl TextMacroEvaluator {
             {
                 Ok(Some(typed_type.clone()))
             } else if param_types.is_empty() {
-                Ok(type_def_provider.get_ast_typed_type_from_type_name(name))
+                Ok(type_def_provider
+                    .get_ast_typed_type_from_type_name(name, &function_def.namespace))
             } else {
                 let resolved_types = param_types
                     .iter()
@@ -509,7 +534,7 @@ impl TextMacroEvaluator {
                 }
                 .fix_namespaces_with(&|ast_type| type_def_provider.get_real_namespace(ast_type));
 
-                Ok(type_def_provider.get_ast_typed_type_from_ast_type(&ast_type_to_resolve?))
+                Ok(type_def_provider.get_ast_typed_type_from_enh_ast_type(&ast_type_to_resolve?))
             }
         } else {
             Ok(None)
@@ -534,69 +559,28 @@ impl TextMacroEvaluator {
             let par_type_name = vec.get(1).unwrap().trim();
             let par_name = vec.first().unwrap().trim();
 
-            if par_type_name == "int" {
-                (
-                    par_name,
-                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)),
-                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer)),
-                )
-            } else if par_type_name == "str" {
-                (
-                    par_name,
-                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::String)),
-                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String)),
-                )
-            } else if par_type_name == "float" {
-                (
-                    par_name,
-                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Float)),
-                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Float)),
-                )
-            } else {
-                let parser = TypeParserHelper::new(par_type_name);
-                let type_parser = TypeParser::new(&parser);
+            let (ast_type, ast_typed_type) = parse_type(
+                par_type_name,
+                context_generic_types,
+                type_def_provider,
+                resolved_generic_types,
+                id,
+                namespace,
+                function_name_for_fix_generics,
+            )?;
 
-                match type_parser.try_parse_ast_type(0, context_generic_types)? {
-                    None => {
-                        panic!("Unsupported type {par_type_name}")
-                    }
-                    Some((ref ast_type, _)) => {
-                        let eh_ast_type = EnhASTType::from_ast(
-                            namespace,
-                            id,
-                            ast_type.clone(),
-                            function_name_for_fix_generics,
-                        );
-                        let t = if ast_type.is_generic() {
-                            if let Some(t) = substitute(&eh_ast_type, resolved_generic_types) {
-                                t
-                            } else {
-                                eh_ast_type
-                            }
-                        } else {
-                            eh_ast_type
-                        };
+            // if par_name == "error"
+            //     && par_type_name == "IOError"
+            //     && !type_def_provider.structs().is_empty()
+            // {
+            //     println!(
+            //         "  parsing typed argument error: IOError -> {} {}",
+            //         OptionDisplay(&ast_type),
+            //         OptionDisplay(&ast_typed_type)
+            //     );
+            // }
 
-                        /*
-                        if FOUND_THE_FUNCTION.load(std::sync::atomic::Ordering::Relaxed) {
-                            println!("parse_typed_argument {t}");
-                            println!(
-                                "type_def_provider.get_ast_typed_type_from_ast_type {}",
-                                OptionDisplay(
-                                    &type_def_provider.get_ast_typed_type_from_ast_type(&t)
-                                )
-                            );
-                        }
-                        */
-
-                        (
-                            par_name,
-                            Some(t.clone()),
-                            type_def_provider.get_ast_typed_type_from_ast_type(&t),
-                        )
-                    }
-                }
-            }
+            (par_name, ast_type, ast_typed_type)
         } else if let Some(t) = &typed_type {
             let ast_type = Self::typed_type_to_type(t, type_def_provider);
             (p, Some(ast_type), typed_type.clone())
@@ -652,9 +636,10 @@ impl TextMacroEvaluator {
         &self,
         statics: &mut Statics,
         text_macro: &TextMacro,
-        function_def: Option<&ASTTypedFunctionDef>,
+        typed_function_def: Option<&ASTTypedFunctionDef>,
         pre_macro: bool,
         type_def_provider: &dyn TypeDefProvider,
+        function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<Option<String>, String> {
         let evaluator = self
             .evaluators
@@ -663,7 +648,13 @@ impl TextMacroEvaluator {
 
         if evaluator.is_pre_macro() == pre_macro {
             evaluator
-                .eval_macro(statics, &text_macro, function_def, type_def_provider)
+                .eval_macro(
+                    statics,
+                    &text_macro,
+                    typed_function_def,
+                    type_def_provider,
+                    function_def,
+                )
                 .map(|it| Some(it))
         } else {
             Ok(None)
@@ -778,6 +769,7 @@ pub trait TextMacroEval {
         text_macro: &TextMacro,
         function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
+        function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String>;
 
     fn is_pre_macro(&self) -> bool;
@@ -857,8 +849,9 @@ impl TextMacroEval for AddRefMacro {
         &self,
         statics: &mut Statics,
         text_macro: &TextMacro,
-        function_def: Option<&ASTTypedFunctionDef>,
+        typed_function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
+        _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
         if !self.dereference_enabled {
             return Ok(String::new());
@@ -872,8 +865,8 @@ impl TextMacroEval for AddRefMacro {
             }
             _ => panic!(
                 "Error: addRef/deref macro, a typed type must be specified in function {}:{} but got {}: {}",
-                OptionDisplay(&function_def),
-                OptionDisplay(&function_def.map(|it| &it.index)),
+                OptionDisplay(&typed_function_def),
+                OptionDisplay(&typed_function_def.map(|it| &it.index)),
                 text_macro.parameters.get(0).unwrap(),
                 text_macro.index
             ),
@@ -965,10 +958,11 @@ impl TextMacroEval for InlineMacro {
         &self,
         statics: &mut Statics,
         _text_macro: &TextMacro,
-        function_def: Option<&ASTTypedFunctionDef>,
+        typed_function_def: Option<&ASTTypedFunctionDef>,
         _type_def_provider: &dyn TypeDefProvider,
+        _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        if let Some(f) = function_def {
+        if let Some(f) = typed_function_def {
             InlineRegistry::add_to_statics(statics, &f);
             Ok(String::new())
         } else {
@@ -1026,6 +1020,7 @@ mod tests {
             None,
             false,
             &DummyTypeDefProvider::empty(),
+            None,
         );
 
         assert_eq!(
@@ -1327,5 +1322,85 @@ mod tests {
             format!("{}", result.get(0).unwrap().0),
             "$call(Plain(aFun, None, None), Ref($par, Some(int), Some(int)))"
         );
+    }
+}
+
+pub fn parse_type(
+    ast_type_name: &str,
+    context_generic_types: &[String],
+    type_def_provider: &dyn TypeDefProvider,
+    resolved_generic_types: &EnhResolvedGenericTypes,
+    id: &EnhModuleId,
+    namespace: &EnhASTNameSpace,
+    function_name_for_fix_generics: Option<&str>,
+) -> Result<(Option<EnhASTType>, Option<ASTTypedType>), String> {
+    if ast_type_name == "int" {
+        Ok((
+            Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)),
+            Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer)),
+        ))
+    } else if ast_type_name == "str" {
+        Ok((
+            Some(EnhASTType::Builtin(EnhBuiltinTypeKind::String)),
+            Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String)),
+        ))
+    } else if ast_type_name == "float" {
+        Ok((
+            Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Float)),
+            Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Float)),
+        ))
+    } else {
+        let parser = TypeParserHelper::new(ast_type_name);
+        let type_parser = TypeParser::new(&parser);
+
+        match type_parser.try_parse_ast_type(0, context_generic_types)? {
+            None => return Err(format!("Unsupported type {ast_type_name}")),
+            Some((ref ast_type, _)) => {
+                // if ast_type_name == "IOError" {
+                //     println!("  from namespace {namespace} found IOError");
+                // }
+                if let Some(t) = type_def_provider.get_ast_typed_type_from_ast_type(
+                    ast_type,
+                    id,
+                    namespace,
+                    resolved_generic_types,
+                ) {
+                    // if ast_type_name == "IOError" {
+                    //     println!("  FOUND");
+                    // }
+                    Ok((
+                        type_def_provider.get_type_from_typed_type(&t),
+                        Some(t.clone()),
+                    ))
+                } else {
+                    // TODO here the namespace is not correct
+                    let eh_ast_type = EnhASTType::from_ast(
+                        namespace,
+                        id,
+                        ast_type.clone(),
+                        function_name_for_fix_generics,
+                    );
+                    let t = if ast_type.is_generic() {
+                        if let Some(t) = substitute(
+                            &eh_ast_type.clone().remove_generics_prefix(),
+                            resolved_generic_types,
+                        ) {
+                            t
+                        } else {
+                            return Err(format!(
+                                "Failed to substitute {eh_ast_type} with {resolved_generic_types}"
+                            ));
+                        }
+                    } else {
+                        eh_ast_type
+                    };
+
+                    Ok((
+                        Some(t.clone()),
+                        type_def_provider.get_ast_typed_type_from_enh_ast_type_like(&t),
+                    ))
+                }
+            }
+        }
     }
 }

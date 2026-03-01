@@ -537,9 +537,6 @@ impl EnhASTType {
         }
     }
 
-    #[deprecated(
-        note = "probably there's no need of this function, sice namespaces are fixed in EnhancedAstModule::new"
-    )]
     pub fn equals_excluding_namespace(&self, other: &Self) -> bool {
         match self {
             EnhASTType::Custom {

@@ -23,6 +23,7 @@ use crate::enh_type_check::conv_context::{
     ConvContext, conv_to_typed_parameter_def, conv_to_typed_type,
 };
 use crate::enh_type_check::enh_functions_container::EnhTypeFilter;
+use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
 use crate::enh_type_check::enh_type_check::EnhTypeCheck;
 use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use crate::enh_type_check::verify;
@@ -99,6 +100,16 @@ impl ResolvedGenericTypedTypes {
             }
         }
         ResolvedGenericTypedTypes { map: new }
+    }
+
+    pub fn to_enh(&self, type_def_provider: &dyn TypeDefProvider) -> EnhResolvedGenericTypes {
+        let mut new = EnhResolvedGenericTypes::new();
+        for ((name, par_types), t) in self.iter() {
+            if let Some(t) = type_def_provider.get_type_from_typed_type(t) {
+                new.insert(name.clone(), par_types.clone(), t.clone());
+            }
+        }
+        new
     }
 }
 
@@ -1550,15 +1561,15 @@ impl DefaultFunctionCall {
         function_def_index.mv_down(self.i)
     }
 
-    pub fn to_call(&self, function_def: &EnhASTFunctionDef) -> EnhASTFunctionCall {
+    pub fn to_call(&self, function_def: &EnhASTFunctionDef) -> Result<EnhASTFunctionCall, String> {
         let mut call = DefaultFunction {
             name: self.name.clone(),
             param_types: self.param_types.clone(),
         }
-        .to_call(&function_def.namespace.clone());
+        .to_call(&function_def.namespace.clone())?;
         call.index = self.index(&function_def.index);
         call.generics = self.generics.clone();
-        call
+        Ok(call)
     }
 }
 
@@ -1606,57 +1617,61 @@ impl DefaultFunction {
         }
     }
 
-    pub fn to_call(&self, namespace: &EnhASTNameSpace) -> EnhASTFunctionCall {
-        EnhASTFunctionCall {
+    pub fn to_call(&self, namespace: &EnhASTNameSpace) -> Result<EnhASTFunctionCall, String> {
+        let parameters = self
+            .param_types
+            .iter()
+            .map(|it| match it {
+                EnhASTType::Builtin(kind) => match kind {
+                    EnhBuiltinTypeKind::String => Ok(EnhASTExpression::Value(
+                        ASTValue::ASTStringValue(String::new()),
+                        EnhASTIndex::none(),
+                    )),
+                    EnhBuiltinTypeKind::Integer => Ok(EnhASTExpression::Value(
+                        ASTValue::ASTIntegerValue(0),
+                        EnhASTIndex::none(),
+                    )),
+                    EnhBuiltinTypeKind::Boolean => Ok(EnhASTExpression::Value(
+                        ASTValue::ASTBooleanValue(true),
+                        EnhASTIndex::none(),
+                    )),
+                    EnhBuiltinTypeKind::Char => Ok(EnhASTExpression::Value(
+                        ASTValue::ASTCharValue("a".to_string()),
+                        EnhASTIndex::none(),
+                    )),
+                    EnhBuiltinTypeKind::Float => Ok(EnhASTExpression::Value(
+                        ASTValue::ASTFloatValue(1.0),
+                        EnhASTIndex::none(),
+                    )),
+                    EnhBuiltinTypeKind::Lambda {
+                        parameters: _,
+                        return_type: _,
+                    } => Ok(EnhASTExpression::Any(it.clone())),
+                },
+                EnhASTType::Generic(_, name, _) => {
+                    Err(format!("Generics are not supported here: {name}"))
+                }
+                EnhASTType::Custom {
+                    namespace: _,
+                    name: _,
+                    param_types: _,
+                    index: _,
+                } => Ok(EnhASTExpression::Any(it.clone())),
+                EnhASTType::Unit => Err(format!("Parameters cannot have unit type")),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let call = EnhASTFunctionCall {
             namespace: namespace.clone(),
             function_name: self.name.clone(),
             original_function_name: self.name.clone(),
-            parameters: self
-                .param_types
-                .iter()
-                .map(|it| match it {
-                    EnhASTType::Builtin(kind) => match kind {
-                        EnhBuiltinTypeKind::String => EnhASTExpression::Value(
-                            ASTValue::ASTStringValue(String::new()),
-                            EnhASTIndex::none(),
-                        ),
-                        EnhBuiltinTypeKind::Integer => EnhASTExpression::Value(
-                            ASTValue::ASTIntegerValue(0),
-                            EnhASTIndex::none(),
-                        ),
-                        EnhBuiltinTypeKind::Boolean => EnhASTExpression::Value(
-                            ASTValue::ASTBooleanValue(true),
-                            EnhASTIndex::none(),
-                        ),
-                        EnhBuiltinTypeKind::Char => EnhASTExpression::Value(
-                            ASTValue::ASTCharValue("a".to_string()),
-                            EnhASTIndex::none(),
-                        ),
-                        EnhBuiltinTypeKind::Float => EnhASTExpression::Value(
-                            ASTValue::ASTFloatValue(1.0),
-                            EnhASTIndex::none(),
-                        ),
-                        EnhBuiltinTypeKind::Lambda {
-                            parameters: _,
-                            return_type: _,
-                        } => EnhASTExpression::Any(it.clone()),
-                    },
-                    EnhASTType::Generic(_, _, _) => panic!(),
-                    EnhASTType::Custom {
-                        namespace: _,
-                        name: _,
-                        param_types: _,
-                        index: _,
-                    } => EnhASTExpression::Any(it.clone()),
-                    EnhASTType::Unit => {
-                        panic!("Parameters cannot have unit type");
-                    }
-                })
-                .collect(),
+
+            parameters,
             index: EnhASTIndex::none(),
             generics: Vec::new(),
             target: None,
             is_macro: false,
-        }
+        };
+
+        Ok(call)
     }
 }

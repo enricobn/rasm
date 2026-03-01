@@ -2,13 +2,13 @@ use std::cell::RefCell;
 
 use crate::{
     codegen::{
-        enh_ast::{EnhASTType, EnhBuiltinTypeKind},
+        CodeGen,
+        enh_ast::{EnhASTFunctionDef, EnhASTType, EnhBuiltinTypeKind},
         get_reference_type_name,
         statics::Statics,
-        text_macro::{get_type, MacroParam, TextMacro, TextMacroEval},
+        text_macro::{MacroParam, TextMacro, TextMacroEval, get_type},
         type_def_body::TypeDefBodyTarget,
         typedef_provider::TypeDefProvider,
-        CodeGen,
     },
     enh_type_check::typed_ast::{
         ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind, DefaultFunctionCall,
@@ -30,8 +30,9 @@ impl TextMacroEval for AsmPrintRefMacro {
         &self,
         _statics: &mut Statics,
         text_macro: &TextMacro,
-        function_def: Option<&ASTTypedFunctionDef>,
+        typed_function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
+        _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
         let result = match text_macro.parameters.get(0) {
             None => return Err("cannot find parameter for printRef macro".to_owned()),
@@ -40,19 +41,19 @@ impl TextMacroEval for AsmPrintRefMacro {
                     name,
                     ast_type,
                     ast_typed_type,
-                    function_def,
+                    typed_function_def,
                     type_def_provider,
                     0,
                     &self.code_gen,
                 ),
                 MacroParam::StringLiteral(_) => {
-                    return Err("String is nt a valid parameter for printRef macro ".to_owned())
+                    return Err("String is not a valid parameter for printRef macro ".to_owned());
                 }
                 MacroParam::Ref(name, ast_type, ast_typed_type) => self.print_ref(
                     name,
                     ast_type,
                     ast_typed_type,
-                    function_def,
+                    typed_function_def,
                     type_def_provider,
                     0,
                     &self.code_gen,
@@ -121,13 +122,15 @@ impl AsmPrintRefMacro {
             ast_typed_type.clone()
         } else if let Some(ast_type) = ast_type_o {
             if let Some(ast_typed_type) =
-                type_def_provider.get_ast_typed_type_from_ast_type(ast_type)
+                type_def_provider.get_ast_typed_type_from_enh_ast_type(ast_type)
             {
                 ast_typed_type
             } else {
                 match ast_type_o {
                     None => {
-                        panic!("printRef macro: cannot find the type of the parameter {src}, please specify it")
+                        panic!(
+                            "printRef macro: cannot find the type of the parameter {src}, please specify it"
+                        )
                     }
                     Some(ast_type) => match ast_type {
                         EnhASTType::Builtin(EnhBuiltinTypeKind::String) => {
@@ -140,7 +143,9 @@ impl AsmPrintRefMacro {
                                     match f.resolved_generic_types.get(generic_type_name, var_types)
                                     {
                                         None => {
-                                            panic!("printRef macro: Cannot find generic type {generic_type_name}")
+                                            panic!(
+                                                "printRef macro: Cannot find generic type {generic_type_name}"
+                                            )
                                         }
                                         Some(ast_typed_type) => ast_typed_type.clone(),
                                     }

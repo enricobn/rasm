@@ -3,6 +3,7 @@ use rasm_utils::debug_i;
 use crate::{
     codegen::{
         CodeGen,
+        enh_ast::EnhASTFunctionDef,
         statics::Statics,
         text_macro::{MacroParam, TextMacro, TextMacroEval},
         type_def_body::TypeDefBodyTarget,
@@ -28,8 +29,9 @@ impl TextMacroEval for AsmCallTextMacroEvaluator {
         &self,
         statics: &mut Statics,
         text_macro: &TextMacro,
-        _function_def: Option<&ASTTypedFunctionDef>,
+        _typed_function_def: Option<&ASTTypedFunctionDef>,
         _type_def_provider: &dyn TypeDefProvider,
+        _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
         let function_name =
             if let Some(MacroParam::Plain(function_name, _, _)) = text_macro.parameters.get(0) {
@@ -101,10 +103,11 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
         &self,
         statics: &mut Statics,
         text_macro: &TextMacro,
-        _function_def: Option<&ASTTypedFunctionDef>,
+        _typed_function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
+        _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        debug_i!("translate macro fun {:?}", _function_def);
+        debug_i!("translate macro fun {:?}", _typed_function_def);
         let function_name =
             if let Some(MacroParam::Plain(function_name, _, _)) = text_macro.parameters.get(0) {
                 function_name

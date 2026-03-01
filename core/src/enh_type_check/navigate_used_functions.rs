@@ -79,7 +79,7 @@ pub fn get_unused_functions_by_navigate(
                             let c = call.to_call(&function);
                             call_used_functions(
                                 &mut inner_used_functions,
-                                &c,
+                                &c.unwrap(),
                                 &mut context,
                                 module,
                             );

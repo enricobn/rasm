@@ -19,12 +19,13 @@ use log::debug;
 use rasm_utils::{SliceDisplay, find_one};
 use std::iter::zip;
 
-use crate::codegen::enh_ast::{EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind};
+use crate::codegen::enh_ast::{EnhASTNameSpace, EnhASTType, EnhBuiltinTypeKind, EnhModuleId};
+use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
 use crate::enh_type_check::typed_ast::{
     ASTTypedEnumDef, ASTTypedStructDef, ASTTypedType, ASTTypedTypeDef, BuiltinTypedTypeKind,
     CustomTypedTypeDef,
 };
-use rasm_parser::parser::ast::ASTModifiers;
+use rasm_parser::parser::ast::{ASTBuiltinTypeKind, ASTModifiers, ASTType};
 
 pub trait TypeDefProvider {
     fn enums(&self) -> &[ASTTypedEnumDef];
@@ -184,10 +185,14 @@ pub trait TypeDefProvider {
         }
     }
 
-    fn get_ast_typed_type_from_type_name(&self, name: &str) -> Option<ASTTypedType> {
+    fn get_ast_typed_type_from_type_name(
+        &self,
+        name: &str,
+        namespace: &EnhASTNameSpace,
+    ) -> Option<ASTTypedType> {
         if let Some(e) = find_one(self.enums().iter(), |it| {
             if let EnhASTType::Custom {
-                namespace,
+                namespace: _,
                 name: ast_type_name,
                 param_types: _,
                 index: _,
@@ -231,7 +236,7 @@ pub trait TypeDefProvider {
         }
     }
 
-    fn get_ast_typed_type_from_ast_type(&self, ast_type: &EnhASTType) -> Option<ASTTypedType> {
+    fn get_ast_typed_type_from_enh_ast_type(&self, ast_type: &EnhASTType) -> Option<ASTTypedType> {
         let result = match ast_type {
             EnhASTType::Builtin(kind) => match kind {
                 EnhBuiltinTypeKind::Boolean => {
@@ -253,10 +258,10 @@ pub trait TypeDefProvider {
                 } => {
                     let new_parameters = parameters
                         .iter()
-                        .map(|it| self.get_ast_typed_type_from_ast_type(it).unwrap())
+                        .map(|it| self.get_ast_typed_type_from_enh_ast_type(it).unwrap())
                         .collect::<Vec<ASTTypedType>>();
                     let new_return_type = self
-                        .get_ast_typed_type_from_ast_type(&return_type)
+                        .get_ast_typed_type_from_enh_ast_type(&return_type)
                         .expect(&format!("Cannot find typed type for {return_type}"));
                     Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
                         parameters: new_parameters,
@@ -296,6 +301,204 @@ pub trait TypeDefProvider {
                 }
             }
             EnhASTType::Unit => Some(ASTTypedType::Unit),
+        };
+
+        result
+    }
+
+    fn get_ast_typed_type_from_enh_ast_type_like(
+        &self,
+        ast_type: &EnhASTType,
+    ) -> Option<ASTTypedType> {
+        let result = match ast_type {
+            EnhASTType::Builtin(kind) => match kind {
+                EnhBuiltinTypeKind::Boolean => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Boolean))
+                }
+                EnhBuiltinTypeKind::Char => Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Char)),
+                EnhBuiltinTypeKind::Integer => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer))
+                }
+                EnhBuiltinTypeKind::Float => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Float))
+                }
+                EnhBuiltinTypeKind::String => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))
+                }
+                EnhBuiltinTypeKind::Lambda {
+                    parameters,
+                    return_type,
+                } => {
+                    let new_parameters = parameters
+                        .iter()
+                        .map(|it| self.get_ast_typed_type_from_enh_ast_type(it).unwrap())
+                        .collect::<Vec<ASTTypedType>>();
+                    let new_return_type = self
+                        .get_ast_typed_type_from_enh_ast_type(&return_type)
+                        .expect(&format!("Cannot find typed type for {return_type}"));
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                        parameters: new_parameters,
+                        return_type: Box::new(new_return_type),
+                    }))
+                }
+            },
+            EnhASTType::Generic(_, _, _) => None,
+            EnhASTType::Custom {
+                namespace: _,
+                name: _,
+                param_types,
+                index: _,
+            } => {
+                /*
+                if FOUND_THE_FUNCTION.load(std::sync::atomic::Ordering::Relaxed) {
+                    println!("{ast_type} is custom {}", self.types().len());
+                    for t in self.types().iter() {
+                        println!("{} -> {}", t, t.ast_type);
+                    }
+                }
+                */
+
+                if let Some(e) = find_one(self.enums().iter(), |it| {
+                    if it.ast_type.equals_excluding_namespace(ast_type)
+                        && it
+                            .ast_type
+                            .namespace()
+                            .visible_from(ast_type.namespace(), &it.modifiers)
+                    {
+                        true
+                    } else {
+                        false
+                    }
+                    //self.get_ast_typed_type_from_ast_type_filter(*it, ast_type, param_types)
+                }) {
+                    Some(e.clone().ast_typed_type)
+                } else if let Some(s) = find_one(self.structs().iter(), |it| {
+                    self.get_ast_typed_type_from_ast_type_filter(*it, ast_type, param_types)
+                }) {
+                    Some(s.clone().ast_typed_type)
+                } else {
+                    find_one(self.types().iter(), |it| {
+                        self.get_ast_typed_type_from_ast_type_filter(*it, ast_type, param_types)
+                    })
+                    .map(|it| it.ast_typed_type().clone())
+                }
+            }
+            EnhASTType::Unit => Some(ASTTypedType::Unit),
+        };
+
+        result
+    }
+
+    fn get_ast_typed_type_from_ast_type(
+        &self,
+        ast_type: &ASTType,
+        id: &EnhModuleId,
+        namespace: &EnhASTNameSpace,
+        resolved_generic_types: &EnhResolvedGenericTypes,
+    ) -> Option<ASTTypedType> {
+        let result = match ast_type {
+            ASTType::ASTBuiltinType(kind) => match kind {
+                ASTBuiltinTypeKind::ASTBooleanType => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Boolean))
+                }
+                ASTBuiltinTypeKind::ASTCharType => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Char))
+                }
+                ASTBuiltinTypeKind::ASTIntegerType => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer))
+                }
+                ASTBuiltinTypeKind::ASTFloatType => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Float))
+                }
+                ASTBuiltinTypeKind::ASTStringType => {
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String))
+                }
+                ASTBuiltinTypeKind::ASTLambdaType {
+                    parameters,
+                    return_type,
+                } => {
+                    let new_parameters = parameters
+                        .iter()
+                        .map(|it| {
+                            self.get_ast_typed_type_from_ast_type(
+                                it,
+                                id,
+                                namespace,
+                                resolved_generic_types,
+                            )
+                            .unwrap()
+                        })
+                        .collect::<Vec<ASTTypedType>>();
+                    let new_return_type = self
+                        .get_ast_typed_type_from_ast_type(
+                            &return_type,
+                            id,
+                            namespace,
+                            resolved_generic_types,
+                        )
+                        .expect(&format!("Cannot find typed type for {return_type}"));
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda {
+                        parameters: new_parameters,
+                        return_type: Box::new(new_return_type),
+                    }))
+                }
+            },
+            ASTType::ASTGenericType(_, name, _) => {
+                // TODO var types
+                if let Some(t) = resolved_generic_types.get(name, &Vec::new()) {
+                    let r = self.get_ast_typed_type_from_enh_ast_type(t);
+                    if r.is_none() && !self.enums().is_empty() && !self.structs().is_empty() {
+                        println!("Found generic type {name} as {t} but failed to get typed type");
+                    }
+
+                    r
+                } else {
+                    println!("Cannot find generic type {name} in {resolved_generic_types}");
+                    None
+                }
+            }
+            ASTType::ASTCustomType {
+                name,
+                param_types,
+                position: _,
+            } => {
+                if let Some(e) = self.find_one_in_custom_type_defs(&|it| {
+                    if let EnhASTType::Custom {
+                        namespace: it_namespace,
+                        name: it_name,
+                        param_types: it_param_types,
+                        index: _,
+                    } = &it.ast_type()
+                    {
+                        it_name == name
+                            && it_namespace.visible_from(namespace, it.modifiers())
+                            && zip(it_param_types.iter(), param_types.iter()).all(|(a, b)| {
+                                if let Some(b) = self.get_ast_typed_type_from_ast_type(
+                                    b,
+                                    id,
+                                    namespace,
+                                    resolved_generic_types,
+                                ) {
+                                    if let Some(a) = self.get_ast_typed_type_from_enh_ast_type(a) {
+                                        a == b
+                                    } else {
+                                        false
+                                    }
+                                } else {
+                                    false
+                                }
+                            })
+                    } else {
+                        // it should not happen
+                        false
+                    }
+                }) {
+                    Some(e.ast_typed_type().clone())
+                } else {
+                    None
+                }
+            }
+            ASTType::ASTUnitType => Some(ASTTypedType::Unit),
         };
 
         result
@@ -385,6 +588,36 @@ pub trait TypeDefProvider {
         }
     }
 
+    /*
+    fn ast_type_compatible(
+        &self,
+        typed_type_def: &dyn CustomTypedTypeDef,
+        ast_type: &ASTType,
+        namespace: &EnhASTNameSpace,
+    ) -> bool {
+        if let EnhASTType::Custom {
+            namespace: it_namespace,
+            name: it_name,
+            param_types: it_pt,
+            index: _,
+        } = typed_type_def.ast_type()
+            && let ASTType::ASTCustomType {
+                name,
+                param_types,
+                position: _,
+            } = ast_type
+        {
+            it_name == name
+                && it_namespace.visible_from(namespace, typed_type_def.modifiers())
+                && zip(it_pt.iter(), param_types.iter())
+                    .all(|(a, b)| self.ast_type_compatible(a, b, namespace))
+        } else {
+            // it should not happen
+            false
+        }
+    }
+    */
+
     fn get_type_from_typed_type_name(&self, typed_type_to_find: &str) -> Option<EnhASTType> {
         if let Some(t) = self.get_enum_def_by_name(typed_type_to_find) {
             Some(t.ast_type.clone())
@@ -395,6 +628,57 @@ pub trait TypeDefProvider {
                 .map(|t| t.ast_type.clone())
         }
     }
+
+    fn find_one_in_custom_type_defs(
+        &self,
+        predicate: &dyn Fn(&dyn CustomTypedTypeDef) -> bool,
+    ) -> Option<&dyn CustomTypedTypeDef> {
+        // TODO optimize, find one can fail event if we have more than one, in that case it is useless to continue the search
+        if let Some(result) = find_one(self.structs().iter(), |it| predicate(*it)) {
+            Some(result)
+        } else {
+            if let Some(result) = find_one(self.enums().iter(), |it| predicate(*it)) {
+                Some(result)
+            } else {
+                if let Some(result) = find_one(self.types().iter(), |it| predicate(*it)) {
+                    Some(result)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    /*
+    fn enh_ast_type_like(&self, it: &EnhASTType, other: &EnhASTType) -> bool {
+        if let EnhASTType::Custom {
+            namespace: it_namespace,
+            name: it_name,
+            param_types: it_pt,
+            index: _,
+        } = it
+            && let EnhASTType::Custom {
+                namespace: other_namespace,
+                name: other_name,
+                param_types: other_pt,
+                index: _,
+            } = other
+        {
+            if it_name == other_name
+                && type_def
+                    .ast_type()
+                    .namespace()
+                    .visible_from(other.namespace(), type_def.modifiers())
+            {
+                zip(it_pt.iter(), other_pt.iter()).all(|(a, b)| enh_ast_type_like(a, b))
+            } else {
+                false
+            }
+        } else {
+            ast_type == other
+        }
+    }
+    */
 
     fn name(&self) -> String;
 }
