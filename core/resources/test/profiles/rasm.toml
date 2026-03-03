@@ -1,5 +1,5 @@
 [package]
-name = "profiles"
+name = "test profiles"
 version = "1.0.0"
 
 [dependencies]
