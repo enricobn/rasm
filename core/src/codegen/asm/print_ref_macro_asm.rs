@@ -6,7 +6,9 @@ use crate::{
         enh_ast::{EnhASTFunctionDef, EnhASTType, EnhBuiltinTypeKind},
         get_reference_type_name,
         statics::Statics,
-        text_macro::{MacroParam, TextMacro, TextMacroEval, get_type},
+        text_macro::{
+            MacroExpression, MacroParam, MacroParamKind, TextMacro, TextMacroEval, get_type,
+        },
         type_def_body::TypeDefBodyTarget,
         typedef_provider::TypeDefProvider,
     },
@@ -37,27 +39,35 @@ impl TextMacroEval for AsmPrintRefMacro {
         let result = match text_macro.parameters.get(0) {
             None => return Err("cannot find parameter for printRef macro".to_owned()),
             Some(par) => match par {
-                MacroParam::Plain(name, ast_type, ast_typed_type) => self.print_ref(
-                    name,
-                    ast_type,
-                    ast_typed_type,
-                    typed_function_def,
-                    type_def_provider,
-                    0,
-                    &self.code_gen,
-                ),
-                MacroParam::StringLiteral(_) => {
-                    return Err("String is not a valid parameter for printRef macro ".to_owned());
+                MacroParam::Expression(MacroExpression::Plain(name, ast_type, ast_typed_type)) => {
+                    self.print_ref(
+                        name,
+                        ast_type,
+                        ast_typed_type,
+                        typed_function_def,
+                        type_def_provider,
+                        0,
+                        &self.code_gen,
+                    )
                 }
-                MacroParam::Ref(name, ast_type, ast_typed_type) => self.print_ref(
-                    name,
-                    ast_type,
-                    ast_typed_type,
-                    typed_function_def,
-                    type_def_provider,
-                    0,
-                    &self.code_gen,
-                ),
+
+                MacroParam::Expression(MacroExpression::Ref(name, ast_type, ast_typed_type)) => {
+                    self.print_ref(
+                        name,
+                        ast_type,
+                        ast_typed_type,
+                        typed_function_def,
+                        type_def_provider,
+                        0,
+                        &self.code_gen,
+                    )
+                }
+                _ => {
+                    return Err(format!(
+                        "Is not a valid parameter for printRef macro : {}",
+                        text_macro.index
+                    ));
+                }
             },
         };
 
@@ -96,6 +106,10 @@ impl TextMacroEval for AsmPrintRefMacro {
             ),
             DefaultFunctionCall::new("println", Vec::new(), 0, Vec::new()),
         ]
+    }
+
+    fn get_parameters(&self) -> Vec<crate::codegen::text_macro::MacroParamKind> {
+        vec![MacroParamKind::Expression]
     }
 }
 

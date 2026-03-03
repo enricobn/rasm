@@ -29,7 +29,9 @@ use crate::codegen::function_call_parameters::FunctionCallParameters;
 
 use crate::codegen::lambda_in_stack::{GLOBAL_LAMBDA_IN_STACK, can_lambda_be_in_stack};
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{InlineRegistry, MacroParam, TextMacro, TextMacroEvaluator};
+use crate::codegen::text_macro::{
+    InlineRegistry, MacroExpression, MacroParam, TextMacro, TextMacroEvaluator,
+};
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::commandline::{CommandLineOptions, RasmProfile};
@@ -2351,26 +2353,47 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 .skip(1)
                 .map(|it| {
                     let ast_type = match it {
-                        MacroParam::Plain(_, _, Some(typed_type)) => type_def_provider
-                            .get_type_from_typed_type(typed_type)
-                            .ok_or_else(|| format!("Cannot find type {typed_type}"))?,
-                        MacroParam::Plain(_, Some(enh_ast_type), _) => enh_ast_type.clone(),
-                        MacroParam::Plain(_, _, _) => {
+                        MacroParam::Expression(MacroExpression::Plain(_, _, Some(typed_type))) => {
+                            type_def_provider
+                                .get_type_from_typed_type(typed_type)
+                                .ok_or_else(|| format!("Cannot find type {typed_type}"))?
+                        }
+                        MacroParam::Expression(MacroExpression::Plain(
+                            _,
+                            Some(enh_ast_type),
+                            _,
+                        )) => enh_ast_type.clone(),
+                        MacroParam::Expression(MacroExpression::Plain(_, _, _)) => {
                             EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)
                         }
                         MacroParam::StringLiteral(_) => {
                             EnhASTType::Builtin(EnhBuiltinTypeKind::String)
                         }
-                        MacroParam::Ref(name, None, _) => {
+                        MacroParam::Expression(MacroExpression::Ref(name, None, _)) => {
                             debug_i!("found ref {name}");
                             match context.get(name.strip_prefix('$').unwrap()).unwrap() {
                                 EnhValKind::ParameterRef(_, par) => par.ast_type.clone(),
                                 EnhValKind::LetRef(_, ast_type, _) => ast_type.clone(),
                             }
                         }
-                        MacroParam::Ref(name, Some(ast_type), _) => {
+                        MacroParam::Expression(MacroExpression::Ref(name, Some(ast_type), _)) => {
                             debug_i!("found ref {name} : {ast_type}");
                             ast_type.clone()
+                        }
+                        MacroParam::Plain(_) => {
+                            return Err("Expected expression, found string".to_owned());
+                        }
+                        MacroParam::Type(_, _, _) => {
+                            return Err(format!("Expected expression, found type"));
+                        }
+                        MacroParam::Expression(MacroExpression::IntLiteral(_)) => {
+                            EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)
+                        }
+                        MacroParam::Expression(MacroExpression::FloatLiteral(_)) => {
+                            EnhASTType::Builtin(EnhBuiltinTypeKind::Float)
+                        }
+                        MacroParam::Expression(MacroExpression::StringLiteral(_)) => {
+                            EnhASTType::Builtin(EnhBuiltinTypeKind::String)
                         }
                     };
 
@@ -2422,12 +2445,12 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             //     println!("  found debug {m} -> {}", SliceDisplay(&types));
             // }
 
-            let function_name =
-                if let Some(MacroParam::Plain(function_name, _, _)) = m.parameters.get(0) {
-                    function_name
-                } else {
-                    return Err(format!("Cannot find function in macro : {m}"));
-                };
+            let function_name = if let Some(MacroParam::Plain(function_name)) = m.parameters.get(0)
+            {
+                function_name
+            } else {
+                return Err(format!("Cannot find function in macro : {m}"));
+            };
             // TODO there's another way to do this?
             if function_name.contains('<') {
                 let (namespace, index) = if let Some(function_def) = function_def {

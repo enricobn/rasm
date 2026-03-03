@@ -5,7 +5,7 @@ use crate::{
         CodeGen,
         enh_ast::EnhASTFunctionDef,
         statics::Statics,
-        text_macro::{MacroParam, TextMacro, TextMacroEval},
+        text_macro::{MacroExpression, MacroParam, MacroParamKind, TextMacro, TextMacroEval},
         type_def_body::TypeDefBodyTarget,
         typedef_provider::TypeDefProvider,
     },
@@ -34,7 +34,7 @@ impl TextMacroEval for AsmCallTextMacroEvaluator {
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
         let function_name =
-            if let Some(MacroParam::Plain(function_name, _, _)) = text_macro.parameters.get(0) {
+            if let Some(MacroParam::Plain(function_name)) = text_macro.parameters.get(0) {
                 function_name
             } else {
                 panic!("Error getting the function name");
@@ -50,17 +50,24 @@ impl TextMacroEval for AsmCallTextMacroEvaluator {
                 .iter()
                 .skip(1)
                 .rev()
+                // TODO we want to match for MacroParam::Expression() then handle all types of expressions, otherwise
+                //   return an error (don't panic)
                 .map(|it| match it {
-                    MacroParam::Plain(s, _, _) => {
+                    MacroParam::Expression(MacroExpression::Plain(s, _, _)) => {
+                        format!("    push dword {s}")
+                    }
+                    MacroParam::Expression(MacroExpression::StringLiteral(s)) => {
+                        let key = statics.add_str(s);
+                        format!("    push dword [{key}]")
+                    }
+                    MacroParam::Expression(MacroExpression::Ref(s, _, _)) => {
                         format!("    push dword {s}")
                     }
                     MacroParam::StringLiteral(s) => {
                         let key = statics.add_str(s);
                         format!("    push dword [{key}]")
                     }
-                    MacroParam::Ref(s, _, _) => {
-                        format!("    push dword {s}")
-                    }
+                    _ => panic!("Error in call macro, expression not supported: {:?}", it),
                 })
                 .collect::<Vec<String>>()
                 .join("\n"),
@@ -86,6 +93,10 @@ impl TextMacroEval for AsmCallTextMacroEvaluator {
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
     }
+
+    fn get_parameters(&self) -> Vec<crate::codegen::text_macro::MacroParamKind> {
+        vec![MacroParamKind::Plain, MacroParamKind::Expressions]
+    }
 }
 
 pub struct AsmCCallTextMacroEvaluator {
@@ -109,7 +120,7 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
     ) -> Result<String, String> {
         debug_i!("translate macro fun {:?}", _typed_function_def);
         let function_name =
-            if let Some(MacroParam::Plain(function_name, _, _)) = text_macro.parameters.get(0) {
+            if let Some(MacroParam::Plain(function_name)) = text_macro.parameters.get(0) {
                 function_name
             } else {
                 panic!("Error getting the function name");
@@ -142,17 +153,17 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
                 .map(|(index, it)| {
                     let i = index - 1;
                     match it {
-                        MacroParam::Plain(s, _, _) => {
+                        MacroParam::Expression(MacroExpression::Plain(s, _, _)) => {
                             if s.contains("ebx") {
                                 panic!("Error in ccall macro, you cannot use ebx as a parameter");
                             }
                             format!("    mov {ws} {tmp_register}, {s}\n    mov {ws} [{sp}+{}], {tmp_register}\n", i * wl)
                         }
-                        MacroParam::StringLiteral(s) => {
+                        MacroParam::Expression(MacroExpression::StringLiteral(s)) => {
                             let key = statics.add_str(s);
                             format!("    mov {ws} {tmp_register}, [{key}]\n    mov {ws} {tmp_register},[{tmp_register}]\n    mov {ws} [{sp}+{}], {tmp_register}\n", i * wl)
                         }
-                        MacroParam::Ref(s, t, _) => {
+                        MacroParam::Expression(MacroExpression::Ref(s, t, _)) => {
                             let is_ref =
                             if let Some(tt) = t {
                                 tt.is_reference(type_def_provider, TypeDefBodyTarget::Asm)
@@ -165,6 +176,9 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
                             } else {
                                 format!("    mov {ws} {tmp_register}, {s}\n    mov {ws} [{sp}+{}], {tmp_register}\n", i * wl)
                             }
+                        }
+                        _ => {
+                            panic!("Error in ccall macro, expression not supported: {:?}", it);
                         }
                     }
                 })
@@ -190,5 +204,9 @@ impl TextMacroEval for AsmCCallTextMacroEvaluator {
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
+    }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![MacroParamKind::Plain, MacroParamKind::Expressions]
     }
 }

@@ -5,6 +5,7 @@ use std::fmt::{Debug, Display, Formatter};
 use lazy_static::lazy_static;
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
+use rasm_utils::OptionDisplay;
 use regex::Regex;
 
 use crate::codegen::code_manipulator::CodeManipulator;
@@ -23,32 +24,86 @@ use rasm_parser::lexer::Lexer;
 use rasm_parser::lexer::tokens::Token;
 use rasm_parser::parser::ParserTrait;
 use rasm_parser::parser::type_parser::TypeParser;
-use rasm_utils::{OptionDisplay, SliceDisplay};
 
 use super::asm::code_gen_asm::CodeGenAsm;
 use super::enh_ast::EnhModuleId;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MacroParamKind {
+    Plain,
+    Type,
+    StringLiteral,
+    Expression,
+    Expressions,
+}
+
 #[derive(Debug, Clone)]
 pub enum MacroParam {
+    Plain(String),
+    Expression(MacroExpression),
+    StringLiteral(String),
+    Type(String, Option<EnhASTType>, Option<ASTTypedType>),
+}
+
+#[derive(Debug, Clone)]
+pub enum MacroExpression {
     Plain(String, Option<EnhASTType>, Option<ASTTypedType>),
     StringLiteral(String),
+    IntLiteral(i64),
+    FloatLiteral(f64),
     Ref(String, Option<EnhASTType>, Option<ASTTypedType>),
+}
+
+impl Display for MacroExpression {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MacroExpression::Plain(value, _enh_asttype, _asttyped_type) => {
+                f.write_str(&format!("Plain({})", value))
+            }
+            MacroExpression::StringLiteral(value) => {
+                f.write_str(format!("StringLiteral(\"{value}\")").as_str())
+            }
+            MacroExpression::IntLiteral(value) => f.write_str(&format!("IntLiteral({})", value)),
+            MacroExpression::FloatLiteral(value) => {
+                f.write_str(&format!("FloatLiteral({})", value))
+            }
+            MacroExpression::Ref(value, enh_type, typed_type) => f.write_str(&format!(
+                "Ref({}, {}, {})",
+                value,
+                OptionDisplay(enh_type),
+                OptionDisplay(typed_type)
+            )),
+        }
+    }
+}
+
+impl MacroExpression {
+    pub fn render(&self) -> String {
+        match self {
+            MacroExpression::Plain(value, _enh_asttype, _asttyped_type) => value.clone(),
+            MacroExpression::StringLiteral(value) => format!("\"{value}\""),
+            MacroExpression::IntLiteral(value) => value.to_string(),
+            MacroExpression::FloatLiteral(value) => value.to_string(),
+            MacroExpression::Ref(value, _enh_asttype, _asttyped_type) => value.clone(),
+        }
+    }
 }
 
 impl Display for MacroParam {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            MacroParam::Plain(name, type_o, typed_type_o) => f.write_str(&format!(
-                "Plain({name}, {}, {})",
-                OptionDisplay(type_o),
-                OptionDisplay(typed_type_o)
+            MacroParam::Plain(value) => f.write_str(&format!("Plain({})", value)),
+            MacroParam::Expression(macro_expression) => {
+                f.write_str(&format!("Expression({macro_expression})"))
+            }
+            MacroParam::Type(name, enh_type, typed_type) => f.write_str(&format!(
+                "Type({name}, {}, {})",
+                OptionDisplay(enh_type),
+                OptionDisplay(typed_type)
             )),
-            MacroParam::StringLiteral(s) => f.write_str(&format!("\"{s}\"")),
-            MacroParam::Ref(name, type_o, typed_type_o) => f.write_str(&format!(
-                "Ref({name}, {}, {})",
-                OptionDisplay(type_o),
-                OptionDisplay(typed_type_o)
-            )),
+            MacroParam::StringLiteral(name) => {
+                f.write_str(format!("StringLiteral(\"{name}\")").as_str())
+            }
         }
     }
 }
@@ -56,11 +111,10 @@ impl Display for MacroParam {
 impl MacroParam {
     pub fn render(&self) -> String {
         match self {
-            MacroParam::Plain(name, _type_o, _typed_type_o) => name.clone(),
-            MacroParam::StringLiteral(s) => {
-                format!("\"{s}\"")
-            }
-            MacroParam::Ref(name, _type_o, _typed_type_o) => name.clone(),
+            MacroParam::Plain(value) => value.clone(),
+            MacroParam::Expression(macro_expression) => macro_expression.render(),
+            MacroParam::Type(name, _enh_asttype, _asttyped_type) => name.clone(),
+            MacroParam::StringLiteral(name) => format!("\"{name}\""),
         }
     }
 }
@@ -94,6 +148,50 @@ impl TextMacro {
             .collect::<Vec<String>>()
             .join(", ");
         format!("${}({parameters})", self.name)
+    }
+
+    pub fn get_expression(
+        &self,
+        i: usize,
+    ) -> Result<(String, Option<EnhASTType>, Option<ASTTypedType>), String> {
+        match &self.parameters[i] {
+            MacroParam::Expression(macro_expression) => match macro_expression {
+                MacroExpression::Plain(name, enh_asttype, asttyped_type) => {
+                    Ok((name.clone(), enh_asttype.clone(), asttyped_type.clone()))
+                }
+                MacroExpression::StringLiteral(value) => Ok((
+                    format!("\"{value}\""),
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::String)),
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::String)),
+                )),
+                MacroExpression::IntLiteral(value) => Ok((
+                    value.to_string(),
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)),
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer)),
+                )),
+                MacroExpression::FloatLiteral(value) => Ok((
+                    value.to_string(),
+                    Some(EnhASTType::Builtin(EnhBuiltinTypeKind::Float)),
+                    Some(ASTTypedType::Builtin(BuiltinTypedTypeKind::Float)),
+                )),
+                MacroExpression::Ref(name, enh_asttype, asttyped_type) => {
+                    Ok((name.clone(), enh_asttype.clone(), asttyped_type.clone()))
+                }
+            },
+            it => Err(format!("Not an expression: {}", it)),
+        }
+    }
+
+    pub fn get_type(
+        &self,
+        i: usize,
+    ) -> Result<(String, Option<EnhASTType>, Option<ASTTypedType>), String> {
+        match &self.parameters[i] {
+            MacroParam::Type(name, enh_asttype, asttyped_type) => {
+                Ok((name.clone(), enh_asttype.clone(), asttyped_type.clone()))
+            }
+            it => Err(format!("Not a type: {}", it)),
+        }
     }
 }
 
@@ -149,15 +247,27 @@ impl TextMacroEvaluator {
                 let name = cap.get(1).unwrap().as_str();
                 let parameters = cap.get(2).unwrap().as_str();
 
-                let text_macro = TextMacro {
-                    index: index.mv_down(i),
-                    name: name.into(),
-                    parameters: self.parse_params(
+                let evaluator = self
+                    .evaluators
+                    .get(name)
+                    .unwrap_or_else(|| panic!("{} macro not found", name));
+
+                let kinds = evaluator.get_parameters();
+
+                let parameters = self
+                    .parse_params(
                         parameters,
                         typed_function_def,
                         function_def,
                         type_def_provider,
-                    )?,
+                        &kinds,
+                    )
+                    .map_err(|e| format!("{}: {}", e, whole))?;
+
+                let text_macro = TextMacro {
+                    index: index.mv_down(i),
+                    name: name.into(),
+                    parameters,
                 };
 
                 if let Some(s) = self.eval_macro(
@@ -190,8 +300,13 @@ impl TextMacroEvaluator {
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&EnhASTFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
+        kinds: &Vec<MacroParamKind>,
     ) -> Result<Vec<MacroParam>, String> {
         let mut result = Vec::new();
+
+        if kinds.is_empty() {
+            return Ok(result);
+        }
 
         enum State {
             None,
@@ -203,7 +318,23 @@ impl TextMacroEvaluator {
         let mut state = State::None;
         let mut actual_param = String::new();
 
+        let mut v_kind = &kinds[0];
+        let mut kind = v_kind;
         for c in s.to_string().chars() {
+            kind = if v_kind == &MacroParamKind::Expressions {
+                &MacroParamKind::Expression
+            } else {
+                if result.len() >= kinds.len() {
+                    return Err(format!("Too many parameters: {s} {:?}", kinds));
+                }
+                v_kind = &kinds[result.len()];
+                if v_kind == &MacroParamKind::Expressions {
+                    &MacroParamKind::Expression
+                } else {
+                    v_kind
+                }
+            };
+
             match state {
                 State::Standard => {
                     // TODO other brackets?
@@ -216,6 +347,7 @@ impl TextMacroEvaluator {
                             typed_function_def,
                             function_def,
                             type_def_provider,
+                            kind,
                         )?;
 
                         result.push(param);
@@ -229,6 +361,15 @@ impl TextMacroEvaluator {
                 State::None => {
                     if !c.is_whitespace() {
                         if c == '"' {
+                            if kind != &MacroParamKind::Expression
+                                && kind != &MacroParamKind::Expressions
+                                && kind != &MacroParamKind::StringLiteral
+                            {
+                                return Err(
+                                    "Unexpected string literal for not expression parameter."
+                                        .to_owned(),
+                                );
+                            }
                             state = State::StringLiteral
                         } else if c != ',' {
                             actual_param.push(c);
@@ -238,7 +379,13 @@ impl TextMacroEvaluator {
                 }
                 State::StringLiteral => {
                     if c == '"' {
-                        result.push(MacroParam::StringLiteral(actual_param));
+                        if kind == &MacroParamKind::StringLiteral {
+                            result.push(MacroParam::StringLiteral(actual_param));
+                        } else {
+                            result.push(MacroParam::Expression(MacroExpression::StringLiteral(
+                                actual_param,
+                            )));
+                        }
                         actual_param = String::new();
                         state = State::None;
                     } else {
@@ -262,11 +409,14 @@ impl TextMacroEvaluator {
                     typed_function_def,
                     function_def,
                     type_def_provider,
+                    kind,
                 )?;
                 result.push(param);
             }
             State::StringLiteral => {
-                result.push(MacroParam::StringLiteral(actual_param));
+                result.push(MacroParam::Expression(MacroExpression::StringLiteral(
+                    actual_param,
+                )));
             }
             State::Bracket => {
                 return Err(format!("Unclosed bracked: {}", s));
@@ -282,184 +432,244 @@ impl TextMacroEvaluator {
         typed_function_def: Option<&ASTTypedFunctionDef>,
         function_def: Option<&EnhASTFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
+        kind: &MacroParamKind,
     ) -> Result<MacroParam, String> {
-        // let is_error = actual_param == "error: IOError";
-        // if is_error {
-        //     println!(
-        //         "found error: IOError {} {}",
-        //         OptionDisplay(&function_def),
-        //         OptionDisplay(&typed_function_def)
-        //     );
-        // }
         let p = actual_param.trim();
 
-        let context_generic_types = if let Some(f) = function_def {
-            let mut result = Vec::new(); //f.generic_types.clone();
-            // TODO should we use var_types?
-            for ((name, _var_types), _t) in f
-                .resolved_generic_types
-                .clone()
-                .remove_generics_prefix()
-                .iter()
-            {
-                if !result.contains(&name) {
-                    result.push(name.clone());
+        match kind {
+            MacroParamKind::Plain => {
+                return Ok(MacroParam::Plain(p.to_string()));
+            }
+            MacroParamKind::Expression => {}
+            MacroParamKind::Type => {}
+            MacroParamKind::Expressions => {
+                return Err(format!("Unsupported param: {}", actual_param));
+            }
+            MacroParamKind::StringLiteral => {
+                if p.starts_with("\"") && p.ends_with("\"") {
+                    return Ok(MacroParam::Expression(MacroExpression::StringLiteral(
+                        p[1..p.len() - 1].to_string(),
+                    )));
+                } else {
+                    return Err(format!(
+                        "Unsupported param: {}, expected string literal",
+                        actual_param
+                    ));
                 }
             }
-            result
-        } else if let Some(f) = typed_function_def {
-            let mut result = Vec::new();
-            // TODO should we use var_types?
-            for ((name, _var_types), _t) in f
-                .resolved_generic_types
-                .clone()
-                .remove_generics_prefix()
-                .iter()
-            {
-                if !result.contains(&name) {
-                    result.push(name.clone());
-                }
-            }
-            result
-        } else {
-            Vec::new()
-        };
+        }
 
-        if let Some(name) = p.strip_prefix('$') {
-            match typed_function_def {
-                None => match function_def {
-                    None => {
-                        panic!("Cannot resolve reference without a function {p}")
+        let (context_generic_types, resolved_generic_types, id, namespace) =
+            if let Some(f) = function_def {
+                let mut context_generic_types = Vec::new(); //f.generic_types.clone();
+                // TODO should we use var_types?
+                for ((name, _var_types), _t) in f
+                    .resolved_generic_types
+                    .clone()
+                    .remove_generics_prefix()
+                    .iter()
+                {
+                    if !context_generic_types.contains(&name) {
+                        context_generic_types.push(name.clone());
                     }
-                    Some(f) => {
-                        let (par_name, par_type, _par_typed_type) = self.parse_typed_argument(
+                }
+                (
+                    context_generic_types,
+                    f.resolved_generic_types.clone().remove_generics_prefix(),
+                    f.index.id(),
+                    f.namespace.clone(),
+                )
+            } else if let Some(f) = typed_function_def {
+                let mut context_generic_types = Vec::new();
+                // TODO should we use var_types?
+                for ((name, _var_types), _t) in f
+                    .resolved_generic_types
+                    .clone()
+                    .remove_generics_prefix()
+                    .iter()
+                {
+                    if !context_generic_types.contains(&name) {
+                        context_generic_types.push(name.clone());
+                    }
+                }
+                (
+                    context_generic_types,
+                    f.resolved_generic_types
+                        .clone()
+                        .remove_generics_prefix()
+                        .to_enh(type_def_provider),
+                    f.index.id(),
+                    f.namespace.clone(),
+                )
+            } else {
+                //return Err("To resolve types we need function_def or typed_function_def.".to_owned());
+                (
+                    Vec::new(),
+                    EnhResolvedGenericTypes::new(),
+                    EnhModuleId::none(),
+                    EnhASTNameSpace::global(),
+                )
+            };
+
+        match kind {
+            MacroParamKind::Expression => {
+                if let Some(name) = p.strip_prefix('$') {
+                    match typed_function_def {
+                        None => match function_def {
+                            None => {
+                                panic!("Cannot resolve reference without a function {p}")
+                            }
+                            Some(f) => {
+                                let (par_name, par_type, _par_typed_type) = self
+                                    .parse_typed_argument(
+                                        &f.namespace,
+                                        name,
+                                        None,
+                                        type_def_provider,
+                                        &context_generic_types,
+                                        &f.resolved_generic_types.clone().remove_generics_prefix(),
+                                        &f.index.id(),
+                                        Some(&f.original_name),
+                                    )?;
+
+                                if let Some(t) = par_type {
+                                    Ok(MacroParam::Expression(MacroExpression::Ref(
+                                        format!("${par_name}"),
+                                        Some(t),
+                                        None,
+                                    )))
+                                } else if let Some(par_type) = f
+                                    .parameters
+                                    .iter()
+                                    .find(|par| par.name == par_name)
+                                    .map(|it| it.ast_type.clone())
+                                {
+                                    Ok(MacroParam::Expression(MacroExpression::Ref(
+                                        format!("${par_name}"),
+                                        Some(par_type),
+                                        None,
+                                    )))
+                                } else {
+                                    panic!("Cannot find parameter {name} : {}", f.index);
+                                }
+                            }
+                        },
+                        Some(f) => {
+                            let par_typed_type = f
+                                .parameters
+                                .iter()
+                                .find(|par| par.name == name)
+                                .map(|it| it.ast_type.clone());
+                            let (par_name, par_type, par_typed_type) = self.parse_typed_argument(
+                                &f.namespace,
+                                name,
+                                par_typed_type,
+                                type_def_provider,
+                                &context_generic_types,
+                                &f.resolved_generic_types
+                                    .to_enh(type_def_provider)
+                                    .remove_generics_prefix(),
+                                &f.index.id(),
+                                Some(&f.original_name),
+                            )?;
+                            if !f.parameters.iter().any(|it| it.name == par_name) {
+                                match &f.body {
+                                    ASTTypedFunctionBody::RASMBody(_body) => {}
+                                    ASTTypedFunctionBody::NativeBody(body) => {
+                                        println!("body\n{body}");
+                                    }
+                                }
+                                Err(format!("Cannot find parameter {par_name}"))
+                            } else {
+                                Ok(MacroParam::Expression(MacroExpression::Ref(
+                                    format!("${par_name}"),
+                                    par_type,
+                                    par_typed_type,
+                                )))
+                            }
+                        }
+                    }
+                } else {
+                    let (par_name, par_type, par_typed_type) = if let Some(f) = function_def {
+                        self.parse_typed_argument(
                             &f.namespace,
-                            name,
+                            p,
                             None,
                             type_def_provider,
                             &context_generic_types,
                             &f.resolved_generic_types.clone().remove_generics_prefix(),
                             &f.index.id(),
                             Some(&f.original_name),
-                        )?;
-
-                        if let Some(t) = par_type {
-                            Ok(MacroParam::Ref(format!("${par_name}"), Some(t), None))
-                        } else if let Some(par_type) = f
-                            .parameters
-                            .iter()
-                            .find(|par| par.name == par_name)
-                            .map(|it| it.ast_type.clone())
-                        {
-                            Ok(MacroParam::Ref(
-                                format!("${par_name}"),
-                                Some(par_type),
-                                None,
-                            ))
-                        } else {
-                            panic!("Cannot find parameter {name} : {}", f.index);
-                        }
-                    }
-                },
-                Some(f) => {
-                    let par_typed_type = f
-                        .parameters
-                        .iter()
-                        .find(|par| par.name == name)
-                        .map(|it| it.ast_type.clone());
-                    let (par_name, par_type, par_typed_type) = self.parse_typed_argument(
-                        &f.namespace,
-                        name,
-                        par_typed_type,
-                        type_def_provider,
-                        &context_generic_types,
-                        &f.resolved_generic_types
-                            .to_enh(type_def_provider)
-                            .remove_generics_prefix(),
-                        &f.index.id(),
-                        Some(&f.original_name),
-                    )?;
-                    if !f.parameters.iter().any(|it| it.name == par_name) {
-                        match &f.body {
-                            ASTTypedFunctionBody::RASMBody(_body) => {}
-                            ASTTypedFunctionBody::NativeBody(body) => {
-                                println!("body\n{body}");
-                            }
-                        }
-                        println!(
-                            "parameters {}",
-                            SliceDisplay(
-                                &f.parameters
-                                    .iter()
-                                    .map(|it| it.name.clone())
-                                    .collect::<Vec<_>>()
-                            )
-                        );
-                        Err(format!("Cannot find parameter {par_name}"))
+                        )?
+                    } else if let Some(f) = typed_function_def {
+                        self.parse_typed_argument(
+                            &f.namespace,
+                            p,
+                            None,
+                            type_def_provider,
+                            &context_generic_types,
+                            &&f.resolved_generic_types
+                                .clone()
+                                .to_enh(type_def_provider)
+                                .remove_generics_prefix(),
+                            &f.index.id(),
+                            Some(&f.original_name),
+                        )?
                     } else {
-                        Ok(MacroParam::Ref(
-                            format!("${par_name}"),
-                            par_type,
+                        self.parse_typed_argument(
+                            &EnhASTNameSpace::global(), // TODO is it correct?
+                            p,
+                            None,
+                            type_def_provider,
+                            &context_generic_types,
+                            &EnhResolvedGenericTypes::new(),
+                            &EnhModuleId::Other(String::new()), // TODO is it correct?
+                            None,                               // TODO is it correct?
+                        )?
+                    };
+
+                    if let Some(ast_type) = &par_type {
+                        let typed_type = match par_typed_type {
+                            Some(ptt) => Some(ptt),
+                            None => typed_function_def
+                                .map(|it| Self::resolve_type(ast_type, it, type_def_provider))
+                                .transpose()?
+                                .flatten(),
+                        };
+
+                        Ok(MacroParam::Expression(MacroExpression::Plain(
+                            par_name,
+                            par_type.clone(),
+                            typed_type,
+                        )))
+                    } else {
+                        Ok(MacroParam::Expression(MacroExpression::Plain(
+                            par_name,
+                            par_type.clone(),
                             par_typed_type,
-                        ))
+                        )))
                     }
                 }
             }
-        } else {
-            let (par_name, par_type, par_typed_type) = if let Some(f) = function_def {
-                self.parse_typed_argument(
-                    &f.namespace,
-                    p,
-                    None,
-                    type_def_provider,
+            MacroParamKind::Type => {
+                let (enh_type, typed_type) = parse_type(
+                    actual_param,
                     &context_generic_types,
-                    &f.resolved_generic_types.clone().remove_generics_prefix(),
-                    &f.index.id(),
-                    Some(&f.original_name),
-                )?
-            } else if let Some(f) = typed_function_def {
-                self.parse_typed_argument(
-                    &f.namespace,
-                    p,
-                    None,
                     type_def_provider,
-                    &context_generic_types,
-                    &&f.resolved_generic_types
-                        .clone()
-                        .to_enh(type_def_provider)
-                        .remove_generics_prefix(),
-                    &f.index.id(),
-                    Some(&f.original_name),
-                )?
-            } else {
-                self.parse_typed_argument(
-                    &EnhASTNameSpace::global(), // TODO is it correct?
-                    p,
+                    &resolved_generic_types,
+                    &id,
+                    &namespace,
                     None,
-                    type_def_provider,
-                    &context_generic_types,
-                    &EnhResolvedGenericTypes::new(),
-                    &EnhModuleId::Other(String::new()), // TODO is it correct?
-                    None,                               // TODO is it correct?
-                )?
-            };
+                )?;
 
-            if let Some(ast_type) = &par_type {
-                let typed_type = match par_typed_type {
-                    Some(ptt) => Some(ptt),
-                    None => typed_function_def
-                        .map(|it| Self::resolve_type(ast_type, it, type_def_provider))
-                        .transpose()?
-                        .flatten(),
-                };
-
-                Ok(MacroParam::Plain(par_name, par_type.clone(), typed_type))
-            } else {
-                Ok(MacroParam::Plain(
-                    par_name,
-                    par_type.clone(),
-                    par_typed_type,
-                ))
+                return Ok(MacroParam::Type(
+                    actual_param.to_owned(),
+                    enh_type,
+                    typed_type,
+                ));
+            }
+            _ => {
+                return Err("It should not happen".to_owned());
             }
         }
     }
@@ -703,20 +913,29 @@ impl TextMacroEvaluator {
             for cap in matches {
                 let name = cap.get(1).unwrap().as_str();
                 let parameters = cap.get(2).unwrap().as_str();
+                let whole = cap.get(0).unwrap().as_str();
 
                 if !filter(name, parameters) {
                     continue;
                 }
 
+                let evaluator = self
+                    .evaluators
+                    .get(name)
+                    .unwrap_or_else(|| panic!("{} macro not found", name));
+
                 let text_macro = TextMacro {
                     index: index.mv_down(i),
                     name: name.into(),
-                    parameters: self.parse_params(
-                        parameters,
-                        typed_function_def,
-                        function_def,
-                        type_def_provider,
-                    )?,
+                    parameters: self
+                        .parse_params(
+                            parameters,
+                            typed_function_def,
+                            function_def,
+                            type_def_provider,
+                            &evaluator.get_parameters(),
+                        )
+                        .map_err(|e| format!("{}: {}", e, whole))?,
                 };
 
                 result.push((text_macro, i));
@@ -775,6 +994,8 @@ pub trait TextMacroEval {
     fn is_pre_macro(&self) -> bool;
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall>;
+
+    fn get_parameters(&self) -> Vec<MacroParamKind>;
 }
 
 pub fn get_type(
@@ -849,7 +1070,7 @@ impl TextMacroEval for AddRefMacro {
         &self,
         statics: &mut Statics,
         text_macro: &TextMacro,
-        typed_function_def: Option<&ASTTypedFunctionDef>,
+        _typed_function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
@@ -857,17 +1078,19 @@ impl TextMacroEval for AddRefMacro {
             return Ok(String::new());
         }
         let (address, ast_typed_type) = match text_macro.parameters.get(0) {
-            Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
-                (address, ast_typed_type)
-            }
-            Some(MacroParam::Ref(address, _ast_type, Some(ast_typed_type))) => {
-                (address, ast_typed_type)
-            }
+            Some(MacroParam::Expression(MacroExpression::Plain(
+                address,
+                _ast_type,
+                Some(ast_typed_type),
+            ))) => (address, ast_typed_type),
+            Some(MacroParam::Expression(MacroExpression::Ref(
+                address,
+                _ast_type,
+                Some(ast_typed_type),
+            ))) => (address, ast_typed_type),
+
             _ => panic!(
-                "Error: addRef/deref macro, a typed type must be specified in function {}:{} but got {}: {}",
-                OptionDisplay(&typed_function_def),
-                OptionDisplay(&typed_function_def.map(|it| &it.index)),
-                text_macro.parameters.get(0).unwrap(),
+                "Error: addRef/deref macro, parameter 0 is not a typed expression: {}",
                 text_macro.index
             ),
         };
@@ -916,6 +1139,10 @@ impl TextMacroEval for AddRefMacro {
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
+    }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![MacroParamKind::Expression, MacroParamKind::StringLiteral]
     }
 }
 
@@ -977,6 +1204,10 @@ impl TextMacroEval for InlineMacro {
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
     }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        Vec::new()
+    }
 }
 
 #[cfg(test)]
@@ -993,7 +1224,7 @@ mod tests {
         EnhASTType, EnhBuiltinTypeKind,
     };
     use crate::codegen::statics::{MemoryValue, Statics};
-    use crate::codegen::text_macro::{MacroParam, TextMacro};
+    use crate::codegen::text_macro::{MacroExpression, MacroParam, MacroParamKind, TextMacro};
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
     use crate::enh_type_check::typed_ast::{
@@ -1007,7 +1238,7 @@ mod tests {
             index: EnhASTIndex::none(),
             name: "call".into(),
             parameters: vec![
-                MacroParam::Plain("println".into(), None, None),
+                MacroParam::Plain("println".into()),
                 MacroParam::StringLiteral("Hello world".into()),
             ],
         };
@@ -1087,12 +1318,13 @@ mod tests {
                 None,
                 None,
                 &DummyTypeDefProvider::empty(),
+                &vec![MacroParamKind::Plain, MacroParamKind::Expression],
             )
             .unwrap();
 
         assert_eq!(
             format!("{}", SliceDisplay(&result)),
-            "Plain(Ok<int,str>, None, None), Plain(10, None, None)"
+            "Plain(Ok<int,str>), Expression(Plain(10))"
         );
     }
 
@@ -1219,9 +1451,11 @@ mod tests {
         let (m, _i) = macros.get(0).unwrap();
         let param = m.parameters.get(1).unwrap();
         match param {
-            MacroParam::Plain(_, _, _) => panic!("plain"),
+            MacroParam::Plain(_) => panic!("plain"),
             MacroParam::StringLiteral(_) => panic!("string literal"),
-            MacroParam::Ref(r, _, _) => assert_eq!(r, "$s"),
+            MacroParam::Expression(MacroExpression::Ref(r, _, _)) => assert_eq!(r, "$s"),
+            MacroParam::Expression(_) => panic!("expression"),
+            MacroParam::Type(_, _, _) => panic!("type"),
         }
     }
 
@@ -1274,12 +1508,12 @@ mod tests {
         let result = code_gen.get_text_macro_evaluator().get_macros(
             None,
             Some(&function_def),
-            "$call(List_0_addRef,$s:i32)",
+            "$call(List_0_addRef,$s:int)",
             &DummyTypeDefProvider::empty(),
         );
 
         assert_eq!(
-            "$call(Plain(List_0_addRef, None, None), Ref($s, Some(i32), None))",
+            "$call(Plain(List_0_addRef), Expression(Ref($s, Some(int), None)))",
             &format!(
                 "{}",
                 SliceDisplay(&result.unwrap().iter().map(|(a, _)| a).collect::<Vec<_>>())
@@ -1320,7 +1554,7 @@ mod tests {
 
         assert_eq!(
             format!("{}", result.get(0).unwrap().0),
-            "$call(Plain(aFun, None, None), Ref($par, Some(int), Some(int)))"
+            "$call(Plain(aFun), Expression(Ref($par, Some(int), Some(int))))"
         );
     }
 }

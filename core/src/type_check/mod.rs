@@ -1,5 +1,5 @@
 use crate::codegen::enh_ast::{EnhASTType, EnhBuiltinTypeKind};
-use crate::codegen::text_macro::{MacroParam, TextMacro};
+use crate::codegen::text_macro::TextMacro;
 use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
 use rasm_utils::debug_i;
 
@@ -14,30 +14,18 @@ pub fn get_new_native_call(m: &TextMacro, to_function: &str) -> String {
         .iter()
         .enumerate()
         .filter(|(i, _p)| *i > 0)
-        .map(|(_, it)| match it {
-            MacroParam::Plain(value, ast_type, _) => match ast_type {
-                None => value.to_string(),
-                // TODO duplicated code
-                Some(t) => {
-                    if matches!(t, EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda { .. })) {
-                        value.to_string()
-                    } else {
-                        it.render()
-                    }
+        .map(|(i, it)| {
+            let (name, enh_type, _typed_type) = m.get_expression(i).unwrap();
+
+            if let Some(t) = enh_type {
+                if matches!(t, EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda { .. })) {
+                    name
+                } else {
+                    it.render()
                 }
-            },
-            MacroParam::StringLiteral(_) => it.render(),
-            MacroParam::Ref(value, ast_type, _) => match ast_type {
-                None => value.to_string(),
-                // TODO duplicated code
-                Some(t) => {
-                    if matches!(t, EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda { .. })) {
-                        value.to_string()
-                    } else {
-                        it.render()
-                    }
-                }
-            },
+            } else {
+                name
+            }
         })
         .collect::<Vec<_>>()
         .join(",");

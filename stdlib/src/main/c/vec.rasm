@@ -490,7 +490,7 @@ pub native add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
 
 pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
     size_t s = sizeof($realTypeName(T));
-    size_t length = $castAddress($vec,s)->length;
+    size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
     void **array = (void **)values->address;
 

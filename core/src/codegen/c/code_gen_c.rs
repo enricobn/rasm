@@ -27,9 +27,8 @@ use crate::codegen::c::any::{
 use crate::codegen::c::function_call_parameters_c::CFunctionCallParameters;
 use crate::codegen::c::options::COptions;
 use crate::codegen::c::text_macro_c::{
-    CCallMacro, CEnumDeclarationMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
-    CEnumVariantMacro, CIncludeMacro, CRealTypeNameMacro, CStructDeclarationMacro,
-    CStructTypeMacro,
+    CCallMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro, CEnumVariantMacro,
+    CIncludeMacro, CRealTypeNameMacro, CStructDeclarationMacro, CStructTypeMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::compile_target::CompileTarget;
@@ -906,7 +905,6 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         evaluator.add("structDeclaration", CStructDeclarationMacro);
         evaluator.add("structType", CStructTypeMacro);
         evaluator.add("enumVariantDeclaration", CEnumVariantDeclarationMacro);
-        evaluator.add("enumDeclaration", CEnumDeclarationMacro);
         evaluator.add("enumVariantAssignment", CEnumVariantAssignmentMacro);
         evaluator.add("enumVariant", CEnumVariantMacro);
         evaluator.add(
@@ -1749,7 +1747,7 @@ mod tests {
         let (m, call) = functions.first().unwrap();
 
         assert_eq!(
-            "$call(Plain(Ok<int,str>, None, None), Plain(10, None, None))",
+            "$call(Plain(Ok<int,str>), Expression(Plain(10)))",
             &format!("{m}")
         );
         assert_eq!("Ok", call.name);

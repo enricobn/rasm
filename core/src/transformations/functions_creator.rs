@@ -243,7 +243,7 @@ pub trait FunctionsCreator {
         parameters_positions: Vec<ASTPosition>,
         signature: ASTFunctionSignature,
     ) -> ASTFunctionDef {
-        let native_body = self.struct_property_body(i, &property_def.name);
+        let native_body = self.struct_property_body(i, struct_def, property_def);
 
         ASTFunctionDef::from_signature(
             signature,
@@ -271,7 +271,7 @@ pub trait FunctionsCreator {
             ASTPosition::builtin(&property_def.position, ASTBuiltinFunctionType::StructSetter),
             parameters_names,
             parameters_positions,
-            ASTFunctionBody::NativeBody(self.struct_setter_body(i, &property_def.name)),
+            ASTFunctionBody::NativeBody(self.struct_setter_body(i, struct_def, property_def)),
             Some(struct_def.name.clone()),
         )
     }
@@ -294,7 +294,11 @@ pub trait FunctionsCreator {
             ),
             parameters_names,
             parameters_positions,
-            ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(i, &property_def)),
+            ASTFunctionBody::NativeBody(self.struct_setter_lambda_body(
+                i,
+                struct_def,
+                &property_def,
+            )),
             Some(struct_def.name.clone()),
         )
     }
@@ -426,11 +430,26 @@ pub trait FunctionsCreator {
 
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String;
 
-    fn struct_property_body(&self, i: usize, name: &str) -> String;
+    fn struct_property_body(
+        &self,
+        i: usize,
+        s: &ASTStructDef,
+        name: &ASTStructPropertyDef,
+    ) -> String;
 
-    fn struct_setter_body(&self, i: usize, name: &str) -> String;
+    fn struct_setter_body(
+        &self,
+        i: usize,
+        struct_def: &ASTStructDef,
+        property_def: &ASTStructPropertyDef,
+    ) -> String;
 
-    fn struct_setter_lambda_body(&self, i: usize, def: &ASTStructPropertyDef) -> String;
+    fn struct_setter_lambda_body(
+        &self,
+        i: usize,
+        struct_def: &ASTStructDef,
+        property_def: &ASTStructPropertyDef,
+    ) -> String;
 }
 
 pub struct FunctionsCreatorNasmi386 {
@@ -792,7 +811,12 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         body
     }
 
-    fn struct_property_body(&self, i: usize, _name: &str) -> String {
+    fn struct_property_body(
+        &self,
+        i: usize,
+        _struct_def: &ASTStructDef,
+        _property_def: &ASTStructPropertyDef,
+    ) -> String {
         let mut body = String::new();
         self.code_gen.add_rows(
             &mut body,
@@ -815,7 +839,12 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         body
     }
 
-    fn struct_setter_body(&self, i: usize, _name: &str) -> String {
+    fn struct_setter_body(
+        &self,
+        i: usize,
+        _struct_def: &ASTStructDef,
+        _property_def: &ASTStructPropertyDef,
+    ) -> String {
         let ws = self.backend.word_size();
         // TODO for now it does not work
         let optimize_copy = false;
@@ -875,7 +904,12 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
         body
     }
 
-    fn struct_setter_lambda_body(&self, i: usize, _def: &ASTStructPropertyDef) -> String {
+    fn struct_setter_lambda_body(
+        &self,
+        i: usize,
+        _struct_def: &ASTStructDef,
+        _property_def: &ASTStructPropertyDef,
+    ) -> String {
         let ws = self.backend.word_size();
         let wl = self.backend.word_len();
 

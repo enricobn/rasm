@@ -287,15 +287,26 @@ impl FunctionsCreator for CFunctionsCreator {
         result
     }
 
-    fn struct_property_body(&self, _i: usize, name: &str) -> String {
+    fn struct_property_body(
+        &self,
+        _i: usize,
+        s: &ASTStructDef,
+        p: &ASTStructPropertyDef,
+    ) -> String {
         let mut result = String::new();
+
+        let struct_name = if s.type_parameters.is_empty() {
+            s.name.clone()
+        } else {
+            s.name.clone() + "<" + &s.type_parameters.join(",") + ">"
+        };
 
         self.code_manipulator.add_rows(
             &mut result,
             vec![
                 "$inline()",
-                &format!("return (($typeName($v)"),
-                &format!(")$v->address)->{name};"),
+                &format!("return (($typeName({})", struct_name),
+                &format!(")$v->address)->{};", p.name),
             ],
             None,
             false,
@@ -303,18 +314,32 @@ impl FunctionsCreator for CFunctionsCreator {
         result
     }
 
-    fn struct_setter_body(&self, _i: usize, name: &str) -> String {
+    fn struct_setter_body(
+        &self,
+        _i: usize,
+        struct_def: &ASTStructDef,
+        property_def: &ASTStructPropertyDef,
+    ) -> String {
         let mut result = String::new();
+        let struct_name = if struct_def.type_parameters.is_empty() {
+            struct_def.name.clone()
+        } else {
+            struct_def.name.clone() + "<" + &struct_def.type_parameters.join(",") + ">"
+        };
+
         self.code_manipulator.add_rows(
             &mut result,
             vec![
                 "$include(<string.h>)",
                 "struct RasmPointer_ *struct_result = NULL;",
-                "$typeName($receiver) struct_result_ = NULL;",
+                &format!("$typeName({struct_name}) struct_result_ = NULL;"),
                 "if(receiver->count == 1) {",
                 "struct_result = receiver;",
                 "struct_result_ = $castAddress($receiver);",
-                &format!("$deref($v, struct_result_->{name})"),
+                &format!(
+                    "$deref(struct_result_->{}:{})",
+                    property_def.name, property_def.ast_type
+                ),
                 "$addRef($v)",
                 "} else {",
                 "$structDeclaration(newStruct)",
@@ -324,7 +349,7 @@ impl FunctionsCreator for CFunctionsCreator {
                 "struct_result = newStruct;",
                 "struct_result_ = newStruct->address;",
                 "}",
-                &format!("struct_result_->{name} = $v;"),
+                &format!("struct_result_->{} = $v;", property_def.name),
                 "return struct_result;",
             ],
             None,
@@ -333,15 +358,27 @@ impl FunctionsCreator for CFunctionsCreator {
         result
     }
 
-    fn struct_setter_lambda_body(&self, _i: usize, def: &ASTStructPropertyDef) -> String {
+    fn struct_setter_lambda_body(
+        &self,
+        _i: usize,
+        struct_def: &ASTStructDef,
+        def: &ASTStructPropertyDef,
+    ) -> String {
         let mut result = String::new();
         let name = &def.name;
+
+        let struct_name = if struct_def.type_parameters.is_empty() {
+            struct_def.name.clone()
+        } else {
+            struct_def.name.clone() + "<" + &struct_def.type_parameters.join(",") + ">"
+        };
+
         self.code_manipulator.add_rows(
             &mut result,
             vec![
                 "$include(<string.h>)",
                 "struct RasmPointer_ *struct_result = NULL;",
-                "$typeName($receiver) struct_result_ = NULL;",
+                &format!("$typeName({struct_name}) struct_result_ = NULL;"),
                 &format!("$realTypeName({}) old_property_value;", def.ast_type),
                 "if(receiver->count == 1) {",
                 "struct_result = receiver;",
@@ -359,8 +396,8 @@ impl FunctionsCreator for CFunctionsCreator {
                     "struct_result_->{name} = $castAddress($f)->functionPtr(struct_result_->{name}, f);"
                 ),
                 "if(receiver->count == 1) {",
-                &format!("$addRef($f, struct_result_->{name}, 0);"),
-                &format!("$deref($f, old_property_value, 0)"),
+                &format!("$addRef(struct_result_->{name}:{});", def.ast_type),
+                &format!("$deref(old_property_value:{})", def.ast_type),
                 "}",
                 "return struct_result;",
             ],

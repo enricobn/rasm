@@ -16,7 +16,6 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use itertools::Itertools;
 use rasm_utils::OptionDisplay;
 
 use crate::codegen::c::any::{CInclude, CIncludeType};
@@ -24,13 +23,14 @@ use crate::codegen::c::typed_function_creator_c::TypedFunctionsCreatorC;
 use crate::codegen::enh_ast::{EnhASTFunctionDef, EnhASTType};
 use crate::codegen::get_reference_type_name;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{MacroParam, RefType, TextMacro, TextMacroEval, parse_type};
-use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
+use crate::codegen::text_macro::{
+    MacroExpression, MacroParam, MacroParamKind, RefType, TextMacro, TextMacroEval,
+};
+use crate::codegen::type_def_body::TypeDefBodyTarget;
 use crate::codegen::typedef_provider::TypeDefProvider;
-use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
+
 use crate::enh_type_check::typed_ast::{
-    ASTTypedFunctionDef, ASTTypedType, BuiltinTypedTypeKind, CustomTypedTypeDef,
-    DefaultFunctionCall,
+    ASTTypedFunctionDef, ASTTypedType, CustomTypedTypeDef, DefaultFunctionCall,
 };
 
 use super::any::CLambdas;
@@ -48,13 +48,13 @@ impl TextMacroEval for CIncludeMacro {
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
         match text_macro.parameters.get(0).unwrap() {
-            MacroParam::Plain(s, _, _) => {
+            MacroParam::Plain(s) => {
                 CInclude::add_to_statics(statics, CIncludeType::Header(s.clone()));
             }
-            MacroParam::StringLiteral(s) => {
-                CInclude::add_to_statics(statics, CIncludeType::Header(format!("\"{s}\"")));
-            }
-            MacroParam::Ref(_, _, _) => {}
+            _ => panic!(
+                "Error in include macro. Invalid parameter {}",
+                text_macro.index
+            ),
         }
         Ok(String::new())
     }
@@ -65,6 +65,10 @@ impl TextMacroEval for CIncludeMacro {
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
+    }
+
+    fn get_parameters(&self) -> Vec<crate::codegen::text_macro::MacroParamKind> {
+        vec![MacroParamKind::Plain]
     }
 }
 
@@ -79,7 +83,7 @@ impl TextMacroEval for CStructDeclarationMacro {
         _type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {
+        if let Some(MacroParam::Plain(var_name)) = text_macro.parameters.get(0) {
             if let Some(def) = typed_function_def {
                 if let ASTTypedType::Struct { namespace, name } = &def.return_type {
                     CInclude::add_to_statics(
@@ -117,6 +121,10 @@ impl TextMacroEval for CStructDeclarationMacro {
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
+    }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![MacroParamKind::Plain]
     }
 }
 
@@ -165,6 +173,10 @@ impl TextMacroEval for CStructTypeMacro {
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
     }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        Vec::new()
+    }
 }
 
 pub struct CEnumVariantDeclarationMacro;
@@ -178,8 +190,8 @@ impl TextMacroEval for CEnumVariantDeclarationMacro {
         _type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {
-            if let Some(MacroParam::Plain(variant_name, _, _)) = text_macro.parameters.get(1) {
+        if let Some(MacroParam::Plain(var_name)) = text_macro.parameters.get(0) {
+            if let Some(MacroParam::Plain(variant_name)) = text_macro.parameters.get(1) {
                 if let Some(def) = typed_function_def {
                     if let ASTTypedType::Enum { namespace, name } = &def.return_type {
                         CInclude::add_to_statics(
@@ -227,6 +239,10 @@ impl TextMacroEval for CEnumVariantDeclarationMacro {
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
     }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![MacroParamKind::Plain, MacroParamKind::Plain]
+    }
 }
 
 pub struct CEnumVariantAssignmentMacro;
@@ -240,8 +256,8 @@ impl TextMacroEval for CEnumVariantAssignmentMacro {
         _type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {
-            if let Some(MacroParam::Plain(variant_name, _, _)) = text_macro.parameters.get(1) {
+        if let Some(MacroParam::Plain(var_name)) = text_macro.parameters.get(0) {
+            if let Some(MacroParam::Plain(variant_name)) = text_macro.parameters.get(1) {
                 if let Some(def) = typed_function_def {
                     if let Some(ASTTypedType::Enum { namespace, name }) =
                         &def.parameters.get(0).map(|it| &it.ast_type)
@@ -285,6 +301,10 @@ impl TextMacroEval for CEnumVariantAssignmentMacro {
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
     }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![MacroParamKind::Plain, MacroParamKind::Plain]
+    }
 }
 
 pub struct CEnumVariantMacro;
@@ -298,9 +318,9 @@ impl TextMacroEval for CEnumVariantMacro {
         _type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {
-            if let Some(MacroParam::Plain(variant_name, _, _)) = text_macro.parameters.get(1) {
-                if let Some(MacroParam::Plain(value, _, Some(t))) = text_macro.parameters.get(2) {
+        if let Some(MacroParam::Plain(var_name)) = text_macro.parameters.get(0) {
+            if let Some(MacroParam::Plain(variant_name)) = text_macro.parameters.get(1) {
+                if let (value, _, Some(t)) = text_macro.get_expression(2)? {
                     if let ASTTypedType::Enum { namespace, name } = t {
                         let safe_name =
                             format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
@@ -341,59 +361,13 @@ impl TextMacroEval for CEnumVariantMacro {
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
     }
-}
 
-pub struct CEnumDeclarationMacro;
-
-impl TextMacroEval for CEnumDeclarationMacro {
-    fn eval_macro(
-        &self,
-        statics: &mut Statics,
-        text_macro: &TextMacro,
-        typed_function_def: Option<&ASTTypedFunctionDef>,
-        _type_def_provider: &dyn TypeDefProvider,
-        _function_def: Option<&EnhASTFunctionDef>,
-    ) -> Result<String, String> {
-        if let Some(MacroParam::Plain(var_name, _, _)) = text_macro.parameters.get(0) {
-            if let Some(def) = typed_function_def {
-                if let ASTTypedType::Enum {
-                    namespace: _,
-                    name: _,
-                } = &def.return_type
-                {
-                    CInclude::add_to_statics(
-                        statics,
-                        CIncludeType::Header("<stdlib.h>".to_string()),
-                    ); // for malloc
-                    Ok(format!(
-                        "struct RasmPointer_* {var_name} = rasmMalloc(sizeof(struct Enum));"
-                    ))
-                } else {
-                    panic!(
-                        "Error in enumDeclaration macro. Function does not return an enum {}",
-                        text_macro.index
-                    )
-                }
-            } else {
-                panic!(
-                    "Error in enumDeclaration macro. Function not present {}",
-                    text_macro.index
-                )
-            }
-        } else {
-            panic!(
-                "Error in enumDeclaration macro. Expected a plain parameter as the name of the var to declare {}",
-                text_macro.index
-            )
-        }
-    }
-
-    fn is_pre_macro(&self) -> bool {
-        true
-    }
-
-    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
-        Vec::new()
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![
+            MacroParamKind::Plain,
+            MacroParamKind::Plain,
+            MacroParamKind::Expression,
+        ]
     }
 }
 
@@ -409,7 +383,7 @@ impl TextMacroEval for CCallMacro {
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
         let function_name =
-            if let Some(MacroParam::Plain(function_name, _, _)) = text_macro.parameters.get(0) {
+            if let Some(MacroParam::Plain(function_name)) = text_macro.parameters.get(0) {
                 function_name
             } else {
                 return Err("Error getting the function name".to_owned());
@@ -420,11 +394,14 @@ impl TextMacroEval for CCallMacro {
             .iter()
             .skip(1)
             .map(|it| match it {
-                MacroParam::Plain(value, _, _) => value.to_string(),
-                MacroParam::StringLiteral(s) => {
+                MacroParam::Expression(MacroExpression::Plain(value, _, _)) => value.to_string(),
+                MacroParam::Expression(MacroExpression::StringLiteral(s)) => {
                     format!("addStaticStringToHeap(\"{}\")", CodeGenC::escape_string(s))
                 }
-                MacroParam::Ref(value, _, _) => value.to_string(),
+                MacroParam::Expression(MacroExpression::Ref(value, _, _)) => value.to_string(),
+                MacroParam::Expression(MacroExpression::IntLiteral(value)) => value.to_string(),
+                MacroParam::Expression(MacroExpression::FloatLiteral(value)) => value.to_string(),
+                _ => panic!("Unsupported parameter type: {it}"),
             })
             .collect::<Vec<_>>();
 
@@ -437,6 +414,10 @@ impl TextMacroEval for CCallMacro {
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
+    }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![MacroParamKind::Plain, MacroParamKind::Expressions]
     }
 }
 
@@ -478,42 +459,9 @@ impl TextMacroEval for CAddRefMacro {
         // we take the expression and the type from the first parameter
         let (expression, ast_typed_type) = if text_macro.parameters.len() == 1 {
             get_par_text_and_type(text_macro, 0)?
-        // we take the type from the first parameter, and the expression from the second
-        } else if text_macro.parameters.len() == 2 {
-            let (_, ast_typed_type) = get_par_text_and_type(text_macro, 0)?;
-            (get_par_text(text_macro, 1)?, ast_typed_type)
-        // we take the lambda type from the first parameter, the expression from the second,
-        // and the lambda parameter index from the third with which we determine the type of the expression
-        } else if text_macro.parameters.len() == 3 {
-            let (_address, lambda_ast_typed_type) = get_par_text_and_type(text_macro, 0)?;
-
-            let par_index = get_par_number(text_macro, 2, "lambda parameter index")?;
-
-            let expression = match text_macro.parameters.get(1) {
-                Some(MacroParam::Plain(plain_value, _, _)) => plain_value,
-                _ => {
-                    return Err(
-                        "second argument should be the value for which add the reference"
-                            .to_owned(),
-                    );
-                }
-            };
-
-            let ast_typed_type =
-                if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, .. }) =
-                    &lambda_ast_typed_type
-                {
-                    &parameters[par_index]
-                } else {
-                    return Err(
-                        "Error in addRef macro, expected a lambda as first parameter".to_owned(),
-                    );
-                };
-
-            (expression.clone(), ast_typed_type.clone())
         } else {
             return Err(format!(
-                "Error in {} macro, expected one, two or three parameters",
+                "Error in {} macro, expected one parameter",
                 self.ref_type.function_name()
             ));
         };
@@ -538,6 +486,10 @@ impl TextMacroEval for CAddRefMacro {
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
     }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![MacroParamKind::Expression]
+    }
 }
 
 pub struct CTypeNameMacro;
@@ -553,20 +505,20 @@ impl TextMacroEval for CTypeNameMacro {
         &self,
         statics: &mut Statics,
         text_macro: &TextMacro,
-        typed_function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
-        function_def: Option<&EnhASTFunctionDef>,
+        _typed_function_def: Option<&ASTTypedFunctionDef>,
+        _type_def_provider: &dyn TypeDefProvider,
+        _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        let t = get_type_from_parameter(
-            text_macro,
-            0,
-            statics,
-            typed_function_def,
-            function_def,
-            type_def_provider,
-        )?;
+        let (_, _, typed_type) = text_macro.get_type(0)?;
 
-        Ok(CodeGenC::type_to_string(&t, statics))
+        if let Some(t) = typed_type {
+            Ok(CodeGenC::type_to_string(&t, statics))
+        } else {
+            Err(format!(
+                "Not a type: {}",
+                OptionDisplay(&text_macro.parameters.get(0))
+            ))
+        }
     }
 
     fn is_pre_macro(&self) -> bool {
@@ -575,6 +527,10 @@ impl TextMacroEval for CTypeNameMacro {
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
+    }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![MacroParamKind::Type]
     }
 }
 
@@ -589,47 +545,22 @@ impl CRealTypeNameMacro {
 impl TextMacroEval for CRealTypeNameMacro {
     fn eval_macro(
         &self,
-        statics: &mut Statics,
+        _statics: &mut Statics,
         text_macro: &TextMacro,
-        typed_function_def: Option<&ASTTypedFunctionDef>,
-        type_def_provider: &dyn TypeDefProvider,
-        function_def: Option<&EnhASTFunctionDef>,
+        _typed_function_def: Option<&ASTTypedFunctionDef>,
+        _type_def_provider: &dyn TypeDefProvider,
+        _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        let t = if text_macro.parameters.len() == 1 {
-            get_type_from_parameter(
-                text_macro,
-                0,
-                statics,
-                typed_function_def,
-                function_def,
-                type_def_provider,
-            )?
+        let (_, _, typed_type) = text_macro.get_type(0)?;
+
+        if let Some(t) = typed_type {
+            Ok(CodeGenC::real_type_to_string(&t))
         } else {
-            let lambda_ast_typed_type = get_type_from_parameter(
-                text_macro,
-                0,
-                statics,
-                typed_function_def,
-                function_def,
-                type_def_provider,
-            )?;
-            let index = get_par_number(text_macro, 1, "lambda parameter index")?;
-            let ast_typed_type =
-                if let ASTTypedType::Builtin(BuiltinTypedTypeKind::Lambda { parameters, .. }) =
-                    &lambda_ast_typed_type
-                {
-                    &parameters[index]
-                } else {
-                    return Err(
-                        "Error in realTypeName macro, expected a lambda as first parameter"
-                            .to_owned(),
-                    );
-                };
-
-            ast_typed_type.clone()
-        };
-
-        Ok(CodeGenC::real_type_to_string(&t))
+            Err(format!(
+                "Not a type: {}",
+                OptionDisplay(&text_macro.parameters.get(0))
+            ))
+        }
     }
 
     fn is_pre_macro(&self) -> bool {
@@ -638,6 +569,10 @@ impl TextMacroEval for CRealTypeNameMacro {
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
+    }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![MacroParamKind::Type]
     }
 }
 
@@ -658,24 +593,18 @@ impl TextMacroEval for CCastAddress {
         _type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        let value = text_macro.parameters.get(0).unwrap();
-        if let MacroParam::Ref(name, _ast_type, Some(t)) = value {
-            CLambdas::add_to_statics_if_lambda(t, statics);
+        let (name, _, ast_typed_type) = text_macro.get_expression(0)?;
 
+        if let Some(t) = ast_typed_type {
+            CLambdas::add_to_statics_if_lambda(&t, statics);
             Ok(format!(
                 "(({}){name}->address)",
-                CodeGenC::type_to_string(t, statics)
-            ))
-        } else if let MacroParam::Plain(name, _, Some(t)) = value {
-            CLambdas::add_to_statics_if_lambda(t, statics);
-
-            Ok(format!(
-                "(({}){name}->address)",
-                CodeGenC::type_to_string(t, statics)
+                CodeGenC::type_to_string(&t, statics)
             ))
         } else {
             Err(format!(
-                "First argument should be a reference to a value, or plain arg with type, but got {value}."
+                "First argument should be a reference to a value, or plain arg with type, but got {}.",
+                OptionDisplay(&text_macro.parameters.get(0))
             ))
         }
     }
@@ -686,6 +615,10 @@ impl TextMacroEval for CCastAddress {
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
+    }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![MacroParamKind::Expression]
     }
 }
 
@@ -706,41 +639,41 @@ impl TextMacroEval for CEnumSimpleMacro {
         type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        if let Some(MacroParam::Plain(variant_name, _, _)) = text_macro.parameters.get(0) {
-            let enum_def =
-                if let Some(MacroParam::Plain(enum_name, _, _)) = text_macro.parameters.get(1) {
-                    if let Some(def) = typed_function_def {
-                        if let Some(enum_def) =
-                            type_def_provider.get_enum_def_like_name(&def.namespace, enum_name)
-                        {
-                            enum_def
-                        } else {
-                            panic!("Cannot find enum {enum_name} : {}", text_macro.index)
-                        }
-                    } else {
-                        panic!("Function not present {}", text_macro.index);
-                    }
-                } else if let Some(def) = typed_function_def {
-                    let (_namespace, name) = if let Some(ASTTypedType::Enum { namespace, name }) =
-                        &def.parameters.get(0).map(|it| &it.ast_type)
+        if let Some(MacroParam::Plain(variant_name)) = text_macro.parameters.get(0) {
+            let enum_def = if let Some(MacroParam::Plain(enum_name)) = text_macro.parameters.get(1)
+            {
+                if let Some(def) = typed_function_def {
+                    if let Some(enum_def) =
+                        type_def_provider.get_enum_def_like_name(&def.namespace, enum_name)
                     {
-                        (namespace, name)
-                    } else if let ASTTypedType::Enum { namespace, name } = &def.return_type {
-                        (namespace, name)
-                    } else {
-                        panic!(
-                            "Function does not return an enum or first parameter is not an enum {}",
-                            text_macro.index
-                        )
-                    };
-                    if let Some(enum_def) = type_def_provider.get_enum_def_by_name(&name) {
                         enum_def
                     } else {
-                        panic!("Cannot find enum {name} : {}", text_macro.index)
+                        panic!("Cannot find enum {enum_name} : {}", text_macro.index)
                     }
                 } else {
                     panic!("Function not present {}", text_macro.index);
+                }
+            } else if let Some(def) = typed_function_def {
+                let (_namespace, name) = if let Some(ASTTypedType::Enum { namespace, name }) =
+                    &def.parameters.get(0).map(|it| &it.ast_type)
+                {
+                    (namespace, name)
+                } else if let ASTTypedType::Enum { namespace, name } = &def.return_type {
+                    (namespace, name)
+                } else {
+                    panic!(
+                        "Function does not return an enum or first parameter is not an enum {}",
+                        text_macro.index
+                    )
                 };
+                if let Some(enum_def) = type_def_provider.get_enum_def_by_name(&name) {
+                    enum_def
+                } else {
+                    panic!("Cannot find enum {name} : {}", text_macro.index)
+                }
+            } else {
+                panic!("Function not present {}", text_macro.index);
+            };
 
             if let Some((_i, variant)) = enum_def
                 .variants
@@ -786,6 +719,10 @@ impl TextMacroEval for CEnumSimpleMacro {
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
     }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![MacroParamKind::Plain]
+    }
 }
 
 pub struct CIsRefMacro;
@@ -801,7 +738,7 @@ impl TextMacroEval for CIsRefMacro {
         &self,
         statics: &mut Statics,
         text_macro: &TextMacro,
-        typed_function_def: Option<&ASTTypedFunctionDef>,
+        _typed_function_def: Option<&ASTTypedFunctionDef>,
         type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
@@ -819,7 +756,7 @@ impl TextMacroEval for CIsRefMacro {
                 return Err("Third parameter should be a string literal".to_owned());
             };
 
-        if let MacroParam::Ref(_name, ast_type, ast_type_type) = type_param {
+        if let MacroParam::Type(_name, ast_type, ast_type_type) = type_param {
             let t = ast_type_type.clone().unwrap();
 
             CLambdas::add_to_statics_if_lambda(&t, statics);
@@ -833,48 +770,11 @@ impl TextMacroEval for CIsRefMacro {
             } else {
                 Ok(false_value.clone())
             }
-        } else if let MacroParam::Plain(name, _, _) = type_param {
-            if let Some(def) = typed_function_def {
-                let resolved_generic_types =
-                    def.resolved_generic_types.clone().remove_generics_prefix();
-
-                // TODO type classes, I would like to resolve something like M<T>
-                //let gen_name = format!("{}_{}:{}", def.namespace, def.name, name);
-                if let Some(t) = resolved_generic_types.get(&name, &Vec::new()) {
-                    CLambdas::add_to_statics_if_lambda(&t, statics);
-
-                    let is_ref = if let Some(type_name) =
-                        get_reference_type_name(t, &TypeDefBodyTarget::C)
-                    {
-                        if let Some(t_def) = type_def_provider.get_type_def_by_name(&type_name) {
-                            TypeDefBodyCache::type_body_has_references(
-                                &t_def.body,
-                                &TypeDefBodyTarget::C,
-                            )
-                        } else {
-                            true
-                        }
-                    } else {
-                        false
-                    };
-                    if is_ref {
-                        Ok(true_value.clone())
-                    } else {
-                        Ok(false_value.clone())
-                    }
-                } else {
-                    Err(format!(
-                        "Cannot find generic type {name} : {}",
-                        resolved_generic_types
-                    ))
-                }
-            } else {
-                Err(format!(
-                    "Cannot resolve generic type {name} without a function."
-                ))
-            }
         } else {
-            Err(format!("First argument should be a reference to a value."))
+            Err(format!(
+                "First argument should be a type, but got {}.",
+                OptionDisplay(&text_macro.parameters.get(0))
+            ))
         }
     }
 
@@ -884,6 +784,14 @@ impl TextMacroEval for CIsRefMacro {
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
         Vec::new()
+    }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![
+            MacroParamKind::Type,
+            MacroParamKind::StringLiteral,
+            MacroParamKind::StringLiteral,
+        ]
     }
 }
 
@@ -949,157 +857,16 @@ fn add_ref_deref_code(
     }
 }
 
-fn get_par_number(
-    text_macro: &TextMacro,
-    par_index: usize,
-    message: &str,
-) -> Result<usize, String> {
-    let number = match text_macro.parameters.get(par_index) {
-        Some(MacroParam::Plain(plain_value, _, _)) => plain_value
-            .parse::<usize>()
-            .map_err(|_| format!("Param {par_index}, should be the {message} as a number"))?,
-        _ => {
-            return Err(format!(
-                "Param {par_index}, should be the {message} as a number"
-            ));
-        }
-    };
-    Ok(number)
-}
-
 fn get_par_text_and_type(
     text_macro: &TextMacro,
     par_index: usize,
 ) -> Result<(String, ASTTypedType), String> {
-    let (address, ast_typed_type) = match text_macro.parameters.get(par_index) {
-        Some(MacroParam::Plain(address, _ast_type, Some(ast_typed_type))) => {
-            (address, ast_typed_type)
-        }
-        Some(MacroParam::Ref(address, _ast_type, Some(ast_typed_type))) => {
-            (address, ast_typed_type)
-        }
-        Some(it) => return Err(format!("Cannot determine the type of param {it}")),
-        _ => return Err(format!("Cannot determine the type of param {par_index}")),
-    };
+    let (address, _, ast_typed_type) = text_macro.get_expression(par_index)?;
 
-    Ok((address.clone(), ast_typed_type.clone()))
-}
-
-fn get_par_text(text_macro: &TextMacro, par_index: usize) -> Result<String, String> {
-    return match text_macro.parameters.get(par_index) {
-        Some(MacroParam::Plain(address, _ast_type, _ast_typed_type)) => Ok(address.clone()),
-        _ => return Err(format!("Expected plain text for param {par_index}")),
-    };
-}
-
-fn get_type_from_parameter(
-    text_macro: &TextMacro,
-    par_index: usize,
-    statics: &mut Statics,
-    typed_function_def: Option<&ASTTypedFunctionDef>,
-    function_def: Option<&EnhASTFunctionDef>,
-    type_def_provider: &dyn TypeDefProvider,
-) -> Result<ASTTypedType, String> {
-    let value = text_macro
-        .parameters
-        .get(par_index)
-        .ok_or(format!("Expected param {par_index}"))?;
-    if let MacroParam::Ref(_name, _ast_type, Some(ast_type_type)) = value {
-        CLambdas::add_to_statics_if_lambda(ast_type_type, statics);
-
-        Ok(ast_type_type.clone())
-    } else if let MacroParam::Plain(name, param_ast_type, param_ast_typed_type) = value {
-        let (context_generic_types, resolved_generic_types, namespace) =
-            if let Some(function_def) = function_def {
-                (
-                    function_def
-                        .resolved_generic_types
-                        .clone()
-                        .remove_generics_prefix()
-                        .iter()
-                        .map(|(k, _)| k.0.clone())
-                        .collect_vec(),
-                    function_def
-                        .resolved_generic_types
-                        .clone()
-                        .remove_generics_prefix(),
-                    function_def.namespace.clone(),
-                )
-            } else if let Some(function_def) = typed_function_def {
-                let mut resolved_generic_types = EnhResolvedGenericTypes::new();
-                let mut context_generic_types = Vec::new();
-                for ((g_name, _), tt) in function_def
-                    .resolved_generic_types
-                    .clone()
-                    .remove_generics_prefix()
-                    .iter()
-                {
-                    if let Some(ast_type) = type_def_provider.get_type_from_typed_type(tt) {
-                        resolved_generic_types.insert(g_name.clone(), Vec::new(), ast_type.clone());
-                    }
-                    context_generic_types.push(g_name.clone());
-                }
-
-                (
-                    context_generic_types,
-                    resolved_generic_types,
-                    function_def.namespace.clone(),
-                )
-            } else {
-                return Err(format!(
-                    "Cannot resolve type {name} without a function. {} {}",
-                    OptionDisplay(param_ast_type),
-                    OptionDisplay(param_ast_typed_type)
-                ));
-            };
-
-        let (ast_type, ast_typed_type) = parse_type(
-            name,
-            &context_generic_types.as_slice(),
-            type_def_provider,
-            &resolved_generic_types,
-            &text_macro.index.id(),
-            &namespace,
-            None, //Some(&function_def.original_name),
-        )?;
-
-        if let Some(ast_typed_type) = ast_typed_type {
-            Ok(ast_typed_type)
-        } else {
-            return Err(format!(
-                "Cannot resolve type {name}. {} {}",
-                OptionDisplay(param_ast_type),
-                OptionDisplay(&ast_type)
-            ));
-        }
-
-        /*
-        if let Some(def) = typed_function_def {
-            let resolved_generic_types =
-                def.resolved_generic_types.clone().remove_generics_prefix();
-
-            // TODO type classes, I would like to resolve something like M<T>
-            //let gen_name = format!("{}_{}:{}", def.namespace, def.name, name);
-            if let Some(t) = resolved_generic_types.get(&name, &Vec::new()) {
-                CLambdas::add_to_statics_if_lambda(&t, statics);
-
-                Ok(t.clone())
-            } else {
-                Err(format!(
-                    "Cannot find generic type {name} : {} in {}",
-                    resolved_generic_types, text_macro.index
-                ))
-            }
-        } else {
-            Err(format!(
-                "Cannot resolve generic type {name} without a function."
-            ))
-        }
-        */
+    if let Some(ast_typed_type) = ast_typed_type {
+        Ok((address.clone(), ast_typed_type.clone()))
     } else {
-        Err(format!(
-            "Argument {par_index} should be a reference or a type."
-        ))
+        Err(format!("Param {par_index} should be a typed expression"))
     }
 }
 
