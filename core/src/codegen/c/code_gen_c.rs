@@ -27,8 +27,8 @@ use crate::codegen::c::any::{
 use crate::codegen::c::function_call_parameters_c::CFunctionCallParameters;
 use crate::codegen::c::options::COptions;
 use crate::codegen::c::text_macro_c::{
-    CCallMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro, CEnumVariantMacro,
-    CIncludeMacro, CRealTypeNameMacro, CStructDeclarationMacro, CStructTypeMacro,
+    CAllocateVarMacro, CCallMacro, CEnumVariantAssignmentMacro, CEnumVariantDeclarationMacro,
+    CEnumVariantMacro, CIncludeMacro, CRealTypeNameMacro, CTypeNameNoRefMacro,
 };
 use crate::codegen::code_manipulator::CodeManipulator;
 use crate::codegen::compile_target::CompileTarget;
@@ -922,8 +922,8 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         let mut evaluator = TextMacroEvaluator::new(CCodeManipulator::new(self.debug));
         evaluator.add("call", CCallMacro);
         evaluator.add("include", CIncludeMacro);
-        evaluator.add("structDeclaration", CStructDeclarationMacro);
-        evaluator.add("structType", CStructTypeMacro);
+        //evaluator.add("structDeclaration", CStructDeclarationMacro);
+        evaluator.add("allocateVar", CAllocateVarMacro);
         evaluator.add("enumVariantDeclaration", CEnumVariantDeclarationMacro);
         evaluator.add("enumVariantAssignment", CEnumVariantAssignmentMacro);
         evaluator.add("enumVariant", CEnumVariantMacro);
@@ -944,6 +944,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             ),
         );
         evaluator.add("typeName", CTypeNameMacro::new());
+        evaluator.add("typeNameNoRef", CTypeNameNoRefMacro::new());
         evaluator.add("realTypeName", CRealTypeNameMacro::new());
         evaluator.add("castAddress", CCastAddress::new());
         evaluator.add("enumSimple", CEnumSimpleMacro::new());

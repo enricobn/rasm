@@ -72,44 +72,34 @@ impl TextMacroEval for CIncludeMacro {
     }
 }
 
-pub struct CStructDeclarationMacro;
+pub struct CAllocateVarMacro;
 
-impl TextMacroEval for CStructDeclarationMacro {
+impl TextMacroEval for CAllocateVarMacro {
     fn eval_macro(
         &self,
         statics: &mut Statics,
         text_macro: &TextMacro,
-        typed_function_def: Option<&ASTTypedFunctionDef>,
+        _typed_function_def: Option<&ASTTypedFunctionDef>,
         _type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
         if let Some(MacroParam::Plain(var_name)) = text_macro.parameters.get(0) {
-            if let Some(def) = typed_function_def {
-                if let ASTTypedType::Struct { namespace, name } = &def.return_type {
-                    CInclude::add_to_statics(
-                        statics,
-                        CIncludeType::Header("<stdlib.h>".to_string()),
-                    ); // for malloc
+            if let (_, _, Some(typed_type)) = text_macro.get_type(1)? {
+                let type_name = CodeGenC::type_to_string(&typed_type, statics);
+                let type_name_not_ref = type_name.replace("*", "");
 
-                    let safe_name = format!("{}_{}", namespace.safe_name(), name);
-                    Ok(format!(
-                        "struct RasmPointer_* {var_name} = rasmMalloc(sizeof(struct {safe_name}));"
-                    ))
-                } else {
-                    panic!(
-                        "Error in structDeclaration macro. Function does not return a struct {}",
-                        text_macro.index
-                    )
-                }
+                Ok(format!(
+                    "struct RasmPointer_* {var_name} = rasmMalloc(sizeof({type_name_not_ref}));"
+                ))
             } else {
-                panic!(
-                    "Error in structDeclaration macro. Function not present {}",
+                Err(format!(
+                    "Error in allocateVar macro. Expected type parameter {}",
                     text_macro.index
-                )
+                ))
             }
         } else {
             panic!(
-                "Error in structDeclaration macro. Expected one plain parameter as the name of the var to declare {}",
+                "Error in allocateVar macro. Expected one plain parameter as the name of the var to declare {}",
                 text_macro.index
             )
         }
@@ -124,58 +114,7 @@ impl TextMacroEval for CStructDeclarationMacro {
     }
 
     fn get_parameters(&self) -> Vec<MacroParamKind> {
-        vec![MacroParamKind::Plain]
-    }
-}
-
-pub struct CStructTypeMacro;
-
-impl TextMacroEval for CStructTypeMacro {
-    fn eval_macro(
-        &self,
-        statics: &mut Statics,
-        text_macro: &TextMacro,
-        typed_function_def: Option<&ASTTypedFunctionDef>,
-        _type_def_provider: &dyn TypeDefProvider,
-        _function_def: Option<&EnhASTFunctionDef>,
-    ) -> Result<String, String> {
-        if let Some(def) = typed_function_def {
-            if let ASTTypedType::Struct { namespace, name } = &def.return_type {
-                // CInclude::add_to_statics(statics, CIncludeType::Header("<stdlib.h>".to_string())); // for malloc
-
-                let safe_name = format!("{}_{}", namespace.safe_name(), name);
-                Ok(format!("struct {safe_name}"))
-            } else if let ASTTypedType::Struct { namespace, name } =
-                &def.parameters.first().unwrap().ast_type
-            {
-                // CInclude::add_to_statics(statics, CIncludeType::Header("<stdlib.h>".to_string())); // for malloc
-
-                let safe_name = format!("{}_{}", namespace.safe_name(), name);
-                Ok(format!("struct {safe_name}"))
-            } else {
-                panic!(
-                    "Error in structType macro. Function does not return a struct {}",
-                    text_macro.index
-                )
-            }
-        } else {
-            panic!(
-                "Error in structType macro. Function not present {}",
-                text_macro.index
-            )
-        }
-    }
-
-    fn is_pre_macro(&self) -> bool {
-        true
-    }
-
-    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
-        Vec::new()
-    }
-
-    fn get_parameters(&self) -> Vec<MacroParamKind> {
-        Vec::new()
+        vec![MacroParamKind::Plain, MacroParamKind::Type]
     }
 }
 
@@ -513,6 +452,48 @@ impl TextMacroEval for CTypeNameMacro {
 
         if let Some(t) = typed_type {
             Ok(CodeGenC::type_to_string(&t, statics))
+        } else {
+            Err(format!(
+                "Not a type: {}",
+                OptionDisplay(&text_macro.parameters.get(0))
+            ))
+        }
+    }
+
+    fn is_pre_macro(&self) -> bool {
+        false
+    }
+
+    fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
+        Vec::new()
+    }
+
+    fn get_parameters(&self) -> Vec<MacroParamKind> {
+        vec![MacroParamKind::Type]
+    }
+}
+
+pub struct CTypeNameNoRefMacro;
+
+impl CTypeNameNoRefMacro {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl TextMacroEval for CTypeNameNoRefMacro {
+    fn eval_macro(
+        &self,
+        statics: &mut Statics,
+        text_macro: &TextMacro,
+        _typed_function_def: Option<&ASTTypedFunctionDef>,
+        _type_def_provider: &dyn TypeDefProvider,
+        _function_def: Option<&EnhASTFunctionDef>,
+    ) -> Result<String, String> {
+        let (_, _, typed_type) = text_macro.get_type(0)?;
+
+        if let Some(t) = typed_type {
+            Ok(CodeGenC::type_to_string(&t, statics).replace("*", ""))
         } else {
             Err(format!(
                 "Not a type: {}",

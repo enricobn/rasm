@@ -278,10 +278,14 @@ impl FunctionsCreator for CFunctionsCreator {
 
     fn struct_constructor_body(&self, struct_def: &ASTStructDef) -> String {
         let mut result = String::new();
-        self.code_manipulator
-            .add(&mut result, "$structDeclaration(s__)", None, true);
-
         let struct_type = Self::struct_type_to_string(struct_def);
+
+        self.code_manipulator.add(
+            &mut result,
+            &format!("$allocateVar(s__, {struct_type})"),
+            None,
+            true,
+        );
 
         for property_def in struct_def.properties.iter() {
             self.code_manipulator.add(
@@ -347,9 +351,9 @@ impl FunctionsCreator for CFunctionsCreator {
                 ),
                 "$addRef($v)",
                 "} else {",
-                "$structDeclaration(newStruct)",
+                &format!("$allocateVar(newStruct, {struct_type})"),
                 "memcpy(newStruct->address, $receiver->address, sizeof(",
-                "$structType()",
+                &format!("$typeNameNoRef({struct_type})"),
                 "));",
                 "struct_result = newStruct;",
                 "struct_result_ = newStruct->address;",
@@ -386,9 +390,9 @@ impl FunctionsCreator for CFunctionsCreator {
                 "struct_result_ = $castAddress($receiver);",
                 &format!("old_property_value = struct_result_->{name};"),
                 "} else {",
-                "$structDeclaration(newStruct)",
+                &format!("$allocateVar(newStruct, {struct_type})"),
                 "memcpy(newStruct->address, $castAddress($receiver), sizeof(",
-                "$structType()",
+                &format!("$typeNameNoRef({struct_type})"),
                 "));",
                 "struct_result = newStruct;",
                 &format!("struct_result_ = $castAddress(newStruct:{struct_type});"),
