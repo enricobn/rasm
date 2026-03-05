@@ -399,6 +399,26 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             }
         }
 
+        for s in type_def_provider.enums().iter() {
+            for (_, variant) in s.variants.iter().enumerate() {
+                if variant.parameters.is_empty() {
+                    if let EnhASTType::Custom {
+                        namespace: _,
+                        name,
+                        param_types: _,
+                        index: _,
+                    } = &s.ast_type
+                    {
+                        let variant_const_name =
+                            Self::variant_const_name(s.namespace(), name, &variant.name);
+                        self.add(code, &format!("deref({variant_const_name});"), None, true);
+                    } else {
+                        panic!();
+                    }
+                }
+            }
+        }
+
         self.add(code, "freeRasmReferences();", None, true);
         if self.memory_debug {
             self.add_rows(
@@ -1328,7 +1348,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                         );
                         self.add(
                             &mut before,
-                            &format!("{variant_const_name}->count = 1;"),
+                            &format!("addRef({variant_const_name});"),
                             None,
                             true,
                         );

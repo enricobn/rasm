@@ -38,6 +38,14 @@ impl CFunctionsCreator {
             code_manipulator: CCodeManipulator::new(debug),
         }
     }
+
+    fn struct_type_to_string(struct_def: &ASTStructDef) -> String {
+        if struct_def.type_parameters.is_empty() {
+            struct_def.name.clone()
+        } else {
+            struct_def.name.clone() + "<" + &struct_def.type_parameters.join(",") + ">"
+        }
+    }
 }
 
 impl FunctionsCreator for CFunctionsCreator {
@@ -273,10 +281,15 @@ impl FunctionsCreator for CFunctionsCreator {
         self.code_manipulator
             .add(&mut result, "$structDeclaration(s__)", None, true);
 
+        let struct_type = Self::struct_type_to_string(struct_def);
+
         for property_def in struct_def.properties.iter() {
             self.code_manipulator.add(
                 &mut result,
-                &format!("s___->{} = ${};", property_def.name, property_def.name),
+                &format!(
+                    "$castAddress(s__:{struct_type})->{} = ${};",
+                    property_def.name, property_def.name
+                ),
                 None,
                 true,
             );
@@ -295,17 +308,13 @@ impl FunctionsCreator for CFunctionsCreator {
     ) -> String {
         let mut result = String::new();
 
-        let struct_name = if s.type_parameters.is_empty() {
-            s.name.clone()
-        } else {
-            s.name.clone() + "<" + &s.type_parameters.join(",") + ">"
-        };
+        let struct_type = Self::struct_type_to_string(s);
 
         self.code_manipulator.add_rows(
             &mut result,
             vec![
                 "$inline()",
-                &format!("return (($typeName({})", struct_name),
+                &format!("return (($typeName({})", struct_type),
                 &format!(")$v->address)->{};", p.name),
             ],
             None,
@@ -321,18 +330,14 @@ impl FunctionsCreator for CFunctionsCreator {
         property_def: &ASTStructPropertyDef,
     ) -> String {
         let mut result = String::new();
-        let struct_name = if struct_def.type_parameters.is_empty() {
-            struct_def.name.clone()
-        } else {
-            struct_def.name.clone() + "<" + &struct_def.type_parameters.join(",") + ">"
-        };
+        let struct_type = Self::struct_type_to_string(struct_def);
 
         self.code_manipulator.add_rows(
             &mut result,
             vec![
                 "$include(<string.h>)",
                 "struct RasmPointer_ *struct_result = NULL;",
-                &format!("$typeName({struct_name}) struct_result_ = NULL;"),
+                &format!("$typeName({struct_type}) struct_result_ = NULL;"),
                 "if(receiver->count == 1) {",
                 "struct_result = receiver;",
                 "struct_result_ = $castAddress($receiver);",
@@ -367,18 +372,14 @@ impl FunctionsCreator for CFunctionsCreator {
         let mut result = String::new();
         let name = &def.name;
 
-        let struct_name = if struct_def.type_parameters.is_empty() {
-            struct_def.name.clone()
-        } else {
-            struct_def.name.clone() + "<" + &struct_def.type_parameters.join(",") + ">"
-        };
+        let struct_type = Self::struct_type_to_string(struct_def);
 
         self.code_manipulator.add_rows(
             &mut result,
             vec![
                 "$include(<string.h>)",
                 "struct RasmPointer_ *struct_result = NULL;",
-                &format!("$typeName({struct_name}) struct_result_ = NULL;"),
+                &format!("$typeName({struct_type}) struct_result_ = NULL;"),
                 &format!("$realTypeName({}) old_property_value;", def.ast_type),
                 "if(receiver->count == 1) {",
                 "struct_result = receiver;",
@@ -386,11 +387,11 @@ impl FunctionsCreator for CFunctionsCreator {
                 &format!("old_property_value = struct_result_->{name};"),
                 "} else {",
                 "$structDeclaration(newStruct)",
-                "memcpy(newStruct_, $castAddress($receiver), sizeof(",
+                "memcpy(newStruct->address, $castAddress($receiver), sizeof(",
                 "$structType()",
                 "));",
                 "struct_result = newStruct;",
-                "struct_result_ = newStruct_;",
+                &format!("struct_result_ = $castAddress(newStruct:{struct_type});"),
                 "}",
                 &format!(
                     "struct_result_->{name} = $castAddress($f)->functionPtr(struct_result_->{name}, f);"

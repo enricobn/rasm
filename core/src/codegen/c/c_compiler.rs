@@ -43,8 +43,10 @@ pub fn compile_c(
     }
     if debug {
         make_file_content.push_str("DEBUG = -g\n");
+        make_file_content.push_str("WARNINGS = -Wall\n");
     } else {
         make_file_content.push_str("DEBUG =\n");
+        make_file_content.push_str("WARNINGS = \n");
     }
 
     make_file_content.push_str("OUT = ");

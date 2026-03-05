@@ -424,14 +424,18 @@ impl TypedFunctionsCreator for TypedFunctionsCreatorC {
             }
 
             let variant_type_name = format!("{enum_type_name}_{}", variant.name);
-            self.code_gen.add(
+
+            if variant.parameters.iter().any(|parameter| {
+                get_reference_type_name(&parameter.ast_type, &TypeDefBodyTarget::C).is_some()
+            }) {
+                self.code_gen.add(
                 &mut body,
                 &format!(
                     "struct {variant_type_name} *variant = (struct {variant_type_name}*) e->variant->address;"
                 ),
                 None,
-                true,
-            );
+                true,);
+            }
 
             if ref_type == RefType::Deref {
                 CodeGenC::call_deref_simple(

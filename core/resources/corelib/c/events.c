@@ -137,8 +137,8 @@ void print_all_events() {
 
   FILE *file = fopen(file_name, "w");
   if (file == NULL) {
-    free(file_name);
     printf("Error creating file %s\n", file_name);
+    free(file_name);
     return;
   }
 

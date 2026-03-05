@@ -93,7 +93,7 @@ impl TextMacroEval for CStructDeclarationMacro {
 
                     let safe_name = format!("{}_{}", namespace.safe_name(), name);
                     Ok(format!(
-                        "struct RasmPointer_* {var_name} = rasmMalloc(sizeof(struct {safe_name}));struct {safe_name} *{var_name}_ = (struct {safe_name} *){var_name}->address;"
+                        "struct RasmPointer_* {var_name} = rasmMalloc(sizeof(struct {safe_name}));"
                     ))
                 } else {
                     panic!(
@@ -141,26 +141,26 @@ impl TextMacroEval for CStructTypeMacro {
     ) -> Result<String, String> {
         if let Some(def) = typed_function_def {
             if let ASTTypedType::Struct { namespace, name } = &def.return_type {
-                CInclude::add_to_statics(statics, CIncludeType::Header("<stdlib.h>".to_string())); // for malloc
+                // CInclude::add_to_statics(statics, CIncludeType::Header("<stdlib.h>".to_string())); // for malloc
 
                 let safe_name = format!("{}_{}", namespace.safe_name(), name);
                 Ok(format!("struct {safe_name}"))
             } else if let ASTTypedType::Struct { namespace, name } =
                 &def.parameters.first().unwrap().ast_type
             {
-                CInclude::add_to_statics(statics, CIncludeType::Header("<stdlib.h>".to_string())); // for malloc
+                // CInclude::add_to_statics(statics, CIncludeType::Header("<stdlib.h>".to_string())); // for malloc
 
                 let safe_name = format!("{}_{}", namespace.safe_name(), name);
                 Ok(format!("struct {safe_name}"))
             } else {
                 panic!(
-                    "Error in structDeclaration macro. Function does not return a struct {}",
+                    "Error in structType macro. Function does not return a struct {}",
                     text_macro.index
                 )
             }
         } else {
             panic!(
-                "Error in structDeclaration macro. Function not present {}",
+                "Error in structType macro. Function not present {}",
                 text_macro.index
             )
         }

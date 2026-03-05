@@ -2,7 +2,7 @@
 
 ## Identifiers
 
-An identifier must start with a letter and can contains only letters or numbers.
+An identifier must start with a letter and can contain only letters or numbers.
 
 ## Macro
 
