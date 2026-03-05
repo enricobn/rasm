@@ -231,23 +231,13 @@ impl FunctionsCreator for CFunctionsCreator {
 
         let mut result = String::new();
 
-        self.code_manipulator.add(
+        self.code_manipulator.add_rows(
             &mut result,
-            "struct RasmPointer_* e__ = rasmMalloc(sizeof(struct Enum));",
-            None,
-            true,
-        );
-
-        self.code_manipulator.add(
-            &mut result,
-            "struct Enum* e_ = (struct Enum*)e__->address;",
-            None,
-            true,
-        );
-
-        self.code_manipulator.add(
-            &mut result,
-            &format!("$enumVariantDeclaration(v_,{})", variant.name),
+            vec![
+                "struct RasmPointer_* e__ = rasmMalloc(sizeof(struct Enum));",
+                "struct Enum* e_ = (struct Enum*)e__->address;",
+                &format!("$enumVariantDeclaration(v_,{})", variant.name),
+            ],
             None,
             true,
         );
@@ -261,17 +251,16 @@ impl FunctionsCreator for CFunctionsCreator {
             );
         }
 
-        self.code_manipulator
-            .add(&mut result, "e_->variant = v__;", None, true);
-        self.code_manipulator.add(
+        self.code_manipulator.add_rows(
             &mut result,
-            &format!("e_->variant_num = {variant_num};"),
+            vec![
+                "e_->variant = v__;",
+                &format!("e_->variant_num = {variant_num};"),
+                "return e__;",
+            ],
             None,
             true,
         );
-
-        self.code_manipulator
-            .add(&mut result, "return e__;", None, true);
 
         result
     }

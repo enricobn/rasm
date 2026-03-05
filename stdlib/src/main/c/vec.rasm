@@ -322,10 +322,12 @@ pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     $realTypeName(T) *array = ($realTypeName(T) *)values->address;
 
     size_t s1 = sizeof($realTypeName(T1));
-    size_t s = sizeof($realTypeName(T));
+    // size_t s = sizeof($realTypeName(T));
     struct RasmPointer_ *result;
 
-    char optimize = 0; //vec->count == 1 && s > s1;
+    // TODO it does not work, I suppose because "old" elements remain stale, look at bouncing_quads
+    // char optimize = vec->count == 1 && s >= s1;
+    char optimize = 0;
 
     if (optimize) {
         result = vec;
@@ -403,7 +405,8 @@ pub native filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     $realTypeName(T) *array = ($realTypeName(T) *)values->address;
 
     struct RasmPointer_ *result;
-    char optimize = 0;  // vec->count == 1
+    // TODO it does not work, I suppose because "old" elements remain stale
+    char optimize = 0;  // vec->count == 1;
 
     if (optimize) {
         result = vec;
@@ -522,7 +525,9 @@ pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
 }/
 
 pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
-    size_t TO_DEREF_CACHE_SIZE = 100;
+    $isRef(T1, "", "/*")
+        size_t TO_DEREF_CACHE_SIZE = 100;
+    $isRef(T1, "", "*/")
 
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
@@ -541,35 +546,35 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
         and when we dereference it, since it is 1, we pay the cost of dereferencing even the elements, so when we defer
         the dereference, there's a chance that it already has more than 1 as a reference count and we don't pay 
         the cost of dereferencing the elements, or almost not always (probably there can be more than one entry of the 
-        same Vec in the dereference cache), because it is usually done only when the container has 1 count.
+        same Vec in the dereference cache), because it is usually done only when the container has count 1.
     */
 
     $isRef(T1, "", "/*")
-    $realTypeName(T1) to_deref[TO_DEREF_CACHE_SIZE];
-    size_t to_deref_index = 0;
+        $realTypeName(T1) to_deref[TO_DEREF_CACHE_SIZE];
+        size_t to_deref_index = 0;
     $isRef(T1, "", "*/")
 
     for (int i = 0; i < length; i++) {
         $isRef(T1, "", "/*")
-        if (result != zero) {
-            $addRef(result: T1)
-        }
+            if (result != zero) {
+                $addRef(result: T1)
+            }
         $isRef(T1, "", "*/")
         
         $realTypeName(T1) tmpResult = $castAddress($accum)->functionPtr(result, array[i], accum);
 
         $isRef(T1, "", "/*")
-        if (result != zero) {
-            to_deref[to_deref_index++] = result;
+            if (result != zero) {
+                to_deref[to_deref_index++] = result;
 
-            if (to_deref_index == TO_DEREF_CACHE_SIZE) {
-                for (int j = 0; j < to_deref_index; j++) {
-                    $deref(to_deref[j]: T1)
+                if (to_deref_index == TO_DEREF_CACHE_SIZE) {
+                    for (int j = 0; j < to_deref_index; j++) {
+                        $deref(to_deref[j]: T1)
+                    }
+                    to_deref_index = 0;
                 }
-                to_deref_index = 0;
+                zero = result;
             }
-            zero = result;
-        }
         $isRef(T1, "", "*/")
         result = tmpResult;
     }

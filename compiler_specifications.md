@@ -10,11 +10,11 @@ native source macro are macros that can be used inside the native code. They are
 
 Arguments are divided in three types:
 
-* plain, it can be anything, but if it must be typed, you can add a : and specify the type, that can be even generic. If the type is not specified, but is needed by the macro, it is an int
+* plain, it can be anything, but if it must be typed, you can add a : and specify the type, that can be also generic. If the type is not specified, but is needed by the macro, it is an int
 * a reference to a function parameter, it is the name of a parameter prefixed with $, in this case the type is inferred by the compiler
 * string literal
 
-For example to call a rasm function (this macro is present in both nasmi386 and C target), you can write `$call(aFunctionName, "Hello world", $par1, localVariable: Option<T>)`, the first parameter is a plain, not typed argument, the second is a reference to the outer function's parameter and the third is a local variable (in nasm it could be a register, or an expression, i.e. [ebx + 5]) for which we specify the rasm type, generic on T which is a generic type of the outer function.
+For example to call a rasm function (this macro is present in both nasmi386 and C target), you can write `$call(aFunctionName, "Hello world", $par1, localVariable: Option<T>)`, the first parameter is a plain, not typed argument, the second is a reference to the outer function's parameter and the third is a local variable for which we specify the rasm type, generic on T which is a generic type of the outer function.
 
 ### native C source macros
 
@@ -22,22 +22,31 @@ For example to call a rasm function (this macro is present in both nasmi386 and 
 
 calls a rasm function
 
+takes a plain argument for the name of the function to call and other plain typed arguments, that are passed to the function. In theory the arguments to pass to the function can be expressions, but you cannot use expressions that contain parenthesis or commas, in nasm they could be registers, or register expressions, i.e. eax, [ebx + 5].
+An example in C:
+`$call(aFunctionName, "Hello world", $par1, localVariable: Option<T>)`
+
 #### $include
 
 adds an #include directive
 
 #### $structDeclaration
 
-creates a new struct  
-takes a plain argument with the prefix of the var names to declare  
-it is supposed to be used inside a function that has a struct as return type. An example of the result:  
+allocates a new struct  
+takes a plain argument with the prefix of the var name to declare  
+it is intended to be used inside a function that has a struct as return type. For example in:
 
 ```C
-struct RasmPointer_*{var_name} = rasmMalloc(sizeof(struct {safe_name}));
-struct {safe_name}*{var_name}_ = (struct {safe_name} *){var_name}->address;
+fn aFunction() -> AStruct /{
+    $structDeclaration(var_name)
+}/
 ```
 
-#### $structType
+the macro will be expanded to:
+
+```C
+struct RasmPointer_* var_name = rasmMalloc(sizeof(struct C_struct_name));
+```
 
 #### $enumVariantDeclaration
 
@@ -60,6 +69,12 @@ takes a typed argument with the expression
 #### $typeName
 
 returns the C type of a rasm type  
+takes a plain argument that can be generic  
+for example for a rasm struct it returns a pointer to the C struct name  
+
+#### $typeNameNoRef
+
+returns the C type of a rasm type, but not as a pointer
 takes a plain argument that can be generic  
 for example for a rasm struct it returns the C struct name  
 

@@ -93,7 +93,8 @@ impl TextMacroEval for CAllocateVarMacro {
                 ))
             } else {
                 Err(format!(
-                    "Error in allocateVar macro. Expected type parameter {}",
+                    "Error in allocateVar macro. Cannot determine the type of {} : {}",
+                    OptionDisplay(&text_macro.parameters.get(1)),
                     text_macro.index
                 ))
             }
@@ -209,25 +210,25 @@ impl TextMacroEval for CEnumVariantAssignmentMacro {
                         ))
                     } else {
                         panic!(
-                            "Error in enumVariantDeclaration macro. Function does not return an enum {}",
+                            "Error in enumVariantAssignment macro. Function does not return an enum {}",
                             text_macro.index
                         )
                     }
                 } else {
                     panic!(
-                        "Error in enumVariantDeclaration macro. Function not present {}",
+                        "Error in enumVariantAssignment macro. Function not present {}",
                         text_macro.index
                     )
                 }
             } else {
                 panic!(
-                    "Error in enumVariantDeclaration macro. Expected the thirs plain parameter as the name of the variant {}",
+                    "Error in enumVariantAssignment macro. Expected the thirs plain parameter as the name of the variant {}",
                     text_macro.index
                 )
             }
         } else {
             panic!(
-                "Error in enumVariantDeclaration macro. Expected the secont plain parameter as the name of the var to declare {}",
+                "Error in enumVariantAssignment macro. Expected the secont plain parameter as the name of the var to declare {}",
                 text_macro.index
             )
         }
@@ -281,13 +282,13 @@ impl TextMacroEval for CEnumVariantMacro {
                 }
             } else {
                 panic!(
-                    "Error in enumVariantDeclaration macro. Expected the thirs plain parameter as the name of the variant {}",
+                    "Error in enumVariantMacro macro. Expected the thirs plain parameter as the name of the variant {}",
                     text_macro.index
                 )
             }
         } else {
             panic!(
-                "Error in enumVariantDeclaration macro. Expected the secont plain parameter as the name of the var to declare {}",
+                "Error in enumVariantMacro macro. Expected the secont plain parameter as the name of the var to declare {}",
                 text_macro.index
             )
         }
