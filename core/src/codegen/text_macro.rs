@@ -186,11 +186,29 @@ impl TextMacro {
         &self,
         i: usize,
     ) -> Result<(String, Option<EnhASTType>, Option<ASTTypedType>), String> {
-        match &self.parameters[i] {
-            MacroParam::Type(name, enh_asttype, asttyped_type) => {
+        match self.parameters.get(i) {
+            Some(MacroParam::Type(name, enh_asttype, asttyped_type)) => {
                 Ok((name.clone(), enh_asttype.clone(), asttyped_type.clone()))
             }
-            it => Err(format!("Not a type: {}", it)),
+            Some(it) => Err(format!("Expected a type, got {it} : {}", self.index)),
+            None => Err(format!(
+                "Cannot get parameter {i} in macro {self}: {}",
+                self.index
+            )),
+        }
+    }
+
+    pub fn get_plain(&self, i: usize) -> Result<String, String> {
+        match self.parameters.get(i) {
+            Some(MacroParam::Plain(name)) => Ok(name.clone()),
+            Some(it) => Err(format!(
+                "Expected a plain argument, got {it} : {}",
+                self.index
+            )),
+            None => Err(format!(
+                "Cannot get parameter {i} in macro {self}: {}",
+                self.index
+            )),
         }
     }
 }

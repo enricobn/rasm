@@ -47,15 +47,8 @@ impl TextMacroEval for CIncludeMacro {
         _type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        match text_macro.parameters.get(0).unwrap() {
-            MacroParam::Plain(s) => {
-                CInclude::add_to_statics(statics, CIncludeType::Header(s.clone()));
-            }
-            _ => panic!(
-                "Error in include macro. Invalid parameter {}",
-                text_macro.index
-            ),
-        }
+        let s = text_macro.get_plain(0)?;
+        CInclude::add_to_statics(statics, CIncludeType::Header(s));
         Ok(String::new())
     }
 
@@ -83,26 +76,20 @@ impl TextMacroEval for CAllocateVarMacro {
         _type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        if let Some(MacroParam::Plain(var_name)) = text_macro.parameters.get(0) {
-            if let (_, _, Some(typed_type)) = text_macro.get_type(1)? {
-                let type_name = CodeGenC::type_to_string(&typed_type, statics);
-                let type_name_not_ref = type_name.replace("*", "");
+        let var_name = text_macro.get_plain(0)?;
+        if let (_, _, Some(typed_type)) = text_macro.get_type(1)? {
+            let type_name = CodeGenC::type_to_string(&typed_type, statics);
+            let type_name_not_ref = type_name.replace("*", "");
 
-                Ok(format!(
-                    "struct RasmPointer_* {var_name} = rasmMalloc(sizeof({type_name_not_ref}));"
-                ))
-            } else {
-                Err(format!(
-                    "Error in allocateVar macro. Cannot determine the type of {} : {}",
-                    OptionDisplay(&text_macro.parameters.get(1)),
-                    text_macro.index
-                ))
-            }
+            Ok(format!(
+                "struct RasmPointer_* {var_name} = rasmMalloc(sizeof({type_name_not_ref}));"
+            ))
         } else {
-            panic!(
-                "Error in allocateVar macro. Expected one plain parameter as the name of the var to declare {}",
+            Err(format!(
+                "Error in allocateVar macro. Cannot determine the type of {} : {}",
+                OptionDisplay(&text_macro.parameters.get(1)),
                 text_macro.index
-            )
+            ))
         }
     }
 
@@ -130,43 +117,27 @@ impl TextMacroEval for CEnumVariantDeclarationMacro {
         _type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        if let Some(MacroParam::Plain(var_name)) = text_macro.parameters.get(0) {
-            if let Some(MacroParam::Plain(variant_name)) = text_macro.parameters.get(1) {
-                if let Some(def) = typed_function_def {
-                    if let ASTTypedType::Enum { namespace, name } = &def.return_type {
-                        CInclude::add_to_statics(
-                            statics,
-                            CIncludeType::Header("<stdlib.h>".to_string()),
-                        ); // for malloc
+        let var_name = text_macro.get_plain(0)?;
+        let variant_name = text_macro.get_plain(1)?;
+        if let Some(def) = typed_function_def {
+            if let ASTTypedType::Enum { namespace, name } = &def.return_type {
+                CInclude::add_to_statics(statics, CIncludeType::Header("<stdlib.h>".to_string())); // for malloc
 
-                        let safe_name =
-                            format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
-                        Ok(format!(
-                            "struct RasmPointer_* {var_name}_ = rasmMalloc(sizeof(struct {safe_name}));\n"
-                        ) + &format!(
-                            "struct {safe_name}* {var_name} = (struct {safe_name}*){var_name}_->address;"
-                        ))
-                    } else {
-                        panic!(
-                            "Error in enumVariantDeclaration macro. Function does not return an enum {}",
-                            text_macro.index
-                        )
-                    }
-                } else {
-                    panic!(
-                        "Error in enumVariantDeclaration macro. Function not present {}",
-                        text_macro.index
-                    )
-                }
+                let safe_name = format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
+                Ok(format!(
+                    "struct RasmPointer_* {var_name}_ = rasmMalloc(sizeof(struct {safe_name}));\n"
+                ) + &format!(
+                    "struct {safe_name}* {var_name} = (struct {safe_name}*){var_name}_->address;"
+                ))
             } else {
                 panic!(
-                    "Error in enumVariantDeclaration macro. Expected the second plain parameter as the name of the variant {}",
+                    "Error in enumVariantDeclaration macro. Function does not return an enum {}",
                     text_macro.index
                 )
             }
         } else {
             panic!(
-                "Error in enumVariantDeclaration macro. Expected the first plain parameter as the name of the var to declare {}",
+                "Error in enumVariantDeclaration macro. Function not present {}",
                 text_macro.index
             )
         }
@@ -196,39 +167,27 @@ impl TextMacroEval for CEnumVariantAssignmentMacro {
         _type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        if let Some(MacroParam::Plain(var_name)) = text_macro.parameters.get(0) {
-            if let Some(MacroParam::Plain(variant_name)) = text_macro.parameters.get(1) {
-                if let Some(def) = typed_function_def {
-                    if let Some(ASTTypedType::Enum { namespace, name }) =
-                        &def.parameters.get(0).map(|it| &it.ast_type)
-                    {
-                        let safe_name =
-                            format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
-                        let value_address_as_enum = format!("((struct Enum*)value->address)");
-                        Ok(format!(
-                            "struct {safe_name}* {var_name} = (struct {safe_name}*)((struct RasmPointer_*){value_address_as_enum}->variant)->address;"
-                        ))
-                    } else {
-                        panic!(
-                            "Error in enumVariantAssignment macro. Function does not return an enum {}",
-                            text_macro.index
-                        )
-                    }
-                } else {
-                    panic!(
-                        "Error in enumVariantAssignment macro. Function not present {}",
-                        text_macro.index
-                    )
-                }
+        let var_name = text_macro.get_plain(0)?;
+        let variant_name = text_macro.get_plain(1)?;
+
+        if let Some(def) = typed_function_def {
+            if let Some(ASTTypedType::Enum { namespace, name }) =
+                &def.parameters.get(0).map(|it| &it.ast_type)
+            {
+                let safe_name = format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
+                let value_address_as_enum = format!("((struct Enum*)value->address)");
+                Ok(format!(
+                    "struct {safe_name}* {var_name} = (struct {safe_name}*)((struct RasmPointer_*){value_address_as_enum}->variant)->address;"
+                ))
             } else {
                 panic!(
-                    "Error in enumVariantAssignment macro. Expected the thirs plain parameter as the name of the variant {}",
+                    "Error in enumVariantAssignment macro. Function does not return an enum {}",
                     text_macro.index
                 )
             }
         } else {
             panic!(
-                "Error in enumVariantAssignment macro. Expected the secont plain parameter as the name of the var to declare {}",
+                "Error in enumVariantAssignment macro. Function not present {}",
                 text_macro.index
             )
         }
@@ -258,37 +217,24 @@ impl TextMacroEval for CEnumVariantMacro {
         _type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        if let Some(MacroParam::Plain(var_name)) = text_macro.parameters.get(0) {
-            if let Some(MacroParam::Plain(variant_name)) = text_macro.parameters.get(1) {
-                if let (value, _, Some(t)) = text_macro.get_expression(2)? {
-                    if let ASTTypedType::Enum { namespace, name } = t {
-                        let safe_name =
-                            format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
-                        let value_address_as_enum = format!("((struct Enum*){value}->address)");
-                        Ok(format!(
-                            "struct {safe_name}* {var_name} = (struct {safe_name}*)((struct RasmPointer_*){value_address_as_enum}->variant)->address;"
-                        ))
-                    } else {
-                        panic!(
-                            "Error in enumVariant macro. Function does not return an enum {}",
-                            text_macro.index
-                        )
-                    }
-                } else {
-                    panic!(
-                        "Error in enumVariant macro. Function not present {}",
-                        text_macro.index
-                    )
-                }
+        let var_name = text_macro.get_plain(0)?;
+        let variant_name = text_macro.get_plain(1)?;
+        if let (value, _, Some(t)) = text_macro.get_expression(2)? {
+            if let ASTTypedType::Enum { namespace, name } = t {
+                let safe_name = format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
+                let value_address_as_enum = format!("((struct Enum*){value}->address)");
+                Ok(format!(
+                    "struct {safe_name}* {var_name} = (struct {safe_name}*)((struct RasmPointer_*){value_address_as_enum}->variant)->address;"
+                ))
             } else {
                 panic!(
-                    "Error in enumVariantMacro macro. Expected the thirs plain parameter as the name of the variant {}",
+                    "Error in enumVariant macro. Function does not return an enum {}",
                     text_macro.index
                 )
             }
         } else {
             panic!(
-                "Error in enumVariantMacro macro. Expected the secont plain parameter as the name of the var to declare {}",
+                "Error in enumVariant macro. Function not present {}",
                 text_macro.index
             )
         }
@@ -621,75 +567,68 @@ impl TextMacroEval for CEnumSimpleMacro {
         type_def_provider: &dyn TypeDefProvider,
         _function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String> {
-        if let Some(MacroParam::Plain(variant_name)) = text_macro.parameters.get(0) {
-            let enum_def = if let Some(MacroParam::Plain(enum_name)) = text_macro.parameters.get(1)
-            {
-                if let Some(def) = typed_function_def {
-                    if let Some(enum_def) =
-                        type_def_provider.get_enum_def_like_name(&def.namespace, enum_name)
-                    {
-                        enum_def
-                    } else {
-                        panic!("Cannot find enum {enum_name} : {}", text_macro.index)
-                    }
-                } else {
-                    panic!("Function not present {}", text_macro.index);
-                }
-            } else if let Some(def) = typed_function_def {
-                let (_namespace, name) = if let Some(ASTTypedType::Enum { namespace, name }) =
-                    &def.parameters.get(0).map(|it| &it.ast_type)
+        let variant_name = text_macro.get_plain(0)?;
+        let enum_def = if let Some(MacroParam::Plain(enum_name)) = text_macro.parameters.get(1) {
+            if let Some(def) = typed_function_def {
+                if let Some(enum_def) =
+                    type_def_provider.get_enum_def_like_name(&def.namespace, enum_name)
                 {
-                    (namespace, name)
-                } else if let ASTTypedType::Enum { namespace, name } = &def.return_type {
-                    (namespace, name)
-                } else {
-                    panic!(
-                        "Function does not return an enum or first parameter is not an enum {}",
-                        text_macro.index
-                    )
-                };
-                if let Some(enum_def) = type_def_provider.get_enum_def_by_name(&name) {
                     enum_def
                 } else {
-                    panic!("Cannot find enum {name} : {}", text_macro.index)
+                    panic!("Cannot find enum {enum_name} : {}", text_macro.index)
                 }
             } else {
                 panic!("Function not present {}", text_macro.index);
-            };
-
-            if let Some((_i, variant)) = enum_def
-                .variants
-                .iter()
-                .enumerate()
-                .find(|(_i, v)| &v.name == variant_name)
+            }
+        } else if let Some(def) = typed_function_def {
+            let (_namespace, name) = if let Some(ASTTypedType::Enum { namespace, name }) =
+                &def.parameters.get(0).map(|it| &it.ast_type)
             {
-                let mut result = String::new();
-                if let EnhASTType::Custom {
-                    namespace: _,
-                    name,
-                    param_types: _,
-                    index: _,
-                } = &enum_def.ast_type
-                {
-                    result.push_str(&CodeGenC::variant_const_name(
-                        enum_def.namespace(),
-                        name,
-                        &variant.name,
-                    ));
-                    Ok(result)
-                } else {
-                    panic!();
-                }
+                (namespace, name)
+            } else if let ASTTypedType::Enum { namespace, name } = &def.return_type {
+                (namespace, name)
             } else {
                 panic!(
-                    "Cannot find variant {variant_name} for enum {} : {}",
-                    enum_def.name, text_macro.index
+                    "Function does not return an enum or first parameter is not an enum {}",
+                    text_macro.index
                 )
+            };
+            if let Some(enum_def) = type_def_provider.get_enum_def_by_name(&name) {
+                enum_def
+            } else {
+                panic!("Cannot find enum {name} : {}", text_macro.index)
+            }
+        } else {
+            panic!("Function not present {}", text_macro.index);
+        };
+
+        if let Some((_i, variant)) = enum_def
+            .variants
+            .iter()
+            .enumerate()
+            .find(|(_i, v)| v.name == variant_name)
+        {
+            let mut result = String::new();
+            if let EnhASTType::Custom {
+                namespace: _,
+                name,
+                param_types: _,
+                index: _,
+            } = &enum_def.ast_type
+            {
+                result.push_str(&CodeGenC::variant_const_name(
+                    enum_def.namespace(),
+                    name,
+                    &variant.name,
+                ));
+                Ok(result)
+            } else {
+                panic!();
             }
         } else {
             panic!(
-                "Error in enumVariantDeclaration macro. Expected the thirs plain parameter as the name of the variant {}",
-                text_macro.index
+                "Cannot find variant {variant_name} for enum {} : {}",
+                enum_def.name, text_macro.index
             )
         }
     }
