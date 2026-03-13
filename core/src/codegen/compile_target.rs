@@ -562,6 +562,7 @@ impl CompileTarget {
                     out_paths,
                     &out_file,
                     &statics,
+                    command_line_options.memory_debug,
                 )
                 .map_err(|message| vec![CompilationError::generic_none(message)])?;
 

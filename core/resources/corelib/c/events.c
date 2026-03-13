@@ -1,15 +1,13 @@
-#include "events.h"
 #include "rasm.h"
+
+#ifdef __RASM_MEMORY_DEBUG__
+#include "events.h"
 #include "stacktrace.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef __RASM_MEMORY_DEBUG__
 #define EVENTS_COUNT 1000000
-#else
-#define EVENTS_COUNT 0
-#endif
 
 long addref_count[EVENTS_COUNT];
 long deref_count[EVENTS_COUNT];
@@ -164,3 +162,4 @@ void print_all_events() {
 
   fclose(file);
 }
+#endif

@@ -4,7 +4,9 @@ sudo apt install libiberty-dev binutils-dev libbfd-dev
 
 first version using perplexity (https://www.perplexity.ai)
 */
+#include "rasm.h"
 
+#ifdef __RASM_MEMORY_DEBUG__
 #define _GNU_SOURCE // Required for dladdr() on Linux
 #include <bfd.h>
 #include <dlfcn.h> // Defines Dl_info and dladdr()
@@ -305,3 +307,4 @@ void print_stack_trace(int max_frames) {
 
   free_stacktrace(&trace);
 }
+#endif

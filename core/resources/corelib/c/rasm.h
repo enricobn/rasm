@@ -3,3 +3,4 @@
 
 #define __RASM_OUT_FOLDER__ "/tmp"
 #define __RASM_MAIN_OUT_FILE__ "main.c"
+#define __RASM_MEMORY_DEBUG__

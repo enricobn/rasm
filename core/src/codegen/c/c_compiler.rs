@@ -29,6 +29,7 @@ pub fn compile_c(
     src_paths: Vec<PathBuf>,
     out_file: &PathBuf,
     statics: &Statics,
+    memory_debug: bool,
 ) -> Result<Output, String> {
     let make_file_template =
         String::from_utf8(CLibAssets::get("Makefile").unwrap().data.to_vec()).unwrap();
@@ -85,7 +86,11 @@ pub fn compile_c(
 
     // TODO for now we must add the libbfd even if it's required only when memory_debug is true,
     //  but we need to find a way to avoid this, when memory_debug is false
-    make_file_content.push_str("LIB = -lbfd");
+    if memory_debug {
+        make_file_content.push_str("LIB = -lbfd");
+    } else {
+        make_file_content.push_str("LIB =");
+    }
 
     for req in options.requires.iter() {
         make_file_content.push_str(&format!(" -l{req}"));
