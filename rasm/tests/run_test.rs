@@ -818,7 +818,9 @@ fn test_gameoflife_compile() {
 
 #[test]
 fn test_gameoflife_sdl_compile() {
-    compile_example("resources/examples/gameoflife_sdl", true);
+    if std::env::var("SKIP_SDL_TESTS").is_err() {
+        compile_example("resources/examples/gameoflife_sdl", true);
+    }
 }
 
 #[test]
@@ -834,17 +836,23 @@ fn test_gameoflife_vec_sdl_compile() {
 #[test]
 #[timeout(20000)]
 fn test_breakout() {
-    compile_example("resources/examples/breakout", true);
+    if std::env::var("SKIP_SDL_TESTS").is_err() {
+        compile_example("resources/examples/breakout", true);
+    }
 }
 
 #[test]
 fn test_showimage() {
-    compile_example("resources/examples/showimage", true);
+    if std::env::var("SKIP_SDL_TESTS").is_err() {
+        compile_example("resources/examples/showimage", true);
+    }
 }
 
 #[test]
 fn test_bouncing_quads() {
-    compile_example("resources/examples/bouncing_quads", true);
+    if std::env::var("SKIP_SDL_TESTS").is_err() {
+        compile_example("resources/examples/bouncing_quads", true);
+    }
 }
 
 #[test]
