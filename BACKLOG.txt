@@ -1,6 +1,7 @@
 Doing
 ------
 - monitoring and optimization
+- stdlib json parser
 
 Bug
 ----

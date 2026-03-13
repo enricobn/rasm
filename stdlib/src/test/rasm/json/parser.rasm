@@ -1,0 +1,14 @@
+pub fn jsonParserSuite() -> TestSuite {
+    TestSuite("json parser")
+    .add("testStringParser", testStringParser);
+}
+
+fn testStringParser() -> Assertions {
+    let parseResult = parseJson("\"Hello world\"");
+    let assertions = Assertions();
+
+    parseResult.match(
+        fn(value) { assertions.assertEquals("", JsonString("Hello world"), value); }, 
+        fn(error) { assertions.fail(error); });
+    
+}

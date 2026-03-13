@@ -1,0 +1,154 @@
+@eq()
+@toString()
+pub enum JsonValue {
+    JsonString(s: str),
+    JsonNumber(number: Number),
+    JsonFloat(f: float),
+    JsonNull,
+    JsonObject(values: Pair<str, JsonValue>),
+    JsonArray(a: Vec<JsonValue>)
+}
+
+@eq()
+@toString()
+pub enum Number {
+    Int(value: int),
+    Float(value: float)
+}
+
+@toString()
+internal enum ParserStatus {
+    None,
+    Array,
+    String,
+    Number,
+    Null
+}
+
+@toString()
+internal struct ParserState {
+    chars: Vec<char>,
+    index: int,
+    actualString: str,
+    stack: Vec<Pair<ParserStatus,JsonValue>>
+}
+
+internal enum InternalResult {
+    Ok(value: JsonValue),
+    Error(e: str),
+    Continue(state: ParserState)
+}
+
+pub fn parseJson(s: str) -> Result<JsonValue, str> {
+    let initialState = ParserState(s.charsVec, 0, "", Vec());
+    let initialResult = Continue(initialState);
+
+    initialResult.loop.match(
+        fn(jsonValue) {  Ok(jsonValue); }, 
+        fn(e) { Error(e); }, 
+        fn(parserState) {
+            Error("Unknown error.");
+        });
+}
+
+fn loop(result: InternalResult) -> InternalResult {
+    result.match(
+        fn(value) {
+            result;
+        },
+        fn(e) {
+            result;
+        },
+        fn(state) {
+            loop(state.next);
+        }
+    );
+}
+
+fn next(state: ParserState) -> InternalResult {
+    state.chars.get(state.index).match(fn(c) {
+        state.stack.last.match(
+            fn(stackItem) {
+                let status = stackItem.first;
+                let value = stackItem.second;
+                
+                status.match(
+                    { Error("None"); }, 
+                    { Error("Array"); }, 
+                    { 
+                        if (c.eq('"'), {
+                            InternalResult::Ok(JsonString(state.actualString));
+                        }, {
+                            let newState = state.actualString(fn(s) { s.append(c); });
+                            InternalResult::Continue(newState.nextChar);
+                        });
+                        
+                    }, 
+                    { Error("Number"); }, 
+                    { Error("Null"); });
+            },
+            {
+                if(c.eq('"'), {
+                    let newState = state.stack(fn(it) {it.push(Pair(ParserStatus::String(), JsonValue::JsonString("")));});
+                    InternalResult::Continue(newState.nextChar);
+                }, {
+                    Error("TODO");
+                });
+            }
+        );
+    }, {
+        Error("TODO");
+    });
+}
+
+fn nextChar(state: ParserState) -> ParserState {
+    state.index(fn(i) { i.add(1); });
+}
+
+/*
+// TODO pub because of toString
+@toString()
+pub enum SimpleParseResult<VALUE,CONTINUE> {
+    Done(value: VALUE, consume: bool),
+    Continue(c: CONTINUE),
+    Error(e: str)
+}
+
+fn parseString(s: str, c: char) -> SimpleParseResult<JsonString, str> {
+    if(c.eq('"'), {
+        Done(JsonString(s), true);
+    }, {
+        Continue(s.append(c));
+    });
+}
+
+fn parseNumber(s: str, c: char) -> SimpleParseResult<JsonNumber, str> {
+    if(c.eq('.').or(c.isNumber), {
+        Continue(s.append(c));
+    }, {
+        if(s.contains('.'), 
+            {
+                s.toFloat.match(fn(f) { 
+                    Done(JsonNumber(Float(f)), false);
+                }, {
+                    Error("Cannot parse float.");
+                });
+            }, {
+                s.toInt.match(fn(i) {
+                    Done(JsonNumber(Number::Int(i)), false);
+                }, {
+                    Error("Cannot parse int");
+                });
+            });
+        });
+}
+*/
+
+fn toFloat(s: str) -> Option<float> {
+    // TODO
+    None();
+}
+
+fn contains(s: str, c: char) -> bool {
+    s.charsVec.anyMatch(eq.curry(c));
+}

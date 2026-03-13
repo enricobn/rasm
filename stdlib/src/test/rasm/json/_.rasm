@@ -1,4 +1,5 @@
 pub fn jsonSuite() -> TestSuite {
     TestSuite("json")
-    .add(jsonLexerSuite());
+    .add(jsonLexerSuite())
+    .add(jsonParserSuite());
 }
