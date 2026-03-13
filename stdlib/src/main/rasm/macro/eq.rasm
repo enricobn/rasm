@@ -1,0 +1,129 @@
+pub fn eq(s: ASTStructDef) -> MacroAttributeResult {
+    let s1ParamName = "s1EqParamName";
+    let s2ParamName = "s2EqParamName";
+    
+    let basePropertyExpression = ASTValueExpression(ASTValue::ASTBooleanValue(true));
+
+    let propertiesExpression = 
+        s.properties.foldLeft(
+            basePropertyExpression, 
+            fn(prev, act) { 
+                let s1Getter = simpleASTCall(act.name, vecOf(ASTValueRefExpression(s1ParamName)));
+                let s2Getter = simpleASTCall(act.name, vecOf(ASTValueRefExpression(s2ParamName)));
+                let propertyValue = prev.and(simpleASTCall("eq", vecOf(s1Getter, s2Getter)));
+                prev.and(propertyValue);
+            }
+        );
+
+    let function = ASTFunctionDef(
+        "eq",
+        vecOf(
+            ASTParameterDef(s1ParamName, ASTCustomType(s.name, s.typeParameters.toGenericTypes)),
+            ASTParameterDef(s2ParamName, ASTCustomType(s.name, s.typeParameters.toGenericTypes))
+        ),
+        ASTBuiltinType(ASTBooleanType()),
+        RASMBody(vecOf(
+            ASTExpressionStatement(propertiesExpression)
+        )),
+        s.typeParameters,
+        s.modifiers,
+        None()
+    );
+
+    MacroAttributeOk(vecOf(function));
+}
+
+
+/**
+An example of the result:
+
+enum Enum {
+    A(s: str),
+    B(i: int)
+}
+
+fn eq(e1: Enum, e2: Enum) -> bool {
+    e1.match(
+        fn(e1s) { e2.matchA(fn(e2s) { e1s.eq(e2s);}, {false;}); }, 
+        fn(e1i) { e2.matchB(fn(e2i) { e1i.eq(e2i);}, {false;}); }
+    );
+}
+*/
+pub fn eq(e: ASTEnumDef) -> -> MacroAttributeResult {
+    let e1ParamName = "e1EqParamName";
+    let e2ParamName = "e2EqParamName";
+
+    let e1 = ASTValueRefExpression(e1ParamName);
+    let e2 = ASTValueRefExpression(e2ParamName);
+
+    let trueExpression = ASTValueExpression(ASTValue::ASTBooleanValue(true));
+    let trueLambda = ASTLambdaExpression(ASTLambdaDef(Vec(), vecOf(ASTExpressionStatement(trueExpression))));
+
+    let variantsExpressions = e.variants.map(fn(variant) {
+        let e1VariantParamNames = if(variant.parameters.len.eq(0), {
+            Vec();
+        }, {
+            variant.parameters.map(fn(variantParameter) { e1ParamName.add(variantParameter.name); });
+        });
+
+        let e2VariantParamNames = if(variant.parameters.len.eq(0), {
+            Vec();
+        }, {
+            variant.parameters.map(fn(variantParameter) { e2ParamName.add(variantParameter.name); });
+        });
+
+        let zipParameters = zip(e1VariantParamNames, e2VariantParamNames, Pair);
+
+        let eqExpression = 
+            zipParameters.foldLeft(trueExpression, 
+                fn(gen, gen1) { 
+                    gen.and(simpleASTCall("eq", 
+                            vecOf(ASTValueRefExpression(gen1.first), ASTValueRefExpression(gen1.second))
+                        )
+                    ); 
+                });
+
+        let e2Lambda = ASTLambdaExpression(
+            ASTLambdaDef(e2VariantParamNames, vecOf(ASTExpressionStatement(eqExpression)))
+        );
+        
+        let e2Match = simpleASTCall("match".add(variant.name), vecOf(e2, e2Lambda, trueLambda));
+
+        ASTLambdaExpression(ASTLambdaDef(e1VariantParamNames, vecOf(ASTExpressionStatement(e2Match))));
+    });
+
+    let exprs = simpleASTCall("match", vecOf(e1).add(variantsExpressions));
+
+    let function = ASTFunctionDef(
+        "eq",
+        vecOf(
+            ASTParameterDef(e1ParamName, ASTCustomType(e.name, e.typeParameters.toGenericTypes)),
+            ASTParameterDef(e2ParamName, ASTCustomType(e.name, e.typeParameters.toGenericTypes))
+        ),
+        ASTBuiltinType(ASTBooleanType()),
+        RASMBody(vecOf(
+            ASTExpressionStatement(exprs)
+        )),
+        e.typeParameters,
+        e.modifiers,
+        None()
+    );
+
+    MacroAttributeOk(vecOf(function));
+}
+
+fn add(a: ASTExpression, s: str) -> ASTExpression {
+    simpleASTCall("add", vecOf(a, ASTValueExpression(ASTStringValue(s))));
+}
+
+fn add(a: ASTExpression, s: ASTExpression) -> ASTExpression {
+    simpleASTCall("add", vecOf(a, s));
+}
+
+fn append(a: ASTExpression, b: ASTExpression) -> ASTExpression {
+    simpleASTCall("append", vecOf(a, b));
+}
+
+fn and(a: ASTExpression, b: ASTExpression) -> ASTExpression {
+    simpleASTCall("and", vecOf(a, b));
+}

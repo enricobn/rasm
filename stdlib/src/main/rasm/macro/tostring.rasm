@@ -31,8 +31,10 @@ pub fn toString(s: ASTStructDef) -> MacroAttributeResult {
     MacroAttributeOk(vecOf(function));
 }
 
+
 pub fn toString(e: ASTEnumDef) -> -> MacroAttributeResult {
-    let enumRef = ASTValueRefExpression("value");
+    let toStringParamName = "toStringParamName";
+    let enumRef = ASTValueRefExpression(toStringParamName);
 
     let propertiesExpression = stringASTValue(e.name).add("(");
 
@@ -61,7 +63,7 @@ pub fn toString(e: ASTEnumDef) -> -> MacroAttributeResult {
 
     let function = ASTFunctionDef(
         "toString",
-        vecOf(ASTParameterDef("value", ASTCustomType(e.name, e.typeParameters.toGenericTypes))),
+        vecOf(ASTParameterDef(toStringParamName, ASTCustomType(e.name, e.typeParameters.toGenericTypes))),
         ASTBuiltinType(ASTStringType()),
         RASMBody(vecOf(
             ASTExpressionStatement(exprs)
