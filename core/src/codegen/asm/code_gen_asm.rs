@@ -1975,4 +1975,13 @@ impl<'a> CodeGen<'a, Box<dyn FunctionCallParametersAsm + 'a>, CodeGenAsmContext,
     ) -> Vec<(String, String)> {
         Vec::new()
     }
+
+    fn replace_optimized_functions_calls_in_native_body(
+        &self,
+        body: String,
+        _optimized_functions: &HashMap<String, String>,
+    ) -> String {
+        // it's used when supports_function_duplication_optimization is true
+        body
+    }
 }

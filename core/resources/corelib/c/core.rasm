@@ -13,7 +13,7 @@ pub native argc() -> int /{
 
 pub native argv(i: int) -> Option<str> /{
     if (i >= argc_) {
-        return $enumSimple(None);
+        return $call(None<str>);
     } else {
         struct RasmPointer_ *argv = addStaticStringToHeap(argv_[$i]);
         $addRef(argv:str)

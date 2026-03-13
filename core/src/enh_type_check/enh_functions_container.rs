@@ -2,6 +2,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::iter::zip;
 use std::ops::Deref;
 
+use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::{OptionDisplay, SliceDisplay, debug_i, dedent, indent};
 
@@ -159,6 +160,7 @@ impl EnhFunctionsContainer {
         filter_on_name: bool,
         index: &EnhASTIndex,
         enhanced_astmodule: &EnhancedASTModule,
+        generics: &Vec<EnhASTType>,
     ) -> Result<Option<&EnhASTFunctionDef>, EnhTypeCheckError> {
         if let Some(functions) = self.functions_by_name.get(original_function_name) {
             if functions.is_empty() {
@@ -171,7 +173,7 @@ impl EnhFunctionsContainer {
                     Vec::new(),
                 ));
             } else {
-                let matching_functions = Self::find_call_vec_1(
+                let mut matching_functions = Self::find_call_vec_1(
                     function_name,
                     &parameter_types_filter,
                     return_type_filter,
@@ -185,15 +187,31 @@ impl EnhFunctionsContainer {
                 if count == 0 {
                     Ok(None)
                 } else if count > 1 {
-                    let f_descs = matching_functions
-                        .iter()
-                        .map(|it| format!("{it}"))
-                        .collect::<Vec<String>>()
-                        .join(",");
-                    panic!(
-                        "Found more than one function for {function_name}\nfilter {}\nfunctions {f_descs}",
-                        SliceDisplay(&parameter_types_filter)
-                    );
+                    if !generics.is_empty() {
+                        matching_functions = matching_functions
+                            .into_iter()
+                            .filter(|it| {
+                                let it_generics = it
+                                    .resolved_generic_types
+                                    .iter()
+                                    .map(|(_, t)| t.clone())
+                                    .collect_vec();
+                                &it_generics == generics
+                            })
+                            .collect_vec();
+                    }
+                    if matching_functions.len() != 1 {
+                        let f_descs = matching_functions
+                            .iter()
+                            .map(|it| format!("{it}"))
+                            .collect::<Vec<String>>()
+                            .join(",");
+                        panic!(
+                            "Found zero or more than one function for {function_name}\nfilter {}\nfunctions {f_descs} : {index}",
+                            SliceDisplay(&parameter_types_filter)
+                        );
+                    }
+                    Ok(matching_functions.first().cloned())
                 } else {
                     Ok(matching_functions.first().cloned())
                 }
@@ -960,6 +978,7 @@ mod tests {
             false,
             &EnhASTIndex::none(),
             &module,
+            &Vec::new(),
         );
 
         assert!(result.unwrap().is_some());

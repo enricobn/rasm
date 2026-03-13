@@ -4,6 +4,12 @@ Doing
 
 Bug
 ----
+- sometimes we need to do line breaks to let text macro to work, for example:
+  return
+    $call(println, "Hello world")
+  ;
+  but we have not yet found a way to reproduce this problem, probably it's not related only to macro 
+  transformation, because there's a test for it (translate_functions) that works
 - in stdlib, if.rasm, look at the TODO
 - if I have a private struct and implement a toString, to use it in println the function must be public,
   but since it exposes a parameter that is private (the struct) it does not compile, so I have to make 

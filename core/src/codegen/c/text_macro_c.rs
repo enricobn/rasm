@@ -920,6 +920,53 @@ mod tests {
     }
 
     #[test]
+    fn test_return_call_macro() {
+        let code_manipulator = CCodeManipulator::new(false);
+
+        let mut evaluator = TextMacroEvaluator::new(code_manipulator.clone());
+        evaluator.add("call", CCallMacro {});
+
+        let function_namespace = EnhASTNameSpace::new("test".into(), "path".into());
+
+        let (a_struct, a_struct_typed_type, a_struct_enh_type) = create_struct_and_types(
+            "test",
+            function_namespace.clone(),
+            ASTModifiers::Public,
+            Vec::new(),
+        );
+
+        let (vec_struct, _, _) = create_struct_and_types(
+            "Vec",
+            function_namespace.clone(),
+            ASTModifiers::Public,
+            vec![a_struct_enh_type.clone()],
+        );
+
+        let mut resolved_generic_types = ResolvedGenericTypedTypes::new();
+        resolved_generic_types.insert("test:T".into(), Vec::new(), a_struct_typed_type.clone());
+
+        let typed_function_def =
+            typed_funtion_def("test", resolved_generic_types, function_namespace.clone());
+
+        let type_def_provider =
+            DummyTypeDefProvider::new(vec![], vec![a_struct, vec_struct], vec![]);
+
+        let mut statics = &mut Statics::new();
+        let result = evaluator
+            .translate(
+                &mut statics,
+                Some(&typed_function_def),
+                None,
+                "return $call(aFunction,tmp:T);",
+                false,
+                &type_def_provider,
+            )
+            .unwrap();
+
+        assert_eq!("return aFunction(tmp);", result);
+    }
+
+    #[test]
     fn test_native_calls() {
         let sut = CodeGenC::new(COptions::default(), false, false);
 

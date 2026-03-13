@@ -47,7 +47,7 @@ use crate::project::RasmProject;
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::get_new_native_call;
-use rasm_parser::parser::ast::{ASTExpression, ASTModifiers, ASTStatement, ASTValue};
+use rasm_parser::parser::ast::{ASTExpression, ASTModifiers, ASTStatement, ASTType, ASTValue};
 
 pub mod asm;
 pub mod c;
@@ -487,13 +487,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                             functions_native_bodies.get(&(types.clone(), body.clone()))
                         {
                             optimized_functions.insert(function_def.name.clone(), dup_name.clone());
-
-                            /*
-                            println!(
-                                "Duplicate native function {} -> {dup_name}",
-                                function_def.name
-                            );
-                            */
                         } else {
                             functions_native_bodies
                                 .insert((types, body.clone()), function_def.name.clone());
@@ -1586,7 +1579,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
                 *id += 1;
 
-                let new_body = function_call_parameters.resolve_native_parameters(
+                let mut new_body = function_call_parameters.resolve_native_parameters(
                     &code_gen_context,
                     body,
                     indent,
@@ -1594,6 +1587,13 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     Some(&function_def.return_type),
                     is_lambda,
                 );
+
+                if !optimized_functions.is_empty() {
+                    new_body = self.replace_optimized_functions_calls_in_native_body(
+                        new_body,
+                        optimized_functions,
+                    );
+                }
                 before.push_str(&new_body);
             }
         }
@@ -1609,6 +1609,12 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         lambda_calls
     }
+
+    fn replace_optimized_functions_calls_in_native_body(
+        &self,
+        body: String,
+        optimized_functions: &HashMap<String, String>,
+    ) -> String;
 
     fn generate_function_body(
         &'a self,
@@ -2477,10 +2483,43 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     } else {
                         EnhModuleId::none()
                     };
+
                     let generics = call
                         .generics()
                         .iter()
-                        .map(|it| EnhASTType::from_ast(&namespace, &id, it.clone(), None))
+                        .map(|it| {
+                            if let ASTType::ASTCustomType {
+                                name,
+                                param_types: _,
+                                position: _,
+                            } = it
+                            {
+                                if let Some(f) = function_def {
+                                    if let Some(t) = f
+                                        .resolved_generic_types
+                                        .clone()
+                                        .remove_generics_prefix()
+                                        .get(name, &Vec::new())
+                                    {
+                                        return t.clone();
+                                    }
+                                } else if let Some(f) = typed_function_def {
+                                    if let Some(t) = f
+                                        .resolved_generic_types
+                                        .clone()
+                                        .remove_generics_prefix()
+                                        .get(name, &Vec::new())
+                                    {
+                                        if let Some(enh_type) =
+                                            type_def_provider.get_type_from_typed_type(t)
+                                        {
+                                            return enh_type;
+                                        }
+                                    }
+                                }
+                            }
+                            EnhASTType::from_ast(&namespace, &id, it.clone(), None)
+                        })
                         .collect::<Vec<_>>();
 
                     let df = DefaultFunctionCall::new(
@@ -2561,6 +2600,7 @@ mod tests {
 
     use std::path::PathBuf;
 
+    use linked_hash_map::LinkedHashMap;
     use tempdir::TempDir;
 
     use crate::codegen::asm::code_gen_asm::CodeGenAsm;
@@ -2569,6 +2609,7 @@ mod tests {
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::{AsmOptions, CodeGen};
     use crate::commandline::{CommandLineAction, CommandLineOptions, RasmProfile};
+    use crate::enh_type_check::typed_ast::ASTTypedModule;
     use crate::project::RasmProject;
     use crate::test_utils::project_to_ast_typed_module;
 
@@ -2634,6 +2675,26 @@ mod tests {
             .1
             .name,
             "something".to_string()
+        );
+    }
+
+    #[test]
+    fn translate_functions() {
+        let sut = CodeGenC::new(COptions::default(), false, false);
+        let mut statics = Statics::new();
+
+        let typed_module = ASTTypedModule {
+            body: Vec::new(),
+            functions_by_name: LinkedHashMap::new(),
+            enums: Vec::new(),
+            structs: Vec::new(),
+            types: Vec::new(),
+        };
+
+        assert_eq!(
+            sut.translate_body("return $call(None<int>);", &mut statics, &typed_module)
+                .unwrap(),
+            "return None<int>();".to_string()
         );
     }
 

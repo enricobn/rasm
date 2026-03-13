@@ -2,6 +2,7 @@ use core::panic;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 
+use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
 use log::info;
@@ -940,6 +941,7 @@ pub fn convert_to_typed_module(
                                 false,
                                 &it.index(&function.index),
                                 &module,
+                                &it.generics,
                             )
                             .unwrap()
                         {
@@ -1534,8 +1536,14 @@ pub struct DefaultFunctionCall {
 
 impl Display for DefaultFunctionCall {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let generics = self.generics.iter().map(|it| format!("{it}")).collect_vec();
+        let g = if generics.len() > 0 {
+            format!("<{}>", generics.join(", "))
+        } else {
+            "".to_string()
+        };
         f.write_str(&format!(
-            "{}({})",
+            "{}{g}({})",
             self.name,
             SliceDisplay(&self.param_types)
         ))

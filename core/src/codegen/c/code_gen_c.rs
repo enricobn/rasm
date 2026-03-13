@@ -1679,6 +1679,18 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     fn supports_function_duplication_optimization(&self) -> bool {
         true
     }
+
+    fn replace_optimized_functions_calls_in_native_body(
+        &self,
+        body: String,
+        optimized_functions: &HashMap<String, String>,
+    ) -> String {
+        let mut new_body = body;
+        for (old, new) in optimized_functions.iter() {
+            new_body = new_body.replace(&format!("{old}("), &format!("{new}("));
+        }
+        new_body
+    }
 }
 
 pub fn value_type_to_enh_type(value_type: &ASTValue) -> EnhASTType {

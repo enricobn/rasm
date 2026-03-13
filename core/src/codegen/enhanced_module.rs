@@ -203,6 +203,7 @@ impl EnhancedASTModule {
         parameter_types_filter: &Vec<EnhTypeFilter>,
         return_type_filter: Option<&EnhASTType>,
         index: &EnhASTIndex,
+        generics: &Vec<EnhASTType>,
     ) -> Result<Option<&EnhASTFunctionDef>, EnhTypeCheckError> {
         self.functions_by_name.find_call(
             function_name,
@@ -212,6 +213,7 @@ impl EnhancedASTModule {
             false,
             index,
             self,
+            generics,
         )
     }
 
@@ -309,8 +311,7 @@ impl EnhancedASTModule {
                             .visible_from(param_type.namespace(), &p_type_def.modifiers())
                     } else {
                         // TODO we have not found the type definition, should we return an error?
-                        println!("could not find type definition for {param_type}");
-                        false
+                        panic!("Cannot find type definition for {param_type}");
                     }
                 } else {
                     true

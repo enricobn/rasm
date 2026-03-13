@@ -5,6 +5,7 @@ use std::ops::Deref;
 use std::path::PathBuf;
 
 use derivative::Derivative;
+use itertools::Itertools;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_utils::SliceDisplay;
@@ -1171,9 +1172,19 @@ impl EnhASTFunctionCall {
 impl Display for EnhASTFunctionCall {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pars: Vec<String> = self.parameters.iter().map(|it| format!("{}", it)).collect();
+        let generics = self
+            .generics
+            .iter()
+            .map(|it| format!("{}", it))
+            .collect_vec();
+        let g = if generics.len() > 0 {
+            format!("<{}>", generics.join(", "))
+        } else {
+            "".to_string()
+        };
 
         f.write_str(&format!(
-            "{}::{}({})",
+            "{}::{}{g}({})",
             self.namespace,
             self.function_name,
             pars.join(",")

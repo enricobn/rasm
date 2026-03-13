@@ -872,7 +872,7 @@ impl<'a> EnhTypeCheck<'a> {
                 namespace: _,
                 name,
                 param_types,
-                index: _,
+                index,
             } => {
                 if let Some(type_def) = module.get_type_def(ast_type) {
                     format!(
@@ -885,7 +885,8 @@ impl<'a> EnhTypeCheck<'a> {
                             .join("_")
                     )
                 } else {
-                    panic!("Cannot find type {ast_type} definition");
+                    // TODO error handling
+                    panic!("Cannot find type {ast_type} definition : {index}");
                 }
             }
             EnhASTType::Unit => "Unit".to_string(),
@@ -917,13 +918,6 @@ impl<'a> EnhTypeCheck<'a> {
             call.index
         );
         indent!();
-
-        // if call.original_function_name.contains("Some") {
-        //     println!(
-        //         "call.original_function_name == {}, name={}, {call} index : {}",
-        //         call.original_function_name, call.function_name, call.index
-        //     );
-        // }
 
         let mut valid_functions: Vec<(
             EnhASTFunctionDef,
