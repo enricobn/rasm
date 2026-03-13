@@ -830,7 +830,9 @@ fn test_gameoflife_vec_compile() {
 
 #[test]
 fn test_gameoflife_vec_sdl_compile() {
-    compile_example("resources/examples/gameoflife_vec_sdl", true);
+    if std::env::var("SKIP_SDL_TESTS").is_err() {
+        compile_example("resources/examples/gameoflife_vec_sdl", true);
+    }
 }
 
 #[test]
