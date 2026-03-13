@@ -2,6 +2,8 @@ pub struct IOError {
     message: str
 }
 
+@toString()
+@eq()
 pub struct Pair<A,B> {
     first: A,
     second: B
@@ -48,4 +50,9 @@ pub fn panic(message: str) {
 
 pub fn toString(b: bool) -> str {
     if(b, "true", "false");
+}
+
+// TODO optimize as a native function
+pub fn eq(f1: float, f2: float) -> bool {
+    f1.toString.eq(f2.toString);
 }
