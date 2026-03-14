@@ -53,16 +53,11 @@ impl Lexer {
 
     pub fn from_file(path: &Path) -> Result<Self, String> {
         let mut s = String::new();
-        if let Ok(mut file) = File::open(path) {
-            if let Ok(size) = file.read_to_string(&mut s) {
-                debug!("Reading file {:?}, size {}", path, size);
-                Ok(Lexer::new(s))
-            } else {
-                Err(format!("Cannot read file {:?}", path.to_str()))
-            }
-        } else {
-            Err(format!("Cannot find file {:?}", path.to_str()))
-        }
+        let mut file = File::open(path).map_err(|e| e.to_string())?;
+        let size = file.read_to_string(&mut s).map_err(|e| e.to_string())?;
+
+        debug!("Reading file {:?}, size {}", path, size);
+        Ok(Lexer::new(s))
     }
 
     pub fn new(source: String) -> Self {
@@ -75,7 +70,28 @@ impl Lexer {
         }
     }
 
-    fn some_token(&mut self, kind: TokenKind) -> Option<(Option<Token>, Vec<LexerError>)> {
+    pub fn process(mut self) -> (Vec<Token>, Vec<LexerError>) {
+        let mut tokens = Vec::new();
+        let mut errors = Vec::new();
+        loop {
+            match self.next() {
+                None => break,
+                Some((token_o, es)) => {
+                    if let Some(token) = token_o {
+                        tokens.push(token);
+                    }
+                    errors.extend(es);
+                }
+            }
+        }
+
+        (tokens, errors)
+    }
+
+    fn create_token_at_current_position(
+        &mut self,
+        kind: TokenKind,
+    ) -> Option<(Option<Token>, Vec<LexerError>)> {
         let length = kind.len();
 
         if self.column < length {
@@ -94,7 +110,7 @@ impl Lexer {
         result
     }
 
-    fn some_token_at(
+    fn create_token_at(
         &mut self,
         kind: TokenKind,
         row: usize,
@@ -125,40 +141,17 @@ impl Lexer {
     }
 
     fn get_punctuation(&self, actual: &str, c: char) -> Option<TokenKind> {
-        let mut string: String = actual.into();
-        string.push(c);
-
-        let s = string.as_str();
-
-        match s {
-            "@" => Some(TokenKind::Punctuation(PunctuationKind::At)),
-            "." => Some(TokenKind::Punctuation(PunctuationKind::Dot)),
-            "," => Some(TokenKind::Punctuation(PunctuationKind::Comma)),
-            ":" => Some(TokenKind::Punctuation(PunctuationKind::Colon)),
-            ";" => Some(TokenKind::Punctuation(PunctuationKind::SemiColon)),
-            "->" => Some(TokenKind::Punctuation(PunctuationKind::RightArrow)),
-            "=" => Some(TokenKind::Punctuation(PunctuationKind::Equal)),
-            "!" => Some(TokenKind::Punctuation(PunctuationKind::Esclamation)),
+        match (actual, c) {
+            ("", '@') => Some(TokenKind::Punctuation(PunctuationKind::At)),
+            ("", '.') => Some(TokenKind::Punctuation(PunctuationKind::Dot)),
+            ("", ',') => Some(TokenKind::Punctuation(PunctuationKind::Comma)),
+            ("", ':') => Some(TokenKind::Punctuation(PunctuationKind::Colon)),
+            ("", ';') => Some(TokenKind::Punctuation(PunctuationKind::SemiColon)),
+            ("-", '>') => Some(TokenKind::Punctuation(PunctuationKind::RightArrow)),
+            ("", '=') => Some(TokenKind::Punctuation(PunctuationKind::Equal)),
+            ("", '!') => Some(TokenKind::Punctuation(PunctuationKind::Esclamation)),
             _ => None,
         }
-    }
-
-    pub fn process(mut self) -> (Vec<Token>, Vec<LexerError>) {
-        let mut tokens = Vec::new();
-        let mut errors = Vec::new();
-        loop {
-            match self.next() {
-                None => break,
-                Some((token_o, es)) => {
-                    if let Some(token) = token_o {
-                        tokens.push(token);
-                    }
-                    errors.extend(es);
-                }
-            }
-        }
-
-        (tokens, errors)
     }
 
     fn add_error(&mut self, error_message: String) {
@@ -198,7 +191,7 @@ impl Lexer {
 
                         status = LexStatus::Comment(row, column);
                     } else if c == '\n' {
-                        let token = self.some_token(TokenKind::EndOfLine);
+                        let token = self.create_token_at_current_position(TokenKind::EndOfLine);
                         self.index += 1;
                         self.column = 1;
                         self.row += 1;
@@ -209,7 +202,7 @@ impl Lexer {
                         actual.clear();
                         status = LexStatus::NativeBlock(self.row, self.column - 1);
                     } else if let Some(punctuation) = self.get_punctuation(&actual, c) {
-                        let token = self.some_token(punctuation);
+                        let token = self.create_token_at_current_position(punctuation);
                         self.column += 1;
                         self.index += 1;
                         return token;
@@ -217,7 +210,7 @@ impl Lexer {
                         if !actual.is_empty() {
                             self.add_error(format!("Bracket, but actual={}", actual));
                         }
-                        let token = self.some_token_at(bracket, self.row, self.column);
+                        let token = self.create_token_at(bracket, self.row, self.column);
                         self.column += 1;
                         self.index += 1;
                         return token;
@@ -251,7 +244,8 @@ impl Lexer {
                     if c == '\\' {
                         status = LexStatus::StringEscape;
                     } else if c == '"' {
-                        let token = self.some_token(TokenKind::StringLiteral(actual));
+                        let token =
+                            self.create_token_at_current_position(TokenKind::StringLiteral(actual));
                         self.index += 1;
                         self.column += 1;
                         return token;
@@ -270,7 +264,8 @@ impl Lexer {
                     if c == '\\' {
                         status = LexStatus::CharEscape;
                     } else if c == '\'' {
-                        let token = self.some_token(TokenKind::CharLiteral(actual));
+                        let token =
+                            self.create_token_at_current_position(TokenKind::CharLiteral(actual));
                         self.index += 1;
                         self.column += 1;
                         return token;
@@ -287,16 +282,17 @@ impl Lexer {
                         actual.push(c);
                     } else if let Some(keyword) = KeywordKind::from_name(&actual) {
                         //self.chars.next_back();
-                        return self.some_token(keyword);
+                        return self.create_token_at_current_position(keyword);
                     } else if let Some(keyword) = ReservedKind::from_name(&actual) {
                         //self.chars.next_back();
-                        return self.some_token(keyword);
+                        return self.create_token_at_current_position(keyword);
                     } else {
                         //self.chars.next_back();
                         if actual.chars().any(|it| !it.is_alphanumeric()) {
                             self.add_error(format!("invalid chars in {actual}"));
                         }
-                        return self.some_token(TokenKind::AlphaNumeric(actual));
+                        return self
+                            .create_token_at_current_position(TokenKind::AlphaNumeric(actual));
                     }
                 }
                 LexStatus::Numeric => {
@@ -307,13 +303,14 @@ impl Lexer {
                         if actual.chars().any(|it| !it.is_numeric() && it != '-') {
                             self.add_error(format!("invalid chars in {actual}"));
                         }
-                        return self.some_token(TokenKind::Number(actual));
+                        return self.create_token_at_current_position(TokenKind::Number(actual));
                     }
                 }
                 LexStatus::Comment(row, column) => {
                     if actual.starts_with("//") {
                         if c == '\n' || c == END_OF_FILE {
-                            let token = self.some_token_at(TokenKind::Comment(actual), row, column);
+                            let token =
+                                self.create_token_at(TokenKind::Comment(actual), row, column);
                             self.index += 1; // I remove the end of line, is it right?
                             self.column = 1;
                             self.row += 1;
@@ -324,7 +321,7 @@ impl Lexer {
                     } else if actual.starts_with("/*") {
                         if actual.ends_with("*/") {
                             //self.chars.next_back();
-                            return self.some_token_at(
+                            return self.create_token_at(
                                 TokenKind::MultiLineComment(actual),
                                 row,
                                 column,
@@ -340,7 +337,7 @@ impl Lexer {
                 }
                 LexStatus::NativeBlock(row, column) => {
                     if actual.ends_with("}/") {
-                        let token = self.some_token_at(
+                        let token = self.create_token_at(
                             TokenKind::NativeBlock(actual.split_at(actual.len() - 2).0.into()),
                             row,
                             column,
