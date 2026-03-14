@@ -123,14 +123,12 @@ pub fn create_macro_module(
 ) -> Result<ASTModule, Vec<CompilationError>> {
     let macro_module_body = macro_module_body(container, catalog, calls);
 
-    // println!("macro module:\n{macro_module_body}");
+    let (tokens, lexer_errors) = Lexer::new(macro_module_body).process();
 
-    let (macro_module, macro_module_errors) =
-        Parser::new(Lexer::new(macro_module_body.clone())).parse();
+    let (macro_module, macro_module_errors) = Parser::new(tokens, lexer_errors).parse();
 
     // it should not happens
     if !macro_module_errors.is_empty() {
-        eprintln!("Errors parsing macro module:\n{macro_module_body}");
         Err(macro_module_errors
             .into_iter()
             .map(|it| CompilationError::from_parser_error(it, None))

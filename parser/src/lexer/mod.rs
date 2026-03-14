@@ -41,7 +41,7 @@ pub struct LexerError {
 }
 
 impl Iterator for Lexer {
-    type Item = (Option<Token>, Vec<LexerError>);
+    type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner_next()
@@ -49,8 +49,6 @@ impl Iterator for Lexer {
 }
 
 impl Lexer {
-    //pub fn from_read(read: impl Read) -> Result<Iterator<Token>, String> {}
-
     pub fn from_file(path: &Path) -> Result<Self, String> {
         let mut s = String::new();
         let mut file = File::open(path).map_err(|e| e.to_string())?;
@@ -72,26 +70,23 @@ impl Lexer {
 
     pub fn process(mut self) -> (Vec<Token>, Vec<LexerError>) {
         let mut tokens = Vec::new();
-        let mut errors = Vec::new();
         loop {
-            match self.next() {
+            match self.inner_next() {
                 None => break,
-                Some((token_o, es)) => {
-                    if let Some(token) = token_o {
-                        tokens.push(token);
-                    }
-                    errors.extend(es);
+                Some(token) => {
+                    tokens.push(token);
                 }
             }
         }
 
-        (tokens, errors)
+        (tokens, self.errors)
     }
 
-    fn create_token_at_current_position(
-        &mut self,
-        kind: TokenKind,
-    ) -> Option<(Option<Token>, Vec<LexerError>)> {
+    pub fn errors(self) -> Vec<LexerError> {
+        self.errors
+    }
+
+    fn create_token_at_current_position(&mut self, kind: TokenKind) -> Option<Token> {
         let length = kind.len();
 
         if self.column < length {
@@ -100,27 +95,12 @@ impl Lexer {
             return None;
         }
 
-        let result = Some((
-            Some(Token::new(kind, self.row, self.column - length)),
-            self.errors.clone(),
-        ));
-
-        self.errors.clear();
-
-        result
+        Some(Token::new(kind, self.row, self.column - length))
     }
 
-    fn create_token_at(
-        &mut self,
-        kind: TokenKind,
-        row: usize,
-        column: usize,
-    ) -> Option<(Option<Token>, Vec<LexerError>)> {
-        let result = Some((Some(Token::new(kind, row, column)), self.errors.clone()));
-
-        self.errors.clear();
-
-        result
+    #[inline]
+    fn create_token_at(&mut self, kind: TokenKind, row: usize, column: usize) -> Option<Token> {
+        Some(Token::new(kind, row, column))
     }
 
     fn get_bracket(c: char) -> Option<TokenKind> {
@@ -166,7 +146,7 @@ impl Lexer {
 const END_OF_FILE: char = '\u{0}';
 
 impl Lexer {
-    fn inner_next(&mut self) -> Option<(Option<Token>, Vec<LexerError>)> {
+    fn inner_next(&mut self) -> Option<Token> {
         let mut actual = String::new();
         let mut status = LexStatus::None;
         let mut exit = false;

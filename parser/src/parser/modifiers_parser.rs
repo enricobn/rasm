@@ -1,10 +1,7 @@
 use rasm_utils::OptionDisplay;
 
 use crate::{
-    lexer::{
-        LexerError,
-        tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind},
-    },
+    lexer::tokens::{BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind},
     parser::{ParserTrait, ast::ASTModifiers},
 };
 
@@ -16,11 +13,7 @@ enum InternalState {
 pub fn try_parse_ast_modifiers_tokens<'a>(
     tokens: Vec<Token>,
 ) -> Result<(Option<ASTModifiers>, usize), String> {
-    let tokens = tokens
-        .into_iter()
-        .map(|it| (Some(it), Vec::new() as Vec<LexerError>))
-        .collect::<Vec<_>>();
-    let parser = crate::parser::Parser::new(tokens);
+    let parser = crate::parser::Parser::new(tokens, Vec::new());
     try_parse_ast_modifiers(&parser, 0)
 }
 

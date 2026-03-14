@@ -470,9 +470,9 @@ fn evaluate_macro(
             }
         }
 
-        let lexer = Lexer::new(output_string);
+        let (tokens, errors) = Lexer::new(output_string).process();
 
-        let parser = Parser::new(lexer);
+        let parser = Parser::new(tokens, errors);
         let result = parser.parse();
         // println!("result:\n{}", result.0);
         Ok(result)

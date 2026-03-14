@@ -171,27 +171,18 @@ enum ParserState {
 }
 
 impl Parser {
-    pub fn new(lexer: impl IntoIterator<Item = (Option<Token>, Vec<LexerError>)>) -> Self {
-        let mut lexer_errors = Vec::new();
-
-        let tokens = lexer
+    pub fn new(tokens: Vec<Token>, lexer_errors: Vec<LexerError>) -> Self {
+        let filtered_tokens = tokens
             .into_iter()
-            .filter(|(token_o, errs)| {
-                lexer_errors.extend(errs.clone());
-
-                if let Some(token) = token_o {
-                    !matches!(
-                        token.kind,
-                        TokenKind::WhiteSpaces(_)
-                            | TokenKind::Comment(_)
-                            | TokenKind::MultiLineComment(_)
-                            | TokenKind::EndOfLine
-                    )
-                } else {
-                    false
-                }
+            .filter(|token| {
+                !matches!(
+                    token.kind,
+                    TokenKind::WhiteSpaces(_)
+                        | TokenKind::Comment(_)
+                        | TokenKind::MultiLineComment(_)
+                        | TokenKind::EndOfLine
+                )
             })
-            .map(|(token, _)| token.unwrap())
             .collect::<Vec<_>>();
 
         let errors = lexer_errors
@@ -200,7 +191,7 @@ impl Parser {
             .collect();
 
         Self {
-            tokens,
+            tokens: filtered_tokens,
             body: Vec::new(),
             functions: Vec::new(),
             i: 0,
@@ -1475,6 +1466,7 @@ pub trait ParserTrait {
 mod tests {
     use std::path::Path;
 
+    use itertools::Itertools;
     use rasm_utils::SliceDisplay;
     use rasm_utils::test_utils::init_minimal_log;
 
@@ -1566,7 +1558,7 @@ mod tests {
     fn function_def_with_type_parameters() {
         let lexer = Lexer::new("fn p<T,T1>() {}".into());
 
-        let parser = Parser::new(lexer);
+        let parser = Parser::new(lexer.collect_vec(), Vec::new());
 
         let (module, _) = parser.parse();
 
@@ -1623,7 +1615,7 @@ mod tests {
     fn function_call_with_generics() {
         let lexer = Lexer::new("println<int>(20);".into());
 
-        let parser = Parser::new(lexer);
+        let parser = Parser::new(lexer.collect_vec(), Vec::new());
 
         let (module, _errors) = parser.parse();
 
@@ -1652,7 +1644,7 @@ mod tests {
     fn function_call_with_generics_1() {
         let lexer = Lexer::new("fn function<T>(it: T) { println<T>(it); }".into());
 
-        let parser = Parser::new(lexer);
+        let parser = Parser::new(lexer.collect_vec(), Vec::new());
 
         let (module, _) = parser.parse();
 
@@ -1689,7 +1681,7 @@ mod tests {
     fn enum_constructor() {
         let lexer = Lexer::new("Some(20);".into());
 
-        let parser = Parser::new(lexer);
+        let parser = Parser::new(lexer.collect_vec(), Vec::new());
 
         let (module, _errors) = parser.parse();
 
@@ -1750,7 +1742,7 @@ mod tests {
 
         let lexer = Lexer::new("something(current.len -2);".to_string());
 
-        let parser = Parser::new(lexer);
+        let parser = Parser::new(lexer.collect_vec(), Vec::new());
 
         let (_, errors) = parser.parse();
 
@@ -1767,7 +1759,7 @@ mod tests {
 
         let lexer = Lexer::new("something(,1);".to_string());
 
-        let parser = Parser::new(lexer);
+        let parser = Parser::new(lexer.collect_vec(), Vec::new());
 
         let (_, errors) = parser.parse();
 
@@ -1784,7 +1776,7 @@ mod tests {
 
         let lexer = Lexer::new("something(current.len, -2);".to_string());
 
-        let parser = Parser::new(lexer);
+        let parser = Parser::new(lexer.collect_vec(), Vec::new());
 
         let (_, errors) = parser.parse();
 
@@ -1808,7 +1800,7 @@ mod tests {
     fn parse_type() {
         let lexer = Lexer::new("type Vec<T> /{ hasReferences = false }/".into());
 
-        let parser = Parser::new(lexer);
+        let parser = Parser::new(lexer.collect_vec(), Vec::new());
 
         let (module, _) = parser.parse();
 
@@ -1834,7 +1826,7 @@ mod tests {
         init();
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
-        let parser = Parser::new(lexer);
+        let parser = Parser::new(lexer.collect_vec(), Vec::new());
         let (module, errors) = parser.parse();
         if !errors.is_empty() {
             for error in errors {
@@ -1849,7 +1841,7 @@ mod tests {
         init();
         let path = Path::new(source);
         let lexer = Lexer::from_file(path).unwrap();
-        let parser = Parser::new(lexer);
+        let parser = Parser::new(lexer.collect_vec(), Vec::new());
         parser.parse()
     }
 }

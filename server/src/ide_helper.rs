@@ -1349,7 +1349,9 @@ impl IDEHelper {
     ) -> Option<IDEWorkspaceEdit> {
         let mut new_text = expression_text.to_owned();
         new_text.push_str(";");
-        let parser = Parser::new(Lexer::new(new_text.to_owned()));
+        let (tokens, lexer_errors) = Lexer::new(new_text.to_owned()).process();
+
+        let parser = Parser::new(tokens, lexer_errors);
         let (_, errors) = parser.parse();
 
         let module_namespace = start_index.module_namespace().clone();
@@ -1400,7 +1402,10 @@ impl IDEHelper {
             new_code.push(';');
             (false, new_code)
         };
-        let parser = Parser::new(Lexer::new(code.clone()));
+
+        let (tokens, lexer_errors) = Lexer::new(code.clone()).process();
+
+        let parser = Parser::new(tokens, lexer_errors);
         let (mut module, errors) = parser.parse();
 
         if !errors.is_empty() {
@@ -1724,9 +1729,9 @@ impl IDEHelper {
                 }
             });
 
-            let lexer = Lexer::new(source.clone());
+            let (tokens, lexer_errors) = Lexer::new(source.clone()).process();
 
-            let (mut module, parse_errors) = Parser::new(lexer).parse();
+            let (mut module, parse_errors) = Parser::new(tokens, lexer_errors).parse();
 
             self.lexer_and_parser_errors.extend(
                 parse_errors

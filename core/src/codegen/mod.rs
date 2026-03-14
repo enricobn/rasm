@@ -2470,8 +2470,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 };
 
                 let fake_function_name = function_name.replace("_", "GENERICSEPARATORPLACEHOLDER");
-                let (module, errors) =
-                    Parser::new(Lexer::new(format!("{fake_function_name}();"))).parse();
+
+                let (tokens, errors) = Lexer::new(format!("{fake_function_name}();")).process();
+
+                let (module, errors) = Parser::new(tokens, errors).parse();
 
                 if let Some(ASTStatement::ASTExpressionStatement(
                     ASTExpression::ASTFunctionCallExpression(call),

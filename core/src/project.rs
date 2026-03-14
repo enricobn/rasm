@@ -1013,8 +1013,8 @@ impl RasmProject {
         let main_path = Path::new(file);
 
         if let Some(content) = self.in_memory_files.get(file) {
-            let lexer = Lexer::new(content.clone());
-            let parser = Parser::new(lexer);
+            let (tokens, lexer_errors) = Lexer::new(content.clone()).process();
+            let parser = Parser::new(tokens, lexer_errors);
             let (module, errors) = parser.parse();
             return (
                 module,
@@ -1027,7 +1027,8 @@ impl RasmProject {
 
         match Lexer::from_file(main_path) {
             Ok(lexer) => {
-                let parser = Parser::new(lexer);
+                let (tokens, lexer_errors) = lexer.process();
+                let parser = Parser::new(tokens, lexer_errors);
                 let (module, errors) = parser.parse();
                 (
                     module,
@@ -1058,9 +1059,10 @@ impl RasmProject {
         );
         // for now, we don't set the file name in the Lexer and the Parser, because it is not readable as a standard file,
         // and we can get errors trying to open it for example in an IDE
-        let lexer = Lexer::new(String::from_utf8_lossy(data).to_string());
+        let (tokens, lexer_errors) =
+            Lexer::new(String::from_utf8_lossy(data).to_string()).process();
 
-        let parser = Parser::new(lexer);
+        let parser = Parser::new(tokens, lexer_errors);
         let (module, errors) = parser.parse();
         (
             module,
