@@ -500,12 +500,6 @@ impl Parser {
             self.i += 1;
             self.state.push(ParserState::AttributeMacro);
             self.process_expression()?;
-            /*
-            if let Some((function_name, generics, next_i, function_name_index, target, is_macro)) =
-                self.try_parse_function_call()
-            {
-                self.i = next_i;
-            }*/
         } else if let Some((name_token, generic_types, modifiers, next_i)) =
             self.try_parse_function_def()?
         {

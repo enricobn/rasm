@@ -2,8 +2,8 @@ use std::fmt::{Debug, Display, Formatter};
 
 use linked_hash_map::LinkedHashMap;
 
-use crate::parser::tokens_matcher::{Quantifier, TokensMatcherResult, TokensMatcherTrait};
 use crate::parser::ParserTrait;
+use crate::parser::tokens_matcher::{Quantifier, TokensMatcherResult, TokensMatcherTrait};
 
 #[derive(Debug)]
 pub struct TokensGroup {
@@ -88,10 +88,7 @@ impl TokensGroup {
         key: String,
         result: TokensMatcherResult,
     ) {
-        if !map.contains_key(&key) {
-            map.insert(key.clone(), Vec::new());
-        }
-        map.get_mut(&key).unwrap().push(result);
+        map.entry(key).or_insert(Vec::new()).push(result);
     }
 }
 
@@ -116,7 +113,7 @@ impl TokensMatcherTrait for TokensGroup {
 
             for matcher in self.tokens_matchers.iter() {
                 if let Some(result) = matcher.match_tokens(parser, i) {
-                    tokens.append(&mut result.tokens().clone());
+                    tokens.extend(result.tokens().clone());
 
                     //println!("matched matcher {:?} for {:?}, result {:?}", matcher, self, result);
 
@@ -125,8 +122,8 @@ impl TokensMatcherTrait for TokensGroup {
                     if !result.tokens().is_empty() {
                         // it's not a group I add the values directly to the result
                         if matcher.name().is_empty() {
-                            let mut matcher_values = result.tokens().clone();
-                            values.append(&mut matcher_values);
+                            let matcher_values = result.tokens().clone();
+                            values.extend(matcher_values);
                         }
                     }
 
