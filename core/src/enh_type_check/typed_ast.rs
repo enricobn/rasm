@@ -750,7 +750,7 @@ pub fn convert_to_typed_module(
 ) -> Result<ASTTypedModule, CompilationError> {
     let mut errors = Vec::new();
 
-    for error in ast_type_checker.errors.iter() {
+    for error in ast_type_checker.errors.values() {
         if error.kind() == &ASTTypeCheckErroKind::Fatal {
             let path = if let Some((enh_id, _)) =
                 modules_catalog.catalog_info(&error.index().module_id())

@@ -6,6 +6,7 @@ use std::{
 
 use itertools::Itertools;
 
+use linked_hash_map::LinkedHashMap;
 use rasm_utils::{
     OptionDisplay, SliceDisplay, debug_i,
     debug_indent::{enable_log, log_enabled},
@@ -252,27 +253,25 @@ impl ASTTypeCheckerResult {
 
 pub struct ASTTypeChecker {
     pub result: ASTTypeCheckerResult,
-    pub errors: Vec<ASTTypeCheckError>,
+    pub errors: LinkedHashMap<ASTIndex, ASTTypeCheckError>,
 }
 
 impl ASTTypeChecker {
     pub fn new() -> Self {
         Self {
             result: ASTTypeCheckerResult::new(),
-            errors: Vec::new(),
+            errors: LinkedHashMap::new(),
         }
     }
 
     fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) {
-        if self.errors.iter().any(|e| e.index() == &index) {
-            self.errors = self
-                .errors
-                .iter()
-                .filter(|e| e.index() != &index)
-                .cloned()
-                .collect_vec();
-        }
+        self.errors.remove(&index);
         self.result.insert(index, entry);
+    }
+
+    fn add_error(&mut self, kind: ASTTypeCheckErroKind, index: ASTIndex, message: String) {
+        self.errors
+            .insert(index.clone(), ASTTypeCheckError::new(kind, index, message));
     }
 
     pub fn from_modules_container(modules_container: &ASTModulesContainer) -> (Self, ValContext) {
@@ -299,11 +298,10 @@ impl ASTTypeChecker {
         let functions_ast_type_checkers = modules_container
             .modules()
             .par_iter()
-            .flat_map(|(id, namespace, module)| {
+            .map(|(id, namespace, module)| {
                 enable_log(log_enabled);
-                module.functions.par_iter().map(|function| {
-                    let mut ftc = ASTTypeChecker::new();
-
+                let mut ftc = ASTTypeChecker::new();
+                module.functions.iter().for_each(|function| {
                     ftc.add_function(
                         &function,
                         &static_val_context,
@@ -311,9 +309,8 @@ impl ASTTypeChecker {
                         id,
                         &modules_container,
                     );
-
-                    ftc
-                })
+                });
+                ftc
             })
             .collect::<Vec<_>>();
 
@@ -352,11 +349,11 @@ impl ASTTypeChecker {
             if let Err(e) =
                 val_context.insert_par(par.name.clone(), par, module_namespace, module_id)
             {
-                self.errors.push(ASTTypeCheckError::new(
+                self.add_error(
                     ASTTypeCheckErroKind::Error,
                     ASTIndex::new(module_namespace.clone(), module_id.clone(), position),
                     e,
-                ));
+                );
             }
         }
 
@@ -368,7 +365,7 @@ impl ASTTypeChecker {
             &function.return_type,
         );
 
-        // in function body cannot be consts, but we need already defined ones...
+        // in function body cannot be consts, but we need to know already defined ones...
         let mut tmp_static_val_context = ValContext::new(Some(static_val_context));
 
         match &function.body {
@@ -423,18 +420,18 @@ impl ASTTypeChecker {
                     def.modifiers(),
                     info.namespace(),
                 ) {
-                    self.errors.push(ASTTypeCheckError::new(
+                    self.add_error(
                         ASTTypeCheckErroKind::Fatal,
                         index,
                         format!("{name} visibility is not compatible with the visibility of the function"),
-                    ));
+                    );
                 }
             } else {
-                self.errors.push(ASTTypeCheckError::new(
+                self.add_error(
                     ASTTypeCheckErroKind::Fatal,
                     index,
                     format!("{name} is not defined"),
-                ));
+                );
             }
         }
     }
@@ -575,27 +572,31 @@ impl ASTTypeChecker {
                     );
                     if let Some(entry) = self.result.get_by_index(&e_index) {
                         if let Some(filter) = &entry.filter {
-                            if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
-                                let insert_result = inner_val_context.insert_let(
-                                    name.clone(),
-                                    ast_type.clone(),
-                                    &index,
-                                );
+                            let error_msg =
+                                if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
+                                    let insert_result = inner_val_context.insert_let(
+                                        name.clone(),
+                                        ast_type.clone(),
+                                        &index,
+                                    );
 
-                                if let Err(e) = insert_result {
-                                    self.errors.push(ASTTypeCheckError::new(
-                                        ASTTypeCheckErroKind::Error,
-                                        index.clone(),
-                                        e,
-                                    ));
-                                }
+                                    insert_result.err()
+                                } else {
+                                    None
+                                };
+
+                            let filter_clone = entry.filter.clone();
+
+                            if let Some(e) = error_msg {
+                                self.add_error(ASTTypeCheckErroKind::Error, index.clone(), e);
                             }
+
                             self.insert(
                                 index.clone(),
                                 ASTTypeCheckEntry::new(
                                     index,
-                                    entry.filter.clone(),
-                                    ASTTypeCheckInfo::Let(name.clone()),
+                                    filter_clone,
+                                    ASTTypeCheckInfo::Const(name.clone()),
                                 ),
                             );
                         }
@@ -626,27 +627,30 @@ impl ASTTypeChecker {
                     );
                     if let Some(entry) = self.result.get_by_index(&e_index) {
                         if let Some(filter) = &entry.filter {
-                            if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
-                                let insert_result = statics.insert_const(
-                                    name.clone(),
-                                    ast_type.clone(),
-                                    &index,
-                                    astmodifiers,
-                                );
+                            // TODO ther's a similar block above
+                            let error_msg =
+                                if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
+                                    let insert_result = statics.insert_const(
+                                        name.clone(),
+                                        ast_type.clone(),
+                                        &index,
+                                        astmodifiers,
+                                    );
 
-                                if let Err(e) = insert_result {
-                                    self.errors.push(ASTTypeCheckError::new(
-                                        ASTTypeCheckErroKind::Error,
-                                        index.clone(),
-                                        e,
-                                    ));
-                                }
+                                    insert_result.err()
+                                } else {
+                                    None
+                                };
+                            let filter_clone = entry.filter.clone();
+                            if let Some(e) = error_msg {
+                                self.add_error(ASTTypeCheckErroKind::Error, index.clone(), e);
                             }
+
                             self.insert(
                                 index.clone(),
                                 ASTTypeCheckEntry::new(
                                     index,
-                                    entry.filter.clone(),
+                                    filter_clone,
                                     ASTTypeCheckInfo::Const(name.clone()),
                                 ),
                             );
@@ -835,7 +839,7 @@ impl ASTTypeChecker {
                         if function_references.len() > 1 {
                             let is_generic =
                                 function.map(ASTFunctionDef::is_generic).unwrap_or(false);
-                            self.errors.push(ASTTypeCheckError::new(
+                            self.add_error(
                                 if is_generic {
                                     ASTTypeCheckErroKind::Warning
                                 } else {
@@ -843,13 +847,13 @@ impl ASTTypeChecker {
                                 },
                                 index.clone(),
                                 format!("Cannot find unique function {name}"),
-                            ));
+                            );
                         } else {
-                            self.errors.push(ASTTypeCheckError::new(
+                            self.add_error(
                                 ASTTypeCheckErroKind::Error,
                                 index.clone(),
                                 format!("Cannot find function {name}"),
-                            ));
+                            );
                         }
                     }
                 }
@@ -894,11 +898,7 @@ impl ASTTypeChecker {
                                 module_namespace,
                                 module_id,
                             ) {
-                                self.errors.push(ASTTypeCheckError::new(
-                                    ASTTypeCheckErroKind::Error,
-                                    par_index,
-                                    e,
-                                ));
+                                self.add_error(ASTTypeCheckErroKind::Error, par_index, e);
                             } else {
                                 self.insert(
                                     par_index.clone(),
@@ -1045,11 +1045,7 @@ impl ASTTypeChecker {
                     );
                 }
             }
-            Err(e) => self.errors.push(ASTTypeCheckError::new(
-                ASTTypeCheckErroKind::Error,
-                par_index.clone(),
-                e,
-            )),
+            Err(e) => self.add_error(ASTTypeCheckErroKind::Error, par_index.clone(), e),
         }
     }
 
@@ -1243,7 +1239,7 @@ impl ASTTypeChecker {
             .collect::<Vec<_>>();
 
         if functions.is_empty() {
-            self.errors.push(ASTTypeCheckError::new(
+            self.add_error(
                 ASTTypeCheckErroKind::Error,
                 index.clone(),
                 format!(
@@ -1253,7 +1249,7 @@ impl ASTTypeChecker {
                     OptionDisplay(&expected_expression_type),
                     OptionDisplay(call.target())
                 ),
-            ));
+            );
         } else {
             if functions.len() > 1 {
                 let functions_msg = functions
@@ -1267,7 +1263,7 @@ impl ASTTypeChecker {
                     .join("\n");
 
                 let is_generic = function.map(ASTFunctionDef::is_generic).unwrap_or(false);
-                self.errors.push(ASTTypeCheckError::new(
+                self.add_error(
                     if is_generic {
                         ASTTypeCheckErroKind::Warning
                     } else {
@@ -1278,7 +1274,7 @@ impl ASTTypeChecker {
                         "found more than one function for {}\n{functions_msg}",
                         call.function_name()
                     ),
-                ));
+                );
 
                 let return_types = functions
                     .iter()
@@ -1373,7 +1369,7 @@ impl ASTTypeChecker {
         let mut resolved_generic_types = ASTResolvedGenericTypes::new();
 
         if function_signature.parameters_types.len() != parameter_types_filters.len() {
-            self.errors.push(ASTTypeCheckError::new(
+            self.add_error(
                 ASTTypeCheckErroKind::Error,
                 index.clone(),
                 format!(
@@ -1382,7 +1378,7 @@ impl ASTTypeChecker {
                     function_signature.parameters_types.len(),
                     parameter_types_filters.len()
                 ),
-            ));
+            );
             dedent!();
             return;
         }
@@ -1398,7 +1394,9 @@ impl ASTTypeChecker {
                     &mut resolved_generic_types,
                 );
 
-                self.errors.extend(p_errors);
+                for e in p_errors {
+                    self.errors.insert(e.index.clone(), e);
+                }
             }
         }
         if let Some(eet) = expected_expression_type {
@@ -1413,7 +1411,7 @@ impl ASTTypeChecker {
                         ASTTypeCheckError::new(ASTTypeCheckErroKind::Error, index.clone(), e)
                     })
                 }) {
-                    self.errors.push(e);
+                    self.errors.insert(e.index.clone(), e);
                 }
             }
         }
@@ -1469,7 +1467,9 @@ impl ASTTypeChecker {
             dedent!();
 
             if resolved_generic_types.len() == resolved_generic_types_len {
-                self.errors.extend(loop_errors);
+                for e in loop_errors {
+                    self.errors.insert(e.index.clone(), e);
+                }
                 break;
             }
         }
@@ -1540,7 +1540,7 @@ impl ASTTypeChecker {
         }
 
         // there could be "phantom" errors when generics are not completely resolved, I remove them
-        self.errors.retain(|it| it.index != index);
+        self.errors.remove(&index);
 
         dedent!();
     }
@@ -2315,10 +2315,10 @@ mod tests {
             .0
             .errors
             .iter()
-            .filter(|it| it.kind == ASTTypeCheckErroKind::Fatal)
+            .filter(|(_, error)| error.kind == ASTTypeCheckErroKind::Fatal)
             .collect::<Vec<_>>();
 
-        for error in errors.iter() {
+        for (_, error) in errors.iter() {
             if error.kind == ASTTypeCheckErroKind::Error {
                 println!("error {error}");
             }
@@ -2333,7 +2333,7 @@ mod tests {
 
     fn check_body(file: &str) -> (ASTTypeCheckerResult, EnhModuleInfo, ASTModule) {
         apply_to_functions_checker(file, file, |module, mut ftc, info, cont| {
-            for e in ftc.errors.iter() {
+            for (_, e) in ftc.errors.iter() {
                 println!("type checker error {e}");
             }
             let mut val_context = ValContext::new(None);

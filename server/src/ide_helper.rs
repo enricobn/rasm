@@ -387,7 +387,10 @@ impl IDEHelper {
 
         selectable_items.append(&mut type_check_selectable_items);
 
-        (selectable_items, type_checker.errors)
+        (
+            selectable_items,
+            type_checker.errors.values().cloned().collect(),
+        )
     }
 
     fn calculate_selectable_items(ast_type_checker: &ASTTypeChecker) -> Vec<IDESelectableItem> {

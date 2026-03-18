@@ -302,7 +302,7 @@ impl UI {
                     ast_type_checker
                         .errors
                         .iter()
-                        .for_each(|it| println!("{it}"));
+                        .for_each(|(_, error)| println!("{error}"));
                 }
 
                 println!("selected_module takes {:?}", start.elapsed());
