@@ -196,12 +196,6 @@ impl ASTTypeCheckEntry {
     pub fn generic_type_coeff(&self) -> Option<usize> {
         self.filter.as_ref().and_then(|it| it.generic_type_coeff())
     }
-
-    /*
-    fn any() -> Self {
-        Self::new(Some(ASTTypeFilter::Any), ASTTypeCheckInfo::Any)
-    }
-    */
 }
 
 impl Display for ASTTypeCheckEntry {
@@ -209,7 +203,7 @@ impl Display for ASTTypeCheckEntry {
         if let Some(ref filter) = self.filter {
             write!(f, "{filter}")?;
         } else {
-            f.write_str("no type determined")?;
+            f.write_str("no type determined for ")?;
         }
         write!(f, " {}", self.info)
     }
@@ -226,7 +220,7 @@ impl ASTTypeCheckerResult {
         }
     }
 
-    pub fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) {
+    fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) {
         self.map.insert(index.position().id, entry);
     }
 
@@ -917,22 +911,18 @@ impl ASTTypeChecker {
 
                         Some((return_type.as_ref(), parameters))
                     } else {
-                        for (name, par_position) in lambda.parameter_names.iter() {
-                            let par_index = ASTIndex::new(
-                                module_namespace.clone(),
-                                module_id.clone(),
-                                par_position.clone(),
+                        if !lambda.parameter_names.is_empty() {
+                            self.insert(
+                                index.clone(),
+                                ASTTypeCheckEntry::lambda(
+                                    index.clone(),
+                                    ASTTypeFilter::Lambda(lambda.parameter_names.len(), None),
+                                ),
                             );
-
-                            self.insert_unknown_lambda_par(
-                                &mut lambda_val_context,
-                                name,
-                                &par_index,
-                                module_namespace,
-                                module_id,
-                            );
+                            return;
+                        } else {
+                            None
                         }
-                        None
                     };
 
                 let body_return_type = self.add_body(
@@ -960,9 +950,19 @@ impl ASTTypeChecker {
                             ModuleInfo::new(module_namespace.clone(), module_id.clone()),
                         )
                     } else {
-                        ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
+                        if lambda.parameter_names.is_empty() {
+                            ASTTypeFilter::Lambda(
+                                lambda.parameter_names.len(),
+                                Some(Box::new(ASTTypeFilter::Exact(
+                                    brt,
+                                    ModuleInfo::new(module_namespace.clone(), module_id.clone()),
+                                ))),
+                            )
+                        } else {
+                            ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
+                        }
                     };
-                    self.result.insert(
+                    self.insert(
                         index.clone(),
                         ASTTypeCheckEntry::lambda(index.clone(), type_filter),
                     );
@@ -980,7 +980,7 @@ impl ASTTypeChecker {
                     } else {
                         ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
                     };
-                    self.result.insert(
+                    self.insert(
                         index.clone(),
                         ASTTypeCheckEntry::lambda(index.clone(), type_filter),
                     );
@@ -1021,34 +1021,6 @@ impl ASTTypeChecker {
         dedent!();
     }
 
-    fn insert_unknown_lambda_par(
-        &mut self,
-        lambda_val_context: &mut ValContext,
-        name: &str,
-        par_index: &ASTIndex,
-        module_namespace: &ModuleNamespace,
-        module_id: &ModuleId,
-    ) {
-        match lambda_val_context.insert_unknown_lambda_parameter(name.to_owned(), par_index) {
-            Ok(valkind_o) => {
-                if let Some(ast_type) = valkind_o.map(|it| it.ast_type()) {
-                    self.insert(
-                        par_index.clone(),
-                        ASTTypeCheckEntry::param(
-                            par_index.clone(),
-                            ASTTypeFilter::Exact(
-                                ast_type.clone(),
-                                ModuleInfo::new(module_namespace.clone(), module_id.clone()),
-                            ),
-                            name.to_owned(),
-                        ),
-                    );
-                }
-            }
-            Err(e) => self.add_error(ASTTypeCheckErroKind::Error, par_index.clone(), e),
-        }
-    }
-
     fn add_call(
         &mut self,
         call: &ASTFunctionCall,
@@ -1081,74 +1053,6 @@ impl ASTTypeChecker {
             }
         }
 
-        let mut first_try_of_map = HashMap::new();
-
-        let mut tmp = ASTTypeChecker::new();
-
-        for e in call.parameters().iter() {
-            let e_index = ASTIndex::new(
-                module_namespace.clone(),
-                module_id.clone(),
-                e.position().clone(),
-            );
-            if self.result.get_by_index(&e_index).is_none() {
-                // it's almost impossible to determine the right type of lambda without knowing the expected type,
-                // here we are calculating only the types for filtering the functions,
-                // we hope that knowing only that it's a lambda, eventually the return type and the number of parameters is enough
-
-                if let ASTExpression::ASTLambdaExpression(def) = e {
-                    let mut lambda_val_context = ValContext::new(Some(&val_context));
-                    for (name, pos) in def.parameter_names.iter() {
-                        let par_index =
-                            ASTIndex::new(module_namespace.clone(), module_id.clone(), pos.clone());
-                        self.insert_unknown_lambda_par(
-                            &mut lambda_val_context,
-                            name,
-                            &par_index,
-                            module_namespace,
-                            module_id,
-                        );
-                    }
-                    let ret_type = if let Some(body_ret_type) = tmp.add_body(
-                        &mut lambda_val_context,
-                        statics,
-                        &def.body,
-                        None,
-                        module_namespace,
-                        module_id,
-                        modules_container,
-                        function,
-                    ) {
-                        body_ret_type.filter().clone()
-                    } else {
-                        None
-                    };
-                    first_try_of_map.insert(
-                        e_index,
-                        ASTTypeFilter::Lambda(
-                            def.parameter_names.len(),
-                            ret_type.map(|it| Box::new(it)),
-                        ),
-                    );
-
-                    if let Some(found) = tmp.result.get_by_index(&index) {
-                        self.insert(index.clone(), found.clone());
-                    }
-                } else {
-                    self.add_expr(
-                        e,
-                        val_context,
-                        statics,
-                        None,
-                        module_namespace,
-                        module_id,
-                        modules_container,
-                        function,
-                    );
-                }
-            }
-        }
-
         let mut parameter_types_filters = Vec::new();
 
         for e in call.parameters().iter() {
@@ -1157,6 +1061,16 @@ impl ASTTypeChecker {
                 module_id.clone(),
                 e.position().clone(),
             );
+            self.add_expr(
+                e,
+                val_context,
+                statics,
+                None,
+                module_namespace,
+                module_id,
+                modules_container,
+                function,
+            );
             if let Some(ast_type) = self
                 .result
                 .get_by_index(&e_index)
@@ -1164,11 +1078,7 @@ impl ASTTypeChecker {
             {
                 parameter_types_filters.push(ast_type.clone());
             } else {
-                if let Some(entry) = first_try_of_map.get(&e_index) {
-                    parameter_types_filters.push(entry.clone());
-                } else {
-                    parameter_types_filters.push(ASTTypeFilter::Any);
-                }
+                parameter_types_filters.push(ASTTypeFilter::Any);
             }
         }
 
@@ -1256,8 +1166,9 @@ impl ASTTypeChecker {
                     .iter()
                     .map(|it| {
                         format!(
-                            "  function {}",
-                            it.signature.clone().remove_generic_prefix()
+                            "  function {} rank {}",
+                            it.signature.clone().remove_generic_prefix(),
+                            it.rank
                         )
                     })
                     .join("\n");
@@ -1367,6 +1278,22 @@ impl ASTTypeChecker {
         );
 
         let mut resolved_generic_types = ASTResolvedGenericTypes::new();
+
+        if call.generics().len() > 0 {
+            if call.generics().len() != function_signature.generics.len() {
+                panic!(
+                    "call.generics().len() ({}) != function_signature.generics.len() ({})",
+                    call.generics().len(),
+                    function_signature.generics.len()
+                );
+            }
+
+            for (i, g) in call.generics().iter().enumerate() {
+                let t = function_signature.generics[i].clone();
+                // TODO var_types
+                resolved_generic_types.insert(t.clone(), Vec::new(), g.clone());
+            }
+        }
 
         if function_signature.parameters_types.len() != parameter_types_filters.len() {
             self.add_error(
@@ -1648,10 +1575,14 @@ mod tests {
         },
     };
     use rasm_parser::{
-        catalog::modules_catalog::ModulesCatalog,
-        parser::ast::{
-            ASTExpression, ASTFunctionCall, ASTLambdaDef, ASTModule, ASTPosition, ASTStatement,
-            ASTValue,
+        catalog::{ModuleId, ModuleNamespace, modules_catalog::ModulesCatalog},
+        lexer::Lexer,
+        parser::{
+            Parser,
+            ast::{
+                ASTExpression, ASTFunctionCall, ASTLambdaDef, ASTModule, ASTPosition, ASTStatement,
+                ASTValue,
+            },
         },
     };
 
@@ -2193,6 +2124,118 @@ mod tests {
                 }
             }
         });
+    }
+
+    #[test]
+    fn test_type_check_generic_call() {
+        type_check_functions(
+            r#"
+                pub fn aFunction() { 
+                    let o = Ok<int,str>(10);
+                }
+            "#,
+            3,
+        );
+    }
+
+    #[test]
+    fn test_type_check_let() {
+        type_check_functions(
+            r#"
+                pub fn aFunction() { 
+                    let o = 10;
+                    println(o);
+                }
+            "#,
+            4,
+        );
+    }
+
+    #[test]
+    fn test_type_check_lambda() {
+        type_check_functions(
+            r#"
+                pub fn aFunction() {
+                    let o = Ok<int,str>(10);
+                    o.fmap(fn(it) {Ok<str,str>("value=".append(it));}).println;
+                }
+            "#,
+            12,
+        );
+    }
+
+    #[test]
+    fn test_type_check_lambda_2() {
+        type_check_functions(
+            r#"
+                pub fn aFunction() {
+                    println(
+                        if(true, { Some(10);})
+                        .else({ None();})
+                        .call()
+                    );
+                }
+            "#,10
+        );
+    }
+
+    #[test]
+    fn test_type_check_lambda_3() {
+        init_minimal_log();
+
+        type_check_functions(
+            r#"
+                pub fn aFunction() {
+                    Some(10).map(fn(it) {"value=".append(it);}).println;
+                }
+            "#, 9
+        );
+    }
+
+    fn type_check_functions(s: &str, expected_entries: usize) {
+        let project = RasmProject::new(PathBuf::from("../stdlib"));
+
+        let (modules_container, catalog, _) = project
+            .container_and_catalog(&RasmProfile::Test, &CompileTarget::C(COptions::default()));
+
+        let modules_container = enrich_container(
+            &CompileTarget::C(COptions::default()),
+            &mut Statics::new(),
+            modules_container,
+            &catalog,
+            false,
+            false,
+        );
+
+        let static_val_context = ValContext::new(None);
+
+        let (module, _errors) = Parser::new(Lexer::new(s.to_owned()).collect_vec(), vec![]).parse();
+
+        let mut checker = ASTTypeChecker::new();
+        for function in module.functions {
+            checker.add_function(
+                &function,
+                &static_val_context,
+                &ModuleNamespace::global(),
+                &ModuleId::global(),
+                &modules_container,
+            );
+        }
+
+        assert_eq!(checker.result.map.len(), expected_entries);
+
+        for entry in checker.result.map.values() {
+            if let Some((t, _)) = entry.exact() {
+                assert!(!t.is_generic())
+            }
+        }
+
+        if !checker.errors.is_empty() {
+            for (i, e) in checker.errors {
+                println!("Error: {e} : {i}");
+            }
+            panic!();
+        }
     }
 
     fn get_type_check_entry<'a>(

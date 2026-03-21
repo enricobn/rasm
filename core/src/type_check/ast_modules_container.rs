@@ -347,39 +347,64 @@ impl ASTModulesContainer {
                 .iter()
                 .all(|f| !f.is_generic_or_any())
         {
-            let mut functions_by_coeff = HashMap::new();
-            let mut max_coeff = 0;
-            for entry in result.into_iter() {
-                let mut coeff = 0;
-                for (filter, t) in zip(parameter_types_filter, &entry.signature.parameters_types) {
-                    let filter_coeff = filter.compatibility_coeff(&t, &entry.namespace, self);
-                    if filter_coeff == 0 {
-                        coeff = 0;
-                        break;
-                    } else {
-                        coeff += filter_coeff;
-                    }
-                }
-
-                if coeff != 0 {
-                    if coeff > max_coeff {
-                        max_coeff = coeff;
-                    }
-                    functions_by_coeff
-                        .entry(coeff)
-                        .or_insert(Vec::new())
-                        .push(entry);
-                }
-            }
-
-            if functions_by_coeff.len() == 0 {
-                result = Vec::new();
-            } else {
-                result = functions_by_coeff.remove(&max_coeff).unwrap();
-            }
+            result = self.best_compatible_functions(result, parameter_types_filter);
         }
 
         result
+    }
+
+    /// Given a list of function signatures and a list of parameter type filters,
+    /// return the best compatible functions based on the filters.
+    ///
+    /// The best compatible functions are the ones with the highest sum of
+    /// compatibility coefficients for each filter.
+    ///
+    /// If no function is compatible with all filters, an empty vector is returned.
+    ///
+    /// The compatibility coefficient for each filter is the maximum of the
+    /// compatibility coefficients of the filter with each parameter type of the
+    /// function signature.
+    ///
+    /// The compatibility coefficient of a filter with a parameter type is 0 if the
+    /// filter is not applicable to the parameter type, and the maximum of the
+    /// compatibility coefficients of the filter with each of the parameter type's
+    /// subtypes otherwise.
+
+    pub fn best_compatible_functions<'a, 'b: 'a, 'c>(
+        &'a self,
+        result: Vec<&'b ASTFunctionSignatureEntry>,
+        parameter_types_filter: &'c Vec<ASTTypeFilter>,
+    ) -> Vec<&'a ASTFunctionSignatureEntry> {
+        let mut functions_by_coeff = HashMap::new();
+        let mut max_coeff = 0;
+        for entry in result.into_iter() {
+            let mut coeff = 0;
+            for (filter, t) in zip(parameter_types_filter, &entry.signature.parameters_types) {
+                let filter_coeff = filter.compatibility_coeff(self, &t, &entry.namespace);
+                if filter_coeff == 0 {
+                    coeff = 0;
+                    break;
+                } else {
+                    coeff += filter_coeff;
+                }
+            }
+
+            if coeff != 0 {
+                if coeff > max_coeff {
+                    max_coeff = coeff;
+                }
+                functions_by_coeff
+                    .entry(coeff)
+                    .or_insert(Vec::new())
+                    .push(entry);
+            }
+        }
+
+        if functions_by_coeff.len() == 0 {
+            Vec::new()
+        } else {
+            functions_by_coeff.remove(&max_coeff).unwrap()
+        }
     }
 
     pub fn signatures(&self) -> Vec<&ASTFunctionSignatureEntry> {
@@ -753,19 +778,35 @@ impl ASTTypeFilter {
 
     pub fn compatibility_coeff(
         &self,
+        container: &ASTModulesContainer,
         ast_type: &ASTType,
         module_id: &ModuleNamespace,
-        container: &ASTModulesContainer,
     ) -> u32 {
         match self {
             ASTTypeFilter::Exact(f_ast_type, f_module_info) => {
                 if self.is_compatible(f_ast_type, f_module_info.namespace(), container) {
-                    if f_ast_type.is_generic() {
-                        500
-                    } else if ast_type.is_generic() {
-                        500
+                    if let ASTType::ASTCustomType {
+                        name,
+                        param_types: _,
+                        position: _,
+                    } = ast_type
+                        && let ASTType::ASTCustomType {
+                            name: f_name,
+                            param_types: _,
+                            position: _,
+                        } = f_ast_type
+                    {
+                        if name == f_name { 750 } else { 0 }
                     } else {
-                        1000
+                        if f_ast_type.is_generic() {
+                            500
+                        } else if ast_type.is_generic() {
+                            500
+                        } else if ast_type == f_ast_type {
+                            1000
+                        } else {
+                            0
+                        }
                     }
                 } else {
                     0

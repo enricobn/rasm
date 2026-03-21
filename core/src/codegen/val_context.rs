@@ -1,16 +1,12 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::debug_i;
 
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleNamespace},
-    parser::ast::{ASTBuiltinTypeKind, ASTModifiers, ASTParameterDef, ASTPosition, ASTType},
+    parser::ast::{ASTBuiltinTypeKind, ASTModifiers, ASTParameterDef, ASTType},
 };
 
 use crate::codegen::statics::Statics;
-
-static COUNT_UNKNOWN_LAMBDA_PAR: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone, Debug)]
 pub enum ValKind {
@@ -135,38 +131,6 @@ impl ValContext {
             ),
         );
         self.let_index += 1;
-        if result.is_some() {
-            Err(format!("already defined {key}: {}", ast_index))
-        } else {
-            Ok(result)
-        }
-    }
-
-    pub fn insert_unknown_lambda_parameter(
-        &mut self,
-        key: String,
-        ast_index: &ASTIndex,
-    ) -> Result<Option<ValKind>, String> {
-        debug_i!("adding unknown lambda parameter {key} to context");
-
-        let par = ASTParameterDef::new(
-            &key,
-            ASTType::ASTGenericType(
-                ASTPosition::none(),
-                format!(
-                    "L_{}",
-                    COUNT_UNKNOWN_LAMBDA_PAR.fetch_add(1, Ordering::Relaxed)
-                ),
-                Vec::new(),
-            ),
-            ast_index.position().clone(),
-        );
-
-        let result = self.value_to_address.insert(
-            key.clone(),
-            ValKind::ParameterRef(self.unknown_lambda_par_index, par),
-        );
-        self.unknown_lambda_par_index += 1;
         if result.is_some() {
             Err(format!("already defined {key}: {}", ast_index))
         } else {
