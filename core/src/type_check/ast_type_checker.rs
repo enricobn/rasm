@@ -8,9 +8,9 @@ use itertools::Itertools;
 
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::{
-    OptionDisplay, SliceDisplay, debug_i,
+    debug_i,
     debug_indent::{enable_log, log_enabled},
-    dedent, indent,
+    dedent, indent, OptionDisplay, SliceDisplay,
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
@@ -23,7 +23,7 @@ use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
     parser::ast::{
         ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-        ASTFunctionSignature, ASTModifiers, ASTParameterDef, ASTStatement, ASTType,
+        ASTFunctionSignature, ASTLambdaDef, ASTModifiers, ASTParameterDef, ASTStatement, ASTType,
     },
 };
 
@@ -702,155 +702,17 @@ impl ASTTypeChecker {
                 );
             }
             ASTExpression::ASTValueRefExpression(name, _) => {
-                if let Some(kind) = val_context.get(name, module_namespace) {
-                    self.insert(
-                        index.clone(),
-                        ASTTypeCheckEntry::reference(
-                            index.clone(),
-                            ASTTypeFilter::exact(kind.ast_type(), module_namespace, module_id),
-                            name.to_owned(),
-                            kind.index(module_namespace, module_id),
-                        ),
-                    );
-                } else if let Some(kind) = statics.get_const(name, module_namespace) {
-                    self.insert(
-                        index.clone(),
-                        ASTTypeCheckEntry::reference(
-                            index.clone(),
-                            ASTTypeFilter::exact(kind.ast_type(), module_namespace, module_id),
-                            name.to_owned(),
-                            kind.index(module_namespace, module_id),
-                        ),
-                    );
-                } else {
-                    let mut function_references = modules_container.signatures();
-
-                    function_references = function_references
-                        .iter()
-                        .cloned()
-                        .filter(|it| {
-                            &it.signature.name == name
-                                && it
-                                    .namespace
-                                    .visible_from(&it.signature.modifiers, &module_namespace)
-                        })
-                        .collect_vec();
-
-                    if let Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
-                        parameters,
-                        return_type,
-                    })) = expected_expression_type
-                    {
-                        let module_info =
-                            ModuleInfo::new(module_namespace.clone(), module_id.clone());
-                        function_references = function_references
-                            .iter()
-                            .cloned()
-                            .filter(|it| it.signature.parameters_types.len() == parameters.len())
-                            .filter(|it| {
-                                ASTTypeFilter::Exact(
-                                    return_type.as_ref().clone(),
-                                    module_info.clone(),
-                                )
-                                .is_compatible(
-                                    &it.signature.return_type,
-                                    &it.namespace,
-                                    modules_container,
-                                )
-                            })
-                            .filter(|it| {
-                                zip(it.signature.parameters_types.iter(), parameters).all(
-                                    |(a, b)| {
-                                        return ASTTypeFilter::Exact(
-                                            b.clone(),
-                                            module_info.clone(),
-                                        )
-                                        .is_compatible(&a, &it.namespace, modules_container);
-                                    },
-                                )
-                            })
-                            .collect::<Vec<_>>();
-                    }
-
-                    if function_references.len() == 1 {
-                        let fun_entry = function_references.remove(0);
-
-                        // if we have an expected expression type, we try to substitute eventual generic types with real
-                        // types from the expected
-                        let lambda = if let Some(ASTType::ASTBuiltinType(
-                            ASTBuiltinTypeKind::ASTLambdaType {
-                                parameters,
-                                return_type,
-                            },
-                        )) = expected_expression_type
-                        {
-                            let new_parameters =
-                                zip(fun_entry.signature.parameters_types.clone(), parameters)
-                                    .map(|(p, t)| {
-                                        if p.is_generic() && !t.is_generic() {
-                                            t.clone()
-                                        } else {
-                                            p
-                                        }
-                                    })
-                                    .collect::<Vec<_>>();
-
-                            let new_return_type = if fun_entry.signature.return_type.is_generic()
-                                && !return_type.is_generic()
-                            {
-                                return_type.as_ref()
-                            } else {
-                                &fun_entry.signature.return_type
-                            };
-
-                            ASTBuiltinTypeKind::ASTLambdaType {
-                                parameters: new_parameters,
-                                return_type: Box::new(new_return_type.clone()),
-                            }
-                        } else {
-                            ASTBuiltinTypeKind::ASTLambdaType {
-                                parameters: fun_entry.signature.parameters_types.clone(),
-                                return_type: Box::new(fun_entry.signature.return_type.clone()),
-                            }
-                        };
-
-                        self.insert(
-                            index.clone(),
-                            ASTTypeCheckEntry::new(
-                                index.clone(),
-                                Some(ASTTypeFilter::exact(
-                                    ASTType::ASTBuiltinType(lambda),
-                                    module_namespace,
-                                    module_id,
-                                )),
-                                ASTTypeCheckInfo::ReferenceToFunction(
-                                    fun_entry.signature.clone(),
-                                    fun_entry.index().clone(),
-                                ),
-                            ),
-                        );
-                    } else {
-                        if function_references.len() > 1 {
-                            let is_generic =
-                                function.map(ASTFunctionDef::is_generic).unwrap_or(false);
-                            self.add_error(
-                                if is_generic {
-                                    ASTTypeCheckErroKind::Warning
-                                } else {
-                                    ASTTypeCheckErroKind::Error
-                                },
-                                index.clone(),
-                                format!("Cannot find unique function {name}"),
-                            );
-                        } else {
-                            self.add_error(
-                                ASTTypeCheckErroKind::Error,
-                                index.clone(),
-                                format!("Cannot find function {name}"),
-                            );
-                        }
-                    }
-                }
+                self.add_value_ref_expr(
+                    index.clone(),
+                    name,
+                    val_context,
+                    statics,
+                    expected_expression_type,
+                    module_namespace,
+                    module_id,
+                    modules_container,
+                    function,
+                );
             }
             ASTExpression::ASTValueExpression(value_type, _position) => {
                 self.insert(
@@ -866,125 +728,17 @@ impl ASTTypeChecker {
                 );
             }
             ASTExpression::ASTLambdaExpression(lambda) => {
-                let mut lambda_val_context = ValContext::new(Some(&val_context));
-
-                let expected_last_statement_type_and_parameters =
-                    if let Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
-                        parameters,
-                        return_type,
-                    })) = expected_expression_type
-                    {
-                        for ((name, par_position), ast_type) in
-                            lambda.parameter_names.iter().zip(parameters.iter())
-                        {
-                            let par_index = ASTIndex::new(
-                                module_namespace.clone(),
-                                module_id.clone(),
-                                par_position.clone(),
-                            );
-                            if let Err(e) = lambda_val_context.insert_par(
-                                name.clone(),
-                                ASTParameterDef {
-                                    name: name.clone(),
-                                    ast_type: ast_type.clone(),
-                                    position: par_position.clone(),
-                                },
-                                module_namespace,
-                                module_id,
-                            ) {
-                                self.add_error(ASTTypeCheckErroKind::Error, par_index, e);
-                            } else {
-                                self.insert(
-                                    par_index.clone(),
-                                    ASTTypeCheckEntry::param(
-                                        par_index,
-                                        ASTTypeFilter::exact(
-                                            ast_type.clone(),
-                                            module_namespace,
-                                            module_id,
-                                        ),
-                                        name.to_owned(),
-                                    ),
-                                );
-                            }
-                        }
-
-                        Some((return_type.as_ref(), parameters))
-                    } else {
-                        if !lambda.parameter_names.is_empty() {
-                            self.insert(
-                                index.clone(),
-                                ASTTypeCheckEntry::lambda(
-                                    index.clone(),
-                                    ASTTypeFilter::Lambda(lambda.parameter_names.len(), None),
-                                ),
-                            );
-                            return;
-                        } else {
-                            None
-                        }
-                    };
-
-                let body_return_type = self.add_body(
-                    &mut lambda_val_context,
+                self.add_lambda_expr(
+                    index.clone(),
+                    lambda,
+                    val_context,
                     statics,
-                    &lambda.body,
-                    expected_last_statement_type_and_parameters.map(|it| it.0),
+                    expected_expression_type,
                     module_namespace,
                     module_id,
                     modules_container,
                     function,
                 );
-
-                if let Some(ASTTypeFilter::Exact(brt, _position)) =
-                    body_return_type.and_then(|it| it.filter)
-                {
-                    let type_filter = if let Some((_return_type, parameters)) =
-                        expected_last_statement_type_and_parameters
-                    {
-                        ASTTypeFilter::Exact(
-                            ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
-                                parameters: parameters.clone(),
-                                return_type: Box::new(brt),
-                            }),
-                            ModuleInfo::new(module_namespace.clone(), module_id.clone()),
-                        )
-                    } else {
-                        if lambda.parameter_names.is_empty() {
-                            ASTTypeFilter::Lambda(
-                                lambda.parameter_names.len(),
-                                Some(Box::new(ASTTypeFilter::Exact(
-                                    brt,
-                                    ModuleInfo::new(module_namespace.clone(), module_id.clone()),
-                                ))),
-                            )
-                        } else {
-                            ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
-                        }
-                    };
-                    self.insert(
-                        index.clone(),
-                        ASTTypeCheckEntry::lambda(index.clone(), type_filter),
-                    );
-                } else {
-                    let type_filter = if let Some((return_type, parameters)) =
-                        expected_last_statement_type_and_parameters
-                    {
-                        ASTTypeFilter::Exact(
-                            ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
-                                parameters: parameters.clone(),
-                                return_type: Box::new(return_type.clone()),
-                            }),
-                            ModuleInfo::new(module_namespace.clone(), module_id.clone()),
-                        )
-                    } else {
-                        ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
-                    };
-                    self.insert(
-                        index.clone(),
-                        ASTTypeCheckEntry::lambda(index.clone(), type_filter),
-                    );
-                }
             }
         }
 
@@ -1019,6 +773,285 @@ impl ASTTypeChecker {
         }
 
         dedent!();
+    }
+
+    fn add_value_ref_expr(
+        &mut self,
+        index: ASTIndex,
+        name: &str,
+        val_context: &ValContext,
+        statics: &mut ValContext,
+        expected_expression_type: Option<&ASTType>,
+        module_namespace: &ModuleNamespace,
+        module_id: &ModuleId,
+        modules_container: &ASTModulesContainer,
+        function: Option<&ASTFunctionDef>,
+    ) {
+        if let Some(kind) = val_context.get(name, module_namespace) {
+            self.insert(
+                index.clone(),
+                ASTTypeCheckEntry::reference(
+                    index.clone(),
+                    ASTTypeFilter::exact(kind.ast_type(), module_namespace, module_id),
+                    name.to_owned(),
+                    kind.index(module_namespace, module_id),
+                ),
+            );
+        } else if let Some(kind) = statics.get_const(name, module_namespace) {
+            self.insert(
+                index.clone(),
+                ASTTypeCheckEntry::reference(
+                    index.clone(),
+                    ASTTypeFilter::exact(kind.ast_type(), module_namespace, module_id),
+                    name.to_owned(),
+                    kind.index(module_namespace, module_id),
+                ),
+            );
+        } else {
+            let mut function_references = modules_container.signatures();
+
+            function_references = function_references
+                .iter()
+                .cloned()
+                .filter(|it| {
+                    &it.signature.name == name
+                        && it
+                            .namespace
+                            .visible_from(&it.signature.modifiers, &module_namespace)
+                })
+                .collect_vec();
+
+            if let Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
+                parameters,
+                return_type,
+            })) = expected_expression_type
+            {
+                let module_info = ModuleInfo::new(module_namespace.clone(), module_id.clone());
+                function_references = function_references
+                    .iter()
+                    .cloned()
+                    .filter(|it| it.signature.parameters_types.len() == parameters.len())
+                    .filter(|it| {
+                        ASTTypeFilter::Exact(return_type.as_ref().clone(), module_info.clone())
+                            .is_compatible(
+                                &it.signature.return_type,
+                                &it.namespace,
+                                modules_container,
+                            )
+                    })
+                    .filter(|it| {
+                        zip(it.signature.parameters_types.iter(), parameters).all(|(a, b)| {
+                            return ASTTypeFilter::Exact(b.clone(), module_info.clone())
+                                .is_compatible(&a, &it.namespace, modules_container);
+                        })
+                    })
+                    .collect::<Vec<_>>();
+            }
+
+            if function_references.len() == 1 {
+                let fun_entry = function_references.remove(0);
+
+                let lambda =
+                    if let Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
+                        parameters,
+                        return_type,
+                    })) = expected_expression_type
+                    {
+                        let new_parameters =
+                            zip(fun_entry.signature.parameters_types.clone(), parameters)
+                                .map(|(p, t)| {
+                                    if p.is_generic() && !t.is_generic() {
+                                        t.clone()
+                                    } else {
+                                        p
+                                    }
+                                })
+                                .collect::<Vec<_>>();
+
+                        let new_return_type = if fun_entry.signature.return_type.is_generic()
+                            && !return_type.is_generic()
+                        {
+                            return_type.as_ref()
+                        } else {
+                            &fun_entry.signature.return_type
+                        };
+
+                        ASTBuiltinTypeKind::ASTLambdaType {
+                            parameters: new_parameters,
+                            return_type: Box::new(new_return_type.clone()),
+                        }
+                    } else {
+                        ASTBuiltinTypeKind::ASTLambdaType {
+                            parameters: fun_entry.signature.parameters_types.clone(),
+                            return_type: Box::new(fun_entry.signature.return_type.clone()),
+                        }
+                    };
+
+                self.insert(
+                    index.clone(),
+                    ASTTypeCheckEntry::new(
+                        index.clone(),
+                        Some(ASTTypeFilter::exact(
+                            ASTType::ASTBuiltinType(lambda),
+                            module_namespace,
+                            module_id,
+                        )),
+                        ASTTypeCheckInfo::ReferenceToFunction(
+                            fun_entry.signature.clone(),
+                            fun_entry.index().clone(),
+                        ),
+                    ),
+                );
+            } else {
+                if function_references.len() > 1 {
+                    let is_generic = function.map(ASTFunctionDef::is_generic).unwrap_or(false);
+                    self.add_error(
+                        if is_generic {
+                            ASTTypeCheckErroKind::Warning
+                        } else {
+                            ASTTypeCheckErroKind::Error
+                        },
+                        index.clone(),
+                        format!("Cannot find unique function {name}"),
+                    );
+                } else {
+                    self.add_error(
+                        ASTTypeCheckErroKind::Error,
+                        index.clone(),
+                        format!("Cannot find function {name}"),
+                    );
+                }
+            }
+        }
+    }
+
+    fn add_lambda_expr(
+        &mut self,
+        index: ASTIndex,
+        lambda: &ASTLambdaDef,
+        val_context: &ValContext,
+        statics: &mut ValContext,
+        expected_expression_type: Option<&ASTType>,
+        module_namespace: &ModuleNamespace,
+        module_id: &ModuleId,
+        modules_container: &ASTModulesContainer,
+        function: Option<&ASTFunctionDef>,
+    ) {
+        let mut lambda_val_context = ValContext::new(Some(val_context));
+
+        let expected_last_statement_type_and_parameters =
+            if let Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
+                parameters,
+                return_type,
+            })) = expected_expression_type
+            {
+                for ((name, par_position), ast_type) in
+                    lambda.parameter_names.iter().zip(parameters.iter())
+                {
+                    let par_index = ASTIndex::new(
+                        module_namespace.clone(),
+                        module_id.clone(),
+                        par_position.clone(),
+                    );
+                    if let Err(e) = lambda_val_context.insert_par(
+                        name.clone(),
+                        ASTParameterDef {
+                            name: name.clone(),
+                            ast_type: ast_type.clone(),
+                            position: par_position.clone(),
+                        },
+                        module_namespace,
+                        module_id,
+                    ) {
+                        self.add_error(ASTTypeCheckErroKind::Error, par_index, e);
+                    } else {
+                        self.insert(
+                            par_index.clone(),
+                            ASTTypeCheckEntry::param(
+                                par_index,
+                                ASTTypeFilter::exact(ast_type.clone(), module_namespace, module_id),
+                                name.to_owned(),
+                            ),
+                        );
+                    }
+                }
+
+                Some((return_type.as_ref(), parameters))
+            } else {
+                if !lambda.parameter_names.is_empty() {
+                    self.insert(
+                        index.clone(),
+                        ASTTypeCheckEntry::lambda(
+                            index.clone(),
+                            ASTTypeFilter::Lambda(lambda.parameter_names.len(), None),
+                        ),
+                    );
+                    return;
+                } else {
+                    None
+                }
+            };
+
+        let body_return_type = self.add_body(
+            &mut lambda_val_context,
+            statics,
+            &lambda.body,
+            expected_last_statement_type_and_parameters.map(|it| it.0),
+            module_namespace,
+            module_id,
+            modules_container,
+            function,
+        );
+
+        if let Some(ASTTypeFilter::Exact(brt, _position)) =
+            body_return_type.and_then(|it| it.filter)
+        {
+            let type_filter = if let Some((_return_type, parameters)) =
+                expected_last_statement_type_and_parameters
+            {
+                ASTTypeFilter::Exact(
+                    ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
+                        parameters: parameters.clone(),
+                        return_type: Box::new(brt),
+                    }),
+                    ModuleInfo::new(module_namespace.clone(), module_id.clone()),
+                )
+            } else {
+                if lambda.parameter_names.is_empty() {
+                    ASTTypeFilter::Lambda(
+                        lambda.parameter_names.len(),
+                        Some(Box::new(ASTTypeFilter::Exact(
+                            brt,
+                            ModuleInfo::new(module_namespace.clone(), module_id.clone()),
+                        ))),
+                    )
+                } else {
+                    ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
+                }
+            };
+            self.insert(
+                index.clone(),
+                ASTTypeCheckEntry::lambda(index.clone(), type_filter),
+            );
+        } else {
+            let type_filter = if let Some((return_type, parameters)) =
+                expected_last_statement_type_and_parameters
+            {
+                ASTTypeFilter::Exact(
+                    ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
+                        parameters: parameters.clone(),
+                        return_type: Box::new(return_type.clone()),
+                    }),
+                    ModuleInfo::new(module_namespace.clone(), module_id.clone()),
+                )
+            } else {
+                ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
+            };
+            self.insert(
+                index.clone(),
+                ASTTypeCheckEntry::lambda(index.clone(), type_filter),
+            );
+        }
     }
 
     fn add_call(
@@ -1554,7 +1587,7 @@ mod tests {
     };
 
     use itertools::Itertools;
-    use rasm_utils::{OptionDisplay, SliceDisplay, test_utils::init_minimal_log};
+    use rasm_utils::{test_utils::init_minimal_log, OptionDisplay, SliceDisplay};
 
     use crate::{
         ast::ast_module_tree::{ASTElement, ASTModuleTree},
@@ -1575,14 +1608,14 @@ mod tests {
         },
     };
     use rasm_parser::{
-        catalog::{ModuleId, ModuleNamespace, modules_catalog::ModulesCatalog},
+        catalog::{modules_catalog::ModulesCatalog, ModuleId, ModuleNamespace},
         lexer::Lexer,
         parser::{
-            Parser,
             ast::{
                 ASTExpression, ASTFunctionCall, ASTLambdaDef, ASTModule, ASTPosition, ASTStatement,
                 ASTValue,
             },
+            Parser,
         },
     };
 
@@ -2175,7 +2208,8 @@ mod tests {
                         .call()
                     );
                 }
-            "#,10
+            "#,
+            10,
         );
     }
 
@@ -2188,7 +2222,8 @@ mod tests {
                 pub fn aFunction() {
                     Some(10).map(fn(it) {"value=".append(it);}).println;
                 }
-            "#, 9
+            "#,
+            9,
         );
     }
 
