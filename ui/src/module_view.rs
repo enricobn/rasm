@@ -12,9 +12,7 @@ use iced::{
         text,
     },
 };
-use rasm_core::{
-    codegen::enh_ast::EnhModuleInfo, type_check::ast_modules_container::ASTTypeFilter,
-};
+use rasm_core::codegen::enh_ast::EnhModuleInfo;
 
 use rasm_parser::parser::ast::{ASTBuiltinTypeKind, ASTModule, ASTType};
 use rasm_parser::{
@@ -109,9 +107,7 @@ impl UI {
                                         .get_by_index(&token_index)
                                 {
                                     let exact_and_not_generic =
-                                        if let Some(ASTTypeFilter::Exact(ast_type, _info)) =
-                                            type_filter.filter()
-                                        {
+                                        if let Some((ast_type, _info)) = type_filter.exact() {
                                             !ast_type.is_generic()
                                         } else {
                                             false

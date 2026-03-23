@@ -168,7 +168,7 @@ impl ASTModuleTree {
                 element: ASTElement::FunctionDef(function.clone()),
                 parent: None,
             };
-            elements.insert(function.position.id, element);
+            Self::insert(elements, element);
             if let ASTFunctionBody::RASMBody(ref body) = function.body {
                 Self::add_body(body, elements, None);
             }
@@ -202,13 +202,13 @@ impl ASTModuleTree {
             }
             ASTStatement::ASTLetStatement(_, astexpression, _) => {
                 Self::add_expression(astexpression, elements, Some(position.id));
+                Self::insert(elements, element);
             }
             ASTStatement::ASTConstStatement(_, astexpression, _, _) => {
                 Self::add_expression(astexpression, elements, Some(position.id));
+                Self::insert(elements, element);
             }
         }
-
-        elements.insert(position.id, element);
     }
 
     fn add_expression(
@@ -237,7 +237,7 @@ impl ASTModuleTree {
                         ),
                         parent: Some(position.id),
                     };
-                    elements.insert(argument_position.id, argument_element);
+                    Self::insert(elements, argument_element);
                 }
                 for statement in astlambda_def.body.iter() {
                     Self::add_statement(statement, elements, Some(position.id));
@@ -246,6 +246,10 @@ impl ASTModuleTree {
             _ => {}
         }
 
-        elements.insert(position.id, element);
+        Self::insert(elements, element);
+    }
+
+    fn insert(elements: &mut HashMap<usize, ASTModuleTreeItem>, element: ASTModuleTreeItem) {
+        elements.insert(element.element.position().id, element);
     }
 }

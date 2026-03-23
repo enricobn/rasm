@@ -257,14 +257,6 @@ impl UI {
                 let mut val_context = ValContext::new(None);
 
                 let start = Instant::now();
-                /*
-                if !errors.is_empty() {
-                    println!("compilation errors");
-                    for error in errors {
-                        println!("{error}");
-                    }
-                }
-                */
 
                 let mut tmp_static_val_context = ValContext::new(None);
 
@@ -280,7 +272,6 @@ impl UI {
                 );
 
                 for function in module.functions.iter() {
-                    let start_function = Instant::now();
                     ast_type_checker.add_function(
                         function, //.fix_namespaces(&em).fix_generics(),
                         static_val_context,
@@ -288,14 +279,7 @@ impl UI {
                         &info.module_id(),
                         modules_container,
                     );
-                    println!(
-                        "function {} takes {:?}",
-                        function.name,
-                        start_function.elapsed()
-                    );
                 }
-
-                // TODO errors
 
                 if !ast_type_checker.errors.is_empty() {
                     println!("selected_module errors");
