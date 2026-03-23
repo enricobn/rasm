@@ -26,11 +26,24 @@ enum LexStatus {
 
 //#[derive(Clone)]
 pub struct Lexer {
+    config: LexerConfig,
     index: usize,
     row: usize,
     column: usize,
     chars: Vec<char>,
     errors: Vec<LexerError>,
+}
+
+pub struct LexerConfig {
+    pub collect_white_spaces: bool,
+}
+
+impl Default for LexerConfig {
+    fn default() -> Self {
+        Self {
+            collect_white_spaces: true,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -60,6 +73,7 @@ impl Lexer {
 
     pub fn new(source: String) -> Self {
         Self {
+            config: LexerConfig::default(),
             index: 0,
             row: 1,
             column: 1,
@@ -199,6 +213,9 @@ impl Lexer {
                             self.add_error(format!("Whitespace, but actual={}", actual));
                         }
                         status = LexStatus::WhiteSpace;
+                        if self.config.collect_white_spaces {
+                            actual.push(c);
+                        }
                     } else if c == '"' {
                         status = LexStatus::String;
                     } else if c.is_ascii_digit() {
@@ -214,10 +231,21 @@ impl Lexer {
                     }
                 }
                 LexStatus::WhiteSpace => {
-                    // we don't care about white spaces
-                    if c == '\n' || !c.is_whitespace() {
-                        status = LexStatus::None;
-                        continue;
+                    if self.config.collect_white_spaces {
+                        if c != '\n' && c.is_whitespace() {
+                            actual.push(c);
+                        } else {
+                            if actual.chars().any(|it| !it.is_whitespace()) {
+                                self.add_error(format!("invalid chars in {actual}"));
+                            }
+                            return self
+                                .create_token_at_current_position(TokenKind::WhiteSpaces(actual));
+                        }
+                    } else {
+                        if c == '\n' || !c.is_whitespace() {
+                            status = LexStatus::None;
+                            continue;
+                        }
                     }
                 }
                 LexStatus::String => {
