@@ -539,119 +539,112 @@ impl ASTTypeChecker {
                     }
                 }
                 ASTStatement::ASTLetStatement(name, e, position) => {
-                    self.add_expr(
+                    self.add_binding(
+                        name,
                         e,
+                        position,
+                        false,
+                        None,
                         inner_val_context,
                         statics,
-                        None,
                         module_namespace,
                         module_id,
                         modules_container,
                         function,
                     );
-
-                    let e_index = ASTIndex::new(
-                        module_namespace.clone(),
-                        module_id.clone(),
-                        e.position().clone(),
-                    );
-
-                    let index = ASTIndex::new(
-                        module_namespace.clone(),
-                        module_id.clone(),
-                        position.clone(),
-                    );
-                    if let Some(entry) = self.result.get_by_index(&e_index) {
-                        if let Some(filter) = &entry.filter {
-                            let error_msg =
-                                if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
-                                    let insert_result = inner_val_context.insert_let(
-                                        name.clone(),
-                                        ast_type.clone(),
-                                        &index,
-                                    );
-
-                                    insert_result.err()
-                                } else {
-                                    None
-                                };
-
-                            let filter_clone = entry.filter.clone();
-
-                            if let Some(e) = error_msg {
-                                self.add_error(ASTTypeCheckErroKind::Error, index.clone(), e);
-                            }
-
-                            self.insert(
-                                index.clone(),
-                                ASTTypeCheckEntry::new(
-                                    index,
-                                    filter_clone,
-                                    ASTTypeCheckInfo::Const(name.clone()),
-                                ),
-                            );
-                        }
-                    }
                 }
                 ASTStatement::ASTConstStatement(name, e, position, astmodifiers) => {
-                    self.add_expr(
+                    self.add_binding(
+                        name,
                         e,
+                        position,
+                        true,
+                        Some(astmodifiers),
                         inner_val_context,
                         statics,
-                        None,
                         module_namespace,
                         module_id,
                         modules_container,
                         function,
                     );
-
-                    let e_index = ASTIndex::new(
-                        module_namespace.clone(),
-                        module_id.clone(),
-                        e.position().clone(),
-                    );
-
-                    let index = ASTIndex::new(
-                        module_namespace.clone(),
-                        module_id.clone(),
-                        position.clone(),
-                    );
-                    if let Some(entry) = self.result.get_by_index(&e_index) {
-                        if let Some(filter) = &entry.filter {
-                            // TODO ther's a similar block above
-                            let error_msg =
-                                if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
-                                    let insert_result = statics.insert_const(
-                                        name.clone(),
-                                        ast_type.clone(),
-                                        &index,
-                                        astmodifiers,
-                                    );
-
-                                    insert_result.err()
-                                } else {
-                                    None
-                                };
-                            let filter_clone = entry.filter.clone();
-                            if let Some(e) = error_msg {
-                                self.add_error(ASTTypeCheckErroKind::Error, index.clone(), e);
-                            }
-
-                            self.insert(
-                                index.clone(),
-                                ASTTypeCheckEntry::new(
-                                    index,
-                                    filter_clone,
-                                    ASTTypeCheckInfo::Const(name.clone()),
-                                ),
-                            );
-                        }
-                    }
                 }
             }
         }
 
         return_type
+    }
+
+    fn add_binding(
+        &mut self,
+        name: &str,
+        e: &ASTExpression,
+        position: &rasm_parser::parser::ast::ASTPosition,
+        is_const: bool,
+        astmodifiers: Option<&ASTModifiers>,
+        val_context: &mut ValContext,
+        statics: &mut ValContext,
+        module_namespace: &ModuleNamespace,
+        module_id: &ModuleId,
+        modules_container: &ASTModulesContainer,
+        function: Option<&ASTFunctionDef>,
+    ) {
+        self.add_expr(
+            e,
+            val_context,
+            statics,
+            None,
+            module_namespace,
+            module_id,
+            modules_container,
+            function,
+        );
+
+        let e_index = ASTIndex::new(
+            module_namespace.clone(),
+            module_id.clone(),
+            e.position().clone(),
+        );
+
+        let index = ASTIndex::new(
+            module_namespace.clone(),
+            module_id.clone(),
+            position.clone(),
+        );
+
+        if let Some(entry) = self.result.get_by_index(&e_index) {
+            if let Some(filter) = &entry.filter {
+                let error_msg = if let ASTTypeFilter::Exact(ast_type, _module_info) = filter {
+                    let insert_result = if is_const {
+                        statics.insert_const(
+                            name.to_string(),
+                            ast_type.clone(),
+                            &index,
+                            astmodifiers.unwrap(),
+                        )
+                    } else {
+                        val_context.insert_let(name.to_string(), ast_type.clone(), &index)
+                    };
+                    insert_result.err()
+                } else {
+                    None
+                };
+
+                let filter_clone = entry.filter.clone();
+
+                if let Some(e) = error_msg {
+                    self.add_error(ASTTypeCheckErroKind::Error, index.clone(), e);
+                }
+
+                self.insert(
+                    index.clone(),
+                    ASTTypeCheckEntry::new(
+                        index,
+                        filter_clone,
+                        ASTTypeCheckInfo::Const(name.to_string()),
+                    ),
+                );
+            }
+        }
     }
 
     fn add_expr(
@@ -1216,7 +1209,6 @@ impl ASTTypeChecker {
                                             }
                                             None => {
                                                 /*
-
 
                                                 is_compatible = false;
                                                 println!(
