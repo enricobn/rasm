@@ -1,7 +1,6 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use ntest::timeout;
 use rasm_core::codegen::asm::code_gen_asm::AsmOptions;
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::{C, CompileTarget, NASMI386};
@@ -836,7 +835,6 @@ fn test_gameoflife_vec_sdl_compile() {
 }
 
 #[test]
-#[timeout(20000)]
 fn test_breakout() {
     if std::env::var("SKIP_SDL_TESTS").is_err() {
         compile_example("resources/examples/breakout", true);

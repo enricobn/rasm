@@ -409,6 +409,7 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
     use rasm_utils::SliceDisplay;
 
     use crate::lexer::tokens::BracketKind::*;
@@ -420,9 +421,7 @@ mod tests {
 
     #[test]
     fn test1() {
-        let lexer = Lexer::from_file(Path::new("resources/test/test1.rasm")).unwrap();
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_file(Path::new("resources/test/test1.rasm"));
 
         assert!(errors.is_empty());
 
@@ -433,9 +432,7 @@ mod tests {
 
     #[test]
     fn test2() {
-        let lexer = Lexer::from_file(Path::new("resources/test/test2.rasm")).unwrap();
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_file(Path::new("resources/test/test2.rasm"));
 
         assert!(errors.is_empty());
 
@@ -456,9 +453,7 @@ mod tests {
 
     #[test]
     fn test3() {
-        let lexer = Lexer::from_file(Path::new("resources/test/test3.rasm")).unwrap();
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_file(Path::new("resources/test/test3.rasm"));
 
         assert!(errors.is_empty());
 
@@ -485,9 +480,7 @@ mod tests {
 
     #[test]
     fn test4() {
-        let lexer = Lexer::from_file(Path::new("resources/test/test4.rasm")).unwrap();
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_file(Path::new("resources/test/test4.rasm"));
 
         assert!(errors.is_empty());
 
@@ -529,9 +522,7 @@ mod tests {
 
     #[test]
     fn test5() {
-        let lexer = Lexer::from_file(Path::new("resources/test/test5.rasm")).unwrap();
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_file(Path::new("resources/test/test5.rasm"));
 
         assert!(errors.is_empty());
 
@@ -551,9 +542,7 @@ mod tests {
 
     #[test]
     fn test6() {
-        let lexer = Lexer::from_file(Path::new("resources/test/test6.rasm")).unwrap();
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_file(Path::new("resources/test/test6.rasm"));
 
         assert!(errors.is_empty());
 
@@ -570,9 +559,7 @@ mod tests {
 
     #[test]
     fn test7() {
-        let lexer = Lexer::from_file(Path::new("resources/test/test7.rasm")).unwrap();
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_file(Path::new("resources/test/test7.rasm"));
 
         assert!(errors.is_empty());
 
@@ -597,9 +584,7 @@ mod tests {
 
     #[test]
     fn test13() {
-        let lexer = Lexer::from_file(Path::new("resources/test/test13.rasm")).unwrap();
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_file(Path::new("resources/test/test13.rasm"));
 
         assert!(errors.is_empty());
 
@@ -609,27 +594,21 @@ mod tests {
 
     #[test]
     fn test15() {
-        let lexer = Lexer::from_file(Path::new("resources/test/test15.rasm")).unwrap();
-
-        let (_tokens, errors) = lexer.process();
+        let (_tokens, errors) = lex_file(Path::new("resources/test/test15.rasm"));
 
         assert!(errors.is_empty());
     }
 
     #[test]
     fn test18() {
-        let lexer = Lexer::from_file(Path::new("resources/test/test18.rasm")).unwrap();
-
-        let (_tokens, errors) = lexer.process();
+        let (_tokens, errors) = lex_file(Path::new("resources/test/test18.rasm"));
 
         assert!(errors.is_empty());
     }
 
     #[test]
     fn test_invalid_chars() {
-        let lexer = Lexer::new("let a = f.len - 1;".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("let a = f.len - 1;");
         for token in tokens {
             println!("{:?}", token);
         }
@@ -639,18 +618,14 @@ mod tests {
 
     #[test]
     fn test_invalid_chars_1() {
-        let lexer = Lexer::new("let a = f.len /1;".to_string());
-
-        let (_tokens, errors) = lexer.process();
+        let (_tokens, errors) = lex_source("let a = f.len /1;");
 
         assert!(!errors.is_empty());
     }
 
     #[test]
     fn test_invalid_chars_2() {
-        let lexer = Lexer::new("let a = f.len - > 1;".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("let a = f.len - > 1;");
 
         for token in tokens {
             println!("{:?}", token);
@@ -661,9 +636,7 @@ mod tests {
 
     #[test]
     fn test_empty_single_line_comment() {
-        let lexer = Lexer::new("//\n//\n".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("//\n//\n");
 
         assert!(errors.is_empty());
         assert_eq!(2, tokens.len());
@@ -674,9 +647,7 @@ mod tests {
 
     #[test]
     fn test_single_line_comments() {
-        let lexer = Lexer::new("//\nlet a = 1;\n".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("//\nlet a = 1;\n");
 
         assert!(errors.is_empty());
         assert_eq!(7, tokens.len());
@@ -690,9 +661,7 @@ mod tests {
 
     #[test]
     fn test_single_line_comments_2() {
-        let lexer = Lexer::new("//\n\nlet a = 1;\n".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("//\n\nlet a = 1;\n");
 
         assert!(errors.is_empty());
         assert_eq!(8, tokens.len());
@@ -706,9 +675,7 @@ mod tests {
 
     #[test]
     fn test_empty_multi_line_comment() {
-        let lexer = Lexer::new("/*\n*/\n".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("/*\n*/\n");
 
         assert!(errors.is_empty());
         assert_eq!(2, tokens.len(), "{}", SliceDisplay(&tokens));
@@ -718,9 +685,7 @@ mod tests {
 
     #[test]
     fn string_escape() {
-        let lexer = Lexer::new("\"\\\"\"".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("\"\\\"\"");
 
         assert!(errors.is_empty());
         assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
@@ -734,9 +699,7 @@ mod tests {
 
     #[test]
     fn string_escape_1() {
-        let lexer = Lexer::new("\"\\\\\"".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("\"\\\\\"");
 
         assert!(errors.is_empty());
         assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
@@ -750,9 +713,7 @@ mod tests {
 
     #[test]
     fn string_escape_2() {
-        let lexer = Lexer::new("\"\\n\"".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("\"\\n\"");
 
         assert!(errors.is_empty());
         assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
@@ -766,9 +727,7 @@ mod tests {
 
     #[test]
     fn char_escape() {
-        let lexer = Lexer::new("'\\\"'".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("'\\\"'");
 
         assert!(errors.is_empty());
         assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
@@ -782,9 +741,7 @@ mod tests {
 
     #[test]
     fn char_escape1() {
-        let lexer = Lexer::new("'\\\\'".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("'\\\\'");
 
         assert!(errors.is_empty());
         assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
@@ -798,9 +755,7 @@ mod tests {
 
     #[test]
     fn char_escape2() {
-        let lexer = Lexer::new("'\\\\'".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("'\\\\'");
 
         assert!(errors.is_empty());
         assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
@@ -814,9 +769,7 @@ mod tests {
 
     #[test]
     fn char_escape3() {
-        let lexer = Lexer::new("'\\''".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("'\\''");
 
         assert!(errors.is_empty());
         assert_eq!(1, tokens.len(), "{}", SliceDisplay(&tokens));
@@ -826,6 +779,30 @@ mod tests {
         } else {
             panic!("Expected StringLiteral");
         }
+    }
+
+    fn lex_file(path: &Path) -> (Vec<Token>, Vec<LexerError>) {
+        let (tokens, errors) = Lexer::from_file(path).unwrap().process();
+
+        (
+            tokens
+                .into_iter()
+                .filter(|it| !matches!(it.kind, TokenKind::WhiteSpaces(_)))
+                .collect_vec(),
+            errors,
+        )
+    }
+
+    fn lex_source(source: &str) -> (Vec<Token>, Vec<LexerError>) {
+        let (tokens, errors) = Lexer::new(source.to_string()).process();
+
+        (
+            tokens
+                .into_iter()
+                .filter(|it| !matches!(it.kind, TokenKind::WhiteSpaces(_)))
+                .collect_vec(),
+            errors,
+        )
     }
 
     fn token_comment(token: &Token) -> Option<&str> {
@@ -846,9 +823,7 @@ mod tests {
 
     #[test]
     fn negative_number() {
-        let lexer = Lexer::new("let a = -1;".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("let a = -1;");
 
         assert_eq!(
             vec![
@@ -866,9 +841,7 @@ mod tests {
 
     #[test]
     fn right_arrow() {
-        let lexer = Lexer::new("fn a() -> str".to_string());
-
-        let (tokens, errors) = lexer.process();
+        let (tokens, errors) = lex_source("fn a() -> str");
 
         assert_eq!(
             vec![

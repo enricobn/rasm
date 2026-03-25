@@ -316,23 +316,6 @@ impl ASTModulesContainer {
                                 }
                             }
                         }
-
-                        if compatible {
-                            if let Some(rt) = return_type_filter {
-                                if let Ok(t_resolver) =
-                                ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
-                                        rt, rt,
-                                        index
-                                    )
-                                {
-                                    if resolver.extend(t_resolver).is_err() {
-                                        compatible = false;
-                                    }
-                                } else {
-                                    compatible = false;
-                                }
-                            }
-                        }
                         compatible
                     } else {
                         true
@@ -341,20 +324,13 @@ impl ASTModulesContainer {
                 .collect::<Vec<_>>();
         }
 
-        if result.len() > 1
-            && parameter_types_filter.len() > 0
-            && parameter_types_filter
-                .iter()
-                .all(|f| !f.is_generic_or_any())
-        {
-            result = self.best_compatible_functions(result, parameter_types_filter);
-        }
-
-        result
+        self.best_compatible_functions(result, parameter_types_filter)
     }
 
     /// Given a list of function signatures and a list of parameter type filters,
     /// return the best compatible functions based on the filters.
+    ///
+    /// We assume that the list of function signatures are already checked for compatibility.
     ///
     /// The best compatible functions are the ones with the highest sum of
     /// compatibility coefficients for each filter.
@@ -369,12 +345,18 @@ impl ASTModulesContainer {
     /// filter is not applicable to the parameter type, and the maximum of the
     /// compatibility coefficients of the filter with each of the parameter type's
     /// subtypes otherwise.
-
     pub fn best_compatible_functions<'a, 'b: 'a, 'c>(
         &'a self,
         result: Vec<&'b ASTFunctionSignatureEntry>,
         parameter_types_filter: &'c Vec<ASTTypeFilter>,
     ) -> Vec<&'a ASTFunctionSignatureEntry> {
+        if result.len() <= 1
+            || parameter_types_filter.is_empty()
+            || parameter_types_filter.iter().any(|f| f.is_generic_or_any())
+        {
+            return result;
+        }
+
         let mut functions_by_coeff = HashMap::new();
         let mut max_coeff = 0;
         for entry in result.into_iter() {
@@ -750,10 +732,16 @@ impl ASTTypeFilter {
         match &self {
             ASTTypeFilter::Exact(asttype, _) => asttype.is_generic(),
             ASTTypeFilter::Any => true,
-            ASTTypeFilter::Lambda(_, asttype_filter) => asttype_filter
-                .as_ref()
-                .map(|it| it.is_generic_or_any())
-                .unwrap_or(false),
+            ASTTypeFilter::Lambda(_, asttype_filter) => {
+                //if *par_count == 0 {
+                asttype_filter
+                    .as_ref()
+                    .map(|it| it.is_generic_or_any())
+                    .unwrap_or(false)
+                // } else {
+                // true
+                // }
+            }
         }
     }
 
@@ -776,40 +764,38 @@ impl ASTTypeFilter {
         }
     }
 
-    pub fn compatibility_coeff(
+    fn compatibility_coeff(
         &self,
         container: &ASTModulesContainer,
         ast_type: &ASTType,
         module_id: &ModuleNamespace,
     ) -> u32 {
         match self {
-            ASTTypeFilter::Exact(f_ast_type, f_module_info) => {
-                if self.is_compatible(f_ast_type, f_module_info.namespace(), container) {
-                    if let ASTType::ASTCustomType {
-                        name,
+            ASTTypeFilter::Exact(f_ast_type, _) => {
+                if let ASTType::ASTCustomType {
+                    name,
+                    param_types: _,
+                    position: _,
+                } = ast_type
+                    && let ASTType::ASTCustomType {
+                        name: f_name,
                         param_types: _,
                         position: _,
-                    } = ast_type
-                        && let ASTType::ASTCustomType {
-                            name: f_name,
-                            param_types: _,
-                            position: _,
-                        } = f_ast_type
-                    {
-                        if name == f_name { 750 } else { 0 }
-                    } else {
-                        if f_ast_type.is_generic() {
-                            500
-                        } else if ast_type.is_generic() {
-                            500
-                        } else if ast_type == f_ast_type {
-                            1000
-                        } else {
-                            0
-                        }
-                    }
+                    } = f_ast_type
+                {
+                    if name == f_name { 750 } else { 0 }
                 } else {
-                    0
+                    if ast_type == f_ast_type {
+                        1000
+                    } else if f_ast_type.is_generic() && ast_type.is_generic() {
+                        500
+                    } else if f_ast_type.is_generic() {
+                        500
+                    } else if ast_type.is_generic() {
+                        500
+                    } else {
+                        0
+                    }
                 }
             }
             ASTTypeFilter::Any => 1000,

@@ -8,9 +8,9 @@ use itertools::Itertools;
 
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::{
-    debug_i,
+    OptionDisplay, SliceDisplay, debug_i,
     debug_indent::{enable_log, log_enabled},
-    dedent, indent, OptionDisplay, SliceDisplay,
+    dedent, indent,
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
@@ -182,19 +182,10 @@ impl ASTTypeCheckEntry {
         }
     }
 
-    pub fn is_generic(&self) -> bool {
-        match &self.filter {
-            Some(ASTTypeFilter::Exact(t, _i)) => t.is_generic(),
-            Some(ASTTypeFilter::Lambda(_, rt)) => rt
-                .as_ref()
-                .map(|it| it.is_generic_or_any())
-                .unwrap_or(false),
-            _ => false,
-        }
-    }
-
-    pub fn generic_type_coeff(&self) -> Option<usize> {
-        self.filter.as_ref().and_then(|it| it.generic_type_coeff())
+    fn is_generic_or_any(&self) -> bool {
+        self.filter
+            .as_ref()
+            .map_or(false, |it| it.is_generic_or_any())
     }
 }
 
@@ -259,7 +250,13 @@ impl ASTTypeChecker {
     }
 
     fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) {
-        self.errors.remove(&index);
+        if let Some((ast_type, _)) = entry.exact() {
+            if !ast_type.is_generic() {
+                self.errors.remove(&index);
+            }
+        }
+
+        debug_i!("ast_type_check added: {entry} : {}", entry.index());
         self.result.insert(index, entry);
     }
 
@@ -524,7 +521,7 @@ impl ASTTypeChecker {
                         }
                         if let Some(rt) = self.result.get_by_index(&index) {
                             // can I do something when is generic? Take in account that it can be generic on something different
-                            if !rt.is_generic() {
+                            if !rt.is_generic_or_any() {
                                 return_type = Some(rt.clone());
                             }
                         }
@@ -680,8 +677,8 @@ impl ASTTypeChecker {
         );
 
         if let Some(r) = self.result.get_by_index(&index) {
-            if !r.is_generic() && r.exact().is_some() {
-                debug_i!("Cached {r}");
+            if !r.is_generic_or_any() && r.exact().is_some() {
+                debug_i!("Cached {r} : {index}");
                 dedent!();
 
                 return;
@@ -1079,7 +1076,7 @@ impl ASTTypeChecker {
         indent!();
 
         if let Some(t) = self.result.get_by_index(&index) {
-            if !t.is_generic() && t.exact().is_some() {
+            if !t.is_generic_or_any() && t.exact().is_some() {
                 debug_i!("Cached {t}");
                 dedent!();
                 return;
@@ -1104,12 +1101,12 @@ impl ASTTypeChecker {
                 modules_container,
                 function,
             );
-            if let Some(ast_type) = self
+            if let Some(filter) = self
                 .result
                 .get_by_index(&e_index)
-                .and_then(|it| it.filter.clone())
+                .and_then(|it| it.filter.as_ref())
             {
-                parameter_types_filters.push(ast_type.clone());
+                parameter_types_filters.push(filter.clone());
             } else {
                 parameter_types_filters.push(ASTTypeFilter::Any);
             }
@@ -1180,6 +1177,72 @@ impl ASTTypeChecker {
                 !call.is_macro() || get_macro_result_type(&it.signature.return_type).is_some()
             })
             .collect::<Vec<_>>();
+
+        if functions.len() > 1 {
+            // if there is more than one function, we try to validate the functions based on the expected expression type
+            if let Some(rt) = expected_expression_type {
+                functions = functions
+                    .into_iter()
+                    .filter(|f| {
+                        let mut is_compatible = true;
+
+                        if f.signature.return_type.is_generic() {
+                            if let Ok(rgt) =
+                                ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
+                                    &f.signature.return_type,
+                                    &rt,
+                                    &index,
+                                )
+                            {
+                                for (filter, p) in zip(
+                                    parameter_types_filters.iter(),
+                                    f.signature.parameters_types.iter(),
+                                ) {
+                                    if p.is_generic() {
+                                        match rgt.substitute(&p) {
+                                            Some(substituted_type) => {
+                                                if !filter.is_compatible(
+                                                    &substituted_type,
+                                                    module_namespace,
+                                                    modules_container,
+                                                ) {
+                                                    is_compatible = false;
+                                                    // println!(
+                                                    // "substituted type is not compatible with filter for {}, {filter} {substituted_type}",
+                                                    // f.signature
+                                                    // );
+                                                    break;
+                                                }
+                                            }
+                                            None => {
+                                                /*
+
+
+                                                is_compatible = false;
+                                                println!(
+                                                    "failed to substitute generic types for {} rgt:{rgt}",
+                                                    f.signature
+                                                );
+                                                                                                println!(
+                                                    "    {p}"
+                                                );
+                                                break;
+                                                */
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                println!("failed to resolve generic types for {}", f.signature);
+                                return false;
+                            }
+                        }
+
+                        is_compatible
+                    })
+                    .collect_vec();
+            }
+        }
 
         if functions.is_empty() {
             self.add_error(
@@ -1467,6 +1530,9 @@ impl ASTTypeChecker {
             function_signature_entry.position.clone(),
         );
 
+        let mut new_function_signature = function_signature_entry.signature.clone();
+        new_function_signature.return_type = return_type.clone();
+
         if is_lambda {
             self.insert(
                 index.clone(),
@@ -1587,7 +1653,7 @@ mod tests {
     };
 
     use itertools::Itertools;
-    use rasm_utils::{test_utils::init_minimal_log, OptionDisplay, SliceDisplay};
+    use rasm_utils::{OptionDisplay, SliceDisplay, test_utils::init_minimal_log};
 
     use crate::{
         ast::ast_module_tree::{ASTElement, ASTModuleTree},
@@ -1608,14 +1674,14 @@ mod tests {
         },
     };
     use rasm_parser::{
-        catalog::{modules_catalog::ModulesCatalog, ModuleId, ModuleNamespace},
+        catalog::{ModuleId, ModuleNamespace, modules_catalog::ModulesCatalog},
         lexer::Lexer,
         parser::{
+            Parser,
             ast::{
                 ASTExpression, ASTFunctionCall, ASTLambdaDef, ASTModule, ASTPosition, ASTStatement,
                 ASTValue,
             },
-            Parser,
         },
     };
 
@@ -2227,6 +2293,40 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_generic_function_in_lambda() {
+        init_minimal_log();
+
+        type_check_functions(
+            r#"
+                pub fn aFunction() -> Vec<int> {
+                    if(true, {
+                        vecOf(1);
+                    }, Vec);
+                }
+            "#,
+            6,
+        );
+    }
+
+    #[test]
+    #[ignore = "for now it cannot work, let this for the future"]
+    fn test_generic_function_in_lambda_and_let() {
+        init_minimal_log();
+
+        type_check_functions(
+            r#"
+                pub fn aFunction() -> Vec<int> {
+                    let a = if(true, {
+                        vecOf(1);
+                    }, Vec);
+                    a;
+                }
+            "#,
+            8,
+        );
+    }
+
     fn type_check_functions(s: &str, expected_entries: usize) {
         let project = RasmProject::new(PathBuf::from("../stdlib"));
 
@@ -2257,18 +2357,23 @@ mod tests {
             );
         }
 
+        for (i, e) in checker.errors.iter() {
+            println!("Error: {e} : {i}");
+        }
+
         assert_eq!(checker.result.map.len(), expected_entries);
 
         for entry in checker.result.map.values() {
             if let Some((t, _)) = entry.exact() {
-                assert!(!t.is_generic())
+                assert!(
+                    !t.is_generic(),
+                    "{t} is generic in {entry} : {}",
+                    entry.index()
+                );
             }
         }
 
         if !checker.errors.is_empty() {
-            for (i, e) in checker.errors {
-                println!("Error: {e} : {i}");
-            }
             panic!();
         }
     }
