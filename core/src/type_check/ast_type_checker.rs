@@ -1530,9 +1530,6 @@ impl ASTTypeChecker {
             function_signature_entry.position.clone(),
         );
 
-        let mut new_function_signature = function_signature_entry.signature.clone();
-        new_function_signature.return_type = return_type.clone();
-
         if is_lambda {
             self.insert(
                 index.clone(),
