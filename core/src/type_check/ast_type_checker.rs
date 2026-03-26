@@ -1068,14 +1068,6 @@ impl ASTTypeChecker {
 
         indent!();
 
-        if let Some(t) = self.result.get_by_index(&index) {
-            if !t.is_generic_or_any() && t.exact().is_some() {
-                debug_i!("Cached {t}");
-                dedent!();
-                return;
-            }
-        }
-
         let mut parameter_types_filters = Vec::new();
 
         for e in call.parameters().iter() {
