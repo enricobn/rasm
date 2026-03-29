@@ -1390,22 +1390,6 @@ impl ASTTypeChecker {
             return;
         }
 
-        for (i, parameter) in function_signature.parameters_types.iter().enumerate() {
-            if parameter.is_generic() {
-                let calculated_type_filter = parameter_types_filters.get(i).unwrap();
-
-                let p_errors = Self::add_resolve_type_filter(
-                    &index,
-                    parameter,
-                    calculated_type_filter,
-                    &mut resolved_generic_types,
-                );
-
-                for e in p_errors {
-                    self.errors.insert(e.index.clone(), e);
-                }
-            }
-        }
         if let Some(eet) = expected_expression_type {
             if function_signature.return_type.is_generic() {
                 if let Err(e) = ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
@@ -1459,14 +1443,16 @@ impl ASTTypeChecker {
 
                 if let Some(entry) = self.result.get_by_index(&e_index) {
                     if let Some(ref calculated_type_filter) = entry.filter {
-                        let p_errors = Self::add_resolve_type_filter(
-                            &index,
-                            &parameter_type,
-                            calculated_type_filter,
-                            &mut resolved_generic_types,
-                        );
+                        if parameter_type.is_generic() {
+                            let p_errors = Self::add_resolve_type_filter(
+                                &index,
+                                &parameter_type,
+                                calculated_type_filter,
+                                &mut resolved_generic_types,
+                            );
 
-                        loop_errors.extend(p_errors);
+                            loop_errors.extend(p_errors);
+                        }
                     }
                 }
             }
