@@ -1,5 +1,5 @@
 set -e
-cargo run -- install stdlib
-cargo run -- install rasm/resources/examples/sdl/
-cargo run -- install rasm/resources/examples/uv/
-cargo run -- install rasm/resources/examples/rasm2d/
+cargo run --release -- install stdlib
+cargo run --release -- install rasm/resources/examples/sdl/
+cargo run --release -- install rasm/resources/examples/uv/
+cargo run --release -- install rasm/resources/examples/rasm2d/
