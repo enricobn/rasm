@@ -258,6 +258,11 @@ impl ASTResolvedGenericTypes {
     }
 
     pub fn extend(&mut self, other: ASTResolvedGenericTypes) -> Result<(), String> {
+        self.map.extend(other.map);
+        /*
+        // TODO must we check this? In some cases if we check it we get an error, because we put initially the wrong generic 
+        // type, then we replace it with the right one
+        
         for (key, new_type) in other.map.into_iter() {
             let inner = self.map.entry(key.clone()).or_insert(LinkedHashMap::new());
             for (key1, t) in new_type.into_iter() {
@@ -272,6 +277,7 @@ impl ASTResolvedGenericTypes {
                 inner.insert(key1, t);
             }
         }
+        */
         Ok(())
     }
 

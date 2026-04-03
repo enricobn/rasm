@@ -90,7 +90,7 @@ pub enum ASTTypeCheckInfo {
     Let(String),
     Const(String),
     Param(String),
-    Value(usize), // the length of the token of the Value, for example gfor a string "s" it's 3
+    Value(usize), // the length of the token of the Value, for example for a string "s" it's 3
     Lambda,
 }
 
@@ -798,45 +798,39 @@ impl ASTTypeChecker {
                 ),
             );
         } else {
-            let mut function_references = modules_container.signatures();
+            let module_info = ModuleInfo::new(module_namespace.clone(), module_id.clone());
 
-            function_references = function_references
-                .iter()
-                .cloned()
-                .filter(|it| {
-                    &it.signature.name == name
-                        && it
-                            .namespace
-                            .visible_from(&it.signature.modifiers, &module_namespace)
-                })
-                .collect_vec();
-
-            if let Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
-                parameters,
-                return_type,
-            })) = expected_expression_type
-            {
-                let module_info = ModuleInfo::new(module_namespace.clone(), module_id.clone());
-                function_references = function_references
-                    .iter()
-                    .cloned()
-                    .filter(|it| it.signature.parameters_types.len() == parameters.len())
-                    .filter(|it| {
-                        ASTTypeFilter::Exact(return_type.as_ref().clone(), module_info.clone())
-                            .is_compatible(
-                                &it.signature.return_type,
-                                &it.namespace,
-                                modules_container,
-                            )
-                    })
-                    .filter(|it| {
-                        zip(it.signature.parameters_types.iter(), parameters).all(|(a, b)| {
-                            return ASTTypeFilter::Exact(b.clone(), module_info.clone())
-                                .is_compatible(&a, &it.namespace, modules_container);
+            let mut function_references =
+                if let Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
+                    parameters,
+                    return_type,
+                })) = expected_expression_type
+                {
+                    modules_container.find_call_vec(
+                        name,
+                        &None, //TODO
+                        parameters
+                            .iter()
+                            .map(|it| ASTTypeFilter::Exact(it.clone(), module_info.clone()))
+                            .collect_vec()
+                            .as_ref(),
+                        Some(&return_type.clone()),
+                        module_namespace,
+                        &index,
+                    )
+                } else {
+                    modules_container
+                        .signatures()
+                        .iter()
+                        .filter(|it| {
+                            &it.signature.name == name
+                                && it
+                                    .namespace
+                                    .visible_from(&it.signature.modifiers, &module_namespace)
                         })
-                    })
-                    .collect::<Vec<_>>();
-            }
+                        .cloned()
+                        .collect_vec()
+                };
 
             if function_references.len() == 1 {
                 let fun_entry = function_references.remove(0);
@@ -1359,21 +1353,13 @@ impl ASTTypeChecker {
 
         let mut resolved_generic_types = ASTResolvedGenericTypes::new();
 
-        if call.generics().len() > 0 {
-            if call.generics().len() != function_signature.generics.len() {
-                panic!(
-                    "call.generics().len() ({}) != function_signature.generics.len() ({})",
-                    call.generics().len(),
-                    function_signature.generics.len()
-                );
-            }
-
-            for (i, g) in call.generics().iter().enumerate() {
-                let t = function_signature.generics[i].clone();
-                // TODO var_types
-                resolved_generic_types.insert(t.clone(), Vec::new(), g.clone());
-            }
-        }
+        self.resolve_signature_generics_with_call_generics(
+            function_signature,
+            call,
+            &mut resolved_generic_types,
+            function,
+            &index,
+        );
 
         if function_signature.parameters_types.len() != parameter_types_filters.len() {
             self.add_error(
@@ -1444,14 +1430,12 @@ impl ASTTypeChecker {
                 if let Some(entry) = self.result.get_by_index(&e_index) {
                     if let Some(ref calculated_type_filter) = entry.filter {
                         if parameter_type.is_generic() {
-                            let p_errors = Self::add_resolve_type_filter(
+                            loop_errors = Self::add_resolve_type_filter(
                                 &index,
                                 &parameter_type,
                                 calculated_type_filter,
                                 &mut resolved_generic_types,
                             );
-
-                            loop_errors.extend(p_errors);
                         }
                     }
                 }
@@ -1532,10 +1516,80 @@ impl ASTTypeChecker {
             );
         }
 
-        // there could be "phantom" errors when generics are not completely resolved, I remove them
-        self.errors.remove(&index);
-
         dedent!();
+    }
+
+    /// Resolve the generics of a function signature based on the generics of a function call, and put that in `resolved_generic_types`.
+    ///
+    /// If the call has generics, it means that the call has been done specifying the types for the generics.
+    /// If one of the types is generic, it means that we are inside a generic function definition where that type is a generic type of that function definition, so we add the prefix.
+    /// If the call does not have generics, it means that the call has not been done specifying the types for the generics. So it's simpler...
+    ///
+    /// `inside_function` is `Some` if the function call is inside a function definition, and `None` otherwise.
+    /// `index` is the index of the function call
+    fn resolve_signature_generics_with_call_generics(
+        &mut self,
+        function_signature: &ASTFunctionSignature,
+        call: &ASTFunctionCall,
+        resolved_generic_types: &mut ASTResolvedGenericTypes,
+        inside_function: Option<&ASTFunctionDef>,
+        index: &ASTIndex,
+    ) {
+        if call.generics().is_empty() {
+            return;
+        }
+
+        if call.generics().len() != function_signature.generics.len() {
+            self.add_error(
+                ASTTypeCheckErroKind::Fatal,
+                index.clone(),
+                format!(
+                    "Generics in the call do not match the generics in the function signature, the call has {} generics and the function signature has {} generics",
+                    call.generics().len(),
+                    function_signature.generics.len()
+                ),
+            );
+            return;
+        }
+
+        // The call has been done specifying the types for the generics.
+        // If one of the types is generic, so for example in the call afunction<T>(arguments...),
+        // it means that we are inside a generic function definition where T is a generic type of that function
+        // definition, so we add the prefix.
+        if call.generics().iter().any(|it| it.is_generic()) {
+            match inside_function {
+                Some(f) => {
+                    let generics_prefix = f
+                        .signature()
+                        .generics_prefix(&index.module_namespace().safe_name());
+
+                    for (i, g) in call.generics().iter().enumerate() {
+                        let t = function_signature.generics[i].clone();
+
+                        // TODO var_types
+                        resolved_generic_types.insert(
+                            t,
+                            Vec::new(),
+                            g.clone().add_generic_prefix(&generics_prefix),
+                        );
+                    }
+                }
+                None => {
+                    self.add_error(
+                        ASTTypeCheckErroKind::Fatal,
+                        index.clone(),
+                        "Used a generic function call outside of a function.".to_string(),
+                    );
+                }
+            }
+        // The call has not been done specifying the types for the generics. So it's simpler...
+        } else {
+            for (i, g) in call.generics().iter().enumerate() {
+                let t = function_signature.generics[i].clone();
+                // TODO var_types
+                resolved_generic_types.insert(t, Vec::new(), g.clone());
+            }
+        }
     }
 
     fn add_resolve_type_filter(
@@ -2201,6 +2255,7 @@ mod tests {
                 }
             "#,
             3,
+            false,
         );
     }
 
@@ -2214,6 +2269,7 @@ mod tests {
                 }
             "#,
             4,
+            false,
         );
     }
 
@@ -2227,6 +2283,7 @@ mod tests {
                 }
             "#,
             12,
+            false,
         );
     }
 
@@ -2243,6 +2300,7 @@ mod tests {
                 }
             "#,
             10,
+            false,
         );
     }
 
@@ -2257,6 +2315,7 @@ mod tests {
                 }
             "#,
             9,
+            false,
         );
     }
 
@@ -2273,6 +2332,7 @@ mod tests {
                 }
             "#,
             6,
+            false,
         );
     }
 
@@ -2291,10 +2351,50 @@ mod tests {
                 }
             "#,
             8,
+            false,
         );
     }
 
-    fn type_check_functions(s: &str, expected_entries: usize) {
+    #[test]
+    fn test_type_check_function_ref() {
+        type_check_functions(
+            r#"
+                pub fn aFunction<OK,ERROR,T>(result: Result<OK,ERROR>, mapFun: fn(OK) -> T) -> Result<T,ERROR> {
+                    result.match(fn(value) { Ok(mapFun(value)); }, Error);
+                }
+            "#,
+            8,
+            true,
+        );
+    }
+
+    #[test]
+    fn test_type_check_function_ref1() {
+        type_check_functions(
+            r#"
+                pub fn aFunction<OK,ERROR>(r: Result<Result<OK,ERROR>,ERROR>) -> Result<OK,ERROR> {
+                    r.match(identity, Error);
+                }
+            "#,
+            4,
+            true,
+        );
+    }
+
+    #[test]
+    fn test_type_check_function_ref2() {
+        type_check_functions(
+            r#"
+                pub fn aFunction<OK,ERROR,T>(l: Result<OK,ERROR>, f: fn(OK) -> Result<T,ERROR>) -> Result<T,ERROR> {
+                    l.match(f, Error);
+                }
+            "#,
+            4,
+            true,
+        );
+    }
+
+    fn type_check_functions(s: &str, expected_entries: usize, can_be_generic: bool) {
         let project = RasmProject::new(PathBuf::from("../stdlib"));
 
         let (modules_container, catalog, _) = project
@@ -2332,11 +2432,15 @@ mod tests {
 
         for entry in checker.result.map.values() {
             if let Some((t, _)) = entry.exact() {
-                assert!(
-                    !t.is_generic(),
-                    "{t} is generic in {entry} : {}",
-                    entry.index()
-                );
+                if !can_be_generic {
+                    assert!(
+                        !t.is_generic(),
+                        "{t} is generic in {entry} : {}",
+                        entry.index()
+                    );
+                }
+            } else {
+                panic!("not exact in {entry} : {}", entry.index());
             }
         }
 

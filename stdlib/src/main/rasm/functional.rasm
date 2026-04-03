@@ -17,6 +17,10 @@ pub fn sum<M,T>(v: M<T>) -> T {
     });
 }
 
+pub fn identity<T>(value: T) -> T {
+    value;
+}
+
 fn zero() -> int {
     0;
 }

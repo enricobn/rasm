@@ -408,6 +408,9 @@ impl ASTType {
     }
 
     pub fn add_generic_prefix(self, prefix: &dyn Display) -> Self {
+        if !self.is_generic() {
+            return self;
+        }
         if format!("{prefix}").contains(":") {
             panic!("unsupported prefix {prefix}");
         }
