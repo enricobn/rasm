@@ -1291,6 +1291,8 @@ impl ASTTypeChecker {
                     })
                 }) {
                     self.errors.insert(index.clone(), e);
+                    dedent!();
+                    return None;
                 }
             }
         }
