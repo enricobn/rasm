@@ -4,6 +4,7 @@ use std::{
     iter::zip,
 };
 
+use itertools::Itertools;
 use rasm_utils::{OptionDisplay, SliceDisplay, debug_i, find_one};
 
 use rasm_parser::{
@@ -16,9 +17,7 @@ use rasm_parser::{
 
 use crate::{
     ast::ast_module_tree::ASTModuleTree,
-    type_check::{
-        ast_generic_types_resolver::ASTResolvedGenericTypes, ast_type_checker::ASTTypeChecker,
-    },
+    type_check::ast_generic_types_resolver::ASTResolvedGenericTypes,
 };
 
 #[derive(Clone)]
@@ -270,58 +269,60 @@ impl ASTModulesContainer {
                     })
                     .unwrap_or(true)
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
 
         if result.len() > 1 {
             if let Some(rt) = return_type_filter {
                 result = result
                     .into_iter()
-                    .filter(|it| {
-                        self.is_compatible(
-                            rt,
-                            function_call_module_namespace,
-                            &it.signature.return_type,
-                            &it.namespace,
-                        )
-                    })
-                    .collect::<Vec<_>>();
-            }
-        }
+                    .filter(|f| {
+                        let mut is_compatible = true;
 
-        if result.len() > 1 {
-            result = result
-                .into_iter()
-                .filter(|it| {
-                    if it.signature.is_generic() {
-                        let mut resolver = ASTResolvedGenericTypes::new();
-                        let mut compatible = true;
-                        for (filter, t) in
-                            zip(parameter_types_filter, &it.signature.parameters_types)
-                        {
-                            let t = if let Some(new_t) = resolver.substitute(t) {
-                                new_t
-                            } else {
-                                t.clone()
-                            };
-                            match ASTTypeChecker::resolve_type_filter(&t, filter, index) {
-                                Ok(t_resolver) => {
-                                    if resolver.extend(t_resolver).is_err() {
-                                        compatible = false;
-                                        break;
+                        if f.signature.is_generic() {
+                            if let Ok(rgt) =
+                                ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
+                                    &f.signature.return_type,
+                                    &rt,
+                                    &index,
+                                )
+                            {
+                                for (filter, p) in zip(
+                                    parameter_types_filter.iter(),
+                                    f.signature.parameters_types.iter(),
+                                ) {
+                                    if p.is_generic() {
+                                        match rgt.substitute(&p) {
+                                            Some(substituted_type) => {
+                                                if !filter.is_compatible(
+                                                    &substituted_type,
+                                                    &index.module_namespace(),
+                                                    self,
+                                                ) {
+                                                    is_compatible = false;
+                                                    break;
+                                                }
+                                            }
+                                            None => {}
+                                        }
                                     }
                                 }
-                                Err(_e) => {
-                                    compatible = false;
-                                    break;
-                                }
+                            } else {
+                                debug_i!("failed to resolve generic types for {}", f.signature);
+                                return false;
                             }
+                        } else {
+                            is_compatible = self.is_compatible(
+                                rt,
+                                function_call_module_namespace,
+                                &f.signature.return_type,
+                                &f.namespace,
+                            );
                         }
-                        compatible
-                    } else {
-                        true
-                    }
-                })
-                .collect::<Vec<_>>();
+
+                        is_compatible
+                    })
+                    .collect_vec();
+            }
         }
 
         self.best_compatible_functions(result, parameter_types_filter)

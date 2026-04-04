@@ -1157,71 +1157,6 @@ impl ASTTypeChecker {
             })
             .collect::<Vec<_>>();
 
-        if functions.len() > 1 {
-            // if there is more than one function, we try to validate the functions based on the expected expression type
-            if let Some(rt) = expected_expression_type {
-                functions = functions
-                    .into_iter()
-                    .filter(|f| {
-                        let mut is_compatible = true;
-
-                        if f.signature.return_type.is_generic() {
-                            if let Ok(rgt) =
-                                ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
-                                    &f.signature.return_type,
-                                    &rt,
-                                    &index,
-                                )
-                            {
-                                for (filter, p) in zip(
-                                    parameter_types_filters.iter(),
-                                    f.signature.parameters_types.iter(),
-                                ) {
-                                    if p.is_generic() {
-                                        match rgt.substitute(&p) {
-                                            Some(substituted_type) => {
-                                                if !filter.is_compatible(
-                                                    &substituted_type,
-                                                    module_namespace,
-                                                    modules_container,
-                                                ) {
-                                                    is_compatible = false;
-                                                    // println!(
-                                                    // "substituted type is not compatible with filter for {}, {filter} {substituted_type}",
-                                                    // f.signature
-                                                    // );
-                                                    break;
-                                                }
-                                            }
-                                            None => {
-                                                /*
-
-                                                is_compatible = false;
-                                                println!(
-                                                    "failed to substitute generic types for {} rgt:{rgt}",
-                                                    f.signature
-                                                );
-                                                                                                println!(
-                                                    "    {p}"
-                                                );
-                                                break;
-                                                */
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                println!("failed to resolve generic types for {}", f.signature);
-                                return false;
-                            }
-                        }
-
-                        is_compatible
-                    })
-                    .collect_vec();
-            }
-        }
-
         if functions.is_empty() {
             self.add_error(
                 ASTTypeCheckErroKind::Error,
@@ -1234,89 +1169,87 @@ impl ASTTypeChecker {
                     OptionDisplay(call.target())
                 ),
             );
-        } else {
-            if functions.len() > 1 {
-                let functions_msg = functions
-                    .iter()
-                    .map(|it| {
-                        format!(
-                            "  function {} rank {}",
-                            it.signature.clone().remove_generic_prefix(),
-                            it.rank
-                        )
-                    })
-                    .join("\n");
-
-                let is_generic = function.map(ASTFunctionDef::is_generic).unwrap_or(false);
-                self.add_error(
-                    if is_generic {
-                        ASTTypeCheckErroKind::Warning
-                    } else {
-                        ASTTypeCheckErroKind::Error
-                    },
-                    index.clone(),
+        } else if functions.len() > 1 {
+            let functions_msg = functions
+                .iter()
+                .map(|it| {
                     format!(
-                        "found more than one function for {}\n{functions_msg}",
-                        call.function_name()
-                    ),
-                );
+                        "  function {} rank {}",
+                        it.signature.clone().remove_generic_prefix(),
+                        it.rank
+                    )
+                })
+                .join("\n");
 
-                let return_types = functions
-                    .iter()
-                    .map(|it| &it.signature.return_type)
-                    .collect::<HashSet<_>>();
-
-                let filter = if return_types.len() == 1 {
-                    Some(ASTTypeFilter::exact(
-                        (*return_types.iter().exactly_one().unwrap()).clone(),
-                        module_namespace,
-                        module_id,
-                    ))
+            let is_generic = function.map(ASTFunctionDef::is_generic).unwrap_or(false);
+            self.add_error(
+                if is_generic {
+                    ASTTypeCheckErroKind::Warning
                 } else {
-                    None
-                };
+                    ASTTypeCheckErroKind::Error
+                },
+                index.clone(),
+                format!(
+                    "found more than one function for {}\n{functions_msg}",
+                    call.function_name()
+                ),
+            );
 
-                self.insert(
-                    index.clone(),
-                    ASTTypeCheckEntry::new(
-                        index,
-                        filter,
-                        ASTTypeCheckInfo::Call(
-                            call.function_name().clone(),
-                            functions
-                                .into_iter()
-                                .map(|it| {
-                                    (
-                                        it.signature.clone(),
-                                        ASTIndex::new(
-                                            it.namespace.clone(),
-                                            it.module_id.clone(),
-                                            it.position.clone(),
-                                        ),
-                                    )
-                                })
-                                .collect(),
-                            call.is_macro(),
-                        ),
-                    ),
-                );
-            } else {
-                let found_function = functions.remove(0);
+            let return_types = functions
+                .iter()
+                .map(|it| &it.signature.return_type)
+                .collect::<HashSet<_>>();
 
-                self.process_function_signature(
-                    &found_function,
-                    &parameter_types_filters,
-                    &call,
-                    val_context,
-                    statics,
-                    expected_expression_type,
+            let filter = if return_types.len() == 1 {
+                Some(ASTTypeFilter::exact(
+                    (*return_types.iter().exactly_one().unwrap()).clone(),
                     module_namespace,
                     module_id,
-                    false,
-                    modules_container,
-                    function,
-                );
-            }
+                ))
+            } else {
+                None
+            };
+
+            self.insert(
+                index.clone(),
+                ASTTypeCheckEntry::new(
+                    index,
+                    filter,
+                    ASTTypeCheckInfo::Call(
+                        call.function_name().clone(),
+                        functions
+                            .into_iter()
+                            .map(|it| {
+                                (
+                                    it.signature.clone(),
+                                    ASTIndex::new(
+                                        it.namespace.clone(),
+                                        it.module_id.clone(),
+                                        it.position.clone(),
+                                    ),
+                                )
+                            })
+                            .collect(),
+                        call.is_macro(),
+                    ),
+                ),
+            );
+        } else {
+            let found_function = functions.remove(0);
+
+            self.process_function_signature(
+                &found_function,
+                &parameter_types_filters,
+                &call,
+                val_context,
+                statics,
+                expected_expression_type,
+                module_namespace,
+                module_id,
+                false,
+                modules_container,
+                function,
+            );
         }
         dedent!();
     }
