@@ -1389,7 +1389,7 @@ impl ASTTypeChecker {
                         call_module_namespace,
                         call_module_id,
                     )),
-                    ASTTypeCheckInfo::LambdaCall(function_signature.clone(), call_index.clone()),
+                    ASTTypeCheckInfo::LambdaCall(function_signature.clone(), call_index),
                 ),
             ))
         } else {
@@ -1404,7 +1404,7 @@ impl ASTTypeChecker {
                     )),
                     ASTTypeCheckInfo::Call(
                         call.function_name().clone(),
-                        vec![(function_signature.clone(), call_index.clone())],
+                        vec![(function_signature.clone(), call_index)],
                         call.is_macro(),
                     ),
                 ),
