@@ -1341,8 +1341,12 @@ impl ASTTypeChecker {
             dedent!();
 
             if resolved_generic_types.len() == resolved_generic_types_len {
-                for e in loop_errors {
-                    self.errors.insert(e.index.clone(), e);
+                if !loop_errors.is_empty() {
+                    for e in loop_errors {
+                        self.errors.insert(e.index.clone(), e);
+                    }
+                    dedent!();
+                    return None;
                 }
                 break;
             }
