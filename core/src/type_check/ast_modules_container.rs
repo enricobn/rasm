@@ -233,8 +233,8 @@ impl ASTModulesContainer {
         call_target: &Option<String>,
         parameter_types_filter: &Vec<ASTTypeFilter>,
         return_type_filter: Option<&ASTType>,
-        function_call_module_namespace: &ModuleNamespace,
-        index: &ASTIndex,
+        call_module_namespace: &ModuleNamespace,
+        call_index: &ASTIndex,
     ) -> Vec<&ASTFunctionSignatureEntry> {
         debug_i!(
             "find_call_vec {function_to_call} {}",
@@ -253,7 +253,7 @@ impl ASTModulesContainer {
                 entry.signature.parameters_types.len() == parameter_types_filter.len()
                     && entry
                         .namespace
-                        .visible_from(&entry.signature.modifiers, &function_call_module_namespace)
+                        .visible_from(&entry.signature.modifiers, &call_module_namespace)
             })
             .filter(|entry| {
                 zip(parameter_types_filter, &entry.signature.parameters_types).all(
@@ -283,7 +283,7 @@ impl ASTModulesContainer {
                                 ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
                                     &f.signature.return_type,
                                     &rt,
-                                    &index,
+                                    &call_index,
                                 )
                             {
                                 for (filter, p) in zip(
@@ -295,7 +295,7 @@ impl ASTModulesContainer {
                                             Some(substituted_type) => {
                                                 if !filter.is_compatible(
                                                     &substituted_type,
-                                                    &index.module_namespace(),
+                                                    &call_index.module_namespace(),
                                                     self,
                                                 ) {
                                                     is_compatible = false;
@@ -313,7 +313,7 @@ impl ASTModulesContainer {
                         } else {
                             is_compatible = self.is_compatible(
                                 rt,
-                                function_call_module_namespace,
+                                call_module_namespace,
                                 &f.signature.return_type,
                                 &f.namespace,
                             );

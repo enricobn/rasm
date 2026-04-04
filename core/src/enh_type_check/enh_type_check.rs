@@ -3,6 +3,7 @@ use std::{
     iter::zip,
     ops::Deref,
     sync::atomic::{AtomicUsize, Ordering},
+    sync::Arc,
 };
 
 use itertools::Itertools;
@@ -10,14 +11,13 @@ use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
 use log::info;
 use rasm_parser::{
-    catalog::{ModuleInfo, modules_catalog::ModulesCatalog},
+    catalog::{modules_catalog::ModulesCatalog, ModuleInfo},
     parser::ast::{ASTBuiltinTypeKind, ASTType},
 };
-use rasm_utils::{OptionDisplay, SliceDisplay, debug_i, dedent, indent};
+use rasm_utils::{debug_i, dedent, indent, OptionDisplay, SliceDisplay};
 
 use crate::{
     codegen::{
-        EnhValKind,
         c::code_gen_c::value_type_to_enh_type,
         compile_target::CompileTarget,
         enh_ast::{
@@ -29,6 +29,7 @@ use crate::{
         enhanced_module::EnhancedASTModule,
         statics::Statics,
         typedef_provider::DummyTypeDefProvider,
+        EnhValKind,
     },
     enh_type_check::enh_functions_container::EnhTypeFilter,
     errors::{CompilationError, CompilationErrorKind},
@@ -1961,7 +1962,7 @@ impl<'a> EnhTypeCheck<'a> {
         )
     }
 
-    fn get_type_check_entry(&self, enh_index: &EnhASTIndex) -> Option<&ASTTypeCheckEntry> {
+    fn get_type_check_entry(&self, enh_index: &EnhASTIndex) -> Option<&Arc<ASTTypeCheckEntry>> {
         self.type_checker.result.get(enh_index.position.id)
     }
 
@@ -1984,7 +1985,7 @@ impl<'a> EnhTypeCheck<'a> {
 
         if let Some(enh_index) = typed_expression.get_index() {
             if let Some(t) = self.get_type_check_entry(enh_index) {
-                if let Some(f) = t.filter() {
+                if let Some(f) = t.as_ref().filter() {
                     if !f.is_generic_or_any() {
                         /*
                         println!(
