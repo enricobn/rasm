@@ -56,7 +56,7 @@ impl ASTTypeCheckError {
     }
 
     pub fn add(self, kind: ASTTypeCheckErroKind, index: ASTIndex, message: String) -> Self {
-        let mut result = self.clone();
+        let mut result = self;
         result
             .inner
             .push(ASTTypeCheckError::new(kind, index, message));
