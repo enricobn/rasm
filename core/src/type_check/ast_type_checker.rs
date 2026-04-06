@@ -1039,7 +1039,7 @@ impl ASTTypeChecker {
 
         indent!();
 
-        let mut parameter_types_filters = Vec::new();
+        let mut parameter_types_filters = Vec::with_capacity(call.parameters().len());
 
         for e in call.parameters().iter() {
             if let Some(entry) = self
