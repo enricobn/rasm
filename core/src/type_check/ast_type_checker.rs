@@ -474,13 +474,14 @@ impl ASTTypeChecker {
                 info: ASTTypeCheckInfo::Lambda, // TODO
             }));
         }
+        let last_statement_index = body.len() - 1;
         let mut return_type = None;
         let inner_val_context = &mut ValContext::new(Some(val_context));
 
         for (i, statement) in body.iter().enumerate() {
             match statement {
                 ASTStatement::ASTExpressionStatement(e, _) => {
-                    if i == body.len() - 1 {
+                    if i == last_statement_index {
                         let entry = if let Some(ref elst) = expected_last_statement_type {
                             if !elst.is_unit() {
                                 self.add_expr(
@@ -1297,6 +1298,7 @@ impl ASTTypeChecker {
             }
         }
 
+        let mut loop_errors = Vec::new();
         loop {
             if call.parameters().is_empty() {
                 break;
@@ -1304,7 +1306,7 @@ impl ASTTypeChecker {
             debug_i!("loop  {}", resolved_generic_types);
             indent!();
             let resolved_generic_types_len = resolved_generic_types.len();
-            let mut loop_errors = Vec::new();
+            loop_errors.clear();
 
             for (i, e) in call.parameters().iter().enumerate() {
                 let parameter_type = function_signature.parameters_types.get(i).unwrap();
@@ -1327,12 +1329,12 @@ impl ASTTypeChecker {
                 ) {
                     if let Some(ref calculated_type_filter) = entry.filter {
                         if parameter_type.is_generic() {
-                            loop_errors = Self::add_resolve_type_filter(
+                            loop_errors.extend(Self::add_resolve_type_filter(
                                 entry.index(),
                                 &parameter_type,
                                 calculated_type_filter,
                                 &mut resolved_generic_types,
-                            );
+                            ));
                         }
                     }
                 }
