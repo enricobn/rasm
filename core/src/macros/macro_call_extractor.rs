@@ -318,59 +318,62 @@ fn get_macro_call(
     module_id: &ModuleId,
     in_function: Option<&ASTFunctionSignature>,
 ) -> MacroCall {
-    let functions_vec = container
-        .signatures()
-        .into_iter()
-        .filter(|it| &it.signature.name == call.function_name())
-        .map(|it| (it, get_macro_result_type(&it.signature.return_type)))
-        .filter(|(entry, macro_result_type)| {
-            entry
-                .module_info()
-                .namespace()
-                .visible_from(&entry.signature.modifiers, &module_namespace)
-                && macro_result_type.is_some()
-        })
-        .filter(|(entry, macro_result_type)| match &macro_type {
-            MacroType::Expression => macro_result_type.unwrap() == MacroResultType::Expression,
-            MacroType::Statement => macro_result_type.unwrap() == MacroResultType::Statement,
-            MacroType::StructAttribute(_) => {
-                if macro_result_type.unwrap() != MacroResultType::Attribute {
-                    return false;
+    let functions_vec = if let Some(signatures) = container.get_signatures(call.function_name()) {
+        signatures
+            .into_iter()
+            .filter(|it| &it.signature.name == call.function_name())
+            .map(|it| (it, get_macro_result_type(&it.signature.return_type)))
+            .filter(|(entry, macro_result_type)| {
+                entry
+                    .module_info()
+                    .namespace()
+                    .visible_from(&entry.signature.modifiers, &module_namespace)
+                    && macro_result_type.is_some()
+            })
+            .filter(|(entry, macro_result_type)| match &macro_type {
+                MacroType::Expression => macro_result_type.unwrap() == MacroResultType::Expression,
+                MacroType::Statement => macro_result_type.unwrap() == MacroResultType::Statement,
+                MacroType::StructAttribute(_) => {
+                    if macro_result_type.unwrap() != MacroResultType::Attribute {
+                        return false;
+                    }
+                    if entry.signature.parameters_types.len() == 0 {
+                        return false;
+                    }
+                    if let ASTType::ASTCustomType {
+                        name,
+                        param_types: _,
+                        position: _,
+                    } = &entry.signature.parameters_types[0]
+                    {
+                        name == "ASTStructDef"
+                    } else {
+                        false
+                    }
                 }
-                if entry.signature.parameters_types.len() == 0 {
-                    return false;
+                MacroType::EnumAttribute(_) => {
+                    if macro_result_type.unwrap() != MacroResultType::Attribute {
+                        return false;
+                    }
+                    if entry.signature.parameters_types.len() == 0 {
+                        return false;
+                    }
+                    if let ASTType::ASTCustomType {
+                        name,
+                        param_types: _,
+                        position: _,
+                    } = &entry.signature.parameters_types[0]
+                    {
+                        name == "ASTEnumDef"
+                    } else {
+                        false
+                    }
                 }
-                if let ASTType::ASTCustomType {
-                    name,
-                    param_types: _,
-                    position: _,
-                } = &entry.signature.parameters_types[0]
-                {
-                    name == "ASTStructDef"
-                } else {
-                    false
-                }
-            }
-            MacroType::EnumAttribute(_) => {
-                if macro_result_type.unwrap() != MacroResultType::Attribute {
-                    return false;
-                }
-                if entry.signature.parameters_types.len() == 0 {
-                    return false;
-                }
-                if let ASTType::ASTCustomType {
-                    name,
-                    param_types: _,
-                    position: _,
-                } = &entry.signature.parameters_types[0]
-                {
-                    name == "ASTEnumDef"
-                } else {
-                    false
-                }
-            }
-        })
-        .collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
     if functions_vec.is_empty() {
         panic!(
             "{}",
