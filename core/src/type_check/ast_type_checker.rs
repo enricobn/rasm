@@ -800,17 +800,17 @@ impl ASTTypeChecker {
                         index,
                     )
                 } else {
-                    modules_container
-                        .signatures()
-                        .iter()
-                        .filter(|it| {
-                            &it.signature.name == name
-                                && it
-                                    .namespace
+                    if let Some(signatures) = modules_container.get_signatures(name) {
+                        signatures
+                            .iter()
+                            .filter(|it| {
+                                it.namespace
                                     .visible_from(&it.signature.modifiers, &module_namespace)
-                        })
-                        .cloned()
-                        .collect_vec()
+                            })
+                            .collect_vec()
+                    } else {
+                        Vec::new()
+                    }
                 };
 
             if function_references.len() == 1 {

@@ -394,6 +394,10 @@ impl ASTModulesContainer {
         self.signatures.values().flatten().collect::<Vec<_>>()
     }
 
+    pub fn get_signatures(&self, name: &str) -> Option<&Vec<ASTFunctionSignatureEntry>> {
+        self.signatures.get(name)
+    }
+
     pub fn get_enum_def(
         &self,
         from_namespace: &ModuleNamespace,
