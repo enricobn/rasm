@@ -175,11 +175,38 @@ impl ASTTypeCheckEntry {
         Self::new(index, Some(filter), ASTTypeCheckInfo::Lambda)
     }
 
-    pub fn exact(&self) -> Option<(&ASTType, &ModuleInfo)> {
+    pub fn exact_type(&self) -> Option<(&ASTType, &ModuleInfo)> {
         if let Some(ASTTypeFilter::Exact(ref e, ref info)) = self.filter {
             Some((e, info))
         } else {
             None
+        }
+    }
+
+    pub fn exact_filter(&self) -> Option<&ASTTypeFilter> {
+        if let Some(ASTTypeFilter::Exact(_, _)) = self.filter {
+            self.filter.as_ref()
+        } else {
+            None
+        }
+    }
+
+    pub fn exact_filter_not_generic(&self) -> Option<&ASTTypeFilter> {
+        if let Some(ASTTypeFilter::Exact(ref t, _)) = self.filter {
+            if t.is_generic() {
+                return None;
+            }
+            self.filter.as_ref()
+        } else {
+            None
+        }
+    }
+
+    pub fn is_exact_not_generic(&self) -> bool {
+        if let Some(ASTTypeFilter::Exact(ref t, _)) = self.filter {
+            !t.is_generic()
+        } else {
+            false
         }
     }
 
@@ -253,7 +280,7 @@ impl ASTTypeChecker {
     }
 
     fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) -> Arc<ASTTypeCheckEntry> {
-        if let Some((ast_type, _)) = entry.exact() {
+        if let Some((ast_type, _)) = entry.exact_type() {
             if !ast_type.is_generic() {
                 self.errors.remove(&index.position().id);
             }
@@ -702,20 +729,26 @@ impl ASTTypeChecker {
             OptionDisplay(&expected_expression_type)
         );
         indent!();
-        let index = ASTIndex::new(
-            module_namespace.clone(),
-            module_id.clone(),
-            expr.position().clone(),
-        );
 
-        if let Some(r) = self.result.get_by_index(&index) {
-            if !r.is_generic_or_any() && r.exact().is_some() {
+        if let Some(r) = self.result.get(expr.position().id) {
+            if r.is_exact_not_generic() {
+                let index = ASTIndex::new(
+                    module_namespace.clone(),
+                    module_id.clone(),
+                    expr.position().clone(),
+                );
                 debug_i!("Cached {r} : {index}");
                 dedent!();
 
                 return Some(r.clone());
             }
         }
+
+        let index = ASTIndex::new(
+            module_namespace.clone(),
+            module_id.clone(),
+            expr.position().clone(),
+        );
 
         let entry = match expr {
             ASTExpression::ASTFunctionCallExpression(call) => self.add_call(
@@ -1308,21 +1341,6 @@ impl ASTTypeChecker {
             index,
         );
 
-        if function_signature.parameters_types.len() != parameter_types_filters.len() {
-            self.add_error(
-                ASTTypeCheckErroKind::Error,
-                index.clone(),
-                format!(
-                    "function {} expected {} parameters but got {}",
-                    function_signature.name,
-                    function_signature.parameters_types.len(),
-                    parameter_types_filters.len()
-                ),
-            );
-            dedent!();
-            return None;
-        }
-
         if let Some(eet) = expected_expression_type {
             if function_signature.return_type.is_generic() {
                 if let Err(e) = ASTResolvedGenericTypes::resolve_generic_types_from_effective_type(
@@ -1354,6 +1372,21 @@ impl ASTTypeChecker {
 
             for (i, e) in call.parameters().iter().enumerate() {
                 let parameter_type = function_signature.parameters_types.get(i).unwrap();
+
+                if let Some(entry) = self.result.get(e.position().id) {
+                    if let Some(calculated_type_filter) = entry.exact_filter_not_generic() {
+                        if parameter_type.is_generic() {
+                            loop_errors.extend(Self::add_resolve_type_filter(
+                                entry.index(),
+                                &parameter_type,
+                                calculated_type_filter,
+                                &mut resolved_generic_types,
+                            ));
+                        }
+                        continue;
+                    }
+                }
+
                 let ps = resolved_generic_types.substitute(&parameter_type);
                 let ast_type = if let Some(ref a) = ps {
                     a
@@ -2053,7 +2086,7 @@ mod tests {
         );
 
         if let Some(entry) = type_checker.result.get(id) {
-            if let Some((t, _)) = entry.exact() {
+            if let Some((t, _)) = entry.exact_type() {
                 assert_eq!("If<fn () -> Option<int>>", &format!("{t}"));
                 return;
             }
@@ -2123,7 +2156,7 @@ mod tests {
         );
 
         if let Some(entry) = res {
-            if let Some((t, _)) = entry.exact() {
+            if let Some((t, _)) = entry.exact_type() {
                 assert_eq!("Option<int>", &format!("{t}"));
                 return;
             }
@@ -2404,7 +2437,7 @@ mod tests {
         assert_eq!(checker.result.map.len(), expected_entries);
 
         for entry in checker.result.map.values() {
-            if let Some((t, _)) = entry.exact() {
+            if let Some((t, _)) = entry.exact_type() {
                 if !can_be_generic {
                     assert!(
                         !t.is_generic(),
@@ -2468,7 +2501,7 @@ mod tests {
 
         if let Some(id) = get_id(path, catalog, &container, row, column) {
             if let Some(entry) = type_checker.result.get(id) {
-                if let Some((t, _)) = entry.exact() {
+                if let Some((t, _)) = entry.exact_type() {
                     assert_eq!(expected, &format!("{t}"));
                     return;
                 }
