@@ -274,7 +274,10 @@ impl ASTTypeChecker {
         let mut type_checker = ASTTypeChecker::new();
         let mut static_val_context = ValContext::new(None);
 
-        for (id, namespace, module) in modules_container.modules() {
+        let modules = modules_container.modules();
+
+        let mut functions_count = 0;
+        for (id, namespace, module) in modules.iter() {
             let mut val_context = ValContext::new(None);
 
             type_checker.add_body(
@@ -287,32 +290,55 @@ impl ASTTypeChecker {
                 &modules_container,
                 None,
             );
+
+            functions_count += module.functions.len();
         }
+
+        let num_chunks = (num_cpus::get() - 1).max(1);
+        let mut chunk_size = functions_count / num_chunks;
+        let remainder = functions_count % num_chunks;
+
+        if remainder > 0 {
+            chunk_size += 1;
+        }
+
+        let functions_data = modules.iter().flat_map(|(id, namespace, module)| {
+            module.functions.iter().map(move |f| (id, namespace, f))
+        });
+
+        let chunks = functions_data
+            .chunks(chunk_size)
+            .into_iter()
+            .map(|chunk| chunk.into_iter().collect::<Vec<_>>())
+            .collect_vec();
 
         let log_enabled = log_enabled();
 
-        let functions_ast_type_checkers = modules_container
-            .modules()
+        let chunk_results: Vec<(
+            ASTTypeCheckerResult,
+            LinkedHashMap<usize, ASTTypeCheckError>,
+        )> = chunks
             .par_iter()
-            .map(|(id, namespace, module)| {
+            .map(|chunk| {
                 enable_log(log_enabled);
-                let mut ftc = ASTTypeChecker::new();
-                module.functions.iter().for_each(|function| {
-                    ftc.add_function(
-                        &function,
+
+                let mut type_checker_chunk = ASTTypeChecker::new();
+                for (id, namespace, function) in chunk {
+                    type_checker_chunk.add_function(
+                        function,
                         &static_val_context,
                         namespace,
                         id,
-                        &modules_container,
+                        modules_container,
                     );
-                });
-                ftc
+                }
+                (type_checker_chunk.result, type_checker_chunk.errors)
             })
-            .collect::<Vec<_>>();
+            .collect();
 
-        for fatc in functions_ast_type_checkers {
-            type_checker.result.extend(fatc.result);
-            type_checker.errors.extend(fatc.errors);
+        for (results_map, errors_vec) in chunk_results {
+            type_checker.result.extend(results_map);
+            type_checker.errors.extend(errors_vec);
         }
 
         (type_checker, static_val_context)
@@ -326,6 +352,7 @@ impl ASTTypeChecker {
         module_id: &ModuleId,
         modules_container: &ASTModulesContainer,
     ) {
+        //let start = Instant::now();
         let mut val_context = ValContext::new(None);
 
         let generics_prefix = function
@@ -388,6 +415,22 @@ impl ASTTypeChecker {
             }
             ASTFunctionBody::NativeBody(_body) => {}
         }
+
+        /*
+        let elapsed = start.elapsed().as_millis();
+        if elapsed > 0 {
+            println!(
+                "ast_type_check function {} in {}ms : {}",
+                function.name,
+                start.elapsed().as_millis(),
+                ASTIndex::new(
+                    module_namespace.clone(),
+                    module_id.clone(),
+                    function.position.clone()
+                )
+            );
+        }
+        */
     }
 
     fn check_valid_type(
@@ -2308,11 +2351,16 @@ mod tests {
                 pub fn aFunction() -> str {
                     if(true, { "true";})
                     .elseIf(false, { "false";})
+                    .elseIf(false, { "false";})
+                    .elseIf(false, { "false";})
+                    .elseIf(false, { "false";})
+                    .elseIf(false, { "false";})
+                    .elseIf(false, { "false";})
                     .else({ "false";})
                     .call();
                 }
             "#,
-            12,
+            32,
             false,
         );
     }
