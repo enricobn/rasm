@@ -107,7 +107,7 @@ impl UI {
                                         .get_by_index(&token_index)
                                 {
                                     let exact_and_not_generic =
-                                        if let Some((ast_type, _info)) = type_filter.exact() {
+                                        if let Some((ast_type, _info)) = type_filter.exact_type() {
                                             !ast_type.is_generic()
                                         } else {
                                             false
