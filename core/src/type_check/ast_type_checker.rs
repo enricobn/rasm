@@ -241,7 +241,7 @@ impl ASTTypeCheckerResult {
 
 pub struct ASTTypeChecker {
     pub result: ASTTypeCheckerResult,
-    pub errors: LinkedHashMap<ASTIndex, ASTTypeCheckError>,
+    pub errors: LinkedHashMap<usize, ASTTypeCheckError>,
 }
 
 impl ASTTypeChecker {
@@ -255,7 +255,7 @@ impl ASTTypeChecker {
     fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) -> Arc<ASTTypeCheckEntry> {
         if let Some((ast_type, _)) = entry.exact() {
             if !ast_type.is_generic() {
-                self.errors.remove(&index);
+                self.errors.remove(&index.position().id);
             }
         }
 
@@ -264,8 +264,10 @@ impl ASTTypeChecker {
     }
 
     fn add_error(&mut self, kind: ASTTypeCheckErroKind, index: ASTIndex, message: String) {
-        self.errors
-            .insert(index.clone(), ASTTypeCheckError::new(kind, index, message));
+        self.errors.insert(
+            index.position().id,
+            ASTTypeCheckError::new(kind, index, message),
+        );
     }
 
     pub fn from_modules_container(modules_container: &ASTModulesContainer) -> (Self, ValContext) {
@@ -764,7 +766,7 @@ impl ASTTypeChecker {
                 index.clone(),
                 ASTTypeCheckEntry::reference(
                     index.clone(),
-                    ASTTypeFilter::exact(kind.ast_type(), module_namespace, module_id),
+                    ASTTypeFilter::exact(kind.ast_type().clone(), module_namespace, module_id),
                     name.to_owned(),
                     kind.index(module_namespace, module_id),
                 ),
@@ -774,26 +776,25 @@ impl ASTTypeChecker {
                 index.clone(),
                 ASTTypeCheckEntry::reference(
                     index.clone(),
-                    ASTTypeFilter::exact(kind.ast_type(), module_namespace, module_id),
+                    ASTTypeFilter::exact(kind.ast_type().clone(), module_namespace, module_id),
                     name.to_owned(),
                     kind.index(module_namespace, module_id),
                 ),
             ))
         } else {
-            let module_info = ModuleInfo::new(module_namespace.clone(), module_id.clone());
-
             let mut function_references =
                 if let Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                     parameters,
                     return_type,
                 })) = expected_expression_type
                 {
+                    let module_info = ModuleInfo::new(module_namespace.clone(), module_id.clone());
                     modules_container.find_call_vec(
                         name,
                         &None, //TODO
                         parameters
                             .iter()
-                            .map(|it| ASTTypeFilter::Exact(it.clone(), module_info.clone()))
+                            .map(move |it| ASTTypeFilter::Exact(it.clone(), module_info.clone()))
                             .collect_vec()
                             .as_ref(),
                         Some(&return_type.clone()),
@@ -823,21 +824,20 @@ impl ASTTypeChecker {
                         return_type,
                     })) = expected_expression_type
                     {
-                        let new_parameters =
-                            zip(fun_entry.signature.parameters_types.clone(), parameters)
-                                .map(|(p, t)| {
-                                    if p.is_generic() && !t.is_generic() {
-                                        t.clone()
-                                    } else {
-                                        p
-                                    }
-                                })
-                                .collect::<Vec<_>>();
+                        let new_parameters = zip(&fun_entry.signature.parameters_types, parameters)
+                            .map(|(p, t)| {
+                                if p.is_generic() && !t.is_generic() {
+                                    t.clone()
+                                } else {
+                                    p.clone()
+                                }
+                            })
+                            .collect::<Vec<_>>();
 
                         let new_return_type = if fun_entry.signature.return_type.is_generic()
                             && !return_type.is_generic()
                         {
-                            return_type.as_ref()
+                            return_type
                         } else {
                             &fun_entry.signature.return_type
                         };
@@ -1172,8 +1172,9 @@ impl ASTTypeChecker {
                 .collect::<HashSet<_>>();
 
             let filter = if return_types.len() == 1 {
+                let rt = return_types.into_iter().exactly_one().unwrap();
                 Some(ASTTypeFilter::exact(
-                    (*return_types.iter().exactly_one().unwrap()).clone(),
+                    rt.clone(),
                     module_namespace,
                     module_id,
                 ))
@@ -1291,7 +1292,7 @@ impl ASTTypeChecker {
                         ASTTypeCheckError::new(ASTTypeCheckErroKind::Error, index.clone(), e)
                     })
                 }) {
-                    self.errors.insert(index.clone(), e);
+                    self.errors.insert(index.position().id, e);
                     dedent!();
                     return None;
                 }
@@ -1321,7 +1322,7 @@ impl ASTTypeChecker {
                     e,
                     val_context,
                     statics,
-                    Some(&ast_type),
+                    Some(ast_type),
                     call_module_namespace,
                     call_module_id,
                     modules_container,
@@ -1345,7 +1346,7 @@ impl ASTTypeChecker {
             if resolved_generic_types.len() == resolved_generic_types_len {
                 if !loop_errors.is_empty() {
                     for e in loop_errors {
-                        self.errors.insert(e.index.clone(), e);
+                        self.errors.insert(e.index.position().id, e);
                     }
                     dedent!();
                     return None;
@@ -2300,6 +2301,22 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_type_check_if() {
+        type_check_functions(
+            r#"
+                pub fn aFunction() -> str {
+                    if(true, { "true";})
+                    .elseIf(false, { "false";})
+                    .else({ "false";})
+                    .call();
+                }
+            "#,
+            12,
+            false,
+        );
+    }
+
     fn type_check_functions(s: &str, expected_entries: usize, can_be_generic: bool) {
         let project = RasmProject::new(PathBuf::from("../stdlib"));
 
@@ -2318,6 +2335,8 @@ mod tests {
         let static_val_context = ValContext::new(None);
 
         let (module, _errors) = Parser::new(Lexer::new(s.to_owned()).collect_vec(), vec![]).parse();
+
+        init_minimal_log();
 
         let mut checker = ASTTypeChecker::new();
         for function in module.functions {

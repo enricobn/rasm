@@ -1500,7 +1500,7 @@ impl IDEHelper {
         let mut generics = HashSet::new();
         for par in parameters {
             if let Some(kind) = val_context.get(&par.0, start_index.module_namespace()) {
-                let ast_type = kind.ast_type().remove_generic_prefix();
+                let ast_type = kind.ast_type().clone().remove_generic_prefix();
                 generics.extend(ast_type.generics());
 
                 parameters_defs.push(format!("{}: {}", par.0, ast_type));

@@ -16,11 +16,11 @@ pub enum ValKind {
 }
 
 impl ValKind {
-    pub fn ast_type(&self) -> ASTType {
+    pub fn ast_type(&self) -> &ASTType {
         match self {
-            ValKind::ParameterRef(_, par) => par.ast_type.clone(),
-            ValKind::LetRef(_, ast_type, _) => ast_type.clone(),
-            ValKind::ConstRef(_, ast_type, _, _) => ast_type.clone(),
+            ValKind::ParameterRef(_, par) => &par.ast_type,
+            ValKind::LetRef(_, ast_type, _) => ast_type,
+            ValKind::ConstRef(_, ast_type, _, _) => ast_type,
         }
     }
 
