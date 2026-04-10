@@ -72,17 +72,6 @@ pub fn add<T>(i1: Iter<T>, i2: Iter<T>) -> Iter<T> {
 
 pub fn flatten<T>(l: Iter<Iter<T>>) -> Iter<T> {
     l.callNext.match(fn(it) {
-        // it : IterValue<Iter<T>>
-/*
-        Iter({ 
-            it.value.next.match(fn(i) {
-                // i : IterValue<T>
-                Some(IterValue(i.value, i.next.add(it.callNext.flatten)));
-            }, { None(); });    
-        });
-*/
-
-
         it.value.callNext.match(fn(i) {
             Iter({ Some(IterValue(i.value, i.next.add(it.next.flatten))); });
         }, { emptyIter<T>(); });
