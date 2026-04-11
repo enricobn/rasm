@@ -3,7 +3,6 @@ target/
 /.swp
 /local/
 /.vscode/
-debug.log.xml
 tmp*/*
 scores.txt
 callgrind.out.*
