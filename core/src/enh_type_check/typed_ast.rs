@@ -759,10 +759,7 @@ pub fn convert_to_typed_module(
             } else {
                 None
             };
-            let index = EnhASTIndex {
-                file_name: path,
-                position: error.index().position().clone(),
-            };
+            let index = EnhASTIndex::new(path, error.index().position().clone());
 
             if errors.iter().any(|e: &EnhTypeCheckError| e.main.0 == index) {
                 continue;

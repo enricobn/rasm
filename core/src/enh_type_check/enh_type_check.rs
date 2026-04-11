@@ -2,8 +2,8 @@ use std::{
     collections::HashMap,
     iter::zip,
     ops::Deref,
-    sync::atomic::{AtomicUsize, Ordering},
     sync::Arc,
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use itertools::Itertools;
@@ -11,13 +11,14 @@ use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
 use log::info;
 use rasm_parser::{
-    catalog::{modules_catalog::ModulesCatalog, ModuleInfo},
+    catalog::{ModuleInfo, modules_catalog::ModulesCatalog},
     parser::ast::{ASTBuiltinTypeKind, ASTType},
 };
-use rasm_utils::{debug_i, dedent, indent, OptionDisplay, SliceDisplay};
+use rasm_utils::{OptionDisplay, SliceDisplay, debug_i, dedent, indent};
 
 use crate::{
     codegen::{
+        EnhValKind,
         c::code_gen_c::value_type_to_enh_type,
         compile_target::CompileTarget,
         enh_ast::{
@@ -29,7 +30,6 @@ use crate::{
         enhanced_module::EnhancedASTModule,
         statics::Statics,
         typedef_provider::DummyTypeDefProvider,
-        EnhValKind,
     },
     enh_type_check::enh_functions_container::EnhTypeFilter,
     errors::{CompilationError, CompilationErrorKind},
@@ -1898,20 +1898,11 @@ impl<'a> EnhTypeCheck<'a> {
                     })
                     .collect();
 
-                /*
-                if name == "ASTType" && &filter_module_namespace.safe_name() == "stdlib_vec" {
-                    println!("ASTType error namespace {}", module_info.namespace());
-                }
-                */
-
                 return EnhASTType::Custom {
                     namespace: filter_module_namespace.clone(),
                     name: name.clone(),
                     param_types,
-                    index: EnhASTIndex {
-                        file_name: filter_module_id.path(),
-                        position: position.clone(),
-                    },
+                    index: EnhASTIndex::new(filter_module_id.path(), position.clone()),
                 };
             } else if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 parameters,
