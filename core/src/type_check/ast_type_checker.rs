@@ -731,7 +731,7 @@ impl ASTTypeChecker {
         indent!();
 
         if let Some(r) = self.result.get(expr.position().id) {
-            // If the expression is already cached and it is not generic, we can use it
+            // If the expression is already cached and it is not generic, we can use it. We can use it
             // even if it's generic, but we have not the expected type, since we don't know
             // how to resolve it further
             if r.is_exact_not_generic() || expected_expression_type.is_none() {
