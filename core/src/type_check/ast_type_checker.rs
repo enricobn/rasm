@@ -379,7 +379,7 @@ impl ASTTypeChecker {
         module_id: &ModuleId,
         modules_container: &ASTModulesContainer,
     ) {
-        //let start = Instant::now();
+        // let start = Instant::now();
         let mut val_context = ValContext::new(None);
 
         let generics_prefix = function
@@ -447,9 +447,9 @@ impl ASTTypeChecker {
         let elapsed = start.elapsed().as_millis();
         if elapsed > 0 {
             println!(
-                "ast_type_check function {} in {}ms : {}",
+                "ast_type_check function {} in {}micros : {}",
                 function.name,
-                start.elapsed().as_millis(),
+                start.elapsed().as_micros(),
                 ASTIndex::new(
                     module_namespace.clone(),
                     module_id.clone(),
@@ -731,7 +731,10 @@ impl ASTTypeChecker {
         indent!();
 
         if let Some(r) = self.result.get(expr.position().id) {
-            if r.is_exact_not_generic() {
+            // If the expression is already cached and it is not generic, we can use it
+            // even if it's generic, but we have not the expected type, since we don't know
+            // how to resolve it further
+            if r.is_exact_not_generic() || expected_expression_type.is_none() {
                 let index = ASTIndex::new(
                     module_namespace.clone(),
                     module_id.clone(),
@@ -1046,7 +1049,7 @@ impl ASTTypeChecker {
         );
 
         if let Some(ASTTypeFilter::Exact(brt, _position)) =
-            body_return_type.and_then(|it| it.as_ref().filter.clone())
+            body_return_type.and_then(|it| it.filter.clone())
         {
             let type_filter = if let Some((_return_type, parameters)) =
                 expected_last_statement_type_and_parameters
