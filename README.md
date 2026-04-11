@@ -15,7 +15,7 @@ To build the compiler you need the rust toolchain (<https://www.rust-lang.org/to
 cargo build --release
 ```
 
-## Compile
+## Compile a rasm project
 
 ### Compile prerequisites
 
@@ -50,7 +50,7 @@ version=
 main=
 
 [dependencies]  
-"name" = { path = "path to the root of the library project" }
+"name" = "version" or { path = "path to the root of the library project" }
 ```
 
 ### Usage
