@@ -1,6 +1,7 @@
 use core::panic;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
+use std::time::Instant;
 
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
@@ -748,6 +749,7 @@ pub fn convert_to_typed_module(
     modules_container: &ASTModulesContainer,
     debug: bool,
 ) -> Result<ASTTypedModule, CompilationError> {
+    let start = Instant::now();
     let mut errors = Vec::new();
 
     for error in ast_type_checker.errors.values() {
@@ -797,6 +799,12 @@ pub fn convert_to_typed_module(
         mandatory_functions,
     )?;
 
+    info!(
+        "Enhanced type checking ended in {} ms",
+        start.elapsed().as_millis()
+    );
+    let start = Instant::now();
+
     let mut conv_context = ConvContext::new(&module);
 
     let body = module
@@ -831,6 +839,12 @@ pub fn convert_to_typed_module(
         );
     }
 
+    info!(
+        "Conversion to typed AST ended in {} ms",
+        start.elapsed().as_millis()
+    );
+
+    let start = Instant::now();
     // TODO we cannot use module because it does not contain the AddRef and Deref functions required for types,
     // since they are not referenced in code, but added by the compiler itself.
     // It could be an idea to add them as default functions in CompileTarget, but then we must remove them
@@ -976,6 +990,11 @@ pub fn convert_to_typed_module(
         }
     }
 
+    info!(
+        "Functions macro translation ended in {} ms",
+        start.elapsed().as_millis()
+    );
+
     let result = ASTTypedModule {
         body,
         structs: conv_context.struct_defs,
@@ -988,11 +1007,11 @@ pub fn convert_to_typed_module(
         print_typed_module(&result);
     }
 
-    info!("verify");
+    let start = Instant::now();
 
     verify::verify(&result, statics)?;
 
-    info!("verify end");
+    info!("Verify ended in {} ms", start.elapsed().as_millis());
 
     Ok(result)
 }

@@ -1,6 +1,7 @@
 use std::iter::zip;
 
 use rasm_utils::debug_i;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::statics::Statics;
@@ -39,7 +40,7 @@ impl EnhancedASTModule {
     ) -> (Self, Vec<CompilationError>) {
         let result = Self::new(
             modules
-                .into_iter()
+                .into_par_iter()
                 .map(|(module, info)| EnhASTModule::from_ast(module, info, prefix_generics))
                 .collect(),
             statics,

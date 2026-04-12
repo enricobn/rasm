@@ -1377,7 +1377,7 @@ impl EnhASTExpression {
                 namespace.clone(),
             ),
             ASTExpression::ASTValueExpression(value_type, position) => EnhASTExpression::Value(
-                value_type.clone(),
+                value_type,
                 EnhASTIndex::from_position(id.path(), &position),
             ),
             ASTExpression::ASTLambdaExpression(lambda) => EnhASTExpression::Lambda(
@@ -1500,7 +1500,7 @@ impl EnhASTStatement {
                 );
                 EnhASTStatement::LetStatement(
                     name.clone(),
-                    expr.clone(),
+                    expr,
                     EnhASTIndex::from_position(id.path(), &position),
                 )
             }
@@ -1513,7 +1513,7 @@ impl EnhASTStatement {
                 );
                 EnhASTStatement::ConstStatement(
                     name.clone(),
-                    expr.clone(),
+                    expr,
                     EnhASTIndex::from_position(id.path(), &position),
                     namespace.clone(),
                     modifiers,

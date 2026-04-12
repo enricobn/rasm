@@ -472,6 +472,8 @@ impl CompileTarget {
             command_line_options.debug,
         );
 
+        info!("Conversion to enhanced AST ended in {:?}", start.elapsed());
+
         if !errors.is_empty() {
             return Err(errors);
         }
@@ -490,7 +492,7 @@ impl CompileTarget {
         )
         .map_err(|it| vec![it])?;
 
-        info!("type check ended in {:?}", start.elapsed());
+        info!("Main type check ended in {:?}", start.elapsed());
 
         let start = Instant::now();
 
