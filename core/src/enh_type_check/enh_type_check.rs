@@ -29,6 +29,7 @@ use crate::{
         enh_val_context::EnhValContext,
         enhanced_module::EnhancedASTModule,
         statics::Statics,
+        text_macro::TextMacroEvaluator,
         typedef_provider::DummyTypeDefProvider,
     },
     enh_type_check::enh_functions_container::EnhTypeFilter,
@@ -73,6 +74,7 @@ pub struct EnhTypeCheck<'a> {
     modules_container: &'a ASTModulesContainer,
     unique_function_names: HashMap<String, String>,
     debug: bool,
+    evaluator: TextMacroEvaluator,
 }
 
 type InputModule = EnhancedASTModule;
@@ -87,6 +89,7 @@ impl<'a> EnhTypeCheck<'a> {
         modules_container: &'a ASTModulesContainer,
         debug: bool,
     ) -> Self {
+        let evaluator = target.get_evaluator(debug, memory_debug);
         Self {
             target,
             memory_debug,
@@ -98,6 +101,7 @@ impl<'a> EnhTypeCheck<'a> {
             modules_container,
             unique_function_names: HashMap::new(),
             debug,
+            evaluator,
         }
     }
 
@@ -1561,8 +1565,8 @@ impl<'a> EnhTypeCheck<'a> {
             EnhASTFunctionBody::NativeBody(native_body) => {
                 let type_def_provider = DummyTypeDefProvider::empty();
 
-                let evaluator = self.target.get_evaluator(self.debug, self.memory_debug);
-                let text_macro_names = evaluator
+                let text_macro_names = self
+                    .evaluator
                     .get_macros(
                         None,
                         Some(new_function_def),
@@ -1582,7 +1586,8 @@ impl<'a> EnhTypeCheck<'a> {
                     .collect::<LinkedHashSet<_>>();
 
                 for text_macro_name in text_macro_names {
-                    let default_function_calls = evaluator
+                    let default_function_calls = self
+                        .evaluator
                         .default_function_calls(&text_macro_name)
                         .map_err(|it| {
                             dedent!();
