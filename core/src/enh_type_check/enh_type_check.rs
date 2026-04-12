@@ -64,8 +64,6 @@ impl UniqueFunctionNameEntry {
 }
 
 pub struct EnhTypeCheck<'a> {
-    target: CompileTarget,
-    memory_debug: bool,
     stack: Vec<EnhASTIndex>,
     functions_stack: LinkedHashMap<String, Vec<EnhASTIndex>>,
     new_functions: HashMap<String, EnhASTFunctionDef>,
@@ -73,7 +71,6 @@ pub struct EnhTypeCheck<'a> {
     modules_catalog: &'a dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     modules_container: &'a ASTModulesContainer,
     unique_function_names: HashMap<String, String>,
-    debug: bool,
     evaluator: TextMacroEvaluator,
 }
 
@@ -91,8 +88,6 @@ impl<'a> EnhTypeCheck<'a> {
     ) -> Self {
         let evaluator = target.get_evaluator(debug, memory_debug);
         Self {
-            target,
-            memory_debug,
             stack: vec![],
             functions_stack: Default::default(),
             new_functions: HashMap::new(),
@@ -100,7 +95,6 @@ impl<'a> EnhTypeCheck<'a> {
             modules_catalog,
             modules_container,
             unique_function_names: HashMap::new(),
-            debug,
             evaluator,
         }
     }
@@ -1626,16 +1620,13 @@ impl<'a> EnhTypeCheck<'a> {
                 }
 
                 let called_functions = self
-                    .target
+                    .evaluator
                     .called_functions(
                         None,
                         Some(new_function_def),
                         native_body,
                         &val_context,
                         &type_def_provider,
-                        statics,
-                        self.debug,
-                        self.memory_debug,
                     )
                     .map_err(|it| {
                         dedent!();

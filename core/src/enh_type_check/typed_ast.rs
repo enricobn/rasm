@@ -918,17 +918,8 @@ pub fn convert_to_typed_module(
                         })?;
                 }
 
-                target
-                    .called_functions(
-                        Some(function),
-                        None,
-                        &new_body,
-                        &val_context,
-                        &conv_context,
-                        statics,
-                        debug,
-                        memory_debug,
-                    )
+                evaluator
+                    .called_functions(Some(function), None, &new_body, &val_context, &conv_context)
                     .map_err(|err| CompilationError {
                         index: function.index.clone(),
                         error_kind: CompilationErrorKind::Generic(err.clone()),

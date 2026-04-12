@@ -14,24 +14,19 @@ use log::{debug, warn};
 use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
-use rasm_parser::lexer::Lexer;
-use rasm_parser::parser::Parser;
-use rasm_utils::{OptionDisplay, SliceDisplay, debug_i};
+use rasm_utils::{OptionDisplay, debug_i};
 
 use crate::codegen::code_analyzer::reused_params;
 use crate::codegen::compile_target::CompileTarget;
 use crate::codegen::enh_ast::{
     EnhASTFunctionDef, EnhASTIndex, EnhASTNameSpace, EnhASTParameterDef, EnhASTType,
-    EnhBuiltinTypeKind,
 };
 use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::function_call_parameters::FunctionCallParameters;
 
 use crate::codegen::lambda_in_stack::{GLOBAL_LAMBDA_IN_STACK, can_lambda_be_in_stack};
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{
-    InlineRegistry, MacroExpression, MacroParam, TextMacro, TextMacroEvaluator,
-};
+use crate::codegen::text_macro::{InlineRegistry, TextMacro, TextMacroEvaluator};
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::commandline::{CommandLineOptions, RasmProfile};
@@ -47,7 +42,7 @@ use crate::project::RasmProject;
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 use crate::type_check::get_new_native_call;
-use rasm_parser::parser::ast::{ASTExpression, ASTModifiers, ASTStatement, ASTType, ASTValue};
+use rasm_parser::parser::ast::{ASTModifiers, ASTValue};
 
 pub mod asm;
 pub mod c;
@@ -2223,7 +2218,8 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         let mut lines: Vec<String> = result.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
 
-        self.called_functions(None, None, &result, &val_context, typed_module, statics)?
+        evaluator
+            .called_functions(None, None, &result, &val_context, typed_module)?
             .iter()
             .for_each(|(m, it)| {
                 debug_i!("native call to {:?}, in main", it);
@@ -2316,7 +2312,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         )
     }
 
-    /// Returns the name of the functions called in the code
+    /// Returns the name of the functions called in the code via $call macro
     ///
     /// # Arguments
     ///
@@ -2332,222 +2328,15 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
         type_def_provider: &dyn TypeDefProvider,
         _statics: &mut Statics,
     ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String> {
-        let mut result = Vec::new();
-
         let evaluator = self.get_text_macro_evaluator();
 
-        for (m, i) in evaluator.get_macros_filter(
+        evaluator.called_functions(
             typed_function_def,
             function_def,
             body,
+            context,
             type_def_provider,
-            &|name, _parameter| name == "call",
-        )? {
-            // let found_debug = format!("{m}").contains("Some") && format!("{m}").contains("error");
-            // if found_debug {
-            //     println!(
-            //         "found Some error {} {}",
-            //         OptionDisplay(&typed_function_def),
-            //         OptionDisplay(&function_def)
-            //     );
-            //     println!(" for macro {m}");
-            // }
-            debug_i!("found call macro {m}");
-            let types: Vec<EnhASTType> = m
-                .parameters
-                .iter()
-                .skip(1)
-                .map(|it| {
-                    let ast_type = match it {
-                        MacroParam::Expression(MacroExpression::Plain(_, _, Some(typed_type))) => {
-                            type_def_provider
-                                .get_type_from_typed_type(typed_type)
-                                .ok_or_else(|| format!("Cannot find type {typed_type}"))?
-                        }
-                        MacroParam::Expression(MacroExpression::Plain(
-                            _,
-                            Some(enh_ast_type),
-                            _,
-                        )) => enh_ast_type.clone(),
-                        MacroParam::Expression(MacroExpression::Plain(_, _, _)) => {
-                            EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)
-                        }
-                        MacroParam::StringLiteral(_) => {
-                            EnhASTType::Builtin(EnhBuiltinTypeKind::String)
-                        }
-                        MacroParam::Expression(MacroExpression::Ref(name, None, _)) => {
-                            debug_i!("found ref {name}");
-                            match context.get(name.strip_prefix('$').unwrap()).unwrap() {
-                                EnhValKind::ParameterRef(_, par) => par.ast_type.clone(),
-                                EnhValKind::LetRef(_, ast_type, _) => ast_type.clone(),
-                            }
-                        }
-                        MacroParam::Expression(MacroExpression::Ref(name, Some(ast_type), _)) => {
-                            debug_i!("found ref {name} : {ast_type}");
-                            ast_type.clone()
-                        }
-                        MacroParam::Plain(_) => {
-                            return Err("Expected expression, found string".to_owned());
-                        }
-                        MacroParam::Type(_, _, _) => {
-                            return Err(format!("Expected expression, found type"));
-                        }
-                        MacroParam::Expression(MacroExpression::IntLiteral(_)) => {
-                            EnhASTType::Builtin(EnhBuiltinTypeKind::Integer)
-                        }
-                        MacroParam::Expression(MacroExpression::FloatLiteral(_)) => {
-                            EnhASTType::Builtin(EnhBuiltinTypeKind::Float)
-                        }
-                        MacroParam::Expression(MacroExpression::StringLiteral(_)) => {
-                            EnhASTType::Builtin(EnhBuiltinTypeKind::String)
-                        }
-                    };
-
-                    match &ast_type {
-                        EnhASTType::Generic(_, name, var_types) => {
-                            if let Some(f) = typed_function_def {
-                                let t = type_def_provider
-                                    .get_type_from_custom_typed_type(
-                                        f.resolved_generic_types.get(name, var_types).unwrap(),
-                                    )
-                                    .unwrap();
-                                debug_i!("Function specified, found type {:?} for {name}", t);
-                                Ok(t)
-                            } else {
-                                debug_i!("Function not specified, cannot find type {name}");
-                                Ok(ast_type.clone())
-                            }
-                        }
-                        EnhASTType::Custom {
-                            namespace: _,
-                            name,
-                            param_types,
-                            index: _,
-                        } => {
-                            let result = if let Some(f) = typed_function_def {
-                                if let Some(t) = f.resolved_generic_types.get(name, param_types) {
-                                    type_def_provider
-                                        .get_type_from_typed_type(t)
-                                        .ok_or(format!("name {name} t {t}"))
-                                } else if let Some(t) =
-                                    type_def_provider.get_type_from_typed_type_name(name)
-                                {
-                                    Ok(t)
-                                } else {
-                                    Ok(ast_type.clone())
-                                }
-                            } else {
-                                Ok(ast_type.clone())
-                            };
-
-                            result
-                        }
-                        _ => Ok(ast_type),
-                    }
-                })
-                .collect::<Result<Vec<EnhASTType>, String>>()?;
-
-            // if found_debug {
-            //     println!("  found debug {m} -> {}", SliceDisplay(&types));
-            // }
-
-            let function_name = if let Some(MacroParam::Plain(function_name)) = m.parameters.get(0)
-            {
-                function_name
-            } else {
-                return Err(format!("Cannot find function in macro : {m}"));
-            };
-            // TODO there's another way to do this?
-            if function_name.contains('<') {
-                let (namespace, index) = if let Some(function_def) = function_def {
-                    (function_def.namespace.clone(), function_def.index.clone())
-                } else if let Some(function_def) = typed_function_def {
-                    (function_def.namespace.clone(), function_def.index.clone())
-                } else {
-                    return Err(format!(
-                        "Cannot resolve generic parameters without a function : {m}"
-                    ));
-                };
-
-                let fake_function_name = function_name.replace("_", "GENERICSEPARATORPLACEHOLDER");
-
-                let (tokens, errors) = Lexer::new(format!("{fake_function_name}();")).process();
-
-                let (module, errors) = Parser::new(tokens, errors).parse();
-
-                if let Some(ASTStatement::ASTExpressionStatement(
-                    ASTExpression::ASTFunctionCallExpression(call),
-                    _,
-                )) = module.body.first()
-                {
-                    let id = if let Some(path) = index.file_name {
-                        EnhModuleId::Path(path)
-                    } else {
-                        EnhModuleId::none()
-                    };
-
-                    let generics = call
-                        .generics()
-                        .iter()
-                        .map(|it| {
-                            if let ASTType::ASTCustomType {
-                                name,
-                                param_types: _,
-                                position: _,
-                            } = it
-                            {
-                                if let Some(f) = function_def {
-                                    if let Some(t) = f
-                                        .resolved_generic_types
-                                        .clone()
-                                        .remove_generics_prefix()
-                                        .get(name, &Vec::new())
-                                    {
-                                        return t.clone();
-                                    }
-                                } else if let Some(f) = typed_function_def {
-                                    if let Some(t) = f
-                                        .resolved_generic_types
-                                        .clone()
-                                        .remove_generics_prefix()
-                                        .get(name, &Vec::new())
-                                    {
-                                        if let Some(enh_type) =
-                                            type_def_provider.get_type_from_typed_type(t)
-                                        {
-                                            return enh_type;
-                                        }
-                                    }
-                                }
-                            }
-                            EnhASTType::from_ast(&namespace, &id, it.clone(), None)
-                        })
-                        .collect::<Vec<_>>();
-
-                    let df = DefaultFunctionCall::new(
-                        &call
-                            .function_name()
-                            .replace("GENERICSEPARATORPLACEHOLDER", "_"),
-                        types.clone(),
-                        i,
-                        generics,
-                    );
-
-                    result.push((m.clone(), df));
-                } else {
-                    return Err(format!(
-                        "Cannot find function in macro : {m}\n{}",
-                        SliceDisplay(&errors)
-                    ));
-                }
-            } else {
-                result.push((
-                    m.clone(),
-                    DefaultFunctionCall::new(function_name, types, i, Vec::new()),
-                ));
-            }
-        }
-        Ok(result)
+        )
     }
 
     fn add_comment(&self, out: &mut String, comment: &str, indent: bool) {

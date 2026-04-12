@@ -30,14 +30,11 @@ use crate::codegen::c::c_compiler::compile_c;
 use crate::codegen::c::code_gen_c::CodeGenC;
 use crate::codegen::c::functions_creator_c::CFunctionsCreator;
 use crate::codegen::c::options::COptions;
-use crate::codegen::enh_ast::{
-    EnhASTFunctionDef, EnhASTNameSpace, EnhBuiltinTypeKind, EnhModuleId, EnhModuleInfo,
-};
-use crate::codegen::enh_val_context::EnhValContext;
+use crate::codegen::enh_ast::{EnhASTNameSpace, EnhBuiltinTypeKind, EnhModuleId, EnhModuleInfo};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
-use crate::codegen::text_macro::{TextMacro, TextMacroEvaluator};
-use crate::codegen::typedef_provider::TypeDefProvider;
+use crate::codegen::text_macro::TextMacroEvaluator;
+
 use crate::codegen::{AsmOptions, CodeGen, get_typed_module};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
 use crate::errors::CompilationError;
@@ -49,9 +46,7 @@ use crate::transformations::enrich_container;
 use crate::transformations::functions_creator::{FunctionsCreator, FunctionsCreatorNasmi386};
 use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
 
-use crate::enh_type_check::typed_ast::{
-    ASTTypedFunctionDef, ASTTypedModule, DefaultFunction, DefaultFunctionCall,
-};
+use crate::enh_type_check::typed_ast::{ASTTypedModule, DefaultFunction};
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::ASTTypeChecker;
 
@@ -215,43 +210,6 @@ impl CompileTarget {
             CompileTarget::C(options) => {
                 let code_gen = CodeGenC::new(options.clone(), debug, memory_debug);
                 code_gen.get_text_macro_evaluator()
-            }
-        }
-    }
-
-    pub fn called_functions(
-        &self,
-        typed_function_def: Option<&ASTTypedFunctionDef>,
-        function_def: Option<&EnhASTFunctionDef>,
-        body: &str,
-        context: &EnhValContext,
-        type_def_provider: &dyn TypeDefProvider,
-        _statics: &mut Statics,
-        debug: bool,
-        memory_debug: bool,
-    ) -> Result<Vec<(TextMacro, DefaultFunctionCall)>, String> {
-        match self {
-            CompileTarget::Nasmi386(options) => {
-                let code_gen = CodeGenAsm::new(options.clone(), debug, memory_debug);
-                code_gen.called_functions(
-                    typed_function_def,
-                    function_def,
-                    body,
-                    context,
-                    type_def_provider,
-                    _statics,
-                )
-            }
-            CompileTarget::C(options) => {
-                let code_gen = CodeGenC::new(options.clone(), debug, memory_debug);
-                code_gen.called_functions(
-                    typed_function_def,
-                    function_def,
-                    body,
-                    context,
-                    type_def_provider,
-                    _statics,
-                )
             }
         }
     }

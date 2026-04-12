@@ -10,7 +10,6 @@ use crate::codegen::{
     },
     enh_val_context::EnhValContext,
     enhanced_module::EnhancedASTModule,
-    statics::Statics,
     typedef_provider::DummyTypeDefProvider,
 };
 
@@ -40,7 +39,9 @@ pub fn get_unused_functions_by_navigate(
 
     let dummy = DummyTypeDefProvider::empty();
     let mut new_used_functions = used_functions.clone();
-    let mut statics = Statics::new();
+
+    let evaluator = target.get_evaluator(debug, memory_debug);
+
     loop {
         let mut inner_used_functions = HashSet::new();
         for used_function in new_used_functions.iter() {
@@ -63,17 +64,8 @@ pub fn get_unused_functions_by_navigate(
                         }
                     }
                     EnhASTFunctionBody::NativeBody(body) => {
-                        let calls = target
-                            .called_functions(
-                                None,
-                                Some(function),
-                                body,
-                                &context,
-                                &dummy,
-                                &mut statics,
-                                debug,
-                                memory_debug,
-                            )
+                        let calls = evaluator
+                            .called_functions(None, Some(function), body, &context, &dummy)
                             .unwrap();
                         for (_, call) in calls.iter() {
                             let c = call.to_call(&function);
