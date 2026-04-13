@@ -28,7 +28,7 @@ pub fn get_unused_functions_by_navigate(
     memory_debug: bool,
 ) -> HashSet<String> {
     let mut used_functions = HashSet::new();
-    for f in target.get_default_functions(memory_debug) {
+    for f in target.get_core_functions(memory_debug) {
         used_functions.insert(f.name.clone());
     }
 

@@ -103,14 +103,14 @@ impl<'a> EnhTypeCheck<'a> {
         mut self,
         mut module: EnhancedASTModule,
         statics: &mut Statics,
-        default_functions: Vec<DefaultFunction>,
-        mandatory_functions: Vec<DefaultFunction>,
+        core_functions: Vec<DefaultFunction>,
+        required_functions: Vec<DefaultFunction>,
     ) -> Result<OutputModule, CompilationError> {
         let mut val_context = EnhValContext::new(None);
 
-        let mut default_functions = default_functions; // TODO print_allocation
+        let mut default_functions = core_functions; // TODO print_allocation
 
-        default_functions.extend(mandatory_functions);
+        default_functions.extend(required_functions);
 
         for default_function in default_functions {
             if let Some(f) =

@@ -538,7 +538,14 @@ impl CompileTarget {
         }
     }
 
-    pub fn get_mandatory_functions(&self, module: &EnhancedASTModule) -> Vec<DefaultFunction> {
+    /// Functions that are required by the module, and should be added to the final module.
+    ///
+    /// The functions are likely those that are needed by coding conventions, for example to support
+    /// native types.
+    ///  
+    /// The functions returned are sorted alphabetically by name (I don't know why).
+    ///
+    pub fn get_required_functions(&self, module: &EnhancedASTModule) -> Vec<DefaultFunction> {
         let mut result = Vec::new();
 
         match self {
@@ -560,8 +567,12 @@ impl CompileTarget {
         result
     }
 
-    pub fn get_default_functions(&self, print_allocation: bool) -> Vec<DefaultFunction> {
-        let mut default_functions = match self {
+    /// Functions that are used "directly" by the compiler itself, without using the call macro,
+    /// so we must add them to the final module.
+    ///
+    /// The functions are sorted alphabetically by name (I don't know why).
+    pub fn get_core_functions(&self, print_allocation: bool) -> Vec<DefaultFunction> {
+        let mut result = match self {
             CompileTarget::Nasmi386(_) => {
                 vec![
                     DefaultFunction::new_2(
@@ -612,14 +623,14 @@ impl CompileTarget {
         };
 
         if print_allocation {
-            default_functions.append(&mut vec![
+            result.append(&mut vec![
                 DefaultFunction::new_0("printAllocated"),
                 DefaultFunction::new_0("printTableSlotsAllocated"),
             ])
         }
 
-        default_functions.sort_by(|a, b| a.name.cmp(&b.name));
-        default_functions
+        result.sort_by(|a, b| a.name.cmp(&b.name));
+        result
     }
 }
 

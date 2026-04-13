@@ -739,9 +739,9 @@ impl Display for ASTTypedTypeDef {
 pub fn convert_to_typed_module(
     original_module: EnhancedASTModule,
     print_module: bool,
-    mandatory_functions: Vec<DefaultFunction>,
+    required_functions: Vec<DefaultFunction>,
     statics: &mut Statics,
-    default_functions: Vec<DefaultFunction>,
+    core_functions: Vec<DefaultFunction>,
     target: &CompileTarget,
     memory_debug: bool,
     ast_type_checker: ASTTypeChecker,
@@ -795,8 +795,8 @@ pub fn convert_to_typed_module(
     let module = type_check.type_check(
         original_module.clone(),
         statics,
-        default_functions,
-        mandatory_functions,
+        core_functions,
+        required_functions,
     )?;
 
     info!(

@@ -104,15 +104,15 @@ pub fn get_typed_module(
     modules_container: &ASTModulesContainer,
     debug: bool,
 ) -> Result<ASTTypedModule, CompilationError> {
-    let mandatory_functions = target.get_mandatory_functions(&module);
-    let default_functions = target.get_default_functions(print_memory_info);
+    let required_functions = target.get_required_functions(&module);
+    let core_functions = target.get_core_functions(print_memory_info);
 
     convert_to_typed_module(
         module,
         print_module,
-        mandatory_functions,
+        required_functions,
         statics,
-        default_functions,
+        core_functions,
         target,
         memory_debug,
         ast_type_checker,
