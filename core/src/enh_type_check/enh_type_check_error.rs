@@ -128,7 +128,7 @@ impl EnhTypeCheckError {
                 return llc[0].write_one(f, indent + 1, prev_stack);
                 /*
                 for (index, message, _stack) in llc[0].messages.iter() {
-                    if index.file_name.is_some() {
+                    if index.module_id.path().is_some() {
                         f.write_str(&format!("{spaces}{} : {}\n", message, index))?;
                     }
                 }
@@ -141,7 +141,7 @@ impl EnhTypeCheckError {
             // f.write_str(&format!("{spaces}messages :\n"))?;
 
             for (index, message, _stack) in self.messages.iter() {
-                if index.file_name.is_some() {
+                if index.id().has_path() {
                     f.write_str(&format!("{spaces}{} : {}\n", message, index))?;
 
                     /*
@@ -165,7 +165,7 @@ impl EnhTypeCheckError {
             f.write_str(&format!("{spaces}call stack :\n"))?;
 
             for i in inner_stack.iter().rev() {
-                if i.file_name.is_some() {
+                if i.id().has_path() {
                     f.write_str(&format!("{spaces}{}\n", i))?;
                 }
             }

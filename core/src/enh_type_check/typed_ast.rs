@@ -757,9 +757,9 @@ pub fn convert_to_typed_module(
             let path = if let Some((enh_id, _)) =
                 modules_catalog.catalog_info(&error.index().module_id())
             {
-                enh_id.path()
+                enh_id.clone()
             } else {
-                None
+                EnhModuleId::none()
             };
             let index = EnhASTIndex::new(path, error.index().position().clone());
 

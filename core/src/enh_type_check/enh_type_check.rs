@@ -1363,7 +1363,7 @@ impl<'a> EnhTypeCheck<'a> {
                 if let Some(f) = module
                     .find_functions_by_original_name(&f.name)
                     .iter()
-                    .find(|it| it.index.position.id == index.position().id)
+                    .find(|it| it.index.position().id == index.position().id)
                 {
                     if f.generic_types.is_empty() {
                         Some(f)
@@ -1898,7 +1898,7 @@ impl<'a> EnhTypeCheck<'a> {
                     namespace: filter_module_namespace.clone(),
                     name: name.clone(),
                     param_types,
-                    index: EnhASTIndex::new(filter_module_id.path(), position.clone()),
+                    index: EnhASTIndex::new(filter_module_id.clone(), position.clone()),
                 };
             } else if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
                 parameters,
@@ -1950,7 +1950,7 @@ impl<'a> EnhTypeCheck<'a> {
     }
 
     fn get_type_check_entry(&self, enh_index: &EnhASTIndex) -> Option<&Arc<ASTTypeCheckEntry>> {
-        self.type_checker.result.get(enh_index.position.id)
+        self.type_checker.result.get(enh_index.position().id)
     }
 
     pub fn type_of_expression(
@@ -2365,7 +2365,7 @@ impl<'a> EnhTypeCheck<'a> {
                 if let ASTTypeCheckInfo::ReferenceToFunction(_, ref_index) = t.info() {
                     function_references = function_references
                         .into_iter()
-                        .filter(|it| it.index.position.id == ref_index.position().id)
+                        .filter(|it| it.index.position().id == ref_index.position().id)
                         .collect_vec();
 
                     if function_references.len() == 1 {

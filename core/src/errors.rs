@@ -19,7 +19,7 @@
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 
-use crate::codegen::enh_ast::EnhASTIndex;
+use crate::codegen::enh_ast::{EnhASTIndex, EnhModuleId};
 use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use rasm_parser::parser::ParserError;
 
@@ -31,8 +31,9 @@ pub struct CompilationError {
 
 impl CompilationError {
     pub fn from_parser_error(error: ParserError, file_name: Option<PathBuf>) -> Self {
+        let module_id = file_name.map(EnhModuleId::Path).unwrap_or_else(EnhModuleId::none);
         Self {
-            index: EnhASTIndex::new(file_name, error.position().clone()),
+            index: EnhASTIndex::new(module_id, error.position().clone()),
             error_kind: CompilationErrorKind::Parser(error.message),
         }
     }

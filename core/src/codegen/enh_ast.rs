@@ -52,6 +52,10 @@ impl EnhModuleId {
             EnhModuleId::Other(_) => None,
         }
     }
+
+    pub fn has_path(&self) -> bool {
+        matches!(self, EnhModuleId::Path(_))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -380,7 +384,7 @@ impl EnhASTFunctionDef {
             },
             generic_types,
             resolved_generic_types: EnhResolvedGenericTypes::new(),
-            index: EnhASTIndex::from_position(id.path(), &function.position),
+            index: EnhASTIndex::from_position(id.clone(), &function.position),
             modifiers: function.modifiers,
             namespace: namespace.clone(),
             rank: 0,
@@ -423,7 +427,7 @@ impl EnhASTLambdaDef {
             parameter_names: lambda
                 .parameter_names
                 .into_iter()
-                .map(|(name, position)| (name, EnhASTIndex::from_position(id.path(), &position)))
+                .map(|(name, position)| (name, EnhASTIndex::from_position(id.clone(), &position)))
                 .collect(),
             body: lambda
                 .body
@@ -432,7 +436,7 @@ impl EnhASTLambdaDef {
                     EnhASTStatement::from_ast(id, namespace, it, function_name_for_fix_generics)
                 })
                 .collect(),
-            index: EnhASTIndex::from_position(id.path(), &lambda.position),
+            index: EnhASTIndex::from_position(id.clone(), &lambda.position),
         }
     }
 }
@@ -851,7 +855,7 @@ impl EnhASTType {
                 }
 
                 EnhASTType::Generic(
-                    EnhASTIndex::from_position(id.path(), &astposition),
+                    EnhASTIndex::from_position(id.clone(), &astposition),
                     gen_name,
                     var_types
                         .into_iter()
@@ -874,7 +878,7 @@ impl EnhASTType {
                     param_types,
                     function_name_for_fix_generics,
                 ),
-                index: EnhASTIndex::from_position(id.path(), &index),
+                index: EnhASTIndex::from_position(id.clone(), &index),
             },
             ASTType::ASTUnitType => EnhASTType::Unit,
         }
@@ -1044,7 +1048,7 @@ impl EnhASTParameterDef {
                 parameter.ast_type,
                 function_name_for_fix_generics,
             ),
-            ast_index: EnhASTIndex::from_position(id.path(), &parameter.position),
+            ast_index: EnhASTIndex::from_position(id.clone(), &parameter.position),
         }
     }
 
@@ -1091,7 +1095,7 @@ impl EnhASTStructPropertyDef {
         Self {
             name: property.name,
             ast_type: EnhASTType::from_ast(namespace, id, property.ast_type, None),
-            index: EnhASTIndex::from_position(id.path(), &property.position),
+            index: EnhASTIndex::from_position(id.clone(), &property.position),
         }
     }
 }
@@ -1156,7 +1160,7 @@ impl EnhASTFunctionCall {
                     )
                 })
                 .collect(),
-            index: EnhASTIndex::from_position(id.path(), &call.position().clone()),
+            index: EnhASTIndex::from_position(id.clone(), &call.position().clone()),
             generics: EnhASTType::from_asts(
                 namespace,
                 id,
@@ -1194,59 +1198,58 @@ impl Display for EnhASTFunctionCall {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EnhASTIndex {
-    // TODO better an EnhModuleId
-    pub file_name: Option<PathBuf>,
-    pub position: ASTPosition,
+    module_id: EnhModuleId,
+    position: ASTPosition,
 }
 
 impl EnhASTIndex {
     pub fn none() -> Self {
         Self {
-            file_name: None,
+            module_id: EnhModuleId::none(),
             position: ASTPosition::none(),
         }
     }
 
-    pub fn new(file_name: Option<PathBuf>, position: ASTPosition) -> Self {
+    pub fn new(module_id: EnhModuleId, position: ASTPosition) -> Self {
         Self {
-            file_name,
+            module_id,
             position,
         }
     }
 
-    pub fn new_rc(file_name: Option<PathBuf>, row: usize, column: usize) -> Self {
-        Self::new(file_name, ASTPosition::new(row, column))
+    pub fn new_rc(module_id: EnhModuleId, row: usize, column: usize) -> Self {
+        Self::new(module_id, ASTPosition::new(row, column))
     }
 
     pub fn mv_right(&self, offset: usize) -> Self {
-        Self::new(self.file_name.clone(), self.position.mv_right(offset))
+        Self::new(self.module_id.clone(), self.position.mv_right(offset))
     }
 
     pub fn mv_left(&self, offset: usize) -> Self {
-        Self::new(self.file_name.clone(), self.position.mv_left(offset))
+        Self::new(self.module_id.clone(), self.position.mv_left(offset))
     }
 
     pub fn mv_down(&self, offset: usize) -> Self {
-        Self::new(self.file_name.clone(), self.position.mv_down(offset))
+        Self::new(self.module_id.clone(), self.position.mv_down(offset))
     }
 
-    // TODO the same as new, but with different name
-    pub fn from_position(path: Option<PathBuf>, position: &ASTPosition) -> Self {
-        Self::new(path, position.clone())
+    pub fn from_position(module_id: EnhModuleId, position: &ASTPosition) -> Self {
+        Self::new(module_id, position.clone())
     }
 
-    pub fn id(&self) -> EnhModuleId {
-        match &self.file_name {
-            Some(path) => EnhModuleId::Path(path.clone()),
-            None => EnhModuleId::Other(String::new()),
-        }
+    pub fn id(&self) -> &EnhModuleId {
+        &self.module_id
+    }
+
+    pub fn position(&self) -> &ASTPosition {
+        &self.position
     }
 
     pub fn to_ast_index(
         &self,
         modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     ) -> Option<ASTIndex> {
-        modules_catalog.info(&self.id()).map(|it| {
+        modules_catalog.info(self.id()).map(|it| {
             ASTIndex::new(
                 it.namespace().clone(),
                 it.id().clone(),
@@ -1256,7 +1259,7 @@ impl EnhASTIndex {
     }
 
     pub fn to_vscode_string(&self) -> String {
-        if let Some(path) = &self.file_name {
+        if let Some(path) = self.module_id.path() {
             if path.exists() {
                 let file = format!(
                     "file://{}",
@@ -1280,8 +1283,8 @@ impl Display for EnhASTIndex {
         f.write_str(&format!(
             "{}:{}:{}",
             &self
-                .file_name
-                .as_ref()
+                .module_id
+                .path()
                 .map(|it| {
                     if it.exists() {
                         format!("file://{}", it.canonicalize().unwrap().to_str().unwrap())
@@ -1373,12 +1376,12 @@ impl EnhASTExpression {
             }
             ASTExpression::ASTValueRefExpression(name, position) => EnhASTExpression::ValueRef(
                 name.clone(),
-                EnhASTIndex::from_position(id.path(), &position),
+                EnhASTIndex::from_position(id.clone(), &position),
                 namespace.clone(),
             ),
             ASTExpression::ASTValueExpression(value_type, position) => EnhASTExpression::Value(
                 value_type,
-                EnhASTIndex::from_position(id.path(), &position),
+                EnhASTIndex::from_position(id.clone(), &position),
             ),
             ASTExpression::ASTLambdaExpression(lambda) => EnhASTExpression::Lambda(
                 EnhASTLambdaDef::from_ast(id, namespace, lambda, function_name_for_fix_generics),
@@ -1501,7 +1504,7 @@ impl EnhASTStatement {
                 EnhASTStatement::LetStatement(
                     name.clone(),
                     expr,
-                    EnhASTIndex::from_position(id.path(), &position),
+                    EnhASTIndex::from_position(id.clone(), &position),
                 )
             }
             ASTStatement::ASTConstStatement(name, astexpression, position, modifiers) => {
@@ -1514,7 +1517,7 @@ impl EnhASTStatement {
                 EnhASTStatement::ConstStatement(
                     name.clone(),
                     expr,
-                    EnhASTIndex::from_position(id.path(), &position),
+                    EnhASTIndex::from_position(id.clone(), &position),
                     namespace.clone(),
                     modifiers,
                 )
@@ -1621,7 +1624,7 @@ impl EnhASTModule {
         let types = module
             .types
             .into_iter()
-            .map(|it| EnhASTTypeDef::from_ast(info.path(), info.namespace.clone(), it))
+            .map(|it| EnhASTTypeDef::from_ast(info.id.clone(), info.namespace.clone(), it))
             .collect();
 
         Self {
@@ -1719,7 +1722,7 @@ impl EnhASTEnumDef {
                 .into_iter()
                 .map(|it| EnhASTEnumVariantDef::from_ast(id, namespace, it))
                 .collect(),
-            index: EnhASTIndex::from_position(id.path(), &enum_def.position),
+            index: EnhASTIndex::from_position(id.clone(), &enum_def.position),
             modifiers: enum_def.modifiers,
         }
     }
@@ -1767,7 +1770,7 @@ impl EnhASTEnumVariantDef {
         Self {
             name: variant_def.name,
             parameters: EnhASTParameterDef::from_asts(id, namespace, variant_def.parameters, None),
-            index: EnhASTIndex::from_position(id.path(), &variant_def.position),
+            index: EnhASTIndex::from_position(id.clone(), &variant_def.position),
         }
     }
 }
@@ -1837,7 +1840,7 @@ impl EnhASTStructDef {
                 .into_iter()
                 .map(|it| EnhASTStructPropertyDef::from_ast(id, namespace, it))
                 .collect(),
-            index: EnhASTIndex::from_position(id.path(), &struct_def.position),
+            index: EnhASTIndex::from_position(id.clone(), &struct_def.position),
             modifiers: struct_def.modifiers,
         }
     }
@@ -1892,17 +1895,13 @@ impl EnhASTTypeDef {
         result
     }
 
-    pub fn from_ast(
-        path: Option<PathBuf>,
-        namespace: EnhASTNameSpace,
-        type_def: ASTTypeDef,
-    ) -> Self {
+    pub fn from_ast(path: EnhModuleId, namespace: EnhASTNameSpace, type_def: ASTTypeDef) -> Self {
         Self {
             namespace: namespace.clone(),
             name: type_def.name,
             type_parameters: type_def.type_parameters,
             body: type_def.body,
-            index: EnhASTIndex::from_position(path.clone(), &type_def.position),
+            index: EnhASTIndex::from_position(path, &type_def.position),
             modifiers: type_def.modifiers,
         }
     }

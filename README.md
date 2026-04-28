@@ -187,7 +187,7 @@ Returns `MacroAttributeOk(functions)` or `MacroError(message)`.
 
 ### AST Builder Functions
 
-Helper functions to construct AST:
+Helper functions to construct AST, in stdlib:
 
 ```rasm
 simpleASTCall("name", vecOf(args))         // function call

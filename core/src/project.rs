@@ -828,8 +828,9 @@ impl RasmProject {
     }
 
     fn generic_error(path: &Path, message: &str) -> CompilationError {
+        let module_id = EnhModuleId::Path(path.to_path_buf());
         CompilationError {
-            index: EnhASTIndex::new(Some(path.to_path_buf()), ASTPosition::none()),
+            index: EnhASTIndex::new(module_id, ASTPosition::none()),
             error_kind: CompilationErrorKind::Generic(message.to_owned()),
         }
     }

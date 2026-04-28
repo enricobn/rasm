@@ -463,7 +463,7 @@ fn evaluate_macro(
         let output_string = output_lines.collect::<Vec<_>>().join("\n");
         if first == "Error" {
             if let Some(info) = catalog.catalog_info(call.module_id()) {
-                let index = EnhASTIndex::new(info.0.path(), call.position().clone());
+                let index = EnhASTIndex::new(info.0.clone(), call.position().clone());
                 return Err(format!("{} in {}", output_string, index));
             } else {
                 return Err(format!("{} in {}", output_string, call.position()));

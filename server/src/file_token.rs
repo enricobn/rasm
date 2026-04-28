@@ -18,9 +18,8 @@
 
 use std::fmt::{Display, Formatter};
 use std::io;
-use std::path::PathBuf;
 
-use rasm_core::codegen::enh_ast::EnhASTIndex;
+use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhModuleId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FileToken {
@@ -34,15 +33,15 @@ impl FileToken {
     }
 
     pub fn contains(&self, index: &EnhASTIndex) -> io::Result<bool> {
-        Ok(index.position.row == self.start.position.row
-            && index.position.column >= self.start.position.column
-            && index.position.column <= (self.start.position.column + self.len - 1)
-            && Self::path_matches(&index.file_name, &self.start.file_name)?)
+        Ok(index.position().row == self.start.position().row
+            && index.position().column >= self.start.position().column
+            && index.position().column <= (self.start.position().column + self.len - 1)
+            && Self::path_matches(index.id(), self.start.id())?)
     }
 
-    fn path_matches(op1: &Option<PathBuf>, op2: &Option<PathBuf>) -> io::Result<bool> {
-        if let Some(p1) = op1 {
-            if let Some(p2) = op2 {
+    fn path_matches(op1: &EnhModuleId, op2: &EnhModuleId) -> io::Result<bool> {
+        if let Some(p1) = op1.path() {
+            if let Some(p2) = op2.path() {
                 if p1.file_name() != p2.file_name() {
                     return Ok(false);
                 }
@@ -60,16 +59,19 @@ impl FileToken {
 
 impl Display for FileToken {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let file_name = self
-            .start
-            .file_name
-            .as_ref()
-            .and_then(|it| it.to_str().map(|s| format!("file:///{s}")))
-            .unwrap_or("".to_string());
+        let file_name = match self.start.id().path() {
+            Some(it) => it
+                .to_str()
+                .map(|s| format!("file:///{s}"))
+                .unwrap_or_default(),
+            None => String::new(),
+        };
 
         f.write_str(&format!(
             "{file_name} {}:{} len {}",
-            self.start.position.row, self.start.position.column, self.len
+            self.start.position().row,
+            self.start.position().column,
+            self.len
         ))
     }
 }

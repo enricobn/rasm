@@ -1479,7 +1479,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
         let mut lambda_calls = Vec::new();
 
-        if function_def.index.file_name.is_some() {
+        if function_def.index.id().path().is_some() {
             self.add_comment(definitions, &format!("{}", function_def.index), false);
             self.add_comment(definitions, &function_def.index.to_vscode_string(), false);
         }

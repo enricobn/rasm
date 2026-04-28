@@ -476,11 +476,7 @@ impl TextMacroEvaluator {
                     _,
                 )) = module.body.first()
                 {
-                    let id = if let Some(path) = index.file_name {
-                        EnhModuleId::Path(path)
-                    } else {
-                        EnhModuleId::none()
-                    };
+                    let id = index.id();
 
                     let generics = call
                         .generics()
@@ -516,7 +512,7 @@ impl TextMacroEvaluator {
                                     }
                                 }
                             }
-                            EnhASTType::from_ast(&namespace, &id, it.clone(), None)
+                            EnhASTType::from_ast(&namespace, id, it.clone(), None)
                         })
                         .collect::<Vec<_>>();
 
@@ -758,7 +754,7 @@ impl TextMacroEvaluator {
                 (
                     Vec::new(),
                     EnhResolvedGenericTypes::new(),
-                    EnhModuleId::none(),
+                    &EnhModuleId::none(),
                     EnhASTNameSpace::global(),
                 )
             };
@@ -780,7 +776,7 @@ impl TextMacroEvaluator {
                                         type_def_provider,
                                         &context_generic_types,
                                         &f.resolved_generic_types.clone().remove_generics_prefix(),
-                                        &f.index.id(),
+                                        f.index.id(),
                                         Some(&f.original_name),
                                     )?;
 
@@ -821,7 +817,7 @@ impl TextMacroEvaluator {
                                 &f.resolved_generic_types
                                     .to_enh(type_def_provider)
                                     .remove_generics_prefix(),
-                                &f.index.id(),
+                                f.index.id(),
                                 Some(&f.original_name),
                             )?;
                             if !f.parameters.iter().any(|it| it.name == par_name) {
@@ -850,7 +846,7 @@ impl TextMacroEvaluator {
                             type_def_provider,
                             &context_generic_types,
                             &f.resolved_generic_types.clone().remove_generics_prefix(),
-                            &f.index.id(),
+                            f.index.id(),
                             Some(&f.original_name),
                         )?
                     } else if let Some(f) = typed_function_def {

@@ -28,7 +28,7 @@ use axum::{Router, routing::get};
 use log::info;
 
 use rasm_core::codegen::c::options::COptions;
-use rasm_core::codegen::enh_ast::EnhASTIndex;
+use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhModuleId};
 use rasm_core::commandline::RasmProfile;
 use rasm_parser::catalog::ASTIndex;
 use serde::Deserialize;
@@ -229,7 +229,10 @@ async fn file<'a>(
 
         tokens.into_iter().for_each(|it| {
             // mv_left because the index of the token is at the end of the token itself, hence outside the text of the token...
-            let index = EnhASTIndex::new(Some(file_path.to_path_buf()), it.position.clone());
+            let index = EnhASTIndex::new(
+                EnhModuleId::Path(file_path.to_path_buf()),
+                it.position.clone(),
+            );
 
             let ast_index = ASTIndex::new(
                 info.module_namespace().clone(),
@@ -237,8 +240,8 @@ async fn file<'a>(
                 it.position.clone(),
             );
 
-            if row != index.position.row {
-                row = index.position.row;
+            if row != index.position().row {
+                row = index.position().row;
                 if !(is_multiline(&it)
                     || last_is_multiline && matches!(it.kind, TokenKind::EndOfLine))
                 {

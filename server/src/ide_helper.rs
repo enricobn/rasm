@@ -826,7 +826,8 @@ impl IDEHelper {
                 let path = self
                     .catalog
                     .catalog_info(it.index().info().id())
-                    .and_then(|info| info.0.path());
+                    .map(|info| info.0.clone())
+                    .unwrap_or_else(EnhModuleId::none);
                 CompilationError {
                     index: EnhASTIndex::from_position(path, it.index().position()),
                     error_kind: CompilationErrorKind::TypeCheck(
