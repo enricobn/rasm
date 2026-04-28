@@ -5,14 +5,196 @@ It is still in experimental phase (and probably it will always be...).
 
 **It is not secure, so try it at your own risk!!!**
 
-## Build
+## Language Syntax
 
-### Build prerequisites
+### Functions
 
-To build the compiler you need the rust toolchain (<https://www.rust-lang.org/tools/install>)
+```rasm
+pub fn name<T>(param: T) -> T {
+    param;
+}
 
-```bash
-cargo build --release
+fn name() -> int { 0 }
+
+fn name() -> float { 0.0 }
+
+fn name() -> str { "" }
+```
+
+### Structs
+
+```rasm
+pub struct Pair<A,B> {
+    first: A,
+    second: B
+}
+```
+
+### Enums
+
+```rasm
+pub enum Option<T> {
+    Some(value: T),
+    None
+}
+
+pub enum Result<OK,ERROR> {
+    Ok(value: OK),
+    Error(error: ERROR)
+}
+```
+
+### Variables
+
+```rasm
+let name = value;
+let name = value.method().anotherMethod();
+```
+
+### Match Expressions
+
+```rasm
+match(value,
+    fn(pattern) { result; },
+    { default; });
+
+match(option, fn(v) { v; }, { defaultValue; });
+
+match(c, { lessCase; }, { equalCase; }, { greaterCase; });
+```
+
+### Closures
+
+```rasm
+fn(x) { x }
+fn(x, y) { x.add(y) }
+fn(accum, current) { accum.add(current); }
+```
+
+### Method Calls
+
+```rasm
+value.method()
+value.method(arg)
+vector.map(fn(x) { x })
+list.foldLeft(zero, fn(acc, x) { acc.add(x); })
+```
+
+### Literals
+
+```rasm
+42          // int
+3.14        // float
+"hello"     // str
+'a'         // char
+true, false // bool
+```
+
+### Built-in Types
+
+- `int`, `float`, `bool`, `str`, `char`
+
+### Macros
+
+Compile-time macros are invoked with `!` suffix. Examples from the stdlib:
+
+```rasm
+vec!(1, 2, 3)            // create vec from values
+println!("Hello {}", x)  // print with format
+print!("Value: {}", v)   // print without newline
+```
+
+Format placeholders `{}` are replaced by arguments in order.
+
+Attribute macros auto-generate methods, from stdlib:
+
+```rasm
+@toString()
+@eq()
+pub struct Pair<A,B> {
+    first: A,
+    second: B
+}
+```
+
+This generates `toString` and `eq` implementations automatically.
+
+### Defining Macros
+
+There are two kinds of macros:
+
+#### Expression Macros
+
+Call with `!` suffix, receive AST expressions:
+
+```rasm
+pub fn vec(exprs: Vec<ASTExpression>) -> MacroExpressionResult {
+    exprs.first.match(
+        fn(first) {
+            let start = simpleASTCall("vecOf", vecOf(first));
+            let result = exprs.enumerate.filter(fn(act) { act.index.greater(0);})
+                .foldLeft(start, fn(prev, act) {
+                    simpleASTCall("push", vecOf(prev, act.value));
+                });
+            MacroExpressionOk(result, Vec());
+        },
+        { MacroExpressionResult::MacroError("No values, use Vec()"); }
+    );
+}
+```
+
+Returns `MacroExpressionOk(expr, functions)` or `MacroExpressionResult::MacroError(message)`.
+
+#### Statement Macros
+
+Used for statements (like `println!`):
+
+```rasm
+pub fn println(s: str, exprs: Vec<ASTExpression>) -> MacroStatementResult {
+    let parameters = vecOf(stringASTValue(s)).add(exprs);
+    let f = format(s, exprs);
+    f.match(fn(expr, functions) {
+        let statement = ASTExpressionStatement(simpleASTCall("println", vecOf(expr)));
+        MacroStatementOk(vecOf(statement), functions);
+    }, fn(error) {
+        MacroStatementResult::MacroError(error);
+    });
+}
+```
+
+Returns `MacroStatementOk(statements, functions)` or `MacroError(message)`.
+
+#### Attribute Macros
+
+Attach to structs/enums with `@`:
+
+```rasm
+@toString()
+pub struct Pair<A,B> { first: A, second: B }
+```
+
+The function receives an `ASTStructDef` or `ASTEnumDef`:
+
+```rasm
+pub fn toString(s: ASTStructDef) -> MacroAttributeResult {
+    // generate toString function from struct definition
+    let function = ASTFunctionDef(...);
+    MacroAttributeOk(vecOf(function));
+}
+```
+
+Returns `MacroAttributeOk(functions)` or `MacroError(message)`.
+
+### AST Builder Functions
+
+Helper functions to construct AST:
+
+```rasm
+simpleASTCall("name", vecOf(args))         // function call
+stringASTValue("hello")                    // string literal
+integerASTValue(42)                        // int literal
+booleanASTValue(true)                      // bool literal
+ASTValueRefExpression("name")              // variable reference
 ```
 
 ## Compile a rasm project
