@@ -20,6 +20,7 @@ use crate::codegen::enh_ast::{
 use crate::codegen::enh_val_context::{EnhValContext, TypedValContext};
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
+use crate::codegen::text_macro::TextMacroEvaluator;
 use crate::codegen::typedef_provider::TypeDefProvider;
 use crate::enh_type_check::conv_context::{
     ConvContext, conv_to_typed_parameter_def, conv_to_typed_type,
@@ -862,120 +863,14 @@ pub fn convert_to_typed_module(
         match &function.body {
             ASTTypedFunctionBody::RASMBody(_) => {}
             ASTTypedFunctionBody::NativeBody(body) => {
-                /*
-                let function_def = function
-                    .index
-                    .to_ast_index(modules_catalog)
-                    .and_then(|it| modules_container.function(&it))
-                    .map(|it| {
-                        EnhASTFunctionDef::from_ast(
-                            &function.index.id(),
-                            &function.namespace,
-                            it.clone(),
-                            false,
-                        )
-                    });
-                    */
-
-                let new_body = evaluator
-                    .translate(statics, Some(function), None, body, true, &conv_context)
-                    .map_err(|it| {
-                        compilation_error(
-                            function.index.clone(),
-                            format!("{} converting body of {}", it, function),
-                            Vec::new(),
-                        )
-                    })?;
-
-                let mut lines: Vec<String> =
-                    new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
-
-                let mut val_context = EnhValContext::new(None);
-                for par in function.parameters.iter() {
-                    val_context
-                        .insert_par(
-                            par.name.clone(),
-                            EnhASTParameterDef::new(
-                                &par.name,
-                                conv_context
-                                    .get_type_from_typed_type(&par.ast_type)
-                                    .unwrap_or_else(|| {
-                                        panic!("Cannot get type from typed type {}", &par.ast_type)
-                                    }),
-                                par.ast_index.clone(),
-                            ),
-                        )
-                        .map_err(|e| {
-                            let tce = EnhTypeCheckError::new(
-                                par.ast_index.clone(),
-                                e.clone(),
-                                Vec::new(),
-                            );
-                            CompilationError {
-                                index: par.ast_index.clone(),
-                                error_kind: CompilationErrorKind::TypeCheck(e.clone(), vec![tce]),
-                            }
-                        })?;
-                }
-
-                evaluator
-                    .called_functions(Some(function), None, &new_body, &val_context, &conv_context)
-                    .map_err(|err| CompilationError {
-                        index: function.index.clone(),
-                        error_kind: CompilationErrorKind::Generic(err.clone()),
-                    })?
-                    .iter()
-                    .for_each(|(m, it)| {
-                        debug_i!("native call to {:?}, in {}", it, function);
-
-                        let filters = it
-                            .param_types
-                            .iter()
-                            .map(|it| EnhTypeFilter::Exact(it.clone()))
-                            .collect::<Vec<_>>();
-                        if let Some(new_function_def) = module
-                            .functions_by_name
-                            .find_call(
-                                &it.name,
-                                &it.name,
-                                &filters,
-                                None,
-                                false,
-                                &it.index(&function.index),
-                                &module,
-                                &it.generics,
-                            )
-                            .unwrap()
-                        {
-                            debug_i!("converted to {new_function_def}");
-                            if it.name != new_function_def.name {
-                                lines[it.i] = get_new_native_call(m, &new_function_def.name);
-                            }
-                        } else {
-                            // panic!("cannot find call {function_call}");
-                            // TODO I hope it is a predefined function like addRef or deref for a struct or enum
-                            debug_i!("convert_to_typed_module: cannot find call to {}", it.name);
-                        }
-                    });
-
-                let new_body = lines.join("\n");
-
-                let new_body = evaluator
-                    .translate(
-                        statics,
-                        Some(function),
-                        None,
-                        &new_body,
-                        false,
-                        &conv_context,
-                    )
-                    .map_err(|it| {
-                        compilation_error(
-                            function.index.clone(),
-                            format!("{} converting body of {}", it, function),
-                            Vec::new(),
-                        )
-                    })?;
+                let new_body = translate_function_body(
+                    &module,
+                    statics,
+                    function,
+                    &conv_context,
+                    &evaluator,
+                    body,
+                )?;
                 function.body = ASTTypedFunctionBody::NativeBody(new_body);
             }
         }
@@ -1005,6 +900,113 @@ pub fn convert_to_typed_module(
     info!("Verify ended in {} ms", start.elapsed().as_millis());
 
     Ok(result)
+}
+
+fn translate_function_body<'a>(
+    module: &EnhancedASTModule,
+    statics: &'a mut Statics,
+    function: &ASTTypedFunctionDef,
+    conv_context: &'a dyn TypeDefProvider,
+    evaluator: &'a TextMacroEvaluator,
+    body: &String,
+) -> Result<String, CompilationError> {
+    let new_body = evaluator
+        .translate(statics, Some(function), None, body, true, conv_context)
+        .map_err(|it| {
+            compilation_error(
+                function.index.clone(),
+                format!("{} converting body of {}", it, function),
+                Vec::new(),
+            )
+        })?;
+
+    let mut lines: Vec<String> = new_body.lines().map(|it| it.to_owned()).collect::<Vec<_>>();
+
+    let mut val_context = EnhValContext::new(None);
+    for par in function.parameters.iter() {
+        val_context
+            .insert_par(
+                par.name.clone(),
+                EnhASTParameterDef::new(
+                    &par.name,
+                    conv_context
+                        .get_type_from_typed_type(&par.ast_type)
+                        .unwrap_or_else(|| {
+                            panic!("Cannot get type from typed type {}", &par.ast_type)
+                        }),
+                    par.ast_index.clone(),
+                ),
+            )
+            .map_err(|e| {
+                let tce = EnhTypeCheckError::new(par.ast_index.clone(), e.clone(), Vec::new());
+                CompilationError {
+                    index: par.ast_index.clone(),
+                    error_kind: CompilationErrorKind::TypeCheck(e.clone(), vec![tce]),
+                }
+            })?;
+    }
+
+    evaluator
+        .called_functions(Some(function), None, &new_body, &val_context, conv_context)
+        .map_err(|err| CompilationError {
+            index: function.index.clone(),
+            error_kind: CompilationErrorKind::Generic(err.clone()),
+        })?
+        .iter()
+        .for_each(|(m, it)| {
+            debug_i!("native call to {:?}, in {}", it, function);
+
+            let filters = it
+                .param_types
+                .iter()
+                .map(|it| EnhTypeFilter::Exact(it.clone()))
+                .collect::<Vec<_>>();
+            if let Some(new_function_def) = module
+                .functions_by_name
+                .find_call(
+                    &it.name,
+                    &it.name,
+                    &filters,
+                    None,
+                    false,
+                    &it.index(&function.index),
+                    &module,
+                    &it.generics,
+                )
+                .unwrap()
+            {
+                debug_i!("converted to {new_function_def}");
+                if it.name != new_function_def.name {
+                    lines[it.i] = get_new_native_call(m, &new_function_def.name);
+                }
+            } else {
+                // panic!("cannot find call {function_call}");
+                // TODO I hope it is a predefined function like addRef or deref for a struct or enum
+                debug_i!("convert_to_typed_module: cannot find call to {}", it.name);
+            }
+        });
+
+    let new_body = lines.join("\n");
+
+    let new_body = evaluator
+        .translate(
+            statics,
+            Some(function),
+            None,
+            &new_body,
+            false,
+            conv_context,
+        )
+        .map_err(|it| {
+            compilation_error(
+                function.index.clone(),
+                format!("{} converting body of {}", it, function),
+                Vec::new(),
+            )
+        })?;
+    //function.body = ASTTypedFunctionBody::NativeBody(new_body);
+
+    Ok(new_body)
 }
 
 fn compilation_error(

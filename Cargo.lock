@@ -3114,6 +3114,7 @@ dependencies = [
  "env_logger",
  "linked-hash-map",
  "log",
+ "num_cpus",
 ]
 
 [[package]]

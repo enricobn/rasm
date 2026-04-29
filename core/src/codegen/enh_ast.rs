@@ -9,7 +9,6 @@ use itertools::Itertools;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_utils::SliceDisplay;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
@@ -1606,7 +1605,7 @@ impl EnhASTModule {
 
         let functions = module
             .functions
-            .into_par_iter()
+            .into_iter()
             .map(|it| EnhASTFunctionDef::from_ast(&info.id, &info.namespace, it, prefix_generics))
             .collect();
 

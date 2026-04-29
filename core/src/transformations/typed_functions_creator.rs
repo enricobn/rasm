@@ -27,7 +27,7 @@ pub trait TypedFunctionsCreator {
         }
 
         for enum_def in typed_module.enums().iter() {
-            self.for_enum(module, typed_module, functions_by_name, statics, enum_def);
+            self.for_enum(typed_module, functions_by_name, statics, enum_def);
         }
 
         for typed_type_def in typed_module.types().iter() {
@@ -75,7 +75,6 @@ pub trait TypedFunctionsCreator {
 
     fn for_enum(
         &self,
-        _module: &EnhancedASTModule,
         typed_module: &dyn TypeDefProvider,
         functions_by_name: &mut LinkedHashMap<String, ASTTypedFunctionDef>,
         statics: &mut Statics,

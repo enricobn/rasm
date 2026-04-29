@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 # workspace
+env_logger.workspace = true
 linked-hash-map.workspace = true
 log.workspace = true
-env_logger.workspace = true
+num_cpus.workspace = true

@@ -9,7 +9,7 @@ use itertools::Itertools;
 
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::{
-    OptionDisplay, SliceDisplay, debug_i,
+    OptionDisplay, SliceDisplay, chunk_size, debug_i,
     debug_indent::{enable_log, log_enabled},
     dedent, indent,
 };
@@ -321,20 +321,12 @@ impl ASTTypeChecker {
             functions_count += module.functions.len();
         }
 
-        let num_chunks = (num_cpus::get() - 1).max(1);
-        let mut chunk_size = functions_count / num_chunks;
-        let remainder = functions_count % num_chunks;
-
-        if remainder > 0 {
-            chunk_size += 1;
-        }
-
         let functions_data = modules.iter().flat_map(|(id, namespace, module)| {
             module.functions.iter().map(move |f| (id, namespace, f))
         });
 
         let chunks = functions_data
-            .chunks(chunk_size)
+            .chunks(chunk_size(functions_count))
             .into_iter()
             .map(|chunk| chunk.into_iter().collect::<Vec<_>>())
             .collect_vec();

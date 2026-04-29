@@ -169,6 +169,18 @@ impl StrVecToStrings for Vec<&str> {
     }
 }
 
+pub fn chunk_size(count: usize) -> usize {
+    let num_chunks = (num_cpus::get() - 1).max(1);
+    let mut chunk_size = count / num_chunks;
+    let remainder = count % num_chunks;
+
+    if remainder > 0 {
+        chunk_size += 1;
+    }
+
+    chunk_size
+}
+
 #[cfg(test)]
 pub mod tests {
     use std::collections::HashMap;

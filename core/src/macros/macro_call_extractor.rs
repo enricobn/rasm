@@ -8,7 +8,8 @@ use rasm_parser::{
         ASTValue,
     },
 };
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rasm_utils::chunk_size;
+use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 
 use crate::{
     codegen::enh_ast::{EnhASTNameSpace, EnhModuleId},
@@ -117,36 +118,39 @@ pub fn extract_macro_calls(
     let mut calls = Vec::new();
     let mut attribute_macros = Vec::new();
 
-    let new_modules = container
-        .modules()
-        .into_par_iter()
-        .map(|(id, namespace, module)| {
-            let mut calls = Vec::new();
+    let modules = container.modules();
 
-            for function in module.functions.iter() {
-                if let ASTFunctionBody::RASMBody(ref body) = function.body {
-                    extract_macro_calls_in_body(
-                        &container,
-                        catalog,
-                        &namespace,
-                        &id,
-                        body,
-                        &mut calls,
-                        Some(&function.signature()),
-                    );
+    let new_modules = modules
+        .par_chunks(chunk_size(modules.len()))
+        .flat_map_iter(|it| {
+            it.into_iter().map(|(id, namespace, module)| {
+                let mut calls = Vec::new();
+
+                for function in module.functions.iter() {
+                    if let ASTFunctionBody::RASMBody(ref body) = function.body {
+                        extract_macro_calls_in_body(
+                            &container,
+                            catalog,
+                            &namespace,
+                            &id,
+                            body,
+                            &mut calls,
+                            Some(&function.signature()),
+                        );
+                    }
                 }
-            }
 
-            extract_macro_calls_in_body(
-                &container,
-                catalog,
-                &namespace,
-                &id,
-                &module.body,
-                &mut calls,
-                None,
-            );
-            (id, namespace, calls)
+                extract_macro_calls_in_body(
+                    &container,
+                    catalog,
+                    &namespace,
+                    &id,
+                    &module.body,
+                    &mut calls,
+                    None,
+                );
+                (id, namespace, calls)
+            })
         })
         .collect::<Vec<_>>();
 
