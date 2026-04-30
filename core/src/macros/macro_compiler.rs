@@ -199,7 +199,7 @@ fn compile_macros_internal<'a>(
         release: command_line_options.release,
         arguments: Vec::new(),
         include_tests: Vec::new(),
-        debug: false,
+        debug: command_line_options.debug,
         profile: command_line_options.profile.clone(),
     };
 
