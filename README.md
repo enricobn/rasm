@@ -342,9 +342,7 @@ an executable `<name>` will be created in the current directory.
 To compile the examples successfully, install some RASM libraries by running:  
 `./install_libs.sh`
 
-In the examples, the `--` is really not needed when running manually from the command line,
-it's needed if you are running it with an IDE that parses markdown and lets
-you run the program from the IDE.
+In the examples, the `--` is really not needed when running manually from the command line, it's needed if you are running it with an IDE that parses markdown and lets you run the program from the IDE.
 
 ### breakout
 
