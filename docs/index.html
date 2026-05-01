@@ -712,11 +712,16 @@ println!("Sum: {}", sum);</code></pre>
             function handleScroll() {
                 clearTimeout(scrollTimeout);
                 scrollTimeout = setTimeout(() => {
+                    const scrollTop = window.scrollY;
+                    if (scrollTop < 50) {
+                        setActive('syntax');
+                        return;
+                    }
                     let currentSection = null;
                     sections.forEach(section => {
                         const rect = section.getBoundingClientRect();
                         if (rect.top <= 150 && rect.bottom > 100) {
-                            if (!currentSection || rect.top > currentSection.getBoundingClientRect().top) {
+                            if (!currentSection || rect.top < currentSection.getBoundingClientRect().top) {
                                 currentSection = section;
                             }
                         }
