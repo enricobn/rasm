@@ -165,7 +165,6 @@
                     <li><a href="#compile-project">Compile a RASM Project</a></li>
                     <li><a href="#examples">Examples</a></li>
                     <li><a href="#sdl-examples">SDL Examples</a></li>
-                    <li><a href="#profiling">Profiling</a></li>
                     <li><a href="#common-errors">Common Errors & Solutions</a></li>
                 </ul>
             </nav>
@@ -365,7 +364,8 @@ pub struct Pair<A,B> {
     );
 }</code></pre>
                 <p>Returns <code>MacroExpressionOk(expr, functions)</code> or
-                    <code>MacroExpressionResult::MacroError(message)</code>.</p>
+                    <code>MacroExpressionResult::MacroError(message)</code>.
+                </p>
             </section>
 
             <section id="statement-macros">
@@ -419,7 +419,8 @@ pub struct Pair<A,B> { first: A, second: B }</code></pre>
                 <ul>
                     <li>
                         <p>Ensure dependencies are installed. For the examples in this project run:
-                            <code>./install_libs.sh</code></p>
+                            <code>./install_libs.sh</code>
+                        </p>
                     </li>
                 </ul>
 
@@ -427,7 +428,8 @@ pub struct Pair<A,B> { first: A, second: B }</code></pre>
                 <ul>
                     <li>
                         <p>Install SDL libraries (32 bit for nasmi386 target) or run with
-                            <code>SKIP_SDL_TESTS=true</code></p>
+                            <code>SKIP_SDL_TESTS=true</code>
+                        </p>
                     </li>
                 </ul>
 
@@ -442,7 +444,8 @@ pub struct Pair<A,B> { first: A, second: B }</code></pre>
                 <ul>
                     <li>
                         <p>Check that macro functions return correct type (<code>MacroExpressionOk</code>,
-                            <code>MacroStatementOk</code>, etc.)</p>
+                            <code>MacroStatementOk</code>, etc.)
+                        </p>
                     </li>
                     <li>
                         <p>Use <code>simpleASTCall</code> to generate function calls</p>
@@ -650,46 +653,27 @@ println!("Sum: {}", sum);</code></pre>
             <section id="sdl-examples">
                 <h2>SDL Examples</h2>
 
-                <h3>nasmi386 target</h3>
+                <h3>NASM i386 target (nasmi386 from the command line)</h3>
 
-                <h4>To install SDL 32 bit libraries on Ubuntu</h4>
+                To install SDL 32 bit libraries on Ubuntu
                 <pre><code>sudo apt install libsdl2-dev:i386</code></pre>
 
-                <h4>To install SDL TTF 32 bit libraries on Ubuntu</h4>
+                To install SDL TTF 32 bit libraries on Ubuntu
                 <pre><code>sudo apt install libsdl2-ttf-dev:i386</code></pre>
 
-                <h4>To install SDL image 32 bit libraries on Ubuntu needed for some examples and for running tests</h4>
+                To install SDL image 32 bit libraries on Ubuntu needed for some examples and for running tests
                 <pre><code>sudo apt install libsdl2-image-dev:i386</code></pre>
 
-                <h3>c target</h3>
+                <h3>C target (c from the command line)</h3>
 
-                <h4>To install SDL libraries on Ubuntu needed for some examples and for running tests</h4>
+                To install SDL libraries on Ubuntu needed for some examples and for running tests
                 <pre><code>sudo apt install libsdl2-dev</code></pre>
 
-                <h4>To install SDL TTF libraries on Ubuntu needed for some examples and for running tests</h4>
+                To install SDL TTF libraries on Ubuntu needed for some examples and for running tests
                 <pre><code>sudo apt install libsdl2-ttf-dev</code></pre>
 
-                <h4>To install SDL image libraries on Ubuntu needed for some examples and for running tests</h4>
+                To install SDL image libraries on Ubuntu needed for some examples and for running tests
                 <pre><code>sudo apt install libsdl2-image-dev</code></pre>
-            </section>
-
-            <section id="profiling">
-                <h2>Profiling</h2>
-
-                <h3>valgrind</h3>
-                <p>Only executables produced with libc support can be run with valgrind.</p>
-                <pre><code>sudo apt install libc6-dbg:i386</code></pre>
-
-                <h3>profiling build</h3>
-                <pre><code>sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
-cargo build
-valgrind --tool=callgrind target/debug/rasm build ...
-callgrind_annotate --auto=yes callgrind.out.&lt;pid&gt;</code></pre>
-
-                <h3>profiling executable</h3>
-                <pre><code>sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'
-valgrind --tool=callgrind &lt;executable&gt;
-callgrind_annotate --auto=yes callgrind.out.&lt;pid&gt;</code></pre>
             </section>
         </main>
     </div>

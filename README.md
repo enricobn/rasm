@@ -5,9 +5,9 @@ It is still in an experimental phase (and probably it will always be...)
 
 **It is not secure, so try it at your own risk!!!**
 
-## Language Syntax
+This is a brief introduction, for more insides look at [docs/index.html](docs/index.html)
 
-This is a brief explanation of the syntax, for more insides look at [docs/language syntax.html](docs/language%20syntax.html)
+## Language Syntax
 
 Every statement must end with a semicolon (`;`), including statements inside closures and statements outside a function or closure, and even the last statement in a function/closure which represents the return value.
 
@@ -148,100 +148,6 @@ pub struct Pair<A,B> {
 
 This generates `toString` and `eq` implementations automatically.
 
-## Common Errors & Solutions
-
-### Missing semicolons
-
-* **Every single statement must end with a semicolon (`;`)** - this includes statements inside closures and statements outside functions and closures
-* no exceptions: even single statement inside functions or closures need a semicolon
-* common error: "Unexpected end of block" or "Found semicolon without an expression"
-
-### "No such file or directory"
-
-* Ensure dependencies are installed. For the examples in this project run: `./install_libs.sh`
-
-### SDL test failures in this project
-
-* Install SDL libraries (32 bit for nasmi386 target) or run with `SKIP_SDL_TESTS=true`
-
-### Linker errors
-
-* Ensure `gcc-multilib g++-multilib libc++-dev nasm` are installed
-
-### Macro errors
-
-* Check that macro functions return correct type (`MacroExpressionOk`, `MacroStatementOk`, etc.)
-* Use `simpleASTCall` to generate function calls
-* Use `stringASTValue`, `integerASTValue`, etc. for literals
-
-### AST Builder Functions
-
-Helper functions to construct AST, in stdlib:
-
-```rasm
-simpleASTCall("name", vecOf(args))         // function call
-stringASTValue("hello")                    // string literal
-integerASTValue(42)                        // int literal
-booleanASTValue(true)                      // bool literal
-ASTValueRefExpression("name")              // variable reference
-```
-
-## Common Patterns
-
-### Working with Option/Result
-
-```rasm
-// Using Option
-let maybeValue: Option<int> = Some(42);
-match(maybeValue, fn(v) { v.mul(2); }, { 0; });
-
-// Using Result
-let result: Result<int, str> = Ok(42);
-match(result, fn(v) { v; }, fn(e) { println(e); 0; });
-```
-
-### Functional Operations
-
-```rasm
-// Map - closure body ends with semicolon
-let doubled = vec.map(fn(x) { x.mul(2); });
-
-// Filter - closure body ends with semicolon
-let evens = vec.filter(fn(x) { x.mod(2).eq(0); });
-
-// Fold - closure body ends with semicolon
-let sum = vec.foldLeft(0, fn(acc, x) { acc.add(x); });
-
-// Enumerate
-let indexed = vec.enumerate();
-```
-
-### String Operations
-
-```rasm
-let s = "hello";
-s.append(" world");
-s.len();
-s.eq("hello");
-s.substring(0, 5);
-```
-
-## Stdlib Modules
-
-Key modules from stdlib:
-
-* `vec` - Vector operations (map, filter, fold, etc.)
-* `list` - Linked list operations
-* `str` - String utilities
-* `option` - Option type helpers
-* `result` - Result type helpers
-* `math` - Mathematical functions
-* `time` - Time/date operations
-* `json` - JSON parsing
-* `iter` - Iterator utilities
-* `print` - Print macros
-* `test` - Testing utilities
-
 ## Compile a rasm project
 
 The language itself does not define how a project is organized; the organization depends on the compiler.
@@ -284,40 +190,11 @@ main=
 
 ### Usage
 
-```text
-Usage: rasm [OPTIONS] <ACTION> [file]
+to get an help of the command line tools
 
-Arguments:
-  <ACTION>  the action to perform [possible values: build, install, run, buildtest, test, server, ui]
-  [file]    the input directory or file
+```bash
+rasm --help
 
-Options:
-  -t <target>
-          the compiler target [default: nasmi386] [possible values: nasmi386, c]
-  -o <out>
-          the output folder of generated artifacts, if not set, the "target" folder under the project's root
-      --compile
-          creates only .asm/.c and .o files
-      --message-format <message-format>
-          for vscode
-  -d, --debug
-          compiles with debug symbols and includes comments in generated code
-  -D, --memorydebug
-          prints memory debug information at runtime (very verbose)
-  -M, --memoryinfo
-          prints memory information
-  -p, --printcode
-          prints code
-  -r, --release
-          optimize for release
-      --arguments <arguments>
-          arguments to be passed to main/test when run
-      --include-tests <include-tests>
-          a comma separated list of test functions to be included
-  -h, --help
-          Print help
-  -V, --version
-          Print version
 ```
 
 To build a project from its root:
@@ -364,38 +241,23 @@ cargo run --release -- build rasm/resources/test/fibonacci.rasm -o .
 
 it should print the 40th Fibonacci number (102334155)
 
-### Fibonacci example
-
-```rasm
-pub fn fib(n: int) -> int {
-    if(lessOrEqual(n, 1), n, {
-        fib(n.sub(1)).add(fib(n.sub(2))); 
-    });
-}
-
-// Using stdlib
-let nums = vec!(1, 2, 3, 4, 5);
-let sum = nums.foldLeft(0, fn(acc, n) { acc.add(n); });
-println!("Sum: {}", sum);
-```
-
 ## SDL examples
 
 ### nasmi386 target
 
-### To install SDL 32 bit libraries on Ubuntu
+To install SDL 32 bit libraries on Ubuntu
 
 ```bash
 sudo apt install libsdl2-dev:i386
 ```
 
-### To install SDL TTF 32 bit libraries on Ubuntu
+To install SDL TTF 32 bit libraries on Ubuntu
 
 ```bash
 sudo apt install libsdl2-ttf-dev:i386
 ```
 
-### To install SDL image 32 bit libraries on Ubuntu needed for some examples and for running tests
+To install SDL image 32 bit libraries on Ubuntu needed for some examples and for running tests
 
 ```bash
 sudo apt install libsdl2-image-dev:i386
@@ -403,47 +265,20 @@ sudo apt install libsdl2-image-dev:i386
 
 ### c target
 
-### To install SDL libraries on Ubuntu needed for some examples and for running tests
+To install SDL libraries on Ubuntu needed for some examples and for running tests
 
 ```bash
 sudo apt install libsdl2-dev
 ```
 
-### To install SDL TTF libraries on Ubuntu needed for some examples and for running tests
+To install SDL TTF libraries on Ubuntu needed for some examples and for running tests
 
 ```bash
 sudo apt install libsdl2-ttf-dev
 ```
 
-### To install SDL image libraries on Ubuntu needed for some examples and for running tests
+To install SDL image libraries on Ubuntu needed for some examples and for running tests
 
 ```bash
 sudo apt install libsdl2-image-dev
-```
-
-## profiling
-
-### valgrind
-
-Only executables produced with libc support can be run with valgrind.
-
-```bash
-sudo apt install libc6-dbg:i386
-```
-
-### profiling build
-
-```bash
-sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
-cargo build
-valgrind --tool=callgrind target/debug/rasm build ...
-callgrind_annotate --auto=yes callgrind.out.`<pid>`
-```
-
-### profiling executable
-
-```bash
-sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
-valgrind --tool=callgrind `<executable>`  
-callgrind_annotate --auto=yes callgrind.out.`<pid>`
 ```

@@ -11,11 +11,31 @@
 - print a string  
   printf "%s", x
 
-## profile
+## profiling
 
-To use valgrind you have to link with gcc, but for now there is not a way to force it, other than requiring libc:  
-requires "libc"
+### valgrind
 
-valgrind --tool=callgrind ./list
-callgrind_annotate --tree=both --inclusive=yes --auto=yes --show-percs=yes callgrind.out."pid"
-then you can use KChacheGrind
+Only executables produced with libc support can be run with valgrind.
+
+```bash
+sudo apt install libc6-dbg:i386
+```
+
+### profiling build
+
+```bash
+sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
+cargo build
+valgrind --tool=callgrind target/debug/rasm build ...
+callgrind_annotate --auto=yes callgrind.out.`<pid>`
+```
+
+or you can use KChacheGrind
+
+### profiling executable
+
+```bash
+sudo sh -c 'echo 1 >/proc/sys/kernel/perf_event_paranoid'  
+valgrind --tool=callgrind `<executable>`  
+callgrind_annotate --auto=yes callgrind.out.`<pid>`
+```
