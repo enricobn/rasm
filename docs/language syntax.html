@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Language Syntax</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a252f;
+            color: #ecf0f1;
+            line-height: 1.6;
+        }
+        .container {
+            display: flex;
+            max-width: 1400px;
+            margin: 0 auto;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 280px;
+            background: #2c3e50;
+            color: #fff;
+            padding: 20px;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            border-right: 8px solid #1a252f;
+        }
+        .sidebar h1 {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #34495e;
+        }
+        .sidebar nav ul {
+            list-style: none;
+        }
+        .sidebar nav ul li {
+            margin: 8px 0;
+        }
+        .sidebar nav a {
+            color: #bdc3c7;
+            text-decoration: none;
+            display: block;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .sidebar nav a:hover {
+            background: #34495e;
+            color: #fff;
+}
+        .sidebar nav a.active {
+    background: #e74c3c !important;
+    color: #fff !important;
+    font-weight: bold;
+}
+        .sidebar nav a.sub {
+            padding-left: 24px;
+            font-size: 0.9em;
+        }
+        .content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 40px;
+            background: #2c3e50;
+        }
+        .content section {
+            margin-bottom: 40px;
+        }
+        .content h2 {
+            color: #ecf0f1;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+        }
+        .content h3 {
+            color: #ecf0f1;
+            margin: 25px 0 15px;
+        }
+        .content p {
+            margin-bottom: 15px;
+        }
+        .content code {
+            background: #f8f9fa;
+            color: #2c3e50;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+        }
+        .content pre {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        .content pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <h1>Language Syntax</h1>
+            <nav>
+                <ul>
+                    <li><a href="#introduction">Introduction</a></li>
+                    <li><a href="#main" class="sub">Main</a></li>
+                    <li><a href="#built-in-types" class="sub">Built-in Types</a></li>
+                    <li><a href="#literals" class="sub">Literals</a></li>
+                    <li><a href="#operators" class="sub">Operators & Macros</a></li>
+                    <li><a href="#functions" class="sub">Functions</a></li>
+                    <li><a href="#function-calls" class="sub">Function Calls</a></li>
+                    <li><a href="#structs" class="sub">Structs</a></li>
+                    <li><a href="#enums" class="sub">Enums</a></li>
+                    <li><a href="#variables" class="sub">Variables</a></li>
+                    <li><a href="#closures" class="sub">Closures</a></li>
+                    <li><a href="#macros" class="sub">Macros</a></li>
+                    <li><a href="#defining-macros" class="sub">Defining Macros</a></li>
+                    <li><a href="#expression-macros" class="sub">Expression Macros</a></li>
+                    <li><a href="#statement-macros" class="sub">Statement Macros</a></li>
+                    <li><a href="#attribute-macros" class="sub">Attribute Macros</a></li>
+                </ul>
+            </nav>
+        </aside>
+        <main class="content">
+            <section id="introduction">
+                <h2>Language Syntax</h2>
+                <p>Every statement must end with a semicolon (<code>;</code>), including statements inside closures and statements outside a function or closure, and even the last statement in a function/closure which represents the return value.</p>
+            </section>
+
+            <section id="main">
+                <h3>Main</h3>
+                <p>There is no main function in the language; statements outside a function/closure are treated as the "main function". This is a valid RASM program:</p>
+                <pre><code>println("Hello world");</code></pre>
+            </section>
+
+            <section id="built-in-types">
+                <h3>Built-in Types</h3>
+                <p><code>int</code>, <code>float</code>, <code>bool</code>, <code>str</code>, <code>char</code></p>
+            </section>
+
+            <section id="literals">
+                <h3>Literals</h3>
+                <pre><code>42          // int
+3.14        // float
+"hello"     // str
+'a'         // char
+true, false // bool</code></pre>
+            </section>
+
+            <section id="operators">
+                <h3>Operators, predefined functions and macros</h3>
+                <p>There are no operators, predefined functions, or macros in the language, except for the automatically defined functions for structs and enums (see below).</p>
+            </section>
+
+            <section id="functions">
+                <h3>Functions</h3>
+                <pre><code>pub fn addTwo(n: int) -> int {
+    add(n, 2); // the last statement of a function is the return value.
+}
+
+// generic function
+pub fn addOne<T>(n: T) -> T {
+    add(n, 1);
+}
+
+fn anInt() -> int { 0; }
+
+// method: no return type
+fn printName(name: str) {
+    println("Name: ", name);
+}</code></pre>
+                <p>Generic types in generic functions cannot be constrained; they can be any type. The compiler will determine the types and the correctness of the function, depending on how it is called. In the above example, if we call it with an int, it will return an int, if a function "add" is defined that takes an int and returns an int, but if there is no such function, we'll get a compilation error.</p>
+            </section>
+
+            <section id="function-calls">
+                <h3>Function Calls</h3>
+                <pre><code>let two = add(1, 1);
+
+// syntactic sugar...
+let three = two.add(1);
+
+// generic function call, useful when the compiler cannot determine the type automatically
+let v = evaluate<int>("10"); // probably it's not possible to create such function, but as an example...</code></pre>
+            </section>
+
+            <section id="structs">
+                <h3>Structs</h3>
+                <pre><code>@toString() // this is an attribute macro (see below)
+pub struct Pair<A,B> {
+    first: A,
+    second: B
+}
+
+let p = Pair("number", 1);
+println(first(p));
+// or with syntactic sugar...
+println(p.first);
+
+let p1 = p.second(2); // Pair("number", 2)
+let p2 = p.second(fn(v) { v.add(1);}); // Pair("number", 2)</code></pre>
+                <p>For every struct, a constructor function is automatically defined. It has the name of the struct, and the parameters are the attributes of the struct in the order defined; it returns the type of the struct.</p>
+                <pre><code>pub Pair<A,B>(first: A, second: B) -> Pair<A,B>;</code></pre>
+                <p>For every attribute in a struct, three functions are automatically defined:</p>
+                <ul>
+                    <li><p>a getter function with the name of the attribute and a parameter which has the type of the struct.</p>
+                        <pre><code>pub fn first<A,B>(s: Pair<A,B>) -> A;
+pub fn second<A,B>(s: Pair<A,B>) -> B;</code></pre>
+                    </li>
+                    <li><p>a "setter" function with the name of the attribute, a parameter which has the type of the struct and another parameter which is the new value, it returns a new instance of the struct with the new attribute value.</p>
+                        <pre><code>pub fn first<A,B>(s: Pair<A,B>, v: A) -> Pair<A,B>;
+pub fn second<A,B>(s: Pair<A,B>, v: B) -> Pair<A,B>;</code></pre>
+                    </li>
+                    <li><p>a "setter" function with the name of the attribute, a parameter which has the type of the struct and another parameter which is a closure</p>
+                        <pre><code>pub fn first<A,B>(s: Pair<A,B>, f: fn(oldValue: A) -> A) -> Pair<A,B>;
+pub fn second<A,B>(s: Pair<A,B>, f: fn(oldValue: B) -> B) -> Pair<A,B>;</code></pre>
+                    </li>
+                </ul>
+            </section>
+
+            <section id="enums">
+                <h3>Enums</h3>
+                <pre><code>pub enum Option<T> {
+    Some(value: T),
+    None
+}
+
+pub enum Planet {
+    Earth,
+    Mars,
+    Venus,
+    Other
+}
+
+let v = Some(10);
+let s = v.match(fn(v) { v.add(1);}, { 0;}); // Some(11)
+
+let planet = Earth(); // or, for disambiguation... Planet::Earth();
+println(planet.matchEarth({"it's the Earth";}, { "it's not the Earth";}));</code></pre>
+                <p>For every enum, a function named "match" is automatically defined, taking a value of the enum type and one parameter for each variant (a closure with the variant's parameters in the order defined). For each variant, a function named "match" plus the variant name (capitalized) is automatically defined, taking a value of the enum type, a closure with the variant's parameters, and another parameterless closure.</p>
+                <pre><code>pub fn matchEarth<R>(planet: Planet, earth: fn() -> R, notEarth: fn() -> R) -> R;</code></pre>
+            </section>
+
+            <section id="variables">
+                <h3>Variables</h3>
+                <pre><code>let one = 1;
+let two = one.add(1);</code></pre>
+            </section>
+
+            <section id="closures">
+                <h3>Closures</h3>
+                <pre><code>fn(x) { x; }
+fn(x, y) { x.add(y); }
+fn(accum, current) { accum.add(current); }</code></pre>
+            </section>
+
+            <section id="macros">
+                <h3>Macros</h3>
+                <p>Compile-time macros are invoked with <code>!</code> suffix. Examples from the stdlib:</p>
+                <pre><code>vec!(1, 2, 3)            // create vec from values
+println!("Hello {}", x)  // print with format
+print!("Value: {}", v)   // print without newline</code></pre>
+                <p>Attribute macros auto-generate methods, from stdlib:</p>
+                <pre><code>@toString()
+@eq()
+pub struct Pair<A,B> {
+    first: A,
+    second: B
+}</code></pre>
+                <p>This generates <code>toString</code> and <code>eq</code> implementations automatically.</p>
+            </section>
+
+            <section id="defining-macros">
+                <h3>Defining Macros</h3>
+                <p>Macros are ordinary functions, but with specific parameters and return types.</p>
+                <p>There are two kinds of macros:</p>
+            </section>
+
+            <section id="expression-macros">
+                <h4>Expression Macros</h4>
+                <p>They receive AST expressions or primitive types, the last parameter can be a Vec of expressions:</p>
+                <pre><code>pub fn vec(exprs: Vec<ASTExpression>) -> MacroExpressionResult {
+    exprs.first.match(
+        fn(first) {
+            let start = simpleASTCall("vecOf", vecOf(first));
+            let result = exprs.enumerate.filter(fn(act) { act.index.greater(0); })
+                .foldLeft(start, fn(prev, act) {
+                    simpleASTCall("push", vecOf(prev, act.value));
+                });
+            MacroExpressionOk(result, Vec());
+        },
+        { MacroExpressionResult::MacroError("No values, use Vec()"); }
+    );
+}</code></pre>
+                <p>Returns <code>MacroExpressionOk(expr, functions)</code> or <code>MacroExpressionResult::MacroError(message)</code>.</p>
+            </section>
+
+            <section id="statement-macros">
+                <h4>Statement Macros</h4>
+                <p>Used for statements (like <code>println!</code>):</p>
+                <pre><code>pub fn println(s: str, exprs: Vec<ASTExpression>) -> MacroStatementResult {
+    let parameters = vecOf(stringASTValue(s)).add(exprs);
+    let f = format(s, exprs);
+    f.match(fn(expr, functions) {
+        let statement = ASTExpressionStatement(simpleASTCall("println", vecOf(expr)));
+        MacroStatementOk(vecOf(statement), functions);
+    }, fn(error) {
+        MacroStatementResult::MacroError(error);
+    });
+}</code></pre>
+                <p>Returns <code>MacroStatementOk(statements, functions)</code> or <code>MacroError(message)</code>.</p>
+            </section>
+
+            <section id="attribute-macros">
+                <h4>Attribute Macros</h4>
+                <p>Attach to structs/enums with <code>@</code>:</p>
+                <pre><code>@toString()
+pub struct Pair<A,B> { first: A, second: B }</code></pre>
+                <p>The function receives an <code>ASTStructDef</code> or <code>ASTEnumDef</code>:</p>
+                <pre><code>pub fn toString(s: ASTStructDef) -> MacroAttributeResult {
+    // generate toString function from struct definition
+    let function = ASTFunctionDef(...);
+    MacroAttributeOk(vecOf(function));
+}</code></pre>
+                <p>Returns <code>MacroAttributeOk(functions)</code> or <code>MacroError(message)</code>.</p>
+            </section>
+</main>
+    </div>
+    <script>
+        (function() {
+            const anchors = document.querySelectorAll('.sidebar a');
+            const sections = document.querySelectorAll('.content section');
+            
+            function setActive(id) {
+                anchors.forEach(a => a.classList.remove('active'));
+                if (id) {
+                    const active = document.querySelector('.sidebar a[href="#' + id + '"]');
+                    if (active) active.classList.add('active');
+                }
+            }
+            
+            anchors.forEach(anchor => {
+                anchor.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const id = this.getAttribute('href').slice(1);
+                    const target = document.getElementById(id);
+                    if (target) {
+                        const top = target.getBoundingClientRect().top + window.scrollY - 120;
+                        window.scrollTo({ top: top, behavior: 'smooth' });
+                        setActive(id);
+                    }
+                });
+            });
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        setActive(entry.target.id);
+                    }
+                });
+            }, { rootMargin: '-120px 0px -60% 0px' });
+            
+            sections.forEach(section => observer.observe(section));
+            
+            if (sections.length > 0) {
+                const first = sections[0].id;
+                setActive(first);
+            }
+        })();
+    </script>
+</body>
+</html>

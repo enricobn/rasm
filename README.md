@@ -1,84 +1,28 @@
 # RASM
 
-A native compiler (for now it produces only 80386/x86-64, linux executables, depending on target) for a "non pure" functional language.  
-It is still in experimental phase (and probably it will always be...).
+A native compiler (for now it produces only i386/x86-64 Linux executables, depending on the target) for a "non-pure" functional language.  
+It is still in an experimental phase (and probably it will always be...)
 
 **It is not secure, so try it at your own risk!!!**
 
 ## Language Syntax
 
-### Functions
+This is a brief explanation of the syntax, for more insides look at [docs/language syntax.html](docs/language%20syntax.html)
+
+Every statement must end with a semicolon (`;`), including statements inside closures and statements outside a function or closure, and even the last statement in a function/closure which represents the return value.
+
+### Main
+
+There is no main function in the language; statements outside a function/closure are treated as the "main function".
+This is a valid RASM program:
 
 ```rasm
-pub fn name<T>(param: T) -> T {
-    param;
-}
-
-fn name() -> int { 0 }
-
-fn name() -> float { 0.0 }
-
-fn name() -> str { "" }
+println("Hello world");
 ```
 
-### Structs
+### Built-in Types
 
-```rasm
-pub struct Pair<A,B> {
-    first: A,
-    second: B
-}
-```
-
-### Enums
-
-```rasm
-pub enum Option<T> {
-    Some(value: T),
-    None
-}
-
-pub enum Result<OK,ERROR> {
-    Ok(value: OK),
-    Error(error: ERROR)
-}
-```
-
-### Variables
-
-```rasm
-let name = value;
-let name = value.method().anotherMethod();
-```
-
-### Match Expressions
-
-```rasm
-match(value,
-    fn(pattern) { result; },
-    { default; });
-
-match(option, fn(v) { v; }, { defaultValue; });
-
-match(c, { lessCase; }, { equalCase; }, { greaterCase; });
-```
-
-### Closures
-
-```rasm
-fn(x) { x }
-fn(x, y) { x.add(y) }
-fn(accum, current) { accum.add(current); }
-```
-
-### Method Calls
-
-```rasm
-value.method()
-value.method(arg)
-vector.map(fn(x) { x })
-list.foldLeft(zero, fn(acc, x) { acc.add(x); })
-```
+`int`, `float`, `bool`, `str`, `char`
 
 ### Literals
 
@@ -90,9 +34,96 @@ list.foldLeft(zero, fn(acc, x) { acc.add(x); })
 true, false // bool
 ```
 
-### Built-in Types
+### Operators, predefined functions and macros
 
-- `int`, `float`, `bool`, `str`, `char`
+There are no operators, predefined functions, or macros in the language, except for the automatically defined functions for structs and enums (see below).
+
+### Functions
+
+```rasm
+pub fn addTwo(n: int) -> int {
+    add(n, 2); // the last statement of a function is the return value.
+}
+
+// generic function
+pub fn addOne<T>(n: T) -> T {
+    add(n, 1);
+}
+
+fn anInt() -> int { 0; }
+
+// method: no return type
+fn printName(name: str) {
+    println("Name: ", name);
+}
+```
+
+### Function Calls
+
+```rasm
+let two = add(1, 1);
+
+// syntactic sugar...
+let three = two.add(1);
+
+// generic function call, useful when the compiler cannot determine the type automatically
+let v = evaluate<int>("10"); // probably it's not possible to create such function, but as an example...
+```
+
+### Structs
+
+```rasm
+@toString() // this is an attribute macro (see below)
+pub struct Pair<A,B> {
+    first: A,
+    second: B
+}
+
+let p = Pair("number", 1);
+println(first(p));
+// or with syntactic sugar...
+println(p.first);
+
+let p1 = p.second(2); // Pair("number", 2)
+let p2 = p.second(fn(v) { v.add(1);}); // Pair("number", 2)
+```
+
+### Enums
+
+```rasm
+pub enum Option<T> {
+    Some(value: T),
+    None
+}
+
+pub enum Planet {
+    Earth,
+    Mars,
+    Venus,
+    Other
+}
+
+let v = Some(10);
+let s = v.match(fn(v) { v.add(1);}, { 0;}); // Some(11)
+
+let planet = Earth(); // or, for disambiguation... Planet::Earth();
+println(planet.matchEarth({"it's the Earth";}, { "it's not the Earth";}));
+```
+
+### Variables
+
+```rasm
+let one = 1;
+let two = one.add(1);
+```
+
+### Closures
+
+```rasm
+fn(x) { x; }
+fn(x, y) { x.add(y); }
+fn(accum, current) { accum.add(current); }
+```
 
 ### Macros
 
@@ -103,8 +134,6 @@ vec!(1, 2, 3)            // create vec from values
 println!("Hello {}", x)  // print with format
 print!("Value: {}", v)   // print without newline
 ```
-
-Format placeholders `{}` are replaced by arguments in order.
 
 Attribute macros auto-generate methods, from stdlib:
 
@@ -119,71 +148,31 @@ pub struct Pair<A,B> {
 
 This generates `toString` and `eq` implementations automatically.
 
-### Defining Macros
+## Common Errors & Solutions
 
-There are two kinds of macros:
+### Missing semicolons
 
-#### Expression Macros
+* **Every single statement must end with a semicolon (`;`)** - this includes statements inside closures and statements outside functions and closures
+* no exceptions: even single statement inside functions or closures need a semicolon
+* common error: "Unexpected end of block" or "Found semicolon without an expression"
 
-Call with `!` suffix, receive AST expressions:
+### "No such file or directory"
 
-```rasm
-pub fn vec(exprs: Vec<ASTExpression>) -> MacroExpressionResult {
-    exprs.first.match(
-        fn(first) {
-            let start = simpleASTCall("vecOf", vecOf(first));
-            let result = exprs.enumerate.filter(fn(act) { act.index.greater(0);})
-                .foldLeft(start, fn(prev, act) {
-                    simpleASTCall("push", vecOf(prev, act.value));
-                });
-            MacroExpressionOk(result, Vec());
-        },
-        { MacroExpressionResult::MacroError("No values, use Vec()"); }
-    );
-}
-```
+* Ensure dependencies are installed. For the examples in this project run: `./install_libs.sh`
 
-Returns `MacroExpressionOk(expr, functions)` or `MacroExpressionResult::MacroError(message)`.
+### SDL test failures in this project
 
-#### Statement Macros
+* Install SDL libraries (32 bit for nasmi386 target) or run with `SKIP_SDL_TESTS=true`
 
-Used for statements (like `println!`):
+### Linker errors
 
-```rasm
-pub fn println(s: str, exprs: Vec<ASTExpression>) -> MacroStatementResult {
-    let parameters = vecOf(stringASTValue(s)).add(exprs);
-    let f = format(s, exprs);
-    f.match(fn(expr, functions) {
-        let statement = ASTExpressionStatement(simpleASTCall("println", vecOf(expr)));
-        MacroStatementOk(vecOf(statement), functions);
-    }, fn(error) {
-        MacroStatementResult::MacroError(error);
-    });
-}
-```
+* Ensure `gcc-multilib g++-multilib libc++-dev nasm` are installed
 
-Returns `MacroStatementOk(statements, functions)` or `MacroError(message)`.
+### Macro errors
 
-#### Attribute Macros
-
-Attach to structs/enums with `@`:
-
-```rasm
-@toString()
-pub struct Pair<A,B> { first: A, second: B }
-```
-
-The function receives an `ASTStructDef` or `ASTEnumDef`:
-
-```rasm
-pub fn toString(s: ASTStructDef) -> MacroAttributeResult {
-    // generate toString function from struct definition
-    let function = ASTFunctionDef(...);
-    MacroAttributeOk(vecOf(function));
-}
-```
-
-Returns `MacroAttributeOk(functions)` or `MacroError(message)`.
+* Check that macro functions return correct type (`MacroExpressionOk`, `MacroStatementOk`, etc.)
+* Use `simpleASTCall` to generate function calls
+* Use `stringASTValue`, `integerASTValue`, etc. for literals
 
 ### AST Builder Functions
 
@@ -197,7 +186,65 @@ booleanASTValue(true)                      // bool literal
 ASTValueRefExpression("name")              // variable reference
 ```
 
+## Common Patterns
+
+### Working with Option/Result
+
+```rasm
+// Using Option
+let maybeValue: Option<int> = Some(42);
+match(maybeValue, fn(v) { v.mul(2); }, { 0; });
+
+// Using Result
+let result: Result<int, str> = Ok(42);
+match(result, fn(v) { v; }, fn(e) { println(e); 0; });
+```
+
+### Functional Operations
+
+```rasm
+// Map - closure body ends with semicolon
+let doubled = vec.map(fn(x) { x.mul(2); });
+
+// Filter - closure body ends with semicolon
+let evens = vec.filter(fn(x) { x.mod(2).eq(0); });
+
+// Fold - closure body ends with semicolon
+let sum = vec.foldLeft(0, fn(acc, x) { acc.add(x); });
+
+// Enumerate
+let indexed = vec.enumerate();
+```
+
+### String Operations
+
+```rasm
+let s = "hello";
+s.append(" world");
+s.len();
+s.eq("hello");
+s.substring(0, 5);
+```
+
+## Stdlib Modules
+
+Key modules from stdlib:
+
+* `vec` - Vector operations (map, filter, fold, etc.)
+* `list` - Linked list operations
+* `str` - String utilities
+* `option` - Option type helpers
+* `result` - Result type helpers
+* `math` - Mathematical functions
+* `time` - Time/date operations
+* `json` - JSON parsing
+* `iter` - Iterator utilities
+* `print` - Print macros
+* `test` - Testing utilities
+
 ## Compile a rasm project
+
+The language itself does not define how a project is organized; the organization depends on the compiler.
 
 ### Compile prerequisites
 
@@ -256,9 +303,9 @@ Options:
   -d, --debug
           compiles with debug symbols and includes comments in generated code
   -D, --memorydebug
-          prints memory debug informations at runtime (very verbose)
+          prints memory debug information at runtime (very verbose)
   -M, --memoryinfo
-          prints memory informations
+          prints memory information
   -p, --printcode
           prints code
   -r, --release
@@ -283,21 +330,21 @@ To build a project from another directory:
 
 an executable will be created in the `<directory>/target` directory.
 
-There is a limited support for building a single file, since you need some library to do something useful,
-by default to a single file project is added a dependency to stdlib 0.1 compatible version,
-so before compiling such a project, you have to install stdlib :  
+There is limited support for building a single file, since you need some library to do something useful.
+By default, a dependency on a stdlib 0.1 compatible version is added to a single file project,
+so before compiling such a project, you have to install stdlib:  
 `rasm build <name>.rasm`
 
 an executable `<name>` will be created in the current directory.
 
 ## Examples
 
-to successfully compile the examples you have to install some rasm libraries, run:  
+To compile the examples successfully, install some RASM libraries by running:  
 `./install_libs.sh`
 
-In the examples the -- is really not needed when running manually from the command line,
+In the examples, the `--` is really not needed when running manually from the command line,
 it's needed if you are running it with an IDE that parses markdown and lets
-you run it from the IDE itself.
+you run the program from the IDE.
 
 ### breakout
 
@@ -305,7 +352,7 @@ you run it from the IDE itself.
 cargo run --release -- build rasm/resources/examples/breakout/ -o .
 ```
 
-a "breakout" executable file will be created in the current folder
+a "breakout" executable will be created in the current folder
 
 ### fibonacci
 
@@ -317,7 +364,22 @@ cargo run --release -- build rasm/resources/test/fibonacci.rasm -o .
 ./fibonacci 40
 ```
 
-it should print the fortieth fibonacci number (102334155)
+it should print the 40th Fibonacci number (102334155)
+
+### Fibonacci example
+
+```rasm
+pub fn fib(n: int) -> int {
+    if(lessOrEqual(n, 1), n, {
+        fib(n.sub(1)).add(fib(n.sub(2))); 
+    });
+}
+
+// Using stdlib
+let nums = vec!(1, 2, 3, 4, 5);
+let sum = nums.foldLeft(0, fn(acc, n) { acc.add(n); });
+println!("Sum: {}", sum);
+```
 
 ## SDL examples
 
@@ -326,19 +388,19 @@ it should print the fortieth fibonacci number (102334155)
 ### To install SDL 32 bit libraries on Ubuntu
 
 ```bash
-sudo apt-get install libsdl2-dev:i386
+sudo apt install libsdl2-dev:i386
 ```
 
 ### To install SDL TTF 32 bit libraries on Ubuntu
 
 ```bash
-sudo apt-get install libsdl2-ttf-dev:i386
+sudo apt install libsdl2-ttf-dev:i386
 ```
 
 ### To install SDL image 32 bit libraries on Ubuntu needed for some examples and for running tests
 
 ```bash
-sudo apt-get install libsdl2-image-dev:i386
+sudo apt install libsdl2-image-dev:i386
 ```
 
 ### c target
@@ -346,19 +408,19 @@ sudo apt-get install libsdl2-image-dev:i386
 ### To install SDL libraries on Ubuntu needed for some examples and for running tests
 
 ```bash
-sudo apt-get install libsdl2-dev
+sudo apt install libsdl2-dev
 ```
 
 ### To install SDL TTF libraries on Ubuntu needed for some examples and for running tests
 
 ```bash
-sudo apt-get install libsdl2-ttf-dev
+sudo apt install libsdl2-ttf-dev
 ```
 
 ### To install SDL image libraries on Ubuntu needed for some examples and for running tests
 
 ```bash
-sudo apt-get install libsdl2-image-dev
+sudo apt install libsdl2-image-dev
 ```
 
 ## profiling
@@ -368,7 +430,7 @@ sudo apt-get install libsdl2-image-dev
 Only executables produced with libc support can be run with valgrind.
 
 ```bash
-sudo apt-get install libc6-dbg:i386
+sudo apt install libc6-dbg:i386
 ```
 
 ### profiling build
