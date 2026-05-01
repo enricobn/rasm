@@ -400,64 +400,6 @@ pub struct Pair<A,B> { first: A, second: B }</code></pre>
                 <p>Returns <code>MacroAttributeOk(functions)</code> or <code>MacroError(message)</code>.</p>
             </section>
 
-            <section id="common-errors">
-                <h2>Common Errors & Solutions</h2>
-
-                <h3>Missing semicolons</h3>
-                <ul>
-                    <li>
-                        <p>Every single statement must end with a semicolon (<code>;</code>) - this includes statements
-                            inside closures and statements outside functions and closures</p>
-                    </li>
-                    <li>
-                        <p>no exceptions: even single statement inside functions or closures need a semicolon</p>
-                    </li>
-                    <li>
-                        <p>common error: "Unexpected end of block" or "Found semicolon without an expression"</p>
-                    </li>
-                </ul>
-
-                <h3>"No such file or directory"</h3>
-                <ul>
-                    <li>
-                        <p>Ensure dependencies are installed. For the examples in this project run:
-                            <code>./install_libs.sh</code>
-                        </p>
-                    </li>
-                </ul>
-
-                <h3>SDL test failures in this project</h3>
-                <ul>
-                    <li>
-                        <p>Install SDL libraries (32 bit for nasmi386 target) or run with
-                            <code>SKIP_SDL_TESTS=true</code>
-                        </p>
-                    </li>
-                </ul>
-
-                <h3>Linker errors</h3>
-                <ul>
-                    <li>
-                        <p>Ensure <code>gcc-multilib g++-multilib libc++-dev nasm</code> are installed</p>
-                    </li>
-                </ul>
-
-                <h3>Macro errors</h3>
-                <ul>
-                    <li>
-                        <p>Check that macro functions return correct type (<code>MacroExpressionOk</code>,
-                            <code>MacroStatementOk</code>, etc.)
-                        </p>
-                    </li>
-                    <li>
-                        <p>Use <code>simpleASTCall</code> to generate function calls</p>
-                    </li>
-                    <li>
-                        <p>Use <code>stringASTValue</code>, <code>integerASTValue</code>, etc. for literals</p>
-                    </li>
-                </ul>
-            </section>
-
             <section id="stdlib">
                 <h2>Stdlib</h2>
             </section>
@@ -677,6 +619,64 @@ println!("Sum: {}", sum);</code></pre>
                 To install SDL image libraries on Ubuntu needed for some examples and for running tests
                 <pre><code>sudo apt install libsdl2-image-dev</code></pre>
             </section>
+
+            <section id="common-errors">
+                <h2>Common Errors & Solutions</h2>
+
+                <h3>Missing semicolons</h3>
+                <ul>
+                    <li>
+                        <p>Every single statement must end with a semicolon (<code>;</code>) - this includes statements
+                            inside closures and statements outside functions and closures</p>
+                    </li>
+                    <li>
+                        <p>no exceptions: even single statement inside functions or closures need a semicolon</p>
+                    </li>
+                    <li>
+                        <p>common error: "Unexpected end of block" or "Found semicolon without an expression"</p>
+                    </li>
+                </ul>
+
+                <h3>"No such file or directory"</h3>
+                <ul>
+                    <li>
+                        <p>Ensure dependencies are installed. For the examples in this project run:
+                            <code>./install_libs.sh</code>
+                        </p>
+                    </li>
+                </ul>
+
+                <h3>SDL test failures in this project</h3>
+                <ul>
+                    <li>
+                        <p>Install SDL libraries (32 bit for nasmi386 target) or run with
+                            <code>SKIP_SDL_TESTS=true</code>
+                        </p>
+                    </li>
+                </ul>
+
+                <h3>Linker errors</h3>
+                <ul>
+                    <li>
+                        <p>Ensure <code>gcc-multilib g++-multilib libc++-dev nasm</code> are installed</p>
+                    </li>
+                </ul>
+
+                <h3>Macro errors</h3>
+                <ul>
+                    <li>
+                        <p>Check that macro functions return correct type (<code>MacroExpressionOk</code>,
+                            <code>MacroStatementOk</code>, etc.)
+                        </p>
+                    </li>
+                    <li>
+                        <p>Use <code>simpleASTCall</code> to generate function calls</p>
+                    </li>
+                    <li>
+                        <p>Use <code>stringASTValue</code>, <code>integerASTValue</code>, etc. for literals</p>
+                    </li>
+                </ul>
+            </section>
         </main>
     </div>
     <script>
@@ -698,26 +698,36 @@ println!("Sum: {}", sum);</code></pre>
                     const id = this.getAttribute('href').slice(1);
                     const target = document.getElementById(id);
                     if (target) {
-                        const top = target.getBoundingClientRect().top + window.scrollY - 120;
+                        const top = target.getBoundingClientRect().top + window.scrollY - 20;
                         window.scrollTo({ top: top, behavior: 'smooth' });
                         setActive(id);
                     }
                 });
             });
 
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        setActive(entry.target.id);
+            let scrollTimeout;
+            function handleScroll() {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    let currentSection = null;
+                    sections.forEach(section => {
+                        const rect = section.getBoundingClientRect();
+                        if (rect.top <= 150 && rect.bottom > 100) {
+                            if (!currentSection || rect.top > currentSection.getBoundingClientRect().top) {
+                                currentSection = section;
+                            }
+                        }
+                    });
+                    if (currentSection) {
+                        setActive(currentSection.id);
                     }
-                });
-            }, { rootMargin: '-120px 0px -60% 0px' });
+                }, 10);
+            }
 
-            sections.forEach(section => observer.observe(section));
+            window.addEventListener('scroll', handleScroll);
 
             if (sections.length > 0) {
-                const first = sections[0].id;
-                setActive(first);
+                handleScroll();
             }
         })();
     </script>
