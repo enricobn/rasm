@@ -688,7 +688,10 @@ println!("Sum: {}", sum);</code></pre>
                 anchors.forEach(a => a.classList.remove('active'));
                 if (id) {
                     const active = document.querySelector('.sidebar a[href="#' + id + '"]');
-                    if (active) active.classList.add('active');
+                    if (active) {
+                        active.classList.add('active');
+                        active.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
                 }
             }
 
