@@ -161,6 +161,8 @@
                     <li><a href="#attribute-macros" class="sub">Attribute Macros</a></li>
                     <li><a href="#stdlib">Stdlib</a></li>
                     <li><a href="#common-patterns" class="sub">Common Patterns</a></li>
+                    <li><a href="#string-operations" class="sub">String Operations</a></li>
+                    <li><a href="#ast-builder-functions" class="sub">AST Builder Functions</a></li>
                     <li><a href="#stdlib-modules" class="sub">Stdlib Modules</a></li>
                     <li><a href="#compile-project">Compile a RASM Project</a></li>
                     <li><a href="#examples">Examples</a></li>
@@ -454,14 +456,6 @@ pub struct Pair<A,B> { first: A, second: B }</code></pre>
                         <p>Use <code>stringASTValue</code>, <code>integerASTValue</code>, etc. for literals</p>
                     </li>
                 </ul>
-
-                <h3>AST Builder Functions</h3>
-                <p>Helper functions to construct AST, in stdlib:</p>
-                <pre><code>simpleASTCall("name", vecOf(args))         // function call
-stringASTValue("hello")                    // string literal
-integerASTValue(42)                        // int literal
-booleanASTValue(true)                      // bool literal
-ASTValueRefExpression("name")              // variable reference</code></pre>
             </section>
 
             <section id="stdlib">
@@ -492,13 +486,21 @@ let sum = vec.foldLeft(0, fn(acc, x) { acc.add(x); });
 
 // Enumerate
 let indexed = vec.enumerate();</code></pre>
+            </section>
 
+            <section id="string-operations">
                 <h3>String Operations</h3>
-                <pre><code>let s = "hello";
-s.append(" world");
-s.len();
-s.eq("hello");
-s.substring(0, 5);</code></pre>
+                <pre><code>let s = "hello";</code></pre>
+            </section>
+
+            <section id="ast-builder-functions">
+                <h3>AST Builder Functions</h3>
+                <p>Helper functions to construct AST, in stdlib:</p>
+                <pre><code>simpleASTCall("name", vecOf(args))         // function call
+stringASTValue("hello")                    // string literal
+integerASTValue(42)                        // int literal
+booleanASTValue(true)                      // bool literal
+ASTValueRefExpression("name")              // variable reference</code></pre>
             </section>
 
             <section id="stdlib-modules">
