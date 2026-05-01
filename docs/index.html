@@ -713,8 +713,13 @@ println!("Sum: {}", sum);</code></pre>
                 clearTimeout(scrollTimeout);
                 scrollTimeout = setTimeout(() => {
                     const scrollTop = window.scrollY;
+                    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
                     if (scrollTop < 50) {
                         setActive('syntax');
+                        return;
+                    }
+                    if (scrollTop >= docHeight - 50) {
+                        setActive('common-errors');
                         return;
                     }
                     let currentSection = null;
