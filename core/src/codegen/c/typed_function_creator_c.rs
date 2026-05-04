@@ -82,13 +82,6 @@ impl TypedFunctionsCreatorC {
                 CStructs::add_lambda_space_to_statics(statics, lambda_space);
 
             self.code_gen.add(
-                    &mut body,
-                    &format!("struct RasmPointer_ *lambda_space_ = (struct RasmPointer_ *) lambda_->lambda_space;"),
-                    None,
-                    true,
-                );
-
-            self.code_gen.add(
                 &mut body,
                 &format!("struct {lambda_space_type_name} *lambda_space = (struct {lambda_space_type_name} *) lambda_->lambda_space->address;"),
                 None,
@@ -101,11 +94,15 @@ impl TypedFunctionsCreatorC {
                 CodeGenC::call_deref_simple(
                     &self.code_manipulator,
                     &mut body,
-                    "lambda_space_",
+                    "lambda_->lambda_space",
                     c_lambda_name,
                 );
-                self.code_gen
-                    .add(&mut body, "if (lambda_space_->count == 0) {", None, true);
+                self.code_gen.add(
+                    &mut body,
+                    "if (lambda_->lambda_space->count == 0) {",
+                    None,
+                    true,
+                );
             }
             if !optimize_lambda {
                 CodeGenC::call_deref_simple(
@@ -120,12 +117,12 @@ impl TypedFunctionsCreatorC {
                 CodeGenC::call_add_ref_simple(
                     &self.code_manipulator,
                     &mut body,
-                    "lambda_space_",
+                    "lambda_->lambda_space",
                     c_lambda_name,
                 );
                 self.code_manipulator.add(
                     &mut body,
-                    "if (lambda_space_->count == 1) {",
+                    "if (lambda_->lambda_space->count == 1) {",
                     None,
                     true,
                 );
