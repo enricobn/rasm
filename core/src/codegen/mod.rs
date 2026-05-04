@@ -1760,7 +1760,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                     //name: format!("{}_{}_{}_lambda{}", parent_def_description, function_call.function_name, param_name, self.id),
                                     name: name.clone(),
                                     original_name: name.clone(),
-                                    parameters: lambda_parameters, // parametrs are calculated later
+                                    parameters: lambda_parameters, // parameters are calculated later
                                     return_type: rt,
                                     body: ASTTypedFunctionBody::RASMBody(lambda_def.clone().body),
                                     resolved_generic_types: ResolvedGenericTypedTypes::new(),
@@ -2060,7 +2060,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             let mut body = String::new();
 
             //debug!("Creating lambda {}", lambda_call.def.name);
-            lambda_calls.append(&mut self.add_function_def(
+            lambda_calls.extend(self.add_function_def(
                 &lambda_call.def,
                 Some(&lambda_call.space),
                 lambda_call.space.get_context(),
