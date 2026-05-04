@@ -3,13 +3,14 @@ use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 use std::ops::Deref;
 use std::path::Path;
+use std::time::Instant;
 
 use asm::code_gen_asm::AsmOptions;
 use code_manipulator::CodeManipulator;
 use enh_ast::EnhModuleId;
 use linked_hash_map::LinkedHashMap;
 use linked_hash_set::LinkedHashSet;
-use log::{debug, warn};
+use log::{debug, info, warn};
 
 use enhanced_module::EnhancedASTModule;
 use lambda::{LambdaCall, LambdaSpace};
@@ -525,6 +526,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             &optimized_functions,
         );
 
+        let start = Instant::now();
         functions_generated_code.extend(self.create_all_functions(
             &mut id,
             &mut statics,
@@ -533,6 +535,11 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             &mut function_reference_lambdas,
             &optimized_functions,
         ));
+
+        info!(
+            "Function generation took {} ms",
+            start.elapsed().as_millis()
+        );
 
         let mut generated_code = String::new();
 
@@ -636,14 +643,35 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             generated_code,
         ));
 
-        result.append(&mut self.additional_files(
+        let addictional_files = self.additional_files(
             project,
             target,
             typed_module,
             statics,
             command_line_options,
             out_folder,
-        ));
+        );
+
+        result.extend(addictional_files);
+
+        if !optimized_functions.is_empty() {
+            let start = Instant::now();
+
+            let mut new_result = Vec::new();
+
+            for (name, body) in result {
+                let new_nody = self
+                    .replace_optimized_functions_calls_in_native_body(body, &optimized_functions);
+
+                new_result.push((name, new_nody));
+            }
+
+            result = new_result;
+            info!(
+                "Replace optimized functions took {} ms",
+                start.elapsed().as_millis()
+            );
+        }
 
         result
     }
@@ -1535,13 +1563,12 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             i += 1;
         }
 
-        let lambda_in_stack = function_def.return_type.is_unit()
-            || can_lambda_be_in_stack(&function_def.return_type, typed_module);
-
         let mut after = String::new();
 
         match &function_def.body {
             ASTTypedFunctionBody::RASMBody(statements) => {
+                let lambda_in_stack = function_def.return_type.is_unit()
+                    || can_lambda_be_in_stack(&function_def.return_type, typed_module);
                 self.generate_function_body(
                     &code_gen_context,
                     typed_module,
@@ -1574,7 +1601,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
 
                 *id += 1;
 
-                let mut new_body = function_call_parameters.resolve_native_parameters(
+                let new_body = function_call_parameters.resolve_native_parameters(
                     &code_gen_context,
                     body,
                     indent,
@@ -1582,13 +1609,6 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                     Some(&function_def.return_type),
                     is_lambda,
                 );
-
-                if !optimized_functions.is_empty() {
-                    new_body = self.replace_optimized_functions_calls_in_native_body(
-                        new_body,
-                        optimized_functions,
-                    );
-                }
                 before.push_str(&new_body);
             }
         }
@@ -1648,32 +1668,11 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                 ASTTypedStatement::Expression(expr) => {
                     match expr {
                         ASTTypedExpression::ASTFunctionCallExpression(call) => {
-                            let non_optimized_function_name = call.function_name.clone();
-
-                            let call = if let Some(f) = optimized_functions.get(&call.function_name)
-                            {
-                                /*
-                                println!(
-                                    "optimizing call function body {} from {} to {}",
-                                    call.index, call.function_name, f
-                                );
-                                before.push_str(&format!(
-                                    "\n// optimizing call function body {} from {} to {}\n",
-                                    call.index, call.function_name, f
-                                ));
-                                */
-                                let mut call = call.clone();
-                                call.function_name = f.clone();
-                                call
-                            } else {
-                                call.clone()
-                            };
-
                             let (bf, cur, af, mut lambda_calls_) = self.generate_call_function(
                                 code_gen_context,
                                 None,
                                 namespace,
-                                &call,
+                                call,
                                 &context,
                                 function_def,
                                 lambda_space,
@@ -1687,7 +1686,7 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
                                 lambda_in_stack,
                                 function_reference_lambdas,
                                 optimized_functions,
-                                &non_optimized_function_name,
+                                &call.function_name,
                                 &reused_params,
                             );
 

@@ -17,6 +17,7 @@
  */
 
 use core::panic;
+use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
@@ -1685,11 +1686,30 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
         body: String,
         optimized_functions: &HashMap<String, String>,
     ) -> String {
-        let mut new_body = body;
-        for (old, new) in optimized_functions.iter() {
-            new_body = new_body.replace(&format!("{old}("), &format!("{new}("));
+        if optimized_functions.is_empty() {
+            return body;
         }
-        new_body
+
+        let pattern = optimized_functions
+            .keys()
+            .map(|s| regex::escape(s))
+            .collect::<Vec<_>>()
+            .join("|");
+
+        let re = Regex::new(&format!("({})\\(", pattern)).unwrap();
+
+        let result = re
+            .replace_all(&body, |caps: &regex::Captures| {
+                let func_name = &caps[1];
+
+                optimized_functions
+                    .get(func_name)
+                    .map(|new_name| format!("{new_name}("))
+                    .unwrap_or_else(|| caps[0].to_string())
+            })
+            .to_string();
+
+        result
     }
 }
 

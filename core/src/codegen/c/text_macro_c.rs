@@ -94,7 +94,7 @@ impl TextMacroEval for CAllocateVarMacro {
     }
 
     fn is_pre_macro(&self) -> bool {
-        true
+        false
     }
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
@@ -144,7 +144,7 @@ impl TextMacroEval for CEnumVariantDeclarationMacro {
     }
 
     fn is_pre_macro(&self) -> bool {
-        true
+        false
     }
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
@@ -194,7 +194,7 @@ impl TextMacroEval for CEnumVariantAssignmentMacro {
     }
 
     fn is_pre_macro(&self) -> bool {
-        true
+        false
     }
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {
@@ -241,7 +241,7 @@ impl TextMacroEval for CEnumVariantMacro {
     }
 
     fn is_pre_macro(&self) -> bool {
-        true
+        false
     }
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall> {

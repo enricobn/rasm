@@ -1239,6 +1239,12 @@ pub trait TextMacroEval {
         function_def: Option<&EnhASTFunctionDef>,
     ) -> Result<String, String>;
 
+    /// Returns true if the macro is a pre-macro
+    ///
+    /// In some part of the code macros are evaluated in two steps, pre-macro and main macro,
+    /// and in some other code, only main macro is evaluated.
+    /// TODO: I don't really remember why...
+    ///
     fn is_pre_macro(&self) -> bool;
 
     fn default_function_calls(&self) -> Vec<DefaultFunctionCall>;
