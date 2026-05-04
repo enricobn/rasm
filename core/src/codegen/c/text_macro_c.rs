@@ -177,7 +177,7 @@ impl TextMacroEval for CEnumVariantAssignmentMacro {
                 let safe_name = format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
                 let value_address_as_enum = format!("((struct Enum*)value->address)");
                 Ok(format!(
-                    "struct {safe_name}* {var_name} = (struct {safe_name}*)((struct RasmPointer_*){value_address_as_enum}->variant)->address;"
+                    "struct {safe_name}* {var_name} = (struct {safe_name}*){value_address_as_enum}->variant->address;"
                 ))
             } else {
                 panic!(
@@ -224,7 +224,7 @@ impl TextMacroEval for CEnumVariantMacro {
                 let safe_name = format!("{}_{}_{}", namespace.safe_name(), name, variant_name);
                 let value_address_as_enum = format!("((struct Enum*){value}->address)");
                 Ok(format!(
-                    "struct {safe_name}* {var_name} = (struct {safe_name}*)((struct RasmPointer_*){value_address_as_enum}->variant)->address;"
+                    "struct {safe_name}* {var_name} = (struct {safe_name}*){value_address_as_enum}->variant->address;"
                 ))
             } else {
                 panic!(

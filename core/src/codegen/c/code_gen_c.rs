@@ -509,7 +509,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                         .unwrap();
                 (
                     format!(
-                        "((struct {}*)((struct RasmPointer_*)lambda_space->{})->address)",
+                        "((struct {}*)(lambda_space->{})->address)",
                         lambda_type_name, function_call.function_name
                     ),
                     CodeGenC::real_type_to_string(&return_type.as_ref()),
