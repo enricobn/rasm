@@ -236,7 +236,7 @@ impl CodeGenC {
                 TypeDefBodyCache::type_body_has_references(&type_def.body, &TypeDefBodyTarget::C),
                 false,
             )
-        } else if "char" == type_name || "str" == type_name || "_fn" == type_name {
+        } else if "str" == type_name || "_fn" == type_name {
             (false, false)
         } else {
             panic!("call_add_ref, cannot find type {type_name}");
@@ -295,7 +295,7 @@ impl CodeGenC {
                 TypeDefBodyCache::type_body_has_references(&type_def.body, &TypeDefBodyTarget::C),
                 false,
             )
-        } else if "char" == type_name || "str" == type_name || "_fn" == type_name {
+        } else if "str" == type_name || "_fn" == type_name {
             (false, false)
         } else {
             panic!("call_add_ref, cannot find type {type_name}");

@@ -77,25 +77,6 @@ impl CFunctionCallParameters {
         _dereference: bool,
         name: &str,
     ) -> String {
-        /*
-        let is_ref_type = get_reference_type_name(&ast_typed_type, type_def_provider).is_some();
-
-        let deref_s = if dereference { "*" } else { "" };
-
-
-        let value = if is_ref_type {
-            format!(
-                " (({})_lambda->args[{i}])",
-                CodeGenC::type_to_string(ast_typed_type, statics)
-            )
-        } else {
-            format!(
-                " {deref_s}(({}*)_lambda->args[{i}])",
-                CodeGenC::type_to_string(ast_typed_type, statics)
-            )
-        };
-        value
-        */
         format!(" lambda_space->{name}")
     }
 
