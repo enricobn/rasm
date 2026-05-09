@@ -19,6 +19,7 @@ let suite = TestSuite("All")
     .add(jsonSuite())
     .add(macroSuite())
     .add(vecSuite())
-    .add(charsSuite());
+    .add(charsSuite())
+    .add(strSuite());
 
 suite.run(argv(1));

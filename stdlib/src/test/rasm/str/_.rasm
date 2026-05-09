@@ -1,0 +1,10 @@
+pub fn strSuite() -> TestSuite {
+    TestSuite("str")
+    .add("substr", substr);
+}
+
+fn substr() -> Assertions {
+    Assertions()
+    .assertEquals(Some("12"), "012345".substr(1, 2))
+    .assertEquals(Some("45"), "012345".substr(4, 2));
+}
