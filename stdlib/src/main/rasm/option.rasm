@@ -35,10 +35,34 @@ pub fn isSome<T>(o: Option<T>) -> bool {
     o.match(fn(v) {true; }, {false; });
 }
 
+pub fn isNone<T>(o: Option<T>) -> bool {
+    o.match(fn(v) {false; }, {true; });
+}
+
 pub fn toString<T>(o: Option<T>) -> str {
     o.match( fn(value) {"Some(".append(value).append(")"); }, {"None"; });
 }
 
 pub fn toVec<T>(o: Option<T>) -> Vec<T> {
     match(o, fn(v) {vecOf(v);}, {Vec();});
+}
+
+pub fn eq<T>(o1: Option<T>, o2: Option<T>) -> bool {
+    o1.match(
+        fn(v1) {
+            o2.match(fn(v2) {eq(v1, v2); }, {false; });
+        },
+        { o2.match(fn(v2) {false; }, {true; }); }
+    );
+}
+
+pub fn filter<T>(o: Option<T>, predicate: fn(T) -> bool) -> Option<T> {
+    o.match(fn(v) { if(predicate(v), o, {None(); }); }, {None(); });
+}
+
+pub fn zip<T,T1>(o1: Option<T>, o2: Option<T1>) -> Option<Pair<T,T1>> {
+    o1.match(
+        fn(v1) { o2.match(fn(v2) {Some(Pair(v1, v2)); }, {None(); }); },
+        {None(); }
+    );
 }
