@@ -1,10 +1,13 @@
 target/
-/.idea/
-/.swp
-/local/
-/.vscode/
+.idea/
+.swp
+local/
+.vscode/
 tmp*/*
 scores.txt
 callgrind.out.*
 flamegraph.svg
 perf.data*
+graphify-out/
+.opencode/
+.graphifyignore
