@@ -1676,6 +1676,9 @@ impl<'a> EnhTypeCheck<'a> {
 
                         // I don't like the format here, it could not match spaces, but it seems to work
                         let mut new_function_name = call.function_name.clone();
+                        if let Some(target) = &call.target {
+                            new_function_name = format!("{}::{}", target, new_function_name);
+                        }
                         if !call.generics.is_empty() {
                             new_function_name = format!(
                                 "{}<{}>",

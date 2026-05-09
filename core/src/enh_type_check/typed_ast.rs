@@ -1541,6 +1541,7 @@ pub struct DefaultFunctionCall {
     pub param_types: Vec<EnhASTType>,
     pub i: usize,
     pub generics: Vec<EnhASTType>,
+    target: Option<String>,
 }
 
 impl Display for DefaultFunctionCall {
@@ -1565,12 +1566,14 @@ impl DefaultFunctionCall {
         param_types: Vec<EnhASTType>,
         i: usize,
         generics: Vec<EnhASTType>,
+        target: Option<String>,
     ) -> Self {
         Self {
             name: name.into(),
             param_types,
             i,
             generics,
+            target,
         }
     }
 
@@ -1582,6 +1585,7 @@ impl DefaultFunctionCall {
         let mut call = DefaultFunction {
             name: self.name.clone(),
             param_types: self.param_types.clone(),
+            target: self.target.clone(),
         }
         .to_call(&function_def.namespace.clone())?;
         call.index = self.index(&function_def.index);
@@ -1594,6 +1598,7 @@ impl DefaultFunctionCall {
 pub struct DefaultFunction {
     pub name: String,
     pub param_types: Vec<EnhASTType>,
+    target: Option<String>,
 }
 
 impl DefaultFunction {
@@ -1601,6 +1606,7 @@ impl DefaultFunction {
         Self {
             name: name.into(),
             param_types: vec![],
+            target: None,
         }
     }
 
@@ -1608,6 +1614,7 @@ impl DefaultFunction {
         Self {
             name: name.into(),
             param_types: vec![EnhASTType::Builtin(kind)],
+            target: None,
         }
     }
 
@@ -1615,6 +1622,7 @@ impl DefaultFunction {
         Self {
             name: name.into(),
             param_types: vec![EnhASTType::Builtin(kind1), EnhASTType::Builtin(kind2)],
+            target: None,
         }
     }
 
@@ -1631,6 +1639,7 @@ impl DefaultFunction {
                 EnhASTType::Builtin(kind2),
                 EnhASTType::Builtin(kind3),
             ],
+            target: None,
         }
     }
 
@@ -1681,11 +1690,10 @@ impl DefaultFunction {
             namespace: namespace.clone(),
             function_name: self.name.clone(),
             original_function_name: self.name.clone(),
-
             parameters,
             index: EnhASTIndex::none(),
             generics: Vec::new(),
-            target: None,
+            target: self.target.clone(),
             is_macro: false,
         };
 

@@ -523,6 +523,7 @@ impl TextMacroEvaluator {
                         types.clone(),
                         i,
                         generics,
+                        call.target().clone(),
                     );
 
                     result.push((m.clone(), df));
@@ -533,9 +534,17 @@ impl TextMacroEvaluator {
                     ));
                 }
             } else {
+                let target_index = function_name.find(':');
+
+                let target = if let Some(index) = target_index {
+                    Some(function_name[0..index].to_string())
+                } else {
+                    None
+                };
+
                 result.push((
                     m.clone(),
-                    DefaultFunctionCall::new(function_name, types, i, Vec::new()),
+                    DefaultFunctionCall::new(function_name, types, i, Vec::new(), target),
                 ));
             }
         }

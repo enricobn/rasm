@@ -1155,6 +1155,7 @@ impl ASTTypeChecker {
                 return_type,
                 generics,
                 modifiers: ASTModifiers::Public, // TODO is it right?
+                target: call.target().clone(),
             };
 
             let entry = ASTFunctionSignatureEntry::new(
@@ -1162,7 +1163,7 @@ impl ASTTypeChecker {
                 module_namespace.clone(),
                 module_id.clone(),
                 call.position().clone(),
-                None,
+                call.target().clone(),
             );
 
             let result = self.process_function_signature(

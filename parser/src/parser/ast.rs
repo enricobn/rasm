@@ -144,6 +144,7 @@ pub struct ASTFunctionSignature {
     pub parameters_types: Vec<ASTType>,
     pub return_type: ASTType,
     pub modifiers: ASTModifiers,
+    pub target: Option<String>,
 }
 
 impl Display for ASTFunctionSignature {
@@ -173,7 +174,14 @@ impl Display for ASTFunctionSignature {
 
 impl ASTFunctionSignature {
     pub fn generics_prefix(&self, prefix: &str) -> String {
-        format!("{}_{}", prefix, self.name)
+        format!("{}_{}", prefix, self.safe_name())
+    }
+
+    fn safe_name(&self) -> String {
+        match &self.target {
+            Some(target) => format!("{}_{}", target, self.name),
+            None => self.name.clone(),
+        }
     }
 
     pub fn add_generic_prefix(self, prefix: &str) -> Self {
@@ -262,6 +270,7 @@ impl ASTFunctionDef {
                 .collect(),
             return_type: self.return_type.clone(),
             modifiers: self.modifiers.clone(),
+            target: self.target.clone(),
         }
     }
 

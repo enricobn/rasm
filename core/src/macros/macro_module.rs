@@ -373,6 +373,7 @@ mod tests {
                     name: "testMacroCall".to_string(),
                     generics: vec![],
                     modifiers: ASTModifiers::Public,
+                    target: None,
                 },
                 in_function: None,
             }],
