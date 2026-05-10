@@ -111,6 +111,10 @@ pub native substr(s: str, pos: int, len: int) -> Option<str> /{
     add     ebx, $pos
 
     $call(memcopy, ebx, ecx, $len)
+    ; null termination
+    mov     dword ebx, [eax]
+    add     ebx,$len
+    mov     byte [ebx],0
 
     $call(Some, eax: str)
     pop     ebx
