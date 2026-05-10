@@ -144,11 +144,6 @@ fn parseNumber(s: str, c: char) -> SimpleParseResult<JsonNumber, str> {
 }
 */
 
-fn toFloat(s: str) -> Option<float> {
-    // TODO
-    None();
-}
-
 fn contains(s: str, c: char) -> bool {
     s.charsVec.anyMatch(eq.curry(c));
 }
