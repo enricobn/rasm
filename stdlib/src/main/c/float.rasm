@@ -92,3 +92,13 @@ pub native toString(n: float) -> str /{
     sprintf(_str->address, "%.9f", $n);
     return _str;
 }/
+
+pub native toFloat(s: str) -> Option<float> /{
+    char* pEnd;
+    float f = strtof((char*)s->address, &pEnd);
+    if (errno == 0) {
+        return $call(Option::Some<float>, f: float);
+    } else {
+        return $call(Option::None<float>);
+    }
+}/

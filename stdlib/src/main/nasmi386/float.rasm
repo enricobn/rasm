@@ -602,3 +602,70 @@ native getNthBit(value: int, n: int) -> bool /{
 .end:
     pop     ecx
 }/
+
+// TODO native version?
+pub fn toFloat(s: str) -> Option<float> {
+    if(s.eq(""), { None(); }, {
+        let negative = s.startsWith("-");
+        if(negative, {
+            toFloatNeg(s);
+        }, {
+            parseFloatRaw(s);
+        });
+    });
+}
+
+fn parseFloatRaw(s: str) -> Option<float> {
+    let parts = s.splitToList('.');
+    match(parts,
+        fn(intPart, rest) {
+            let fracStr = match(rest, fn(f, t) { f; }, { ""; });
+            let intOpt = intPart.toInt;
+            let fracOpt = fracStr.toInt;
+            match(intOpt,
+                fn(intVal) {
+                    match(fracOpt,
+                        fn(fracVal) {
+                            let fracLen = fracStr.len;
+                            let divisor = pow10(fracLen);
+                            Some(intVal.toFloat.add(divf(fracVal, divisor)));
+                        },
+                        {
+                            if(fracStr.eq(""), {
+                                Some(intVal.toFloat);
+                            }, { None(); });
+                        }
+                    );
+                },
+                {
+                    if(intPart.eq(""), {
+                        match(fracOpt,
+                            fn(fracVal) {
+                                let fracLen = fracStr.len;
+                                let divisor = pow10(fracLen);
+                                Some(divf(fracVal, divisor));
+                            },
+                            { None(); }
+                        );
+                    }, { None(); });
+                }
+            );
+        },
+        {
+            s.toInt.match(fn(i) {
+                Some(i.toFloat);
+            }, { None(); });
+        }
+    );
+}
+
+fn toFloatNeg(s: str) -> Option<float> {
+    let rest = s.substr(1, s.len.sub(1)).getOrElse("");
+    if(rest.eq(""), { None(); }, {
+        toFloatNegRaw(rest);
+    });
+}
+
+fn toFloatNegRaw(s: str) -> Option<float> {
+    parseFloatRaw(s).match(fn(v) { Some(v.mul(-1)); }, { None(); });
+}
