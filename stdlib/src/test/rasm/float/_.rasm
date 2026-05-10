@@ -1,0 +1,13 @@
+pub fn floatSuite() -> TestSuite {
+    TestSuite("float")
+    .add("toFloat", toFloat);
+}
+
+fn toFloat() -> Assertions {
+    Assertions()
+    .assertEquals(Some(-123456), "-123.456".toFloat(3));
+}
+
+fn toFloat(s: str, n: int) -> Option<int> {
+    s.toFloat.fmap(fn(f) { f.mul(pow10(n)).toInt; });
+}
