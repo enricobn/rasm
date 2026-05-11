@@ -675,6 +675,7 @@ fn iter<T>(o: Vec<T>, index: int) -> Iter<T> {
     );
 }
 
+// by opencode with "Big Pickle" model
 pub fn splitToVec(s: str, separator: char) -> Vec<str> /{
     $include(<stdlib.h>)
     $include(<string.h>)

@@ -1,7 +1,8 @@
 pub fn vecSuite() -> TestSuite {
     TestSuite("vec")
     .add("map let unchanged", mapLetUnchanged)
-    .add("sum", sum);
+    .add("sum", sum)
+    .add("splitToVec", splitToVec);
 }
 
 fn mapLetUnchanged() -> Assertions {
@@ -27,4 +28,10 @@ fn sum() -> Assertions {
     .assertEquals(3, v1.sum)
     .assertTrue(v2.sum.greater(3.199).and(v2.sum.less(3.201))) // TODO how to check for float?
     .assertEquals("01", v3.sum);
+}
+
+fn splitToVec() -> Assertions {
+    Assertions()
+    .assertEquals(vec!("1", "2", "3"), "1,2,3".splitToVec(','))
+    .assertEquals(vec!("3"), "3".splitToVec(','));
 }
