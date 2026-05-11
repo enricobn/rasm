@@ -1,13 +1,21 @@
 pub fn floatSuite() -> TestSuite {
     TestSuite("float")
-    .add("toFloat", toFloat);
+    .add("strToFloat", strToFloat)
+    .add("intToFloat", intToFloat);
 }
 
-fn toFloat() -> Assertions {
+fn strToFloat() -> Assertions {
     Assertions()
-    .assertEquals(Some(-123456), "-123.456".toFloat(3));
+    .assertEquals(Some(-123456), "-123.456".strToFloat(3))
+    .assertEquals(Some(0), "0.0".strToFloat(0));
 }
 
-fn toFloat(s: str, n: int) -> Option<int> {
+fn intToFloat() -> Assertions {
+    Assertions()
+    .assertEquals(-1.0, -1.toFloat)
+    .assertEquals(0.0, 0.toFloat);
+}
+
+fn strToFloat(s: str, n: int) -> Option<int> {
     s.toFloat.fmap(fn(f) { f.mul(pow10(n)).toInt; });
 }

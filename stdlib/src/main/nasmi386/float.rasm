@@ -11,6 +11,8 @@ pub native toFloat(n: int) -> float /{
     xor     dword ebx,0xFFFFFFFF
     add     dword ebx,1
 .positive:
+    cmp     dword ebx, 0
+    jz      .zero
     $call(countBits, ebx)
     ; $call(println, " countBits ", eax)
     mov     dword ecx,24
@@ -25,7 +27,10 @@ pub native toFloat(n: int) -> float /{
     mov     dword ebx,$n
     and     dword ebx,0x80000000
     or      dword eax,ebx
-
+    jmp     .end
+.zero:
+    xor     eax, eax
+.end:
     pop     ecx
     pop     ebx
 }/
