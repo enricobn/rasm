@@ -57,7 +57,8 @@ pub fn eq(e: ASTEnumDef) -> -> MacroAttributeResult {
     let e2 = ASTValueRefExpression(e2ParamName);
 
     let trueExpression = ASTValueExpression(ASTValue::ASTBooleanValue(true));
-    let trueLambda = ASTLambdaExpression(ASTLambdaDef(Vec(), vecOf(ASTExpressionStatement(trueExpression))));
+    let falseExpression = ASTValueExpression(ASTValue::ASTBooleanValue(false));
+    let falseLambda = ASTLambdaExpression(ASTLambdaDef(Vec(), vecOf(ASTExpressionStatement(falseExpression))));
 
     let variantsExpressions = e.variants.map(fn(variant) {
         let e1VariantParamNames = if(variant.parameters.len.eq(0), {
@@ -87,7 +88,7 @@ pub fn eq(e: ASTEnumDef) -> -> MacroAttributeResult {
             ASTLambdaDef(e2VariantParamNames, vecOf(ASTExpressionStatement(eqExpression)))
         );
         
-        let e2Match = simpleASTCall("match".add(variant.name), vecOf(e2, e2Lambda, trueLambda));
+        let e2Match = simpleASTCall("match".add(variant.name), vecOf(e2, e2Lambda, falseLambda));
 
         ASTLambdaExpression(ASTLambdaDef(e1VariantParamNames, vecOf(ASTExpressionStatement(e2Match))));
     });
