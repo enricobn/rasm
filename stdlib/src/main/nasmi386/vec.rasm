@@ -801,3 +801,8 @@ pub native get<T>(vec: Vec<T>, i: int) -> Option<T> /{
 .end:
     pop     ebx
 }/
+
+// TODO optimize
+pub fn splitToVec(s: str, separator: char) -> Vec<str> {
+    s.splitToList(separator).toVec;
+}

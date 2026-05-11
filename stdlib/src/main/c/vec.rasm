@@ -674,3 +674,59 @@ fn iter<T>(o: Vec<T>, index: int) -> Iter<T> {
         emptyIter()
     );
 }
+
+pub fn splitToVec(s: str, separator: char) -> Vec<str> /{
+    $include(<stdlib.h>)
+    $include(<string.h>)
+
+    char *s_ = (char *)$s->address;
+    int len = strlen(s_);
+
+    size_t str_sz = sizeof(struct RasmPointer_*);
+    struct RasmPointer_ *result = $call(Vec, 0, str_sz:int);
+
+    int last_start = 0;
+    int i = 0;
+
+    while (i < len) {
+        int char_start = i;
+
+        unsigned char byte = (unsigned char)s_[i];
+        uint32_t c;
+        if (byte < 0x80) {
+            c = byte; i += 1;
+        } else if ((byte & 0xE0) == 0xC0) {
+            c = (byte & 0x1F) << 6; i += 1;
+            c |= (unsigned char)s_[i] & 0x3F; i += 1;
+        } else if ((byte & 0xF0) == 0xE0) {
+            c = (byte & 0x0F) << 12; i += 1;
+            c |= ((unsigned char)s_[i] & 0x3F) << 6; i += 1;
+            c |= (unsigned char)s_[i] & 0x3F; i += 1;
+        } else if ((byte & 0xF8) == 0xF0) {
+            c = (byte & 0x07) << 18; i += 1;
+            c |= ((unsigned char)s_[i] & 0x3F) << 12; i += 1;
+            c |= ((unsigned char)s_[i] & 0x3F) << 6; i += 1;
+            c |= (unsigned char)s_[i] & 0x3F; i += 1;
+        } else {
+            return result;
+        }
+
+        if (c == separator) {
+            int segment_len = char_start - last_start;
+            struct RasmPointer_ *segment = rasmMalloc(segment_len + 1);
+            strncpy(segment->address, s_ + last_start, segment_len);
+            ((char *)segment->address)[segment_len] = 0;
+            result = $call(push, result:Vec<str>, segment:str);
+
+            last_start = i;
+        }
+    }
+
+    int segment_len = len - last_start;
+    struct RasmPointer_ *segment = rasmMalloc(segment_len + 1);
+    strncpy(segment->address, s_ + last_start, segment_len);
+    ((char *)segment->address)[segment_len] = 0;
+    result = $call(push, result:Vec<str>, segment:str);
+
+    return result;
+}/
