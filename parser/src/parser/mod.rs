@@ -624,6 +624,14 @@ impl Parser {
                     expr,
                     statement_position,
                 )));
+        } else if Some(&TokenKind::KeyWord(KeywordKind::Fn)) == self.get_token_kind() {
+            if let Some(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open)) =
+                self.get_token_kind_n(1)
+            {
+                self.state.push(ParserState::Expression);
+            } else {
+                self.state.pop();
+            }
         } else {
             self.state.push(ParserState::Expression);
         }
@@ -675,10 +683,7 @@ impl Parser {
                     ));
                 }
             } else {
-                return Err(format!(
-                    "Expected '(', found {}",
-                    OptionDisplay(&self.get_token_kind_n(1))
-                ));
+                self.state.pop();
             }
         } else if let Some(TokenKind::Bracket(BracketKind::Brace, BracketStatus::Open)) =
             self.get_token_kind()

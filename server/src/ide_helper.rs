@@ -1543,7 +1543,7 @@ impl IDEHelper {
         function_code.push_str(&code);
         function_code.push_str("\n}");
 
-        let mut call_code = format!("newFunction({})", parameters_values.join(", "));
+        let call_code = format!("newFunction({})", parameters_values.join(", "));
 
         //println!("{function_code}");
 
@@ -2911,8 +2911,8 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores)
         let mut helper = IDEHelper::from_project(&RasmProject::new(path.clone()));
         assert!(!helper.errors().is_empty());
 
-        let new_module_content = "let s = \"\";
-let a = 10;
+        let new_module_content = "let s = \"\"
+let a = 10
 fn f1(s: str) {
 }"
         .to_string();
