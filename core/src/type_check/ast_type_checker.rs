@@ -2230,7 +2230,7 @@ mod tests {
         type_check_functions(
             r#"
                 pub fn aFunction() { 
-                    let o = Ok<int,str>(10);
+                    let o = Ok<int,str>(10)
                 }
             "#,
             3,
@@ -2243,8 +2243,8 @@ mod tests {
         type_check_functions(
             r#"
                 pub fn aFunction() { 
-                    let o = 10;
-                    println(o);
+                    let o = 10
+                    println(o)
                 }
             "#,
             4,
@@ -2257,8 +2257,8 @@ mod tests {
         type_check_functions(
             r#"
                 pub fn aFunction() {
-                    let o = Ok<int,str>(10);
-                    o.fmap(fn(it) {Ok<str,str>("value=".append(it));}).println;
+                    let o = Ok<int,str>(10)
+                    o.fmap(fn(it) {Ok<str,str>("value=".append(it))}).println
                 }
             "#,
             12,
@@ -2272,10 +2272,10 @@ mod tests {
             r#"
                 pub fn aFunction() {
                     println(
-                        if(true, { Some(10);})
-                        .else({ None();})
+                        if(true, { Some(10)})
+                        .else({ None()})
                         .call()
-                    );
+                    )
                 }
             "#,
             10,
@@ -2290,7 +2290,7 @@ mod tests {
         type_check_functions(
             r#"
                 pub fn aFunction() {
-                    Some(10).map(fn(it) {"value=".append(it);}).println;
+                    Some(10).map(fn(it) {"value=".append(it)}).println
                 }
             "#,
             9,
@@ -2306,8 +2306,8 @@ mod tests {
             r#"
                 pub fn aFunction() -> Vec<int> {
                     if(true, {
-                        vecOf(1);
-                    }, Vec);
+                        vecOf(1)
+                    }, Vec)
                 }
             "#,
             6,
@@ -2324,9 +2324,9 @@ mod tests {
             r#"
                 pub fn aFunction() -> Vec<int> {
                     let a = if(true, {
-                        vecOf(1);
-                    }, Vec);
-                    a;
+                        vecOf(1)
+                    }, Vec)
+                    a
                 }
             "#,
             8,
@@ -2339,7 +2339,7 @@ mod tests {
         type_check_functions(
             r#"
                 pub fn aFunction<OK,ERROR,T>(result: Result<OK,ERROR>, mapFun: fn(OK) -> T) -> Result<T,ERROR> {
-                    result.match(fn(value) { Ok(mapFun(value)); }, Error);
+                    result.match(fn(value) { Ok(mapFun(value)) }, Error)
                 }
             "#,
             8,
@@ -2352,7 +2352,7 @@ mod tests {
         type_check_functions(
             r#"
                 pub fn aFunction<OK,ERROR>(r: Result<Result<OK,ERROR>,ERROR>) -> Result<OK,ERROR> {
-                    r.match(identity, Error);
+                    r.match(identity, Error)
                 }
             "#,
             4,
@@ -2365,7 +2365,7 @@ mod tests {
         type_check_functions(
             r#"
                 pub fn aFunction<OK,ERROR,T>(l: Result<OK,ERROR>, f: fn(OK) -> Result<T,ERROR>) -> Result<T,ERROR> {
-                    l.match(f, Error);
+                    l.match(f, Error)
                 }
             "#,
             4,
@@ -2378,15 +2378,15 @@ mod tests {
         type_check_functions(
             r#"
                 pub fn aFunction() -> str {
-                    if(true, { "true";})
-                    .elseIf(false, { "false";})
-                    .elseIf(false, { "false";})
-                    .elseIf(false, { "false";})
-                    .elseIf(false, { "false";})
-                    .elseIf(false, { "false";})
-                    .elseIf(false, { "false";})
-                    .else({ "false";})
-                    .call();
+                    if(true, { "true"})
+                    .elseIf(false, { "false"})
+                    .elseIf(false, { "false"})
+                    .elseIf(false, { "false"})
+                    .elseIf(false, { "false"})
+                    .elseIf(false, { "false"})
+                    .elseIf(false, { "false"})
+                    .else({ "false"})
+                    .call()
                 }
             "#,
             32,

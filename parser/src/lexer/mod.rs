@@ -445,7 +445,6 @@ mod tests {
                 Bracket(Round, Open),
                 StringLiteral("hello world".into()),
                 Bracket(Round, Close),
-                Punctuation(SemiColon),
             ],
             lst
         );
@@ -608,7 +607,7 @@ mod tests {
 
     #[test]
     fn test_invalid_chars() {
-        let (tokens, errors) = lex_source("let a = f.len - 1;");
+        let (tokens, errors) = lex_source("let a = f.len - 1");
         for token in tokens {
             println!("{:?}", token);
         }
@@ -618,14 +617,14 @@ mod tests {
 
     #[test]
     fn test_invalid_chars_1() {
-        let (_tokens, errors) = lex_source("let a = f.len /1;");
+        let (_tokens, errors) = lex_source("let a = f.len /1");
 
         assert!(!errors.is_empty());
     }
 
     #[test]
     fn test_invalid_chars_2() {
-        let (tokens, errors) = lex_source("let a = f.len - > 1;");
+        let (tokens, errors) = lex_source("let a = f.len - > 1");
 
         for token in tokens {
             println!("{:?}", token);
@@ -823,7 +822,7 @@ mod tests {
 
     #[test]
     fn negative_number() {
-        let (tokens, errors) = lex_source("let a = -1;");
+        let (tokens, errors) = lex_source("let a = -1");
 
         assert_eq!(
             vec![
@@ -831,7 +830,6 @@ mod tests {
                 TokenKind::AlphaNumeric("a".into()),
                 TokenKind::Punctuation(Equal),
                 TokenKind::Number("-1".into()),
-                TokenKind::Punctuation(SemiColon),
             ],
             tokens.iter().map(|it| it.kind.clone()).collect::<Vec<_>>()
         );

@@ -721,6 +721,9 @@ impl IDEHelper {
                             } else if c.is_alphanumeric() {
                                 prefix.insert(0, c);
                             } else {
+                                if !prefix.is_empty() {
+                                    completion_type = Some(IDECompletionType::Identifier(prefix));
+                                }
                                 break;
                             }
                         }
@@ -2721,7 +2724,7 @@ mod tests {
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(90, 86),
+                ASTPosition::new(90, 85),
             );
 
             let code = read_code(path, &start_index, &end_index);
@@ -2732,9 +2735,9 @@ mod tests {
                 let mut result = result.changes().clone().remove(&info.module_id()).unwrap();
                 let edit = result.remove(0);
                 assert_eq!("\n\nfn newFunction(highScores: Vec<HighScore>, score: int, resources: Resources, newKeys: Vec<int>) -> State {
-let newHighScores = highScores.add(score);
-            writeHighScores(newHighScores);
-            State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
+let newHighScores = highScores.add(score)
+            writeHighScores(newHighScores)
+            State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores)
 }", edit.text);
                 let edit = result.remove(0);
                 assert_eq!(
@@ -2811,7 +2814,7 @@ Menu(MenuState(newHighScores))
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(90, 86),
+                ASTPosition::new(90, 85),
             );
             let code = &read_code(path, &start_index, &end_index);
             if let Some(result) =
@@ -2821,7 +2824,7 @@ Menu(MenuState(newHighScores))
                 let edit = result.remove(0);
                 assert_eq!(
                     "\n\nfn newFunction(resources: Resources, newKeys: Vec<int>, newHighScores: Vec<HighScore>) -> State {
-State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
+State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores)
 }", edit.text
                 );
                 let edit = result.remove(0);
@@ -2880,7 +2883,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
             let end_index = ASTIndex::new(
                 info.module_namespace(),
                 info.module_id(),
-                ASTPosition::new(3, 50),
+                ASTPosition::new(3, 49),
             );
             let code = &read_code(path, &start_index, &end_index);
             if let Some(result) =
@@ -2889,7 +2892,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
                 let mut result = result.changes().clone().remove(&info.module_id()).unwrap();
                 let edit = result.remove(0);
                 assert_eq!(
-                    "\n\nfn newFunction<T,T1,T2>(vec2: Vec<T2>, zipFunction: fn (T1,T2) -> T, v1: T1) -> T {\nmap(vec2, fn(v2) {zipFunction(v1, v2); })\n}",
+                    "\n\nfn newFunction<T,T1,T2>(vec2: Vec<T2>, zipFunction: fn (T1,T2) -> T, v1: T1) -> T {\nmap(vec2, fn(v2) {zipFunction(v1, v2) })\n}",
                     edit.text
                 );
                 let edit = result.remove(0);

@@ -628,6 +628,14 @@ impl Parser {
             } else {
                 self.state.pop();
             }
+        } else if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+            let statement_position = expr.position().copy();
+            self.parser_data.pop();
+            self.parser_data
+                .push(ParserData::Statement(ASTStatement::ASTExpressionStatement(
+                    expr,
+                    statement_position,
+                )));
         } else if let Some((name, next_i, _)) = self.try_parse_let(false)? {
             self.parser_data
                 .push(ParserData::Let(name, false, self.get_position(1), None));
@@ -1626,7 +1634,7 @@ mod tests {
 
     #[test]
     fn function_call_with_generics_1() {
-        let lexer = Lexer::new("fn function<T>(it: T) { println<T>(it); }".into());
+        let lexer = Lexer::new("fn function<T>(it: T) { println<T>(it) }".into());
 
         let parser = Parser::new(lexer.collect_vec(), Vec::new());
 
