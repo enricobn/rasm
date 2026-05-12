@@ -1,11 +1,11 @@
 
-test(nItPrint(0), nItPrint(1));
+test(nItPrint(0), nItPrint(1))
 
 fn test(p1: int, p2: int) {
 
 }
 
 fn nItPrint(n: int) -> int {
-    println(n);
-    n;
+    println(n)
+    n
 }

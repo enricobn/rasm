@@ -340,6 +340,6 @@ native sysPrint(file: File, s: int, len: int) -> Option<IOError> /{
 }/
 
 fn someIOError(msg: str) -> Option<IOError> {
-    let error = IOError(msg);
-    Some(error);
+    let error = IOError(msg)
+    Some(error)
 }

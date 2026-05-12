@@ -90,7 +90,7 @@ pub native lines(s: str) -> List<str> /{
 
 // TODO it should be native
 pub fn chars(s: str) -> List<char> {
-    s.charsVec.toList;
+    s.charsVec.toList
 }
 
 /*

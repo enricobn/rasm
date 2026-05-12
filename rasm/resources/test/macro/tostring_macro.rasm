@@ -33,7 +33,7 @@ pub enum SVGLengthType {
 }
 
 
-println(Circle(Point(10, 20), 5));
-println(CircleShape(Circle(Point(10, 20), 5)));
-println(NoShape());
-println(percentage());
+println(Circle(Point(10, 20), 5))
+println(CircleShape(Circle(Point(10, 20), 5)))
+println(NoShape())
+println(percentage())

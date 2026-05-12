@@ -2,36 +2,36 @@ pub fn vecSuite() -> TestSuite {
     TestSuite("vec")
     .add("map let unchanged", mapLetUnchanged)
     .add("sum", sum)
-    .add("splitToVec", splitToVec);
+    .add("splitToVec", splitToVec)
 }
 
 fn mapLetUnchanged() -> Assertions {
-    let v = vecRange(0, 2);
+    let v = vecRange(0, 2)
 
-    let v1 = v.map(fn(it) { it.add(1);});
-    let v2 = v.map(fn(it) { it.add(2);});
+    let v1 = v.map(fn(it) { it.add(1)})
+    let v2 = v.map(fn(it) { it.add(2)})
        
     Assertions()
     .assertEquals(1, v.sum)
     .assertEquals(3, v1.sum)
-    .assertEquals(5, v2.sum);
+    .assertEquals(5, v2.sum)
 }
 
 fn sum() -> Assertions {
-    let v = vecRange(0, 2);
+    let v = vecRange(0, 2)
 
-    let v1 = v.map(fn(it) { it.add(1);});
-    let v2 = v.map(fn(it) { 1.1.add(it);});
-    let v3 = v.map(fn(it) { it.toString;});
+    let v1 = v.map(fn(it) { it.add(1)})
+    let v2 = v.map(fn(it) { 1.1.add(it)})
+    let v3 = v.map(fn(it) { it.toString})
        
     Assertions()
     .assertEquals(3, v1.sum)
     .assertTrue(v2.sum.greater(3.199).and(v2.sum.less(3.201))) // TODO how to check for float?
-    .assertEquals("01", v3.sum);
+    .assertEquals("01", v3.sum)
 }
 
 fn splitToVec() -> Assertions {
     Assertions()
     .assertEquals(vec!("1", "2", "3"), "1,2,3".splitToVec(','))
-    .assertEquals(vec!("3"), "3".splitToVec(','));
+    .assertEquals(vec!("3"), "3".splitToVec(','))
 }

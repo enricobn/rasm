@@ -2,44 +2,44 @@ struct AStruct {
     anInt: int
 }
 
-let anEnum = Option::Some(10);
-let aStruct = AStruct(10);
-let aVec = vecOf(10);
+let anEnum = Option::Some(10)
+let aStruct = AStruct(10)
+let aVec = vecOf(10)
 
-doSomething(anEnum);
-doSomething(aStruct);
-doSomething(aVec);
-println(aStruct.anInt);
-anEnum.match(fn(it){},{});
+doSomething(anEnum)
+doSomething(aStruct)
+doSomething(aVec)
+println(aStruct.anInt)
+anEnum.match(fn(it){},{})
 
 fn doSomething(value: Option<int>) {
-    println("anOption");
+    println("anOption")
 }
 
 fn doSomething(value: AStruct) {
-    println("aStruct");
+    println("aStruct")
 }
 
 fn doSomething(value: Vec<int>) {
-    println("aVec");
+    println("aVec")
 }
 
 fn doSomething(value: Vec<AStruct>) {
-    println("aStruct");
+    println("aStruct")
 }
 
 fn lambda(structVec: Vec<AStruct>) -> Vec<AStruct> {
-    structVec.map(fn(aValue) {aValue;});
+    structVec.map(fn(aValue) {aValue})
 }
 
 fn property() -> int {
-    AStruct(10).anInt;
+    AStruct(10).anInt
 }
 
 fn string() -> int {
-    "aString".length;
+    "aString".length
 }
 
 fn aChar() -> char {
-    '\t';
+    '\t'
 }

@@ -1,16 +1,16 @@
 pub fn vec(exprs: Vec<ASTExpression>) -> MacroExpressionResult {
     exprs.first.match(
         fn(first) {
-            let start = simpleASTCall("vecOf", vecOf(first));
+            let start = simpleASTCall("vecOf", vecOf(first))
             let result = 
-                exprs.enumerate.filter(fn(act) { act.index.greater(0);}).foldLeft(start,
+                exprs.enumerate.filter(fn(act) { act.index.greater(0)}).foldLeft(start,
                     fn(prev, act) {
-                        simpleASTCall("push", vecOf(prev, act.value));
-                    });
+                        simpleASTCall("push", vecOf(prev, act.value))
+                    })
 
-            MacroExpressionOk(result, Vec());
+            MacroExpressionOk(result, Vec())
         }, {
-            MacroExpressionResult::MacroError("No values, use Vec()");
+            MacroExpressionResult::MacroError("No values, use Vec()")
         }
-    );
+    )
 }

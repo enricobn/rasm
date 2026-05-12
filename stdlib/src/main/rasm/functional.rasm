@@ -1,34 +1,34 @@
 pub fn fmap<M,T,T1>(l: M<T>, f: fn(T) -> M<T1>) -> M<T1> {
-    l.map(f).flatten;
+    l.map(f).flatten
 }
 
 pub fn join<M,T>(items: M<T>, separator: str) -> str {
     items.enumerate.foldLeft("", fn (prev, current) { 
         if (current.index.eq(items.len.sub(1)),
-            { prev.append(current.value); },
-            { prev.append(current.value).add(separator); }
-        );
-    });
+            { prev.append(current.value) },
+            { prev.append(current.value).add(separator) }
+        )
+    })
 }
 
 pub fn sum<M,T>(v: M<T>) -> T {
     v.foldLeft(zero(), fn(accum, current) {
-        accum.add(current);
-    });
+        accum.add(current)
+    })
 }
 
 pub fn identity<T>(value: T) -> T {
-    value;
+    value
 }
 
 fn zero() -> int {
-    0;
+    0
 }
 
 fn zero() -> float {
-    0.0;
+    0.0
 }
 
 fn zero() -> str {
-    "";
+    ""
 }

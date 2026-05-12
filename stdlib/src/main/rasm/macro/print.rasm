@@ -1,18 +1,18 @@
 pub fn println(s: str, exprs: Vec<ASTExpression>) -> MacroStatementResult {
-    printLike(s, exprs, "println");
+    printLike(s, exprs, "println")
 }
 
 pub fn print(s: str, exprs: Vec<ASTExpression>) -> MacroStatementResult {
-    printLike(s, exprs, "print");
+    printLike(s, exprs, "print")
 }
 
 fn printLike(s: str, exprs: Vec<ASTExpression>, functionToCall: str) -> MacroStatementResult {
-    let parameters = vecOf(stringASTValue(s)).add(exprs);
-    let f = format(s, exprs);
+    let parameters = vecOf(stringASTValue(s)).add(exprs)
+    let f = format(s, exprs)
     f.match(fn(expr, functions) {
-        let statement = ASTExpressionStatement(simpleASTCall(functionToCall, vecOf(expr)));
-        MacroStatementOk(vecOf(statement), functions);
+        let statement = ASTExpressionStatement(simpleASTCall(functionToCall, vecOf(expr)))
+        MacroStatementOk(vecOf(statement), functions)
     }, fn(error) {
-        MacroStatementResult::MacroError(error);
-    });
+        MacroStatementResult::MacroError(error)
+    })
 }

@@ -3,8 +3,8 @@ struct TestStruct {
     s: str
 }
 
-println(vec!(1));
-println(vec!(2));
-println(vec!(3));
-println(vec!(4));
-println!("printing Test struct: {}", TestStruct("a string"));
+println(vec!(1))
+println(vec!(2))
+println(vec!(3))
+println(vec!(4))
+println!("printing Test struct: {}", TestStruct("a string"))

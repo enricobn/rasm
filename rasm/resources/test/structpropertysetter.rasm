@@ -3,29 +3,29 @@ pub struct Point {
     y: int
 }
 
-let p = Point(10, 20);
-let p1 = p.x(15);
-let p3 = Point(50, 100);
+let p = Point(10, 20)
+let p1 = p.x(15)
+let p3 = Point(50, 100)
 
-println("p ", p);
-println("p1 ", p1);
+println("p ", p)
+println("p1 ", p1)
 
-let p2 = p.x(30).y(20);
-println("p2 ", p2);
-println("p ", p);
+let p2 = p.x(30).y(20)
+println("p2 ", p2)
+println("p ", p)
 
-println("moved ", move(p, 100));
+println("moved ", move(p, 100))
 
 pub fn toString(p: Point) -> str {
     "("
     .append(p.x)
     .append(",")
     .append(p.y)
-    .append(")");
+    .append(")")
 }
 
 fn move(point: Point, diff: int) -> Point {
     point
         .x(point.x.add(diff))
-        .y(point.y.add(diff));
+        .y(point.y.add(diff))
 }

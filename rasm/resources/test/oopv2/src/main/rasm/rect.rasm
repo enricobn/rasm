@@ -6,11 +6,11 @@ pub struct Rect {
 }
 
 pub fn center(rect: Rect) -> Point {
-    Point(add(rect.x, div(rect.width, 2)), add(rect.y, div(rect.height, 2)));
+    Point(add(rect.x, div(rect.width, 2)), add(rect.y, div(rect.height, 2)))
 }
 
 pub fn move(rect: Rect, dx: int, dy: int) -> Shape {
-    toShape(Rect(add(rect.x, dx), add(rect.y, dy), rect.width, rect.height));
+    toShape(Rect(add(rect.x, dx), add(rect.y, dy), rect.width, rect.height))
 }
 
 pub fn toString(rect: Rect) -> str {
@@ -19,5 +19,5 @@ pub fn toString(rect: Rect) -> str {
         .append(",").append(rect.y)
         .append(",").append(rect.width)
         .append(",").append(rect.height)
-    .append(")");
+    .append(")")
 }

@@ -7,16 +7,16 @@ struct Point {
     y: int
 }
 
-main();
-main();
+main()
+main()
 
-printAllocated();
+printAllocated()
 
 fn main() {
-    let points = points(toInt(argv(1)));
-    println(points.len);
+    let points = points(toInt(argv(1)))
+    println(points.len)
 }
 
 fn points(count: int) -> Vec<Point> {
-    vecRange(0, count).map({ it -> Point(it, it); });
+    vecRange(0, count).map({ it -> Point(it, it) })
 }

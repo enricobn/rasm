@@ -5,21 +5,21 @@ Assertions()
 .assertTrue("greater".eq(compareInt1(1, 0)))
 .assertTrue("less".eq(compareInt1(0, 1)))
 .assertTrue("equal".eq(compareInt1(0, 0)))
-.validate();
+.validate()
 
 //println(vecRange(0, 100000).map({ it -> compareInt1(0, it); }).count({ it -> it.eq("equal");}));
 
 fn compareInt(v1: int, v2: int) -> str {
     if(v1.greater(v2), "greater")
     .elseIf(v1.less(v2), "less")
-    .else("equal");
+    .else("equal")
 }
 
 fn compareInt1(v1: int, v2: int) -> str {
-    if(v1.greater(v2), { "greater"; })
-    .elseIf(v1.less(v2), { "less"; })
-    .else({ "equal";})
-    .call();
+    if(v1.greater(v2), { "greater" })
+    .elseIf(v1.less(v2), { "less" })
+    .else({ "equal"})
+    .call()
 }
 
 /*

@@ -1,20 +1,20 @@
 pub fn loadFont(application: Rasm2DApplication, id: str, file: str, size: int) -> Rasm2DApplication {
-    if(application.fonts.anyMatch(fn(it) { it.first.eq(id); }),
+    if(application.fonts.anyMatch(fn(it) { it.first.eq(id) }),
     {
-        println("Font id already loaded: ", id);
-        exitMain(1);
-    }, {});
+        println("Font id already loaded: ", id)
+        exitMain(1)
+    }, {})
     
     openFont(file, size)
     .match(
         fn(font) {
-            application.fonts(fn(fonts) { fonts.push(Pair(id, font));});
+            application.fonts(fn(fonts) { fonts.push(Pair(id, font))})
         }, 
         fn(error) {  
-            println("Error opening font: ", error);
-            exitMain(1);
-            application;
-        });
+            println("Error opening font: ", error)
+            exitMain(1)
+            application
+        })
 }
 
 // SDL implementation
@@ -24,28 +24,28 @@ internal struct Rasm2DFont {
 }
 
 pub fn renderText(graphics: Rasm2DGraphics, fontId: str, text: str, color: RGBAColor, x: int, y: int) {
-    let fontO = graphics.fonts.filter(fn(it) { it.first.eq(fontId);}).first.map(fn(it) {it.second;});
+    let fontO = graphics.fonts.filter(fn(it) { it.first.eq(fontId)}).first.map(fn(it) {it.second})
 
     fontO.match(fn(font) {
-        let surface = sdlRenderTextSolid(font.font, text, SDLColor(color.r, color.g, color.b, color.a));
-        let texture = sdlCreateTextureFromSurface(graphics.rend, surface);
-        sdlRenderCopy(graphics.rend, texture, SDLRect(x, y, surface.w, surface.h));
-        sdlDestroyTexture(texture);
-        sdlFreeSurface(surface);
+        let surface = sdlRenderTextSolid(font.font, text, SDLColor(color.r, color.g, color.b, color.a))
+        let texture = sdlCreateTextureFromSurface(graphics.rend, surface)
+        sdlRenderCopy(graphics.rend, texture, SDLRect(x, y, surface.w, surface.h))
+        sdlDestroyTexture(texture)
+        sdlFreeSurface(surface)
     }, {
-        println("Cannot find font with id: ", fontId);
-        exitMain(1);
-    });
+        println("Cannot find font with id: ", fontId)
+        exitMain(1)
+    })
 
 }
 
 fn openFont(file: str, size: int)-> Result<Rasm2DFont,str> {
     ttfOpenFont(file, size)
     .map(fn(font) {
-        Rasm2DFont(font);
-    });
+        Rasm2DFont(font)
+    })
 }
 
 internal fn close(font: Rasm2DFont) {
-    ttfCloseFont(font.font);
+    ttfCloseFont(font.font)
 }

@@ -1,13 +1,13 @@
-pub const aNumber = 10;
-const aChar = 'è';
-const aBool = true;
-const aString = "a string";
+pub const aNumber = 10
+const aChar = 'è'
+const aBool = true
+const aString = "a string"
 
-test();
+test()
 
 fn test() {
-    println(aNumber);
-    println(aChar);
-    println(aBool);
-    println(aString);
+    println(aNumber)
+    println(aChar)
+    println(aBool)
+    println(aString)
 }

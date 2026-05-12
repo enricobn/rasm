@@ -4,13 +4,13 @@ pub struct Point {
 }
 
 pub fn center(point: Point) -> Point {
-    point;
+    point
 }
 
 pub fn move(point: Point, dx: int, dy: int) -> Shape {
-    toShape(Point(point.x.add(dx), point.y.add(dy)));
+    toShape(Point(point.x.add(dx), point.y.add(dy)))
 }
 
 pub fn toString(p: Point) -> str {
-    "Point(".append(p.x).append(",").append(p.y).append(")");
+    "Point(".append(p.x).append(",").append(p.y).append(")")
 }

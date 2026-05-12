@@ -1,6 +1,6 @@
 pub fn charsSuite() -> TestSuite {
     TestSuite("chars")
-    .add("chars", charsTest);
+    .add("chars", charsTest)
 }
 
 pub fn charsTest() -> Assertions {
@@ -25,5 +25,5 @@ pub fn charsTest() -> Assertions {
     .assertFalse('_'.isAlphaNumeric())
     .assertFalse('@'.isAlphaNumeric())
     .assertFalse(' '.isAlphaNumeric())
-    .assertFalse('/'.isAlphaNumeric());
+    .assertFalse('/'.isAlphaNumeric())
 }

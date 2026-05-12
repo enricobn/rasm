@@ -5,5 +5,5 @@ pub struct Brick {
 }
 
 pub fn eq(b1: Brick, b2: Brick) -> bool {
-    b1.x.eq(b2.x).and(b1.y.eq(b2.y));
+    b1.x.eq(b2.x).and(b1.y.eq(b2.y))
 }

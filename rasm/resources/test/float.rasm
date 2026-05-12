@@ -1,45 +1,45 @@
-println(-7.375);
-println(-7.4);
-println(-1.375);
-println(-1.3754321);
-println(-1.1234567);
-println(-0.375);
-println(-0.4);
-println(-0.3754321);
+println(-7.375)
+println(-7.4)
+println(-1.375)
+println(-1.3754321)
+println(-1.1234567)
+println(-0.375)
+println(-0.4)
+println(-0.3754321)
 
-println(0.0);
-println(10.0);
-println(20.1);
-println(20.001);
-println(-0.0);
-println(-10.0);
-println(-20.1);
-println(-20.001);
+println(0.0)
+println(10.0)
+println(20.1)
+println(20.001)
+println(-0.0)
+println(-10.0)
+println(-20.1)
+println(-20.001)
 
-println(toFloat(10));
-println(toFloat(123456));
-println(toFloat(-10));
-println(toFloat(-123456));
+println(toFloat(10))
+println(toFloat(123456))
+println(toFloat(-10))
+println(toFloat(-123456))
 
-println(toInt(10.1234));
-println(toInt(-10.1234));
+println(toInt(10.1234))
+println(toInt(-10.1234))
 
-println(mul(10.0, 0.2));
-println(div(10.0, 2.0));
-println(add(10.0, 0.2));
-println(sub(10.0, 0.2));
-println(add(10.5, 7));
-println(sub(10.2, 2));
-println(sub(2, 10.2));
+println(mul(10.0, 0.2))
+println(div(10.0, 2.0))
+println(add(10.0, 0.2))
+println(sub(10.0, 0.2))
+println(add(10.5, 7))
+println(sub(10.2, 2))
+println(sub(2, 10.2))
 
-println(greater(10.5, 7.0));        // true
-println(greater(7.0, 10.5));        // false
-println(greater(10.5, 17));         // false
-println(greater(10.5, 7));          // true
-println(less(10.5, 7.0));           // false
-println(less(7.0, 10.5));           // true
-println(less(10.5, 17));            // true
-println(less(10.5, 7));             // false
+println(greater(10.5, 7.0))        // true
+println(greater(7.0, 10.5))        // false
+println(greater(10.5, 17))         // false
+println(greater(10.5, 7))          // true
+println(less(10.5, 7.0))           // false
+println(less(7.0, 10.5))           // true
+println(less(10.5, 17))            // true
+println(less(10.5, 7))             // false
 
-println(min(10.5, 7.5));
-println(min(7.5, 10.5));
+println(min(10.5, 7.5))
+println(min(7.5, 10.5))

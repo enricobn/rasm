@@ -40,69 +40,69 @@ internal enum InternalResult {
 }
 
 pub fn parseJson(s: str) -> Result<JsonValue, str> {
-    let initialState = ParserState(s.charsVec, 0, "", Vec());
-    let initialResult = Continue(initialState);
+    let initialState = ParserState(s.charsVec, 0, "", Vec())
+    let initialResult = Continue(initialState)
 
     initialResult.loop.match(
-        fn(jsonValue) {  Ok(jsonValue); }, 
-        fn(e) { Error(e); }, 
+        fn(jsonValue) {  Ok(jsonValue) }, 
+        fn(e) { Error(e) }, 
         fn(parserState) {
-            Error("Unknown error.");
-        });
+            Error("Unknown error.")
+        })
 }
 
 fn loop(result: InternalResult) -> InternalResult {
     result.match(
         fn(value) {
-            result;
+            result
         },
         fn(e) {
-            result;
+            result
         },
         fn(state) {
-            loop(state.next);
+            loop(state.next)
         }
-    );
+    )
 }
 
 fn next(state: ParserState) -> InternalResult {
     state.chars.get(state.index).match(fn(c) {
         state.stack.last.match(
             fn(stackItem) {
-                let status = stackItem.first;
-                let value = stackItem.second;
+                let status = stackItem.first
+                let value = stackItem.second
                 
                 status.match(
-                    { Error("None"); }, 
-                    { Error("Array"); }, 
+                    { Error("None") }, 
+                    { Error("Array") }, 
                     { 
                         if (c.eq('"'), {
-                            InternalResult::Ok(JsonString(state.actualString));
+                            InternalResult::Ok(JsonString(state.actualString))
                         }, {
-                            let newState = state.actualString(fn(s) { s.append(c); });
-                            InternalResult::Continue(newState.nextChar);
-                        });
+                            let newState = state.actualString(fn(s) { s.append(c) })
+                            InternalResult::Continue(newState.nextChar)
+                        })
                         
                     }, 
-                    { Error("Number"); }, 
-                    { Error("Null"); });
+                    { Error("Number") }, 
+                    { Error("Null") })
             },
             {
                 if(c.eq('"'), {
-                    let newState = state.stack(fn(it) {it.push(Pair(ParserStatus::String(), JsonValue::JsonString("")));});
-                    InternalResult::Continue(newState.nextChar);
+                    let newState = state.stack(fn(it) {it.push(Pair(ParserStatus::String(), JsonValue::JsonString("")))})
+                    InternalResult::Continue(newState.nextChar)
                 }, {
-                    Error("TODO");
-                });
+                    Error("TODO")
+                })
             }
-        );
+        )
     }, {
-        Error("TODO");
-    });
+        Error("TODO")
+    })
 }
 
 fn nextChar(state: ParserState) -> ParserState {
-    state.index(fn(i) { i.add(1); });
+    state.index(fn(i) { i.add(1) })
 }
 
 /*
@@ -145,5 +145,5 @@ fn parseNumber(s: str, c: char) -> SimpleParseResult<JsonNumber, str> {
 */
 
 fn contains(s: str, c: char) -> bool {
-    s.charsVec.anyMatch(eq.curry(c));
+    s.charsVec.anyMatch(eq.curry(c))
 }

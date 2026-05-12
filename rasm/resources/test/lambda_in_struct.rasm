@@ -11,29 +11,29 @@ struct Model {
 let l = Loop(
     fn(time, model) {
         if(greater(time, 5),
-            { NoneModel();},
+            { NoneModel()},
             {
-                let x = x(model);
-                let y = y(model);
-                Some(Model(add(x, 1), add(y, 1)));
-            });
+                let x = x(model)
+                let y = y(model)
+                Some(Model(add(x, 1), add(y, 1)))
+            })
     },
     fn(model) {
-        let x = x(model);
-        let y = y(model);
-        print(x);
-        print(",");
-        println(y);
+        let x = x(model)
+        let y = y(model)
+        print(x)
+        print(",")
+        println(y)
     }
-);
+)
 
-loop(0, Model(0, 0), l);
+loop(0, Model(0, 0), l)
 
 fn loop<T>(time: int, model: T, l: Loop<T>) {
-    let result = l.callUpdate(time, model);
-    match(result, fn(newModel) { l.callRender(newModel); loop(add(time, 1), newModel, l);}, { });
+    let result = l.callUpdate(time, model)
+    match(result, fn(newModel) { l.callRender(newModel) loop(add(time, 1), newModel, l)}, { })
 }
 
 fn NoneModel() -> Option<Model> {
-    None();
+    None()
 }

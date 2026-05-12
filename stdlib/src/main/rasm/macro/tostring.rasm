@@ -1,20 +1,20 @@
 pub fn toString(s: ASTStructDef) -> MacroAttributeResult {
-    let structRef = ASTValueRefExpression("s");
+    let structRef = ASTValueRefExpression("s")
     
     let parameters = s.properties.map(fn(p) {
-        simpleASTCall(p.name, vecOf(structRef));
-    });
+        simpleASTCall(p.name, vecOf(structRef))
+    })
 
-    let basePropertyExpression = stringASTValue(s.name).add("(");
+    let basePropertyExpression = stringASTValue(s.name).add("(")
 
     let propertiesExpression = 
         parameters.enumerate.foldLeft(
             basePropertyExpression, 
             fn(prev, act) { 
-                let propertyValue = prev.append(act.value);
-                if (act.index.less(parameters.len.sub(1)), propertyValue.add(", "), propertyValue);
+                let propertyValue = prev.append(act.value)
+                if (act.index.less(parameters.len.sub(1)), propertyValue.add(", "), propertyValue)
             }
-        ).add(")");
+        ).add(")")
 
     let function = ASTFunctionDef(
         "toString",
@@ -26,40 +26,40 @@ pub fn toString(s: ASTStructDef) -> MacroAttributeResult {
         s.typeParameters,
         s.modifiers,
         None()
-    );
+    )
 
-    MacroAttributeOk(vecOf(function));
+    MacroAttributeOk(vecOf(function))
 }
 
 
 pub fn toString(e: ASTEnumDef) -> -> MacroAttributeResult {
-    let toStringParamName = "toStringParamName";
-    let enumRef = ASTValueRefExpression(toStringParamName);
+    let toStringParamName = "toStringParamName"
+    let enumRef = ASTValueRefExpression(toStringParamName)
 
-    let propertiesExpression = stringASTValue(e.name).add("(");
+    let propertiesExpression = stringASTValue(e.name).add("(")
 
     let variantsExpressions = e.variants.map(fn(variant) {
         let variantParamNames = if(variant.parameters.len.eq(0), {
-            Vec();
+            Vec()
         }, {
-            variant.parameters.map(fn(variantParameter) { variantParameter.name; });
-        });
+            variant.parameters.map(fn(variantParameter) { variantParameter.name })
+        })
 
         let expr = variantParamNames.enumerate.foldLeft(
             stringASTValue(variant.name).add("("), 
             fn(prev, act) { 
-                let propertyValue = prev.append(ASTValueRefExpression(act.value));
-                if (act.index.less(variantParamNames.len.sub(1)), propertyValue.add(", "), propertyValue);
+                let propertyValue = prev.append(ASTValueRefExpression(act.value))
+                if (act.index.less(variantParamNames.len.sub(1)), propertyValue.add(", "), propertyValue)
             }
-        ).add(")");
+        ).add(")")
 
-        let body = vecOf(ASTExpressionStatement(expr));
-        ASTLambdaExpression(ASTLambdaDef(variantParamNames, body));
-    });
+        let body = vecOf(ASTExpressionStatement(expr))
+        ASTLambdaExpression(ASTLambdaDef(variantParamNames, body))
+    })
 
     let exprs = propertiesExpression
         .add(simpleASTCall("match", vecOf(enumRef).add(variantsExpressions)))
-        .add(")";
+        .add(")"
 
     let function = ASTFunctionDef(
         "toString",
@@ -71,19 +71,19 @@ pub fn toString(e: ASTEnumDef) -> -> MacroAttributeResult {
         e.typeParameters,
         e.modifiers,
         None()
-    );
+    )
 
-    MacroAttributeOk(vecOf(function));
+    MacroAttributeOk(vecOf(function))
 }
 
 fn add(a: ASTExpression, s: str) -> ASTExpression {
-    simpleASTCall("add", vecOf(a, ASTValueExpression(ASTStringValue(s))));
+    simpleASTCall("add", vecOf(a, ASTValueExpression(ASTStringValue(s))))
 }
 
 fn add(a: ASTExpression, s: ASTExpression) -> ASTExpression {
-    simpleASTCall("add", vecOf(a, s));
+    simpleASTCall("add", vecOf(a, s))
 }
 
 fn append(a: ASTExpression, b: ASTExpression) -> ASTExpression {
-    simpleASTCall("append", vecOf(a, b));
+    simpleASTCall("append", vecOf(a, b))
 }

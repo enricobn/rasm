@@ -6,12 +6,12 @@ pub struct Shape {
 
 pub fn toShape<T>(inner: T) -> Shape {
     Shape(
-        { inner.center; },
-        fn(dx, dy) { inner.move(dx, dy);},
-        { inner.toString; }
-    );
+        { inner.center },
+        fn(dx, dy) { inner.move(dx, dy)},
+        { inner.toString }
+    )
 }
 
 pub fn toString(shape: Shape) -> str {
-    shape.toString.call();
+    shape.toString.call()
 }

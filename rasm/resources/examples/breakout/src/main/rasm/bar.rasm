@@ -5,26 +5,26 @@ pub struct Bar {
 }
 
 pub fn update(bar: Bar, actualTime: TimeVal, keys: Vec<int>) -> Bar {
-    let elapsed = elapsedTime(actualTime, bar.lastUpdate);
+    let elapsed = elapsedTime(actualTime, bar.lastUpdate)
 
-    let left = keys.count(eq.curry(80)).negate;
-    let right = keys.count(eq.curry(79));
+    let left = keys.count(eq.curry(80)).negate
+    let right = keys.count(eq.curry(79))
 
-    let leftOrRight = left.add(right);
+    let leftOrRight = left.add(right)
 
     let newVelocity = if(eq(leftOrRight, 0), {
-        bar.velocity.div(1.03);
+        bar.velocity.div(1.03)
     }, {
-        bar.velocity.add(leftOrRight.mul(30));
-    });
+        bar.velocity.add(leftOrRight.mul(30))
+    })
 
-    let realVelocity = between(newVelocity, -1000.0, 1000.0);
+    let realVelocity = between(newVelocity, -1000.0, 1000.0)
 
-    let seconds = elapsed.toFloat.div(1000000);
+    let seconds = elapsed.toFloat.div(1000000)
 
-    let diff = seconds.mul(newVelocity);
+    let diff = seconds.mul(newVelocity)
 
-    let newBarPos = bar.x.add(diff);
+    let newBarPos = bar.x.add(diff)
 
-    Bar(newBarPos, realVelocity, actualTime);
+    Bar(newBarPos, realVelocity, actualTime)
 }

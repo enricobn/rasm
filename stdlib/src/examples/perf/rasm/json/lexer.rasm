@@ -2,37 +2,37 @@ pub fn jsonLexerSuite() -> TestSuite {
     TestSuite("Lexer")
     //.add("mediumFile", mediumFile);
     //.add("smallFile", smallFile);
-    .add("bigFile", bigFile);
+    .add("bigFile", bigFile)
 }
 
 fn bigFile() -> Assertions {
-    file(fromRasmSourceFolder("examples/perf/resources/big.json"), 2401);
+    file(fromRasmSourceFolder("examples/perf/resources/big.json"), 2401)
 }
 
 fn mediumFile() -> Assertions {
-    file(fromRasmSourceFolder("examples/perf/resources/medium.json"), 762);
+    file(fromRasmSourceFolder("examples/perf/resources/medium.json"), 762)
 }
 
 fn smallFile() -> Assertions {
-    file(fromRasmSourceFolder("examples/perf/resources/small.json"), 74);
+    file(fromRasmSourceFolder("examples/perf/resources/small.json"), 74)
 }
 
 fn file(file: str, count: int) -> Assertions {
-    let s = readFile(file);
-    let tokensResult = lexe(s);
+    let s = readFile(file)
+    let tokensResult = lexe(s)
     tokensResult(tokensResult, 
         fn(assertions, tokens) {
-            assertions.assertEquals(count, tokens.len);
+            assertions.assertEquals(count, tokens.len)
         }
-    );
+    )
 }
 
 fn tokensResult<T>(t: Result<T<JsonToken>, str>, a: fn(Assertions, T<JsonToken>) -> Assertions) -> Assertions {
     t.match(
         fn(tokens) {  
-            a(Assertions(), tokens);
+            a(Assertions(), tokens)
         }, 
         fn(err) {  
-            Assertions().fail(err);
-        });
+            Assertions().fail(err)
+        })
 }

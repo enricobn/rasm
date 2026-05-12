@@ -2,13 +2,13 @@ struct AStruct {
     function: fn() -> ()
 }
 
-let s = createAStruct();
-s.function.call();
+let s = createAStruct()
+s.function.call()
 
 fn createAStruct() -> AStruct {
-    AStruct(aFunction);
+    AStruct(aFunction)
 }
 
 fn aFunction() {
-    println("Hello");
+    println("Hello")
 }

@@ -1,21 +1,21 @@
 
-println(add(vecOf(1, 2), vecOf(3, 4)));
-println(eq(vecOf(1, 2), vecOf(3, 4)));
-println(eq(vecOf(1, 2), vecOf(1, 2, 3)));
-println(eq(vecOf(1, 2), vecOf(1, 2)));
+println(add(vecOf(1, 2), vecOf(3, 4)))
+println(eq(vecOf(1, 2), vecOf(3, 4)))
+println(eq(vecOf(1, 2), vecOf(1, 2, 3)))
+println(eq(vecOf(1, 2), vecOf(1, 2)))
 
-println(sort(vecOf(1, 2, 3)));
-println(sort(vecOf(1, 3, 2)));
-println(sort(vecOf(2, 1, 3)));
-println(sort(vecOf(2, 3, 1)));
-println(sort(vecOf(3, 1, 2)));
-println(sort(vecOf(3, 2, 1)));
+println(sort(vecOf(1, 2, 3)))
+println(sort(vecOf(1, 3, 2)))
+println(sort(vecOf(2, 1, 3)))
+println(sort(vecOf(2, 3, 1)))
+println(sort(vecOf(3, 1, 2)))
+println(sort(vecOf(3, 2, 1)))
 
-println(sort(vecOf(3, 2, 1), fn(v1, v2) { cmp(v1, v2);}));
+println(sort(vecOf(3, 2, 1), fn(v1, v2) { cmp(v1, v2)}))
 
-println(take(vecOf(10, 20, 30), 2));
-println(vecOf(10, 20).last.getOrElse(0));
-println(Vec().last.getOrElse(0));
+println(take(vecOf(10, 20, 30), 2))
+println(vecOf(10, 20).last.getOrElse(0))
+println(Vec().last.getOrElse(0))
 
 /*
 perf

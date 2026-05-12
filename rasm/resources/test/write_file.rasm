@@ -1,12 +1,12 @@
 
-let file = createFile("file_for_write.txt");
+let file = createFile("file_for_write.txt")
 
 println(file, "Hello world")
-.orElse({ println(file, 1000);})
-.match(fn(error) { panic(error.message); }, { });
+.orElse({ println(file, 1000)})
+.match(fn(error) { panic(error.message) }, { })
 
-close(file);
+close(file)
 
-print(readFile("file_for_write.txt"));
+print(readFile("file_for_write.txt"))
 
-delete("file_for_write.txt");
+delete("file_for_write.txt")

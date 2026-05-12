@@ -1,13 +1,13 @@
-let h = "Joe";
-let w = "how do you do";
+let h = "Joe"
+let w = "how do you do"
 
-println(format!("Hello {}, {}{}", h, w, "?"));
+println(format!("Hello {}, {}{}", h, w, "?"))
 
 range(1, 2)
-.forEach(fn(i) { println(format!("Number {}", i)); });
+.forEach(fn(i) { println(format!("Number {}", i)) })
 
-printInFunction(10);
+printInFunction(10)
 
 fn printInFunction(n: int) {
-    println(format!("an int {}", n));
+    println(format!("an int {}", n))
 }

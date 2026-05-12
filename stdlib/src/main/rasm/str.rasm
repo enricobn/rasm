@@ -1,77 +1,77 @@
 pub fn padLeft(s: str, len: int) -> str {
-    let l = len(s);
-    if(not(less(l, len)), s, {padLeft(add(" ", s), len);});
+    let l = len(s)
+    if(not(less(l, len)), s, {padLeft(add(" ", s), len)})
 }
 
 pub fn isWhiteSpace(c: char) -> bool {
-    c.eq(' ').or(c.eq('\t'));
+    c.eq(' ').or(c.eq('\t'))
 }
 
 pub fn isAlphaNumeric(c: char) -> bool {
-    c.isAlpha().or(c.isNumber());
+    c.isAlpha().or(c.isNumber())
 }
 
 pub fn toString(s: str) -> str {
-    s;
+    s
 }
 
 pub fn append<T>(s: str, v: T) -> str {
-    add(s, toString(v));
+    add(s, toString(v))
 }
 
 pub fn print<T>(file: File, s: T) -> Option<IOError> {
-    print(file, toString(s));
+    print(file, toString(s))
 }
 
 pub fn startsWith(s: str, prefix: str) -> bool {
-    let sub = s.substr(0, prefix.len);
+    let sub = s.substr(0, prefix.len)
     sub.match(
-        fn(par0) { par0.eq(prefix); }, 
-        { false; });
+        fn(par0) { par0.eq(prefix) }, 
+        { false })
 }
 
 pub fn endsWith(s: str, postfix: str) -> bool {
-    let sub = s.substr(s.len.sub(postfix.len), postfix.len);
+    let sub = s.substr(s.len.sub(postfix.len), postfix.len)
     sub.match(
-        fn(par0) { par0.eq(postfix); }, 
-        { false; });
+        fn(par0) { par0.eq(postfix) }, 
+        { false })
 }
 
 pub fn removePrefix(s: str, prefix: str) -> str {
     if(s.startsWith(prefix), {
-        s.substr(prefix.len, s.len.sub(prefix.len)).getOrElse(s);
+        s.substr(prefix.len, s.len.sub(prefix.len)).getOrElse(s)
     }, {
-        s;
-    });
+        s
+    })
 }
 
 pub fn removeSuffix(s: str, suffix: str) -> str {
     if(s.endsWith(suffix), {
-        s.substr(0, s.len.sub(suffix.len)).getOrElse(s);
+        s.substr(0, s.len.sub(suffix.len)).getOrElse(s)
     }, {
-        s;
-    });
+        s
+    })
 }
 
 pub fn splitToList(s: str, separator: char) -> List<str> {
-    let chars = listEnumerate(chars(s));
+    let chars = listEnumerate(chars(s))
 
-    let separatorIndex = chars.indexOf(separator);
+    let separatorIndex = chars.indexOf(separator)
 
     match(separatorIndex,
         fn(index) {
-            let item = s.substr(0, index);
-            let remainder = s.substr(index.add(1), s.len.sub(index).sub(1));
+            let item = s.substr(0, index)
+            let remainder = s.substr(index.add(1), s.len.sub(index).sub(1))
             match(item,
                 fn(f) {
                     match(remainder,
-                        fn(r) { listAppend(listOf(f), splitToList(r, separator));},
-                        { listOf(f);}
-                    );
+                        fn(r) { listAppend(listOf(f), splitToList(r, separator))},
+                        { listOf(f)}
+                    )
                 },
                 Empty
-            );
+            )
         },
-        { listOf(s);}
-    );
+        { listOf(s)}
+    )
 }

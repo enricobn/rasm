@@ -9,32 +9,32 @@
 // real    0m1,753s
 
 argv(1).match(fn(file) {
-    let start = readCellFile(file);
+    let start = readCellFile(file)
 
-    argv(2).fmap(fn(s) { toInt(s);}).match(fn(count) {
-        run(moveCells(start, 20), 80, 50, count);
-    }, { println("A number for count must be specified."); });
-}, { println("A file must be specified."); });
+    argv(2).fmap(fn(s) { toInt(s)}).match(fn(count) {
+        run(moveCells(start, 20), 80, 50, count)
+    }, { println("A number for count must be specified.") })
+}, { println("A file must be specified.") })
 
 fn run(start: Vec<Cell>, width: int, height: int, count: int) {
-    let allCells = allCells(width, height);
+    let allCells = allCells(width, height)
 
     printCells(
         foldLeft(vecRange(0, count), start, fn(prev, act) {
-            printCells(prev, width, height);
-            moveUp(height);
+            printCells(prev, width, height)
+            moveUp(height)
             //sleep(0, 250000000);
-            next(prev, allCells);
-          }), width, height);
+            next(prev, allCells)
+          }), width, height)
 
 }
 
 fn printCells(cells: Vec<Cell>, width: int, height: int) {
     forEach(vecRange(0, height), fn(y) {
         forEach(vecRange(0, width), fn(x) {
-            let alive = isAlive(cells, Cell(x, y));
-            if(alive, { print("*"); }, { print(" "); });
-        });
-        println("");
-    });
+            let alive = isAlive(cells, Cell(x, y))
+            if(alive, { print("*") }, { print(" ") })
+        })
+        println("")
+    })
 }

@@ -1,6 +1,6 @@
-const RED = 31;
-const GREEN = 32;
-const BLUE = 34;
+const RED = 31
+const GREEN = 32
+const BLUE = 34
 
 pub struct TestSuite {
     name: str,
@@ -9,54 +9,54 @@ pub struct TestSuite {
 }
 
 pub fn TestSuite(name: str) -> TestSuite {
-    TestSuite(name, Vec(), Vec());
+    TestSuite(name, Vec(), Vec())
 }
 
 pub fn add(suite: TestSuite, name: str, test: fn() -> Assertions) -> TestSuite {
-    suite.tests(fn(it) { it.push(RunTest(name, test));});
+    suite.tests(fn(it) { it.push(RunTest(name, test))})
 }
 
 pub fn add(suite: TestSuite, s: TestSuite) -> TestSuite {
-    suite.suites(fn(it) { it.push(s);});
+    suite.suites(fn(it) { it.push(s)})
 }
 
 pub fn run(suite: TestSuite, test: Option<str>) {
     if(suite.runInternal(test, 0), {
-        exitMain(1);
-    }, {});
+        exitMain(1)
+    }, {})
 }
 
 fn runInternal(suite: TestSuite, test: Option<str>, indent: int) -> bool {
-    printIndent(indent);
-    println("Running suite ", color(suite.name(), BLUE));
-    let startTime = now();
+    printIndent(indent)
+    println("Running suite ", color(suite.name(), BLUE))
+    let startTime = now()
     
-    let suitesResult = suite.suites.foldLeft(false, fn(prev, it) { prev.or(it.runInternal(test, indent.add(2))); });
+    let suitesResult = suite.suites.foldLeft(false, fn(prev, it) { prev.or(it.runInternal(test, indent.add(2))) })
 
     let testsResult = suite.tests
         .filter(fn(it) { 
-            test.match( fn(gen) { gen.eq(it.name()); }, { true; });})
-        .foldLeft(false, fn(prev,it) { prev.or(it.run(indent.add(2))); });
+            test.match( fn(gen) { gen.eq(it.name()) }, { true })})
+        .foldLeft(false, fn(prev,it) { prev.or(it.run(indent.add(2))) })
 
-    let elapsedTime = elapsedTime(now(), startTime);
+    let elapsedTime = elapsedTime(now(), startTime)
 
-    printIndent(indent);
-    print(elapsedTime.div(1000));
-    print(" ms - ");
+    printIndent(indent)
+    print(elapsedTime.div(1000))
+    print(" ms - ")
 
     if (suitesResult.or(testsResult), 
         {
-            println(color("tests failed", RED));
+            println(color("tests failed", RED))
         }, 
         {
-            println(color("ok", GREEN));
-        });
+            println(color("ok", GREEN))
+        })
 
-    suitesResult.or(testsResult);
+    suitesResult.or(testsResult)
 }
 
 fn printIndent(indent: int) {
-    vecRange(0, indent).forEach(fn (i) { print(' ');});
+    vecRange(0, indent).forEach(fn (i) { print(' ')})
 }
 
 pub struct Assertions {
@@ -69,81 +69,81 @@ pub struct RunTest {
 }
 
 fn run(test: RunTest, indent: int) -> bool {
-    runTest(test.name, test.function, indent);
+    runTest(test.name, test.function, indent)
 }
 
 pub fn Assertions() -> Assertions {
-    Assertions(Vec());
+    Assertions(Vec())
 }
 
 pub fn fail(assertions: Assertions, message: str) -> Assertions {
-    assertions.failed(assertions.failed.push(message));
+    assertions.failed(assertions.failed.push(message))
 }
 
 pub fn validate(assertions: Assertions) {
-    assertions.failed.first.match(fn(error) { panic("Assertion error: ".append(error)); }, {});
+    assertions.failed.first.match(fn(error) { panic("Assertion error: ".append(error)) }, {})
 }
 
 pub fn assertTrue(assertions: Assertions, value: bool) -> Assertions {
-    if(value, {assertions; },{
-        assertions.fail("assertion failed");
-    });
+    if(value, {assertions },{
+        assertions.fail("assertion failed")
+    })
 }
 
 pub fn assertFalse(assertions: Assertions, value: bool) -> Assertions {
     if(value,{
-        assertions.fail("assertion failed");
-    }, {assertions; });
+        assertions.fail("assertion failed")
+    }, {assertions })
 }
 
 pub fn assertTrue(assertions: Assertions, message: str, value: bool) -> Assertions {
-    if(value,{assertions; },{
-        assertions.fail("assertion failed: ".add(message));
-    });
+    if(value,{assertions },{
+        assertions.fail("assertion failed: ".add(message))
+    })
 }
 
 pub fn assertFalse(assertions: Assertions, message: str, value: bool) -> Assertions {
     if(value, {
-        assertions.fail("assertion failed: ".add(message));
-    }, {assertions; });
+        assertions.fail("assertion failed: ".add(message))
+    }, {assertions })
 }
 
 pub fn assertEquals<T>(assertions: Assertions, message: str, expected: T, current: T) -> Assertions {
     if(expected.eq(current).not, {
-        assertions.fail("assertion failed: ".add(message).add(". Expected ").append(expected).append(" but found ").append(current));
-    }, {assertions; });
+        assertions.fail("assertion failed: ".add(message).add(". Expected ").append(expected).append(" but found ").append(current))
+    }, {assertions })
 }
 
 pub fn assertEquals<T>(assertions: Assertions, expected: T, current: T) -> Assertions {
     if(expected.eq(current).not, {
-        assertions.fail("assertion failed, expected ".append(expected).append(" but found ").append(current));
-    }, {assertions; });
+        assertions.fail("assertion failed, expected ".append(expected).append(" but found ").append(current))
+    }, {assertions })
 }
 
 fn runTest(name: str, testRun: fn() -> Assertions, indent: int) -> bool {
-    printIndent(indent);
-    print(color(name, BLUE));
-    let startTime = now();
-    let runResult = testRun();
-    let elapsedTime = elapsedTime(now(), startTime);
-    print(" - ");
-    print(elapsedTime.div(1000));
-    print(" ms");
+    printIndent(indent)
+    print(color(name, BLUE))
+    let startTime = now()
+    let runResult = testRun()
+    let elapsedTime = elapsedTime(now(), startTime)
+    print(" - ")
+    print(elapsedTime.div(1000))
+    print(" ms")
 
     runResult.failed.first.match(
         fn(error) {
-            let message = " - ".add(color("FAILED", RED)).add(" : ");
-            print(message);
-            println(error);
-            true;
+            let message = " - ".add(color("FAILED", RED)).add(" : ")
+            print(message)
+            println(error)
+            true
         },
         {
-            println(" - ".add(color("ok", GREEN)));
-            false;
+            println(" - ".add(color("ok", GREEN)))
+            false
         }
-    );
+    )
 }
 
 fn color(text: str, color: int) -> str {
-    "\033[".append(color).add("m").add(text).add("\033[0m");
+    "\033[".append(color).add("m").add(text).add("\033[0m")
 }

@@ -36,7 +36,7 @@ pub fn Colors() -> Colors {
         RGBAColor(255, 0, 0, 255),
         RGBAColor(255, 255, 0, 255),
         RGBAColor(255, 255, 255, 255)
-    );
+    )
 }
 
 enum Message {
@@ -46,129 +46,129 @@ enum Message {
     Tick
 }
 
-pub const WIDTH = 1024;
-pub const HEIGHT = 768;
-pub const BRICKWIDTH = 34;
-pub const BRICKHEIGHT = 10;
-pub const BARWIDTH = 80;
-pub const BARHEIGHT = 10;
-pub const BARY = HEIGHT.sub(BARHEIGHT);
-pub const HEADERHEIGHT = 30;
-pub const BALLSIZE = 5;
-pub const COLORS = Colors();
-pub const FONT = "DejaVuSerif";
+pub const WIDTH = 1024
+pub const HEIGHT = 768
+pub const BRICKWIDTH = 34
+pub const BRICKHEIGHT = 10
+pub const BARWIDTH = 80
+pub const BARHEIGHT = 10
+pub const BARY = HEIGHT.sub(BARHEIGHT)
+pub const HEADERHEIGHT = 30
+pub const BALLSIZE = 5
+pub const COLORS = Colors()
+pub const FONT = "DejaVuSerif"
 
-let highScores = loadHighScores();
-let initialState = State(Vec(), Menu(MenuState(highScores)), highScores);
+let highScores = loadHighScores()
+let initialState = State(Vec(), Menu(MenuState(highScores)), highScores)
 
 Rasm2DApplication()
 .width(1024)
 .height(768)
 .title("Breakout")
 .loadFont(FONT, resource("DejaVuSerif.ttf"), 24)
-.run(initialState, update, render, subscriptions);
+.run(initialState, update, render, subscriptions)
 
 fn update(state: State, message: Message) -> State {
-    let keys = state.keys;
-    let stage = state.stage;
-    let highScores = state.highScores;
+    let keys = state.keys
+    let stage = state.stage
+    let highScores = state.highScores
 
     let newKeys = message.match(
         fn(scancode) {
-            keys.push(scancode);
+            keys.push(scancode)
         }, fn(scancode) {
-            keys.filter(neq.curry(scancode));
+            keys.filter(neq.curry(scancode))
         }, fn() {
-            exitMain(0);
-            Vec();
+            exitMain(0)
+            Vec()
         }, {
-           keys; 
-        });
+           keys 
+        })
 
     match(stage, 
         fn(menuState) {
-            let newStage = update(newKeys, menuState);
-            State(newKeys, newStage, highScores);
+            let newStage = update(newKeys, menuState)
+            State(newKeys, newStage, highScores)
         }, 
         fn(gameState) {
-            let gameResult = update(newKeys, gameState);
+            let gameResult = update(newKeys, gameState)
             gameResult.match(
-                fn(newGameState) { State(newKeys, Game(newGameState), highScores);}, 
+                fn(newGameState) { State(newKeys, Game(newGameState), highScores)}, 
                 fn(score) {
-                    let newHighScores = highScores.add(score);
-                    writeHighScores(newHighScores);
-                    State(newKeys, Menu(MenuState(newHighScores)), newHighScores);
+                    let newHighScores = highScores.add(score)
+                    writeHighScores(newHighScores)
+                    State(newKeys, Menu(MenuState(newHighScores)), newHighScores)
                 }
-            );
+            )
         }
-    );
+    )
 }
 
 fn add(highScores: Vec<HighScore>, score: int) -> Vec<HighScore> {
-    highScores.push(HighScore(score, now()));
+    highScores.push(HighScore(score, now()))
 }
 
 fn render(graphics: Rasm2DGraphics, state: State) {
-    graphics.setColor(COLORS.black);
-    graphics.clear();
+    graphics.setColor(COLORS.black)
+    graphics.clear()
 
     state.stage.match(
-        fn(menuState) { graphics.render(menuState);}, 
-        fn(gameState) { graphics.render(gameState);}
-    );
+        fn(menuState) { graphics.render(menuState)}, 
+        fn(gameState) { graphics.render(gameState)}
+    )
 }
 
 fn subscriptions(events: Rasm2DEvents) -> Vec<Message> {
     if(events.quit().or(events.keyPressed(41)), { // 41 == ESC
-        vecOf(Quit());
+        vecOf(Quit())
     }, {
         let keys = events.keyPressed.map(KeyPressed)
-            .add(events.keyReleased.map(KeyReleased));
-        if (keys.isEmpty, vecOf(Tick()), keys);
-    });
+            .add(events.keyReleased.map(KeyReleased))
+        if (keys.isEmpty, vecOf(Tick()), keys)
+    })
 }
 
 fn loadHighScores() -> Vec<HighScore> {
     if(fileExists("scores.txt"), {
-        let scores = readFile("scores.txt");
-        let lines = scores.lines;
+        let scores = readFile("scores.txt")
+        let lines = scores.lines
         lines.fmap(fn(line) {
-            let splitted = line.splitToList(',');
+            let splitted = line.splitToList(',')
             splitted.map3(fn(score, sec, nano) {
                 score.toInt.fmap(fn(sc) {
                     sec.toInt.fmap(fn(s) {
                         nano.toInt.map(fn(n) {
-                            HighScore(sc, TimeVal(s, n));
-                        });
-                    });
-                });
-            }).flatten.toList;
-        }).toVec;
-    }, Vec);
+                            HighScore(sc, TimeVal(s, n))
+                        })
+                    })
+                })
+            }).flatten.toList
+        }).toVec
+    }, Vec)
 }
 
 fn printHighScores(highScores: Vec<HighScore>) {
     forEach(highScores, fn(highScore) {
-        print("high score ", highScore.score);
-        print(", ");
-        println(highScore.time);
-    });
+        print("high score ", highScore.score)
+        print(", ")
+        println(highScore.time)
+    })
 }
 
 fn writeHighScores(highScores: Vec<HighScore>) {
-    let file = createFile("scores.txt");
+    let file = createFile("scores.txt")
 
     forEach(highScores, fn(it) {
         print(file, it.score)
-        .orElse({print(file, ",");})
-        .orElse({print(file, it.time.sec);})
-        .orElse({print(file, ",");})
-        .orElse({println(file, it.time.nano);})
+        .orElse({print(file, ",")})
+        .orElse({print(file, it.time.sec)})
+        .orElse({print(file, ",")})
+        .orElse({println(file, it.time.nano)})
         .forEach(fn(error) {
-            println(error);
-            exitMain(1);
-        });
-    });
+            println(error)
+            exitMain(1)
+        })
+    })
 
-    close(file);
+    close(file)
 }

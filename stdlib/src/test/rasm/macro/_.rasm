@@ -1,5 +1,5 @@
 pub fn macroSuite() -> TestSuite {
     TestSuite("macro")
     .add(tojsonSuite())
-    .add(toStringSuite());
+    .add(toStringSuite())
 }

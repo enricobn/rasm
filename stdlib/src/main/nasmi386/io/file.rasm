@@ -13,22 +13,22 @@ pub struct FileMode {
 }
 
 pub fn fileMode(f: FileMode) -> int {
-    let user = f.user;
-    let group = f.group;
-    let others = f.others;
+    let user = f.user
+    let group = f.group
+    let others = f.others
 
-    add(add(mul(64, filePermissions(user)), mul(8, filePermissions(group))), filePermissions(others));
+    add(add(mul(64, filePermissions(user)), mul(8, filePermissions(group))), filePermissions(others))
 }
 
 pub fn filePermission(p: FilePermission) -> int {
-    match(p, {4;}, {2;}, {1;});
+    match(p, {4}, {2}, {1})
 }
 
 pub fn filePermissions(p: Vec<FilePermission>) -> int {
     foldLeft(p, 0, fn(prev, act) {
-        let perm = filePermission(act);
-        add(prev, perm);
-    });
+        let perm = filePermission(act)
+        add(prev, perm)
+    })
 }
 
 pub enum FileFlag {
@@ -42,20 +42,20 @@ pub enum FileFlag {
 
 pub fn fileFlag(flag: FileFlag) -> int {
     match(flag,
-        {0;},       //  ReadOnly
-        {1;},       //  WriteOnly,
-        {2;},       //  ReadWrite,
-        {64;},      //  Create,
-        {512;},     //  Truncate,
-        {1024;},    //  Append
-    );
+        {0},       //  ReadOnly
+        {1},       //  WriteOnly,
+        {2},       //  ReadWrite,
+        {64},      //  Create,
+        {512},     //  Truncate,
+        {1024},    //  Append
+    )
 }
 
 pub fn fileFlags(flags: Vec<FileFlag>) -> int {
     foldLeft(flags, 0, fn(prev, act) {
-        let flagValue = fileFlag(act);
-        add(prev, flagValue);
-    });
+        let flagValue = fileFlag(act)
+        add(prev, flagValue)
+    })
 }
 
 pub fn createFile(path: str) -> File {
@@ -65,7 +65,7 @@ pub fn createFile(path: str) -> File {
             vecOf(Read(), Write()),
             vecOf(Read(), Write())
         ))
-    );
+    )
 }
 
 pub fn createFile(path: str, flags: Vec<FileFlag>) -> File {
@@ -75,7 +75,7 @@ pub fn createFile(path: str, flags: Vec<FileFlag>) -> File {
             vecOf(Read(), Write()),
             vecOf(Read(), Write())
         ))
-    );
+    )
 }
 
 pub native fileExists(path: str) -> bool /{
@@ -89,8 +89,8 @@ pub native fileExists(path: str) -> bool /{
 }/
 
 pub fn readFile(path: str) -> str {
-    let file = sysOpen(path, 0);
-    readFile(file);
+    let file = sysOpen(path, 0)
+    readFile(file)
 }
 
 pub native readFile(file: File) -> str /{
@@ -174,7 +174,7 @@ native sysOpen(path: str, flags: int, mode: int) -> File /{
 }/
 
 fn sysOpen(path: str, flags: int) -> File {
-    sysOpen(path, flags, 0);
+    sysOpen(path, flags, 0)
 }
 
 native sysRead(descriptor: File, buffer: str, size: int) /{
@@ -195,7 +195,7 @@ native sysRead(descriptor: File, buffer: str, size: int) /{
 }/
 
 pub fn close(descriptor: File) {
-    sysClose(descriptor);
+    sysClose(descriptor)
 }
 
 native sysClose(descriptor: File) /{
@@ -209,7 +209,7 @@ native sysClose(descriptor: File) /{
 }/
 
 pub fn delete(path: str) {
-    sysUnlink(path);
+    sysUnlink(path)
 }
 
 native sysUnlink(path: str) /{

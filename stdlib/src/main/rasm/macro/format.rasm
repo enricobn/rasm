@@ -1,50 +1,50 @@
 pub fn format(s: str, exprs: Vec<ASTExpression>) -> MacroExpressionResult {
-    let indexes = s.find("{}");
+    let indexes = s.find("{}")
 
-    let expressions = indexes.zip(exprs, fn(a,b) { Pair(a, b); }).foldLeft(Pair(0, Vec<ASTExpression>()), fn(prev,e) {
-        let charIndex = e.first;
-        let prefix = s.substr(prev.first, charIndex.sub(prev.first)).orEmpty;
+    let expressions = indexes.zip(exprs, fn(a,b) { Pair(a, b) }).foldLeft(Pair(0, Vec<ASTExpression>()), fn(prev,e) {
+        let charIndex = e.first
+        let prefix = s.substr(prev.first, charIndex.sub(prev.first)).orEmpty
         let newExpressions = 
             prev.second
             .push(stringASTValue(prefix))
-            .push(e.second);
-        Pair(charIndex.add(2), newExpressions);
-    });
+            .push(e.second)
+        Pair(charIndex.add(2), newExpressions)
+    })
 
     let finalExpressions = 
         if(expressions.first.less(s.len.sub(1)).and(expressions.first.eq(0).not), 
-            {expressions.second;}, 
+            {expressions.second}, 
             {
-                let end = s.substr(expressions.first, s.len.sub(expressions.first)).orEmpty;
-                expressions.second.push(stringASTValue(end));
-            });
+                let end = s.substr(expressions.first, s.len.sub(expressions.first)).orEmpty
+                expressions.second.push(stringASTValue(end))
+            })
 
     let result = finalExpressions.foldLeft(stringASTValue(""), fn(prev, act) {
-        prev.append(act);
-    });
+        prev.append(act)
+    })
 
     if(indexes.len.eq(exprs.len), {
-        MacroExpressionOk(result, Vec());
+        MacroExpressionOk(result, Vec())
     }, {
-        MacroExpressionResult::MacroError("Expected ".append(exprs.len).add(" parameters, got ".append(indexes.len.toString())));
-    });
+        MacroExpressionResult::MacroError("Expected ".append(exprs.len).add(" parameters, got ".append(indexes.len.toString())))
+    })
 }
 
 fn orEmpty(o: Option<str>) -> str {
-   o.match(fn(s) {s;}, {"";});
+   o.match(fn(s) {s}, {""})
 }
 
 // TODO move in stdlib vec.rasm
 fn find(s: str, v: str) -> Vec<int> {
     vecRange(0, s.len.sub(v.len).add(1))
     .map(fn(i) {
-        Pair(i, s.substr(i, v.len));
+        Pair(i, s.substr(i, v.len))
     }).filter(fn(it) { 
-        it.second.match(fn(found) { found.eq(v); }, { false; });
+        it.second.match(fn(found) { found.eq(v) }, { false })
     })
-    .map(fn(it) { it.first; });
+    .map(fn(it) { it.first })
 }
 
 fn append(a: ASTExpression, b: ASTExpression) -> ASTExpression {
-    simpleASTCall("append", vecOf(a, b));
+    simpleASTCall("append", vecOf(a, b))
 }

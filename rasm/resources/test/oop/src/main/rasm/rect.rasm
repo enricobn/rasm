@@ -7,13 +7,13 @@ pub struct Rect {
 
 pub fn Shape(rect: Rect) -> Shape {
     Shape(
-        { Point(add(rect.x, div(rect.width, 2)), add(rect.y, div(rect.height, 2))); },
+        { Point(add(rect.x, div(rect.width, 2)), add(rect.y, div(rect.height, 2))) },
         fn(dx, dy) {
-            let result = Rect(add(rect.x, dx), add(rect.y, dy), rect.width, rect.height);
+            let result = Rect(add(rect.x, dx), add(rect.y, dy), rect.width, rect.height)
 
-            Shape(result);
+            Shape(result)
         }, {
-             "Rect(".append(rect.x).append(",").append(rect.y).append(",").append(rect.width).append(",").append(rect.height).append(")");
+             "Rect(".append(rect.x).append(",").append(rect.y).append(",").append(rect.width).append(",").append(rect.height).append(")")
         }
-    );
+    )
 }

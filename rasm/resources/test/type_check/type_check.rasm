@@ -1,6 +1,6 @@
 
-newStrList();
+newStrList()
 
 fn newStrList() -> List<str> {
-    Empty();
+    Empty()
 }

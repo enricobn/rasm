@@ -1,12 +1,12 @@
-println(check(">"));
-println(check(" "));
-println(check("<"));
+println(check(">"))
+println(check(" "))
+println(check("<"))
 
 fn check(c: str) -> Vec<Option<str>> {
     if(c.eq(">"),
-        { vecOf(Some("first"), Some("first"), Some("first")); },
+        { vecOf(Some("first"), Some("first"), Some("first")) },
         c.eq(" "),
-        { vecOf(Some("second"), Some("second"), Some("second"));},
-        { vecOf(Some("third"), Some("third"), Some("third"));}
-    );
+        { vecOf(Some("second"), Some("second"), Some("second"))},
+        { vecOf(Some("third"), Some("third"), Some("third"))}
+    )
 }

@@ -3,9 +3,9 @@ enum Operation {
     Two(f: fn(int) -> int)
 }
 
-do(10, One(fn(n) { add(n, 1);}));
-do(10, Two(fn(n) { sub(n, 1);}));
+do(10, One(fn(n) { add(n, 1)}))
+do(10, Two(fn(n) { sub(n, 1)}))
 
 fn do(v: int, op: Operation) {
-    match(op, fn(f) { println("One ", f(v));}, fn(f) { println("Two ", f(v));});
+    match(op, fn(f) { println("One ", f(v))}, fn(f) { println("Two ", f(v))})
 }

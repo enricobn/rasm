@@ -1,22 +1,22 @@
-let v = vecOf(10);
+let v = vecOf(10)
 
 if(true, {
-    let c = vecOf(30);
-    if(true, { println(v);}, { println("Empty");});
-}, { println("Empty");});
+    let c = vecOf(30)
+    if(true, { println(v)}, { println("Empty")})
+}, { println("Empty")})
 
-println(v);
+println(v)
 
-main1(10);
-main();
+main1(10)
+main()
 
 fn main() {
-    let a = 5;
-    let b = a;
-    println(b);
+    let a = 5
+    let b = a
+    println(b)
 }
 
 fn main1(a: int) {
-    let b = a;
-    println(b);
+    let b = a
+    println(b)
 }

@@ -4,16 +4,16 @@ pub struct Point {
 }
 
 pub fn toString(p: Point) -> str {
-    "Point(".append(p.x).append(",").append(p.y).append(")");
+    "Point(".append(p.x).append(",").append(p.y).append(")")
 }
 
 pub fn Shape(point: Point) -> Shape {
     Shape(
-        { point; },
+        { point },
         fn(dx, dy) {
-            let result = Point(point.x.add(dx), point.y.add(dy));
+            let result = Point(point.x.add(dx), point.y.add(dy))
 
-            Shape(result);
-        }, { toString(point); }
-    );
+            Shape(result)
+        }, { toString(point) }
+    )
 }

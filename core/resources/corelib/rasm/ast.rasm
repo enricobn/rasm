@@ -26,7 +26,7 @@ pub fn toString(module: ASTModule) -> str {
     // TODO structs
     // TODO types
     module.body.join("\n")
-    .add(module.functions.join("\n"));
+    .add(module.functions.join("\n"))
 }
 
 pub enum ASTStatement {
@@ -37,10 +37,10 @@ pub enum ASTStatement {
 
 pub fn toString(stmt: ASTStatement) -> str {
     stmt.match(
-        fn (expr) { toString(expr);}, 
-        fn (name, expr) { "let ".add(name).add(" = ").append(expr); },
-        fn (name, expr, modifiers) { "const ".add(name).add(" = ").append(expr); }
-    ).add(";");
+        fn (expr) { toString(expr)}, 
+        fn (name, expr) { "let ".add(name).add(" = ").append(expr) },
+        fn (name, expr, modifiers) { "const ".add(name).add(" = ").append(expr) }
+    ).add(";")
 }
 
 pub enum ASTModifiers {
@@ -58,11 +58,11 @@ pub enum ASTExpression {
 
 pub fn toString(expr: ASTExpression) -> str {
     expr.match(
-        fn(call) { call.toString();},
-        fn(name) { name; },
-        fn(value) { value.toString(); },
-        fn(lambda) { lambda.toString(); }
-    );
+        fn(call) { call.toString()},
+        fn(name) { name },
+        fn(value) { value.toString() },
+        fn(lambda) { lambda.toString() }
+    )
 }
 
 pub struct ASTFunctionCall {
@@ -75,15 +75,15 @@ pub struct ASTFunctionCall {
 
 pub fn toString(call: ASTFunctionCall) -> str {
     let prefix = if(call.generics.len.eq(0),{
-            "";
+            ""
         }, {
-            "<".add(call.generics.map(fn(it) { it.toString();}).join(", ")).add(">");
-        });
+            "<".add(call.generics.map(fn(it) { it.toString()}).join(", ")).add(">")
+        })
 
-    let suffix = if(call.macro, "!", "");
+    let suffix = if(call.macro, "!", "")
     call.functionName.add(suffix).add(prefix).append("(")
     .append(call.parameters.join(", "))
-    .append(")");
+    .append(")")
 }
 
 pub enum ASTValue {
@@ -96,12 +96,12 @@ pub enum ASTValue {
 
 pub fn toString(v: ASTValue) -> str {
     v.match(
-        fn(value) { "\"".add(value).add("\""); }, 
-        fn(value) { if(value, "true", "false"); },
-        fn(value) { value.toString(); },
-        fn(value) { value; },
-        fn(value) { value.toString(); }
-    );
+        fn(value) { "\"".add(value).add("\"") }, 
+        fn(value) { if(value, "true", "false") },
+        fn(value) { value.toString() },
+        fn(value) { value },
+        fn(value) { value.toString() }
+    )
 }
 
 pub enum ASTType {
@@ -116,14 +116,14 @@ pub enum ASTType {
 
 pub fn toString(astType: ASTType) -> str {
     astType.match(
-        fn(builtin) { builtin.toString(); },
-        fn(name, types) { name; },
+        fn(builtin) { builtin.toString() },
+        fn(name, types) { name },
         fn(name, generics) { 
-            let genericTypes = generics.map(toString).join(", ");
-            name.add(if(genericTypes.len.eq(0), "", "<".add(genericTypes).add(">"))); 
+            let genericTypes = generics.map(toString).join(", ")
+            name.add(if(genericTypes.len.eq(0), "", "<".add(genericTypes).add(">"))) 
         },
-        { "()"; }
-    );
+        { "()" }
+    )
 }
 
 pub enum ASTBuiltinTypeKind {
@@ -140,13 +140,13 @@ pub enum ASTBuiltinTypeKind {
 
 pub fn toString(kind: ASTBuiltinTypeKind) -> str {
     kind.match(
-        { "bool"; },
-        { "char"; },
-        { "int"; },
-        { "float"; },
-        { "str"; },
-        fn(parameters, returnType) { "lambda TODO"; }
-    );
+        { "bool" },
+        { "char" },
+        { "int" },
+        { "float" },
+        { "str" },
+        fn(parameters, returnType) { "lambda TODO" }
+    )
 }
 
 pub struct ASTLambdaDef {
@@ -160,7 +160,7 @@ pub fn toString(def: ASTLambdaDef) -> str {
     .add(") {")
         .append(def.body.join("\n"))
         .add("}")
-        ;
+        
 }
 
 pub struct ASTFunctionDef {
@@ -175,24 +175,24 @@ pub struct ASTFunctionDef {
 
 pub fn toString(def: ASTFunctionDef) -> str {
     let returnType = def.returnType.match(
-        fn(builtin) { " -> ".append(builtin); },
-        fn(name, types) { " -> ".add(name); },
+        fn(builtin) { " -> ".append(builtin) },
+        fn(name, types) { " -> ".add(name) },
         fn(name, generics) { 
             " -> ".add(name)
-            .add(if(generics.len.greater(0), "<".add(generics.join(",")).add(">"), "")); 
+            .add(if(generics.len.greater(0), "<".add(generics.join(",")).add(">"), "")) 
         },
-        { ""; }
-    );
+        { "" }
+    )
 
     let body = def.body.match(
-        fn(statements) { statements.join("\n"); },
-        fn(nativeBody) { nativeBody;}
-    );
+        fn(statements) { statements.join("\n") },
+        fn(nativeBody) { nativeBody}
+    )
 
-    let parameters = def.parameters.join(", ");
-    let genericTypes = def.genericTypes.join(", ");
+    let parameters = def.parameters.join(", ")
+    let genericTypes = def.genericTypes.join(", ")
 
-    def.modifiers.match({"pub ";}, {"";}, {"internal ";})
+    def.modifiers.match({"pub "}, {""}, {"internal "})
     .add("fn ")
     .add(def.name)
     .add(if(genericTypes.len.greater(0), "<".add(genericTypes).add(">"), ""))
@@ -202,7 +202,7 @@ pub fn toString(def: ASTFunctionDef) -> str {
     .add(returnType)
     .add(" {\n")
     .add(body)
-    .add(" }\n");
+    .add(" }\n")
 
 }
 
@@ -212,7 +212,7 @@ pub struct ASTParameterDef {
 }
 
 pub fn toString(def: ASTParameterDef) -> str {
-    def.name.add(" : ").append(def.astType);
+    def.name.add(" : ").append(def.astType)
 }
 
 pub enum ASTFunctionBody {

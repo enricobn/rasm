@@ -1,11 +1,11 @@
-let n = argv(1).fmap(fn(s) { s.toInt;}).getOrElse(999);
+let n = argv(1).fmap(fn(s) { s.toInt}).getOrElse(999)
 
-inner(n);
+inner(n)
 
 fn inner(p1: int) {
-    println(do(15, fn(v) { add(v, p1); }));
+    println(do(15, fn(v) { add(v, p1) }))
 }
 
 fn do(v1: int, f: fn(int) -> int) -> int {
-    f(v1);
+    f(v1)
 }

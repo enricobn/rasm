@@ -594,7 +594,7 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
 }/
 
 pub fn VecReferences(vec: int, generic: int) -> int {
-    vec;
+    vec
 }
 
 pub native Vec<T>() -> Vec<T> /{

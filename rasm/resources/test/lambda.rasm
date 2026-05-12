@@ -1,15 +1,15 @@
-argv(1).fmap(fn(s) { s.toInt;}).match(fn(n) {
-    choose(n, { println("0"); }, { println("1"); }, { println("2"); }, { println("3"); });
-}, { });
+argv(1).fmap(fn(s) { s.toInt}).match(fn(n) {
+    choose(n, { println("0") }, { println("1") }, { println("2") }, { println("3") })
+}, { })
 
 fn choose(n: int, l0: fn() -> (), l1: fn() -> (), l2: fn() -> (), l3: fn() -> ()) {
     if(eq(0, n),
-        { l0(); },
+        { l0() },
         { if(eq(1, n),
-                { l1(); },
+                { l1() },
                 { if(eq(2,n),
-                    { l2(); },
-                    { l3(); }
-                );});
-        });
+                    { l2() },
+                    { l3() }
+                )})
+        })
 }

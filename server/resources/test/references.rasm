@@ -1,4 +1,4 @@
 Some("hello")
 .forEach(fn(it) {
-    println(it);
-});
+    println(it)
+})

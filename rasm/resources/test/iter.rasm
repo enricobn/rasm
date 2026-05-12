@@ -1,29 +1,29 @@
-let o = Some(10);
-println(o.iter);
+let o = Some(10)
+println(o.iter)
 
-let o1 = None<int>();
-println(o1.iter);
+let o1 = None<int>()
+println(o1.iter)
 
-let l = range(0, 2).iter;
-println(l);
+let l = range(0, 2).iter
+println(l)
 
-println(l.filter(fn(it) { it.less(1); }));
+println(l.filter(fn(it) { it.less(1) }))
 
-println(l.map(fn(it) { it.add(1);}));
+println(l.map(fn(it) { it.add(1)}))
 
-l.forEach(fn(it) { print(it);});
-println();
+l.forEach(fn(it) { print(it)})
+println()
 
-println(l.anyMatch(fn(it) { it.eq(1); }));
+println(l.anyMatch(fn(it) { it.eq(1) }))
 
-println(l.anyMatch(fn(it) { it.eq(2); }));
+println(l.anyMatch(fn(it) { it.eq(2) }))
 
-println(l.count(fn(it) { it.less(1); }));
+println(l.count(fn(it) { it.less(1) }))
 
-let fl = iter(listOf(iter(listOf(0, 1)), iter(listOf(2, 3))));
-println(fl.flatten);
+let fl = iter(listOf(iter(listOf(0, 1)), iter(listOf(2, 3))))
+println(fl.flatten)
 
-let f = l.fmap(fn(it) { listOf(it, it.add(1)).iter; });
-println(f);
+let f = l.fmap(fn(it) { listOf(it, it.add(1)).iter })
+println(f)
 
-println(listOf(0, 1).iter.add(listOf(2, 3).iter));
+println(listOf(0, 1).iter.add(listOf(2, 3).iter))

@@ -1,7 +1,7 @@
 pub fn vecSuite() -> TestSuite {
     TestSuite("Vec")
     .add("foldleft", foldLeft)
-    .add("setter", setter);
+    .add("setter", setter)
 }
 
 struct Container {
@@ -10,30 +10,30 @@ struct Container {
 
 fn foldLeft() -> Assertions {
     let v = vecRange(0, 10000)
-        .map(fn(it) { Some(it);})
-        .filter(fn(it) { it.match(fn(i) { true;}, { false;});});
+        .map(fn(it) { Some(it)})
+        .filter(fn(it) { it.match(fn(i) { true}, { false})})
 
     let v1 = v.foldLeft(
         Vec<Option<int>>(), 
         fn(accum, actual) {  
-            accum.push(actual);
+            accum.push(actual)
         }
-    );
+    )
         
-    Assertions().assertEquals(10000, v1.len);
+    Assertions().assertEquals(10000, v1.len)
 }
 
 fn setter() -> Assertions {
     let v = vecRange(0, 10000)
-        .map(fn(it) { Some(it);});
+        .map(fn(it) { Some(it)})
 
     let v1 = v.foldLeft(
         Container(Vec()), 
         fn(accum, actual) {  
-            accum.vec(fn(vec) {vec.push(actual);});
+            accum.vec(fn(vec) {vec.push(actual)})
         }
-    );
+    )
         
     Assertions()
-    .assertEquals(10000, v1.vec.len);
+    .assertEquals(10000, v1.vec.len)
 }

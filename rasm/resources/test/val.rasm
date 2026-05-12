@@ -1,19 +1,19 @@
-let n = argv(1).fmap(fn(s) { s.toInt;}).getOrElse(999);
+let n = argv(1).fmap(fn(s) { s.toInt}).getOrElse(999)
 
 runWith(n, fn(arg) {
-    println(parameter(arg));
-    println(lambdaParameter(arg, fn(p) { p;}));
-    println(context(arg));
-});
+    println(parameter(arg))
+    println(lambdaParameter(arg, fn(p) { p}))
+    println(context(arg))
+})
 
 fn parameter(n: int) -> int {
-    n;
+    n
 }
 
 fn lambdaParameter(n: int, f: fn(int) -> int) -> int {
-    f(n);
+    f(n)
 }
 
 fn context(n: int) -> int {
-    lambdaParameter(n, fn(n1) { n;});
+    lambdaParameter(n, fn(n1) { n})
 }

@@ -1,34 +1,34 @@
-println(test(5));
-println(test2(5));
+println(test(5))
+println(test2(5))
 
-let aNumber = 10;
-println(aNumber);
+let aNumber = 10
+println(aNumber)
 
-let aChar = 'è';
-println(aChar);
+let aChar = 'è'
+println(aChar)
 
-let aBool = true;
-println(aBool);
+let aBool = true
+println(aBool)
 
-let aString = "a string";
-println(aString);
+let aString = "a string"
+println(aString)
 
 fn test(n: int) -> int {
-    let ten = 10;
+    let ten = 10
 
     test1(ten, fn(v) {
-        let five = 5;
+        let five = 5
 
-        add(n, add(v, five));
-    });
+        add(n, add(v, five))
+    })
 }
 
 fn test1(v: int, f: fn(int) -> int) -> int {
-    f(v);
+    f(v)
 }
 
 
 fn test2(n: int) -> List<int> {
-    let ten = listOf(10);
-    listAppend(listOf(20), ten);
+    let ten = listOf(10)
+    listAppend(listOf(20), ten)
 }

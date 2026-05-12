@@ -10,19 +10,19 @@ struct Rect {
     height: int
 }
 
-let v1 = 10;
-let v2 = 20;
-let v3 = 30;
+let v1 = 10
+let v2 = 20
+let v3 = 30
 
-println(v1.add(v2));
-println(v1.add(v2).add(v3));
-let v4 = v1.add(v2).add(v3);
-println(v4);
+println(v1.add(v2))
+println(v1.add(v2).add(v3))
+let v4 = v1.add(v2).add(v3)
+println(v4)
 
-let p = Point(10, 20);
-println(p.x.mul(p.y));
+let p = Point(10, 20)
+println(p.x.mul(p.y))
 
-let rect = Rect(p, 100, 200);
-println(rect.point.x);
+let rect = Rect(p, 100, 200)
+println(rect.point.x)
 
-println(10.add(20));
+println(10.add(20))

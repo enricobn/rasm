@@ -1,54 +1,54 @@
-let v = vecRange(0, 2);
-println(v);
+let v = vecRange(0, 2)
+println(v)
 
-let m = map(v, fn(n) { add(n, 10);});
-println(m);
+let m = map(v, fn(n) { add(n, 10)})
+println(m)
 
-if(anyMatch(v, fn(n) { eq(n, 0);}), { println("true");}, { println("false");});
-if(anyMatch(v, fn(n) { eq(n, 2);}), { println("true");}, { println("false");});
+if(anyMatch(v, fn(n) { eq(n, 0)}), { println("true")}, { println("false")})
+if(anyMatch(v, fn(n) { eq(n, 2)}), { println("true")}, { println("false")})
 
-if(anyMatch(vecRange(0, 2), fn(n) { eq(n, 0);}), { println("true");}, { println("false");});
-if(anyMatch(vecRange(0, 2), fn(n) { eq(n, 2);}), { println("true");}, { println("false");});
+if(anyMatch(vecRange(0, 2), fn(n) { eq(n, 0)}), { println("true")}, { println("false")})
+if(anyMatch(vecRange(0, 2), fn(n) { eq(n, 2)}), { println("true")}, { println("false")})
 
-println(count(vecRange(0, 10), fn(n) { eq(n, 5);}));
-println(count(vecRange(0, 10), fn(n) { lessOrEqual(n, 5);}));
-println(count(vecRange(0, 10), fn(n) { lessOrEqual(n, 1);}));
+println(count(vecRange(0, 10), fn(n) { eq(n, 5)}))
+println(count(vecRange(0, 10), fn(n) { lessOrEqual(n, 5)}))
+println(count(vecRange(0, 10), fn(n) { lessOrEqual(n, 1)}))
 
-println(filter(vecRange(0, 10), fn(n) { lessOrEqual(n, 5);}));
-println(filter(vecRange(0, 10), fn(n) { eq(n, 5);}));
+println(filter(vecRange(0, 10), fn(n) { lessOrEqual(n, 5)}))
+println(filter(vecRange(0, 10), fn(n) { eq(n, 5)}))
 
-println(vecOf(10, 15, 21, 2, 2, 1, 4, 5));
+println(vecOf(10, 15, 21, 2, 2, 1, 4, 5))
 
-println(len(vecRange(0, 10)));
+println(len(vecRange(0, 10)))
 
-let vecOfVecs = vecOf(vecOf(1), vecOf(2, 3));
-println(flatten(vecOfVecs));
+let vecOfVecs = vecOf(vecOf(1), vecOf(2, 3))
+println(flatten(vecOfVecs))
 
-println(fmap(vecOf(1, 2), fn(n) { vecOf(n, add(n, 10));}));
+println(fmap(vecOf(1, 2), fn(n) { vecOf(n, add(n, 10))}))
 
-println(toVec(listOf(0, 1, 2)));
+println(toVec(listOf(0, 1, 2)))
 
-println(foldLeft(vecRange(0, 5), 0, fn(prev, act) { add(prev, act);}));
+println(foldLeft(vecRange(0, 5), 0, fn(prev, act) { add(prev, act)}))
 
-println(first(Vec<int>()));
+println(first(Vec<int>()))
 
-let vecOfOpt = vecOf(Some("Hello"));
+let vecOfOpt = vecOf(Some("Hello"))
 
-println(first(vecOfOpt));
+println(first(vecOfOpt))
 
-println(push(vecOf(1), 2));
+println(push(vecOf(1), 2))
 
-let popped = vecOf(1, 2).pop;
+let popped = vecOf(1, 2).pop
 
-println(popped.first);
-println(popped.second);
+println(popped.first)
+println(popped.second)
 
-if(allMatch(vecRange(0, 2), fn(n) { eq(n, 2);}), { println("true");}, { println("false");});
-if(allMatch(vecRange(0, 2), fn(n) { n.greater(-1);}), { println("true");}, { println("false");});
+if(allMatch(vecRange(0, 2), fn(n) { eq(n, 2)}), { println("true")}, { println("false")})
+if(allMatch(vecRange(0, 2), fn(n) { n.greater(-1)}), { println("true")}, { println("false")})
 
-println(vecOf(1.1, 2.2));
-let intvec = vecOf(10,20);
+println(vecOf(1.1, 2.2))
+let intvec = vecOf(10,20)
 
-println(intvec.get(2));
-println(intvec.get(1));
-println(intvec.last);
+println(intvec.get(2))
+println(intvec.get(1))
+println(intvec.last)

@@ -1,9 +1,9 @@
-println(fib(10));
+println(fib(10))
 
 fn fib(n: int) -> int {
     if(lessOrEqual(n, 1), n, {
-        let tmp2 = n.sub(2);
-        let tmp = fib(tmp2);
-        fib(n.sub(1)).add(tmp);
-    });
+        let tmp2 = n.sub(2)
+        let tmp = fib(tmp2)
+        fib(n.sub(1)).add(tmp)
+    })
 }

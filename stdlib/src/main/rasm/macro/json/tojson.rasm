@@ -1,38 +1,38 @@
 pub fn json(v: int) -> str {
-    v.toString();
+    v.toString()
 }
 
 pub fn json(v: float) -> str {
-    v.toString();
+    v.toString()
 }
 
 pub fn json(v: str) -> str {
-    "\"".add(v).add("\"");
+    "\"".add(v).add("\"")
 }
 
 pub fn json<T>(v: Vec<T>) -> str {
-    let s = v.map(json);
-    "[".add(s.join(", ")).add("]");
+    let s = v.map(json)
+    "[".add(s.join(", ")).add("]")
 }
 
 pub fn json(s: ASTStructDef) -> MacroAttributeResult {
-    let structRef = ASTValueRefExpression("s");
+    let structRef = ASTValueRefExpression("s")
     
     let parameters = s.properties.map(fn(p) {
-        simpleASTCall(p.name, vecOf(structRef));
-    });
+        simpleASTCall(p.name, vecOf(structRef))
+    })
 
-    let basePropertyExpression = stringASTValue("{");
+    let basePropertyExpression = stringASTValue("{")
 
     let propertiesExpression = 
-        s.properties.zip(parameters, fn(l,r) {Pair(l,r);}).enumerate.foldLeft(
+        s.properties.zip(parameters, fn(l,r) {Pair(l,r)}).enumerate.foldLeft(
             basePropertyExpression, 
             fn(prev, act) { 
-                let propertyJson = simpleASTCall("json", vecOf(act.value.second));
-                let propertyValue = prev.add("\\\"").add(act.value.first.name).add("\\\" : ").append(propertyJson);
-                if (act.index.less(parameters.len.sub(1)), propertyValue.add(", "), propertyValue);
+                let propertyJson = simpleASTCall("json", vecOf(act.value.second))
+                let propertyValue = prev.add("\\\"").add(act.value.first.name).add("\\\" : ").append(propertyJson)
+                if (act.index.less(parameters.len.sub(1)), propertyValue.add(", "), propertyValue)
             }
-        ).add("}");
+        ).add("}")
 
     let function = ASTFunctionDef(
         "json",
@@ -44,44 +44,44 @@ pub fn json(s: ASTStructDef) -> MacroAttributeResult {
         s.typeParameters,
         ASTModifiers::Public(),
         None()
-    );
+    )
 
-    MacroAttributeOk(vecOf(function));
+    MacroAttributeOk(vecOf(function))
 }
 
 pub fn json(e: ASTEnumDef) -> MacroAttributeResult {
-    let enumRef = ASTValueRefExpression("value");
+    let enumRef = ASTValueRefExpression("value")
 
-    let propertiesExpression = stringASTValue("{");
+    let propertiesExpression = stringASTValue("{")
 
     let variantsExpressions = e.variants.map(fn(variant) {
         let variantParamNames = if(variant.parameters.len.eq(0), {
-            Vec();
+            Vec()
         }, {
-            variant.parameters.map(fn(variantParameter) { variantParameter.name; });
-        });
+            variant.parameters.map(fn(variantParameter) { variantParameter.name })
+        })
 
         let expr = 
         if (variantParamNames.isEmpty(), {
-            stringASTValue("\\\"").add(variant.name).add("\\\": null");
+            stringASTValue("\\\"").add(variant.name).add("\\\": null")
         }, {
             variantParamNames.enumerate.foldLeft(
                 stringASTValue("\\\"").add(variant.name).add("\\\": {"), 
                 fn(prev, act) { 
                     let propertyValue = prev.add("\\\"").add(act.value).add("\\\": ")
-                        .append(simpleASTCall("json", vecOf(ASTValueRefExpression(act.value))));
-                    if (act.index.less(variantParamNames.len.sub(1)), propertyValue.add(", "), propertyValue);
+                        .append(simpleASTCall("json", vecOf(ASTValueRefExpression(act.value))))
+                    if (act.index.less(variantParamNames.len.sub(1)), propertyValue.add(", "), propertyValue)
                 }
-            ).add("}");
-        });
+            ).add("}")
+        })
 
-        let body = vecOf(ASTExpressionStatement(expr));
-        ASTLambdaExpression(ASTLambdaDef(variantParamNames, body));
-    });
+        let body = vecOf(ASTExpressionStatement(expr))
+        ASTLambdaExpression(ASTLambdaDef(variantParamNames, body))
+    })
 
     let exprs = propertiesExpression
         .add(simpleASTCall("match", vecOf(enumRef).add(variantsExpressions)))
-        .add("}";
+        .add("}"
 
     let function = ASTFunctionDef(
         "json",
@@ -93,19 +93,19 @@ pub fn json(e: ASTEnumDef) -> MacroAttributeResult {
         e.typeParameters,
         ASTModifiers::Public(),
         None()
-    );
+    )
 
-    MacroAttributeOk(vecOf(function));
+    MacroAttributeOk(vecOf(function))
 }
 
 fn add(a: ASTExpression, s: str) -> ASTExpression {
-    simpleASTCall("add", vecOf(a, ASTValueExpression(ASTStringValue(s))));
+    simpleASTCall("add", vecOf(a, ASTValueExpression(ASTStringValue(s))))
 }
 
 fn add(a: ASTExpression, s: ASTExpression) -> ASTExpression {
-    simpleASTCall("add", vecOf(a, s));
+    simpleASTCall("add", vecOf(a, s))
 }
 
 fn append(a: ASTExpression, b: ASTExpression) -> ASTExpression {
-    simpleASTCall("append", vecOf(a, b));
+    simpleASTCall("append", vecOf(a, b))
 }

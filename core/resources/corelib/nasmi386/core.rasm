@@ -640,8 +640,8 @@ pub native printTableSlotsAllocated() /{
 }/
 
 fn derefAddressNotFound() {
-    println("Deref: address not found");
-    exitMain(1);
+    println("Deref: address not found")
+    exitMain(1)
 }
 
 /* checks if the address is used somewhere in memory, in that case it exits */

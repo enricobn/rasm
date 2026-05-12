@@ -1,16 +1,16 @@
 
-print();
+print()
 
 fn print() {
-    println("Hello world");
-    println("Hi");
-    println(10);
-    println(add(15, 25));
-    println(add(15, add(10, 20)));
-    println2("one", "two");
+    println("Hello world")
+    println("Hi")
+    println(10)
+    println(add(15, 25))
+    println(add(15, add(10, 20)))
+    println2("one", "two")
 }
 
 fn println2(s1: str, s2: str) {
-    println(s1);
-    println(s2);
+    println(s1)
+    println(s2)
 }

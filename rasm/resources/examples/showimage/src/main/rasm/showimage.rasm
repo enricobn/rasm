@@ -1,28 +1,28 @@
-if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())); }, { });
+if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())) }, { })
 
-let win = sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387);
-let ren = sdlCreateRenderer(win, -1, SDLRENDERERACCELERATED);
+let win = sdlCreateWindow("José Raúl Capablanca", 100, 100, 620, 387)
+let ren = sdlCreateRenderer(win, -1, SDLRENDERERACCELERATED)
 let bmp = 
     if(argv(1).getOrElse("bmp").eq("svg"), {
-        let rw = sdlRWFromFile("rasm/resources/examples/level1.svg", "rb");
-        sdlIMGLoadSVGRW(rw);
+        let rw = sdlRWFromFile("rasm/resources/examples/level1.svg", "rb")
+        sdlIMGLoadSVGRW(rw)
     }, {
-        let rw = sdlRWFromFile("rasm/resources/examples/jose-raul-capablanca.bmp", "rb");
-        sdlLoadBMPRW(rw);
-    });
+        let rw = sdlRWFromFile("rasm/resources/examples/jose-raul-capablanca.bmp", "rb")
+        sdlLoadBMPRW(rw)
+    })
 
-let tex = sdlCreateTextureFromSurface(ren, bmp);
+let tex = sdlCreateTextureFromSurface(ren, bmp)
 
-sdlFreeSurface(bmp);
+sdlFreeSurface(bmp)
 
-sdlRenderClear(ren);
-sdlRenderCopy(ren, tex);
-sdlRenderPresent(ren);
+sdlRenderClear(ren)
+sdlRenderCopy(ren, tex)
+sdlRenderPresent(ren)
 
-sdlDelay(2000);
+sdlDelay(2000)
 
-sdlDestroyTexture(tex);
-sdlDestroyRenderer(ren);
-sdlDestroyWindow(win);
+sdlDestroyTexture(tex)
+sdlDestroyRenderer(ren)
+sdlDestroyWindow(win)
 
-sdlQuit();
+sdlQuit()

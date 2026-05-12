@@ -1,5 +1,5 @@
-pub const SDLReleased = 0;
-pub const SDLPressed = 1;
+pub const SDLReleased = 0
+pub const SDLPressed = 1
 
 pub struct SDLKeysym {
     scancode: int,

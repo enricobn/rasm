@@ -1,7 +1,7 @@
-println(some());
-println(none());
-println(ok());
-println(error());
+println(some())
+println(none())
+println(ok())
+println(error())
 
 native some() -> Option<int> /{
     return $call(Some<int>, 1);
@@ -23,7 +23,7 @@ native error() -> Result<int,str> /{
 
 pub fn toString<OK,ERR>(result: Result<OK,ERR>) -> str {
     result.match(
-        fn(it) { "Ok(".append(it).add(")");},
-        fn(it) { "Err(".append(it).add(")");}
-    );
+        fn(it) { "Ok(".append(it).add(")")},
+        fn(it) { "Err(".append(it).add(")")}
+    )
 }

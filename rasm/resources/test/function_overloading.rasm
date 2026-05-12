@@ -1,12 +1,12 @@
-println(myToString(10));
-println(myToString("Hello"));
-println(add("Hello", " world"));
-println(add(1, 10));
+println(myToString(10))
+println(myToString("Hello"))
+println(add("Hello", " world"))
+println(add(1, 10))
 
 fn myToString(s: str) -> str {
-    s;
+    s
 }
 
 fn myToString(n: int) -> str {
-    "a number";
+    "a number"
 }

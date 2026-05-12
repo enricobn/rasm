@@ -1,7 +1,7 @@
-let v = vecOf(toShape(Circle(1, 1, 2)), toShape(Rect(10, 20, 5, 5)), toShape(Point(4, 5)));
+let v = vecOf(toShape(Circle(1, 1, 2)), toShape(Rect(10, 20, 5, 5)), toShape(Point(4, 5)))
 
-println(v);
+println(v)
 
-println(v.map(fn(shape) { shape.callMove(100, 100);}));
+println(v.map(fn(shape) { shape.callMove(100, 100)}))
 
-println(map(v, fn(shape) { shape.callCenter;}));
+println(map(v, fn(shape) { shape.callCenter}))

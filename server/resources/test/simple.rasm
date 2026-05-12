@@ -1,11 +1,11 @@
-let anInt = 10;
+let anInt = 10
 
-doSomething(anInt);
+doSomething(anInt)
 
 fn doSomething(aValue: int) {
-    println(aValue);
+    println(aValue)
 }
 
 fn doSomething1() -> Option<int> {
-    Some(10);
+    Some(10)
 }

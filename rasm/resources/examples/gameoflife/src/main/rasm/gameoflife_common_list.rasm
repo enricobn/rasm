@@ -4,41 +4,41 @@ pub struct FullCell {
 }
 
 pub fn readCellFile(file: str) -> List<Cell> {
-    let linesEnumerate = listEnumerate(filterLines(lines(readFile(file))));
+    let linesEnumerate = listEnumerate(filterLines(lines(readFile(file))))
 
-    fmap(linesEnumerate, fn(line) { lineCells(line); });
+    fmap(linesEnumerate, fn(line) { lineCells(line) })
 }
 
 pub fn allCells(width: int, height: int) -> List<FullCell> {
     cartesianProduct(range(0, height), range(0, width), fn(y, x) {
-        let cell = Cell(x, y);
+        let cell = Cell(x, y)
 
-        FullCell(cell, adjacents(cell));
-    });
+        FullCell(cell, adjacents(cell))
+    })
 }
 
 pub fn moveCells(cells: List<Cell>, d: int) -> List<Cell> {
-    map(cells, fn(it) { Cell(add(it.x, d), add(it.y, d)); });
+    map(cells, fn(it) { Cell(add(it.x, d), add(it.y, d)) })
 }
 
 pub fn next(cells: List<Cell>, allCells: List<FullCell>) -> List<Cell> {
     map(filter(allCells, fn(it) {
-        let adjsAlive = count(adjacents(it),  fn(a) { isAlive(cells, a); });
+        let adjsAlive = count(adjacents(it),  fn(a) { isAlive(cells, a) })
         if(isAlive(cells, cell(it)),
             or(eq(adjsAlive, 2),eq(adjsAlive,3)),
             eq(adjsAlive, 3)
-        );
-    }), fn(it) {it.cell;});
+        )
+    }), fn(it) {it.cell})
 }
 
 pub fn adjacents(cell: Cell) -> List<Cell> {
-    let x = cell.x;
-    let y = cell.y;
+    let x = cell.x
+    let y = cell.y
 
-    let left = add(x, -1);
-    let right = add(x, 1);
-    let up = add(y, -1);
-    let down = add(y, 1);
+    let left = add(x, -1)
+    let right = add(x, 1)
+    let up = add(y, -1)
+    let down = add(y, 1)
 
     listOf(
         Cell(left, up),
@@ -49,15 +49,15 @@ pub fn adjacents(cell: Cell) -> List<Cell> {
         Cell(right, up),
         Cell(right, y),
         Cell(right, down)
-    );
+    )
 }
 
 /** false = 0 true = any other value **/
 pub fn isAlive(cells: List<Cell>, cell: Cell) -> bool {
-    let x = cell.x;
-    let y = cell.y;
+    let x = cell.x
+    let y = cell.y
 
     anyMatch(cells, fn(it) {
-        and(eq(x, it.x), eq(y, it.y));
-    });
+        and(eq(x, it.x), eq(y, it.y))
+    })
 }

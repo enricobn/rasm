@@ -4,13 +4,13 @@ pub enum Result<OK,ERROR> {
 }
 
 pub fn map<OK,ERROR,T>(result: Result<OK,ERROR>, mapFun: fn(OK) -> T) -> Result<T,ERROR> {
-    result.match(fn(value) { Ok(mapFun(value)); }, Error);
+    result.match(fn(value) { Ok(mapFun(value)) }, Error)
 }
 
 pub fn flatten<OK,ERROR>(r: Result<Result<OK,ERROR>,ERROR>) -> Result<OK,ERROR> {
-    r.match(identity, Error);
+    r.match(identity, Error)
 }
 
 pub fn fmap<OK,ERROR,T>(l: Result<OK,ERROR>, f: fn(OK) -> Result<T,ERROR>) -> Result<T,ERROR> {
-    l.match(f, Error);
+    l.match(f, Error)
 }

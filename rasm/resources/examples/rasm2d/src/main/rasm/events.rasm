@@ -4,60 +4,60 @@ pub struct Rasm2DEvents {
 }
 
 pub fn keyPressed(events: Rasm2DEvents, scancode: int) -> bool {
-    keyPressedOrReleased(events, scancode, SDLPressed);
+    keyPressedOrReleased(events, scancode, SDLPressed)
 }
 
 pub fn keyReleased(events: Rasm2DEvents, scancode: int) -> bool {
-    keyPressedOrReleased(events, scancode, SDLReleased);
+    keyPressedOrReleased(events, scancode, SDLReleased)
 }
 
 fn keyPressedOrReleased(events: Rasm2DEvents, scancode: int, state: int) -> bool {
     events.events.anyMatch(fn(it) {
         it.matchSDLKeyboardEvent(fn(timestamp, windowID, actualState, repeat, keysym) {
-            actualState.eq(state).and(keysym.scancode.eq(scancode));
+            actualState.eq(state).and(keysym.scancode.eq(scancode))
         }, {
-            false;
-        });
-    });
+            false
+        })
+    })
 }
 
 pub fn keyPressed(events: Rasm2DEvents) -> Vec<int> {
-    keyPressedOrReleased(events, SDLPressed);
+    keyPressedOrReleased(events, SDLPressed)
 }
 
 pub fn keyReleased(events: Rasm2DEvents) -> Vec<int> {
-    keyPressedOrReleased(events, SDLReleased);
+    keyPressedOrReleased(events, SDLReleased)
 }
 
 fn keyPressedOrReleased(events: Rasm2DEvents, state: int) -> Vec<int> {
     events.events.foldLeft(Vec(), fn(prev, actual) {
         actual.matchSDLKeyboardEvent(fn(timestamp, windowID, actualState, repeat, keysym) {
             if(actualState.eq(state), {
-                prev.push(keysym.scancode);
-            }, { prev;});
+                prev.push(keysym.scancode)
+            }, { prev})
         }, {
-            prev;
-        });
-    });
+            prev
+        })
+    })
 }
 
 pub fn quit(events: Rasm2DEvents) -> bool {
     events.events.anyMatch(fn(it) {
         it.matchSDLQuitEvent(fn(timestamp) {
-            true;
+            true
         }, {
-            false;
-        });
-    });
+            false
+        })
+    })
 }
 
 internal fn Rasm2DEvents() -> Rasm2DEvents {
-    Rasm2DEvents(rasm2DSdlPollEvents(Vec()));
+    Rasm2DEvents(rasm2DSdlPollEvents(Vec()))
 }
 
 fn rasm2DSdlPollEvents(events: Vec<SDLEvent>) -> Vec<SDLEvent> {
     sdlPollEvent().match(fn(event) {
         // println("Event ");
-        rasm2DSdlPollEvents(events.push(event));
-    }, { events; });
+        rasm2DSdlPollEvents(events.push(event))
+    }, { events })
 }

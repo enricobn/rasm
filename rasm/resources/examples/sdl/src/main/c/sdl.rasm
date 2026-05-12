@@ -76,7 +76,7 @@ pub native sdlDestroyWindow(win: SDLWindow) /{
 }/
 
 pub fn sdlSetRenderDrawColor(ren: SDLRenderer, color: SDLColor) {
-    sdlSetRenderDrawColor(ren, r(color), g(color), b(color), a(color));
+    sdlSetRenderDrawColor(ren, r(color), g(color), b(color), a(color))
 }
 
 pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: int) /{

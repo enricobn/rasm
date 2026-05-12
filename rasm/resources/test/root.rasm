@@ -1,4 +1,4 @@
 
-println(cmp(10, 12));
-println(cmp(10, 10));
-println(cmp(10, 0));
+println(cmp(10, 12))
+println(cmp(10, 10))
+println(cmp(10, 0))

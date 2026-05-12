@@ -8,176 +8,176 @@ pub enum List<T> {
 pub fn print<T>(l: List<T>) {
     match(l,
         fn(head,tail) {
-            print(head);
-            match(tail, fn(head1,tail1) {print(",");}, {});
-            print(tail);
-        }, {});
+            print(head)
+            match(tail, fn(head1,tail1) {print(",")}, {})
+            print(tail)
+        }, {})
 }
 
 // end exclusive
 pub fn range(start: int, end: int) -> List<int> {
     if (less(start, end), {
-        Full(start, range(add(start, 1), end));
+        Full(start, range(add(start, 1), end))
     }, {
-        Empty();
-    });
+        Empty()
+    })
 }
 
 pub fn map<T,T1>(l: List<T>, f: fn(T) -> T1) -> List<T1> {
-    match(l, fn(head,tail) {Full(f(head), map(tail, f)); }, {Empty();});
+    match(l, fn(head,tail) {Full(f(head), map(tail, f)) }, {Empty()})
 }
 
 pub fn forEach<T>(l: List<T>, f: fn(T) -> ()) {
-    match(l, fn(head,tail) {f(head); forEach(tail, f); }, {});
+    match(l, fn(head,tail) {f(head) forEach(tail, f) }, {})
 }
 
 /** false = 0 true = 1 **/
 pub fn anyMatch<T>(l: List<T>, predicate: fn(T) -> bool) -> bool {
-    match(l, fn(head,tail) {if(predicate(head), true, {anyMatch(tail, predicate); }); }, {false;});
+    match(l, fn(head,tail) {if(predicate(head), true, {anyMatch(tail, predicate) }) }, {false})
 }
 
 pub fn count<T>(l: List<T>, predicate: fn(T) -> bool) -> int {
-    match(l, fn(head,tail) {add(count(tail, predicate), if(predicate(head), 1, 0)); }, {0;});
+    match(l, fn(head,tail) {add(count(tail, predicate), if(predicate(head), 1, 0)) }, {0})
 }
 
 pub fn insert<T>(l: List<T>, value: T) -> List<T> {
-    Full(value, l);
+    Full(value, l)
 }
 
 pub fn push<T>(l: List<T>, value: T) -> List<T> {
-    match(l, fn(head, tail) {Full(head, push(tail, value));}, {Full(value, Empty());});
+    match(l, fn(head, tail) {Full(head, push(tail, value))}, {Full(value, Empty())})
 }
 
 pub fn listOf<T>(v: T) -> List<T> {
-    Full(v, Empty());
+    Full(v, Empty())
 }
 
 pub fn listOf<T>(v1: T, v2: T) -> List<T> {
-    Full(v1, Full(v2, Empty()));
+    Full(v1, Full(v2, Empty()))
 }
 
 pub fn listOf<T>(v1: T, v2: T, v3: T) -> List<T> {
-    Full(v1, Full(v2, Full(v3, Empty())));
+    Full(v1, Full(v2, Full(v3, Empty())))
 }
 
 pub fn listOf<T>(v1: T, v2: T, v3: T, v4: T) -> List<T> {
-    Full(v1, Full(v2, Full(v3, Full(v4, Empty()))));
+    Full(v1, Full(v2, Full(v3, Full(v4, Empty()))))
 }
 
 pub fn listOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T) -> List<T> {
-    Full(v1, Full(v2, Full(v3, Full(v4, Full(v5, Empty())))));
+    Full(v1, Full(v2, Full(v3, Full(v4, Full(v5, Empty())))))
 }
 
 pub fn listOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T) -> List<T> {
-    Full(v1, Full(v2, Full(v3, Full(v4, Full(v5, Full(v6, Empty()))))));
+    Full(v1, Full(v2, Full(v3, Full(v4, Full(v5, Full(v6, Empty()))))))
 }
 
 pub fn listOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T) -> List<T> {
-    Full(v1, Full(v2, Full(v3, Full(v4, Full(v5, Full(v6, Full(v7, Empty())))))));
+    Full(v1, Full(v2, Full(v3, Full(v4, Full(v5, Full(v6, Full(v7, Empty())))))))
 }
 
 pub fn listOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> List<T> {
-    Full(v1, Full(v2, Full(v3, Full(v4, Full(v5, Full(v6, Full(v7, Full(v8, Empty()))))))));
+    Full(v1, Full(v2, Full(v3, Full(v4, Full(v5, Full(v6, Full(v7, Full(v8, Empty()))))))))
 }
 
 pub fn println<T>(l: List<T>, printFunction: fn(T) -> ()) {
-    print(l, printFunction);
-    println("");
+    print(l, printFunction)
+    println("")
 }
 
 pub fn print<T>(l: List<T>, printFunction: fn(T) -> ()) {
     match(l, fn(head,tail) {
-        printFunction(head);
-        match(tail, fn(head1,tail1) {print(","); }, {});
-        print(tail, printFunction);
-    }, {});
+        printFunction(head)
+        match(tail, fn(head1,tail1) {print(",") }, {})
+        print(tail, printFunction)
+    }, {})
 }
 
 pub fn flatten<T>(l: List<List<T>>) -> List<T> {
     l.match(fn(head, tail) {
-        listAppend(head, flatten(tail));
+        listAppend(head, flatten(tail))
     },
-    {Empty(); });
+    {Empty() })
 }
 
 pub fn listAppend<T>(dest: List<T>, source: List<T>) -> List<T> {
-    match(dest, fn(head,tail) {Full(head, listAppend(tail, source)); }, {source;});
+    match(dest, fn(head,tail) {Full(head, listAppend(tail, source)) }, {source})
 }
 
 pub fn foldLeft<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
     match(l, fn(head, tail) {
-         foldLeft(tail, accum(zero, head), accum);
-    }, {zero;});
+         foldLeft(tail, accum(zero, head), accum)
+    }, {zero})
 }
 
 pub fn foldRight<T,T1>(l: List<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 {
-    foldLeft(reverse(l), zero, accum);
+    foldLeft(reverse(l), zero, accum)
 }
 
 pub fn reverse<T>(l: List<T>) -> List<T> {
     match(l, fn(head, tail) {
-        listAppend(reverse(tail), listOf(head));
-    }, {Empty();});
+        listAppend(reverse(tail), listOf(head))
+    }, {Empty()})
 }
 
 pub fn filter<T>(l: List<T>, f: fn(T) -> bool) -> List<T> {
     match(l, fn(head, tail) {
-        if(f(head), {Full(head, filter(tail, f)); }, {filter(tail, f);});
-    }, {Empty();});
+        if(f(head), {Full(head, filter(tail, f)) }, {filter(tail, f)})
+    }, {Empty()})
 }
 
 pub fn listEnumerate<T>(l: List<T>) -> List<EnumerateEntry<T>> {
-    listEnumerateInternal(l, 0);
+    listEnumerateInternal(l, 0)
 }
 
 pub fn listEnumerateInternal<T>(l: List<T>, index: int) -> List<EnumerateEntry<T>> {
-    match(l, fn(head,tail) {Full(EnumerateEntry(index, head), listEnumerateInternal(tail, add(index, 1))); }, {Empty();});
+    match(l, fn(head,tail) {Full(EnumerateEntry(index, head), listEnumerateInternal(tail, add(index, 1))) }, {Empty()})
 }
 
 pub fn zip<T1,T2,T>(l1: List<T1>, l2: List<T2>, zipFunction: fn(T1, T2) -> T) -> List<T> {
     match(l1, fn(head1,tail1) {
-        match(l2, fn(head2,tail2) {Full(zipFunction(head1, head2), zip(tail1, tail2, zipFunction)); }, { Empty();});
-        }, {Empty();});
+        match(l2, fn(head2,tail2) {Full(zipFunction(head1, head2), zip(tail1, tail2, zipFunction)) }, { Empty()})
+        }, {Empty()})
 }
 
 pub fn cartesianProduct<T1,T2,T>(l1: List<T1>, l2: List<T2>, combineFunction: fn(T1, T2) -> T) -> List<T> {
     fmap(l1, fn(v1) {
-        map(l2, fn(v2) {combineFunction(v1, v2); });
-    });
+        map(l2, fn(v2) {combineFunction(v1, v2) })
+    })
 }
 
 pub fn first<T>(list: List<T>) -> Option<T> {
-    match(list, fn(head, tail) {Some(head);}, {None();});
+    match(list, fn(head, tail) {Some(head)}, {None()})
 }
 
 pub fn last<T>(list: List<T>) -> Option<T> {
     match(list, fn(head, tail) {
-        tail.match( fn(thead, ttail) {last(tail);}, {Some(head);});
-    }, {None();});
+        tail.match( fn(thead, ttail) {last(tail)}, {Some(head)})
+    }, {None()})
 }
 
 pub fn get<T>(list: List<T>, i: int) -> Option<T> {
     match(list, fn(head, tail) {
-        if(eq(i, 0), {Some(head);}, {get(tail, sub(i, 1));});
-    }, {None();});
+        if(eq(i, 0), {Some(head)}, {get(tail, sub(i, 1))})
+    }, {None()})
 }
 
 pub fn map2<T,T1>(list: List<T>, fun: fn(T,T) -> T1) -> Option<T1> {
     match(list, fn(head1, tail1) {
         match(tail1, fn(head2, tail2) {
-             Some(fun(head1, head2));
-        }, {None();});
-    }, {None();});
+             Some(fun(head1, head2))
+        }, {None()})
+    }, {None()})
 }
 
 pub fn map3<T,T1>(list: List<T>, fun: fn(T,T,T) -> T1) -> Option<T1> {
     match(list, fn(head1, tail1) {
         match(tail1, fn(head2, tail2) {
             match(tail2, fn(head3, tail3) {
-                Some(fun(head1, head2, head3));
-            }, {None();});
-        }, {None();});
-    }, {None();});
+                Some(fun(head1, head2, head3))
+            }, {None()})
+        }, {None()})
+    }, {None()})
 }
 
 pub fn pop<T>(list: List<T>) -> Pair<Option<T>, List<T>> {
@@ -185,33 +185,33 @@ pub fn pop<T>(list: List<T>) -> Pair<Option<T>, List<T>> {
         fn(head, tail) {
             tail.match(
                 fn(head1, tail1) {
-                    let popped = pop(tail);
-                    Pair(popped.first, Full(head, popped.second));
+                    let popped = pop(tail)
+                    Pair(popped.first, Full(head, popped.second))
                 },
-                {Pair(Some(head), tail);}
-            );
+                {Pair(Some(head), tail)}
+            )
         },
-        {Pair(None(), list);}
-    );
+        {Pair(None(), list)}
+    )
 }
 
 pub fn popTop<T>(list: List<T>) -> Pair<Option<T>, List<T>> {
     list.match(
         fn(head, tail) {
-            Pair(Some(head), tail);
+            Pair(Some(head), tail)
         },
-        {Pair(None(), list);}
-    );
+        {Pair(None(), list)}
+    )
 }
 
 pub fn replace<T>(list: List<T>, new: T) -> Pair<Option<T>, List<T>> {
-    let current = list.pop();
+    let current = list.pop()
     current.first.match(
-        fn(v) {Pair(Some(v), current.second.push(new));},
-        {Pair(None(), list); }
-    );
+        fn(v) {Pair(Some(v), current.second.push(new))},
+        {Pair(None(), list) }
+    )
 }
 
 pub fn len<T>(list: List<T>) -> int {
-    list.foldLeft(0, fn(prec, e) {prec.add(1);});
+    list.foldLeft(0, fn(prec, e) {prec.add(1)})
 }

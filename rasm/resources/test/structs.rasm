@@ -4,10 +4,10 @@ struct Point {
     y: int
 }
 
-printPoint(Point(10, 20));
+printPoint(Point(10, 20))
 
 fn printPoint(point: Point) {
-    print(point.x);
-    print(", ");
-    println(point.y);
+    print(point.x)
+    print(", ")
+    println(point.y)
 }

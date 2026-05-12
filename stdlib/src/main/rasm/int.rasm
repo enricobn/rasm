@@ -1,3 +1,3 @@
 pub fn pow10(n: int) -> int {
-    if(eq(n, 0), 1, { 10.mul(pow10(n.sub(1))); });
+    if(eq(n, 0), 1, { 10.mul(pow10(n.sub(1))) })
 }

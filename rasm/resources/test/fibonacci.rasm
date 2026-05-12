@@ -34,15 +34,15 @@
 // some changes...
 // real    0m3,388s
 //
-argv(1).fmap(fn(s) {s.toInt;}).match(fn(n) {
-    println(fib(n));
-}, { println("Expected a numeric parameter");});
+argv(1).fmap(fn(s) {s.toInt}).match(fn(n) {
+    println(fib(n))
+}, { println("Expected a numeric parameter")})
 
 
 fn fib(n: int) -> int {
     if(lessOrEqual(n, 1), n, {
-        fib(n.sub(1)).add(fib(n.sub(2)));
-    });
+        fib(n.sub(1)).add(fib(n.sub(2)))
+    })
 }
 
 /*

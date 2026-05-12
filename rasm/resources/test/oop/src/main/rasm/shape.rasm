@@ -5,5 +5,5 @@ pub struct Shape {
 }
 
 pub fn toString(shape: Shape) -> str {
-    shape.toString.call();
+    shape.toString.call()
 }

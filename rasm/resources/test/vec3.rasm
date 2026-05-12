@@ -1,3 +1,3 @@
-let v = charsVec("1😀è54");
+let v = charsVec("1😀è54")
 
-v.forEach(fn(it) { println(it);});
+v.forEach(fn(it) { println(it)})

@@ -1,36 +1,36 @@
-testIntegers();
-testStrings();
-testOptions();
-testVecInStruct();
+testIntegers()
+testStrings()
+testOptions()
+testVecInStruct()
 
 fn testIntegers() {
-    let v = Vec<int>();
-    let v1 = v.push(10);
-    let v2 = v1.push(11);
+    let v = Vec<int>()
+    let v1 = v.push(10)
+    let v2 = v1.push(11)
 
-    println(v2.len);
+    println(v2.len)
 
-    println(v2.first);
+    println(v2.first)
 }
 
 fn testStrings() {
-    let v = Vec<str>();
-    let v1 = v.push("Hello");
-    let v2 = v1.push("World");
+    let v = Vec<str>()
+    let v1 = v.push("Hello")
+    let v2 = v1.push("World")
 
-    println(v2.len);
+    println(v2.len)
 
-    println(v2.first);
+    println(v2.first)
 }
 
 fn testOptions() {
-    let v = Vec<Option<str>>();
-    let v1 = v.push(Some("Hello"));
-    let v2 = v1.push(Some("World"));
+    let v = Vec<Option<str>>()
+    let v1 = v.push(Some("Hello"))
+    let v2 = v1.push(Some("World"))
 
-    println(v2.len);
+    println(v2.len)
 
-    println(v2.first);
+    println(v2.first)
 }
 
 struct VecContainer {
@@ -38,10 +38,10 @@ struct VecContainer {
 }
 
 fn testVecInStruct() {
-    let container = VecContainer(Vec());
+    let container = VecContainer(Vec())
 
-    let newContainer = container.vec(container.vec.push("Hello"));
+    let newContainer = container.vec(container.vec.push("Hello"))
 
-    println(newContainer.vec.first);
+    println(newContainer.vec.first)
 
 }

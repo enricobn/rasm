@@ -1,11 +1,11 @@
-println(argc());
-printargv(1);
+println(argc())
+printargv(1)
 
 fn printargv(n: int) {
     if(n.less(argc()), {
         argv(n).match(fn(v) {
-            println(v);
-        }, { println("Not found.");});
-        printargv(add(n, 1));
-    }, { });
+            println(v)
+        }, { println("Not found.")})
+        printargv(add(n, 1))
+    }, { })
 }

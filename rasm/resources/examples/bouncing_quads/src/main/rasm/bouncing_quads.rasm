@@ -36,92 +36,92 @@ enum Message {
     Tick
 }
 
-const QUADS = 50000;
-const WIDTH = 1024;
-const HEIGHT = 768;
-const QUADWIDTH = 10;
-const BLACK = SDLColor(0, 0, 0, 255);
-const WHITE = SDLColor(255, 255, 255, 255);
+const QUADS = 50000
+const WIDTH = 1024
+const HEIGHT = 768
+const QUADWIDTH = 10
+const BLACK = SDLColor(0, 0, 0, 255)
+const WHITE = SDLColor(255, 255, 255, 255)
 
-initRandom();
+initRandom()
 
-if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())); }, { });
-if(ttfInit().eq(0).not, { panic("Error initializing SDL TTF: ".add(sdlGetError())); }, { });
+if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())) }, { })
+if(ttfInit().eq(0).not, { panic("Error initializing SDL TTF: ".add(sdlGetError())) }, { })
 
 let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 16)
 .match(fn(font) {
     let quads = vecRange(0, QUADS)
         .map(fn(it) {
-            let x = random(WIDTH);
-            let y = random(HEIGHT);
-            let xDir = if(random(2).eq(0), Right(), Left());
-            let yDir = if(random(2).eq(0), YDirection::Up(), YDirection::Down());
-            Quad(x, y, xDir, yDir, SDLColor(random(255), random(255), random(255), 255));
-        });
-    let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(toInt).getOrElse(5000));
+            let x = random(WIDTH)
+            let y = random(HEIGHT)
+            let xDir = if(random(2).eq(0), Right(), Left())
+            let yDir = if(random(2).eq(0), YDirection::Up(), YDirection::Down())
+            Quad(x, y, xDir, yDir, SDLColor(random(255), random(255), random(255), 255))
+        })
+    let initialModel = Model(quads, FPS(0, now(), 0), font, argv(1).fmap(toInt).getOrElse(5000))
 
-    let win = sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT);
-    let ren = sdlCreateRenderer(win, -1, SDLRENDERERACCELERATED);
+    let win = sdlCreateWindow("Bouncing quads", 100, 100, WIDTH, HEIGHT)
+    let ren = sdlCreateRenderer(win, -1, SDLRENDERERACCELERATED)
 
-    run(ren, initialModel, update, render, subscriptions);
+    run(ren, initialModel, update, render, subscriptions)
     
-    ttfCloseFont(font);
+    ttfCloseFont(font)
 }, fn(error) {
-    println("Error opening font: ", error);
-});
+    println("Error opening font: ", error)
+})
 
-ttfQuit();
-sdlQuit();
+ttfQuit()
+sdlQuit()
 
 fn update(model: Model, message: Message) -> Model {
     message.match(fn(event) {
         event.match(fn(timestamp, windowID, state, repeat, keysym) {
             // println("key pressed ", keysym.scancode);
-            if(keysym.scancode.eq(41), { sdlQuit(); exitMain(0);}, { }); // 41 -> ESC
+            if(keysym.scancode.eq(41), { sdlQuit() exitMain(0)}, { }) // 41 -> ESC
         }, fn(timestamp) {
-            sdlQuit(); 
-            exitMain(0);
-        });
-    }, {});
+            sdlQuit() 
+            exitMain(0)
+        })
+    }, {})
 
     let newModel = model
-        .quads(fn(quads) {quads.map(update);})
+        .quads(fn(quads) {quads.map(update)})
         .fps(update)
-        .count(model.count.sub(1));
+        .count(model.count.sub(1))
 
-    if(newModel.count.less(0), {sdlQuit(); exitMain(0);}, {});
+    if(newModel.count.less(0), {sdlQuit() exitMain(0)}, {})
 
-    newModel;
+    newModel
 }
 
 fn update(quad: Quad) -> Quad {
-    let px = update(quad.x, quad.xDir, WIDTH.sub(QUADWIDTH));
-    let py = update(quad.y, quad.yDir, HEIGHT.sub(QUADWIDTH));
-    Quad(px.first, py.first, px.second, py.second, quad.color);
+    let px = update(quad.x, quad.xDir, WIDTH.sub(QUADWIDTH))
+    let py = update(quad.y, quad.yDir, HEIGHT.sub(QUADWIDTH))
+    Quad(px.first, py.first, px.second, py.second, quad.color)
 }
 
 fn update<T>(x: int, dir: T, max: int) -> Pair<int, T> {
-    let newX = x.move(dir, 1);
+    let newX = x.move(dir, 1)
 
     if (x.greater(max),
         Pair(max, dir.flip),
         x.less(0),
         Pair(0, dir.flip),
-        Pair(newX, dir));
+        Pair(newX, dir))
 }
 
 fn render(ren: SDLRenderer, model: Model) {
-    sdlSetRenderDrawColor(ren, BLACK);
-    sdlRenderClear(ren);
+    sdlSetRenderDrawColor(ren, BLACK)
+    sdlRenderClear(ren)
 
     model.quads.forEach(fn(quad) {
-        sdlSetRenderDrawColor(ren, quad.color);
-        sdlRenderFillRect(ren, quad.x, quad.y, QUADWIDTH, QUADWIDTH);
-    });
+        sdlSetRenderDrawColor(ren, quad.color)
+        sdlRenderFillRect(ren, quad.x, quad.y, QUADWIDTH, QUADWIDTH)
+    })
 
-    renderText(ren, model.font, "FPS: ".append(model.fps.fps), WHITE, 10, 10);
+    renderText(ren, model.font, "FPS: ".append(model.fps.fps), WHITE, 10, 10)
 
-    sdlRenderPresent(ren);
+    sdlRenderPresent(ren)
 }
 
 /*
@@ -133,21 +133,21 @@ fn subscriptions() -> Vec<Message> {
 */
 
 fn subscriptions() -> Vec<Message> {
-    let sdlEvents = sdlPollEvents(Vec());
+    let sdlEvents = sdlPollEvents(Vec())
     if (sdlEvents.len.eq(0), 
         {
-            vecOf(Tick());
+            vecOf(Tick())
         }, 
         {
             // println(sdlEvents.len);
-            sdlEvents.map(EventMessage);
+            sdlEvents.map(EventMessage)
         }
-    );
+    )
 }
 
 fn sdlPollEvents(events: Vec<SDLEvent>) -> Vec<SDLEvent> {
     let result = sdlPollEvent().match(fn(event) {
-        sdlPollEvents(events.push(event));
-    }, { events; });
-    result;
+        sdlPollEvents(events.push(event))
+    }, { events })
+    result
 }

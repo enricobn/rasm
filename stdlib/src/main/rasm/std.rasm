@@ -10,23 +10,23 @@ pub struct Pair<A,B> {
 }
 
 pub fn with<T,O>(v: T, f: fn(T) -> O) -> O {
-    f(v);
+    f(v)
 }
 
 pub fn with2<T1,T2,O>(v1: T1, v2: T2, f: fn(T1, T2) -> O) -> O {
-    f(v1, v2);
+    f(v1, v2)
 }
 
 pub fn with3<T1,T2,T3,O>(v1: T1, v2: T2, v3: T3, f: fn(T1, T2, T3) -> O) -> O {
-    f(v1, v2, v3);
+    f(v1, v2, v3)
 }
 
 pub fn with4<T1,T2,T3,T4,O>(v1: T1, v2: T2, v3: T3, v4: T4, f: fn(T1, T2, T3, T4) -> O) -> O {
-    f(v1, v2, v3, v4);
+    f(v1, v2, v3, v4)
 }
 
 pub fn runWith<T>(v: T, f: fn(T) -> ()) {
-    f(v);
+    f(v)
 }
 
 pub enum Compare {
@@ -36,23 +36,23 @@ pub enum Compare {
 }
 
 pub fn print(c: Compare) {
-    match(c, {print("Less");}, {print("Equal");}, {print("Greater");});
+    match(c, {print("Less")}, {print("Equal")}, {print("Greater")})
 }
 
 pub fn toString(error: IOError) -> str {
-    "IOError(".append(error.message).append(")");
+    "IOError(".append(error.message).append(")")
 }
 
 pub fn panic(message: str) {
-    println(message);
-    exitMain(1);
+    println(message)
+    exitMain(1)
 }
 
 pub fn toString(b: bool) -> str {
-    if(b, "true", "false");
+    if(b, "true", "false")
 }
 
 // TODO optimize as a native function
 pub fn eq(f1: float, f2: float) -> bool {
-    f1.toString.eq(f2.toString);
+    f1.toString.eq(f2.toString)
 }

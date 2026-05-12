@@ -1,11 +1,11 @@
 
-println("😀");
-println(add("Hello ", "world!"));
-println(add(add("Hello", " "), add("world", "!")));
-println(len(add(add("Hello", " "), add("world", "!"))));
-match(substr("first\nsecond\nthird\n", 0, 5), fn(v) { println(v);}, { println("None");});
-match(substr("first\nsecond\nthird\n", 6, 6), fn(v) { println(v);}, { println("None");});
-match(substr("first\nsecond\nthird\n", 13, 5), fn(v) { println(v);}, { println("None");});
+println("😀")
+println(add("Hello ", "world!"))
+println(add(add("Hello", " "), add("world", "!")))
+println(len(add(add("Hello", " "), add("world", "!"))))
+match(substr("first\nsecond\nthird\n", 0, 5), fn(v) { println(v)}, { println("None")})
+match(substr("first\nsecond\nthird\n", 6, 6), fn(v) { println(v)}, { println("None")})
+match(substr("first\nsecond\nthird\n", 13, 5), fn(v) { println(v)}, { println("None")})
 //run(substr("☀h", 1, 1), { v -> println(v);}, { -> println("None");});
 
 /*
@@ -15,15 +15,15 @@ println(nextChar("☀", 0));
 println(nextChar("😀", 0));
 println(nextChar("1", 1));
 */
-println(eq("Hello", "Hello"));
-println(eq("Hell", "Hello"));
-println(eq("Hello", "Hell"));
-println(eq("Hello", "Hella"));
-println(toString(9999));
+println(eq("Hello", "Hello"))
+println(eq("Hell", "Hello"))
+println(eq("Hello", "Hell"))
+println(eq("Hello", "Hella"))
+println(toString(9999))
 
-println(padLeft("Hello", 10));
-println(-10);
-println("a'a");
-println("a\"a");
-println("a\na");
-println("Hello".add('1').add('è').add('☀').add("😀").add("world"));
+println(padLeft("Hello", 10))
+println(-10)
+println("a'a")
+println("a\"a")
+println("a\na")
+println("Hello".add('1').add('è').add('☀').add("😀").add("world"))

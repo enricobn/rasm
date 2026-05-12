@@ -1,1 +1,1 @@
-println(listAppend(listOf(1), listOf(2)));
+println(listAppend(listOf(1), listOf(2)))

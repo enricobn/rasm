@@ -33,19 +33,19 @@ struct Container {
     v: Vec<Option<int>>
 }
 
-let n = argv(1).fmap(fn(it) { it.toInt();}).getOrElse(10);
-let n1 = argv(2).fmap(fn(it) { it.toInt();}).getOrElse(10);
+let n = argv(1).fmap(fn(it) { it.toInt()}).getOrElse(10)
+let n1 = argv(2).fmap(fn(it) { it.toInt()}).getOrElse(10)
 
 
 vecRange(0, n).forEach(fn(it) {
-    let result = vecRange(0, n1).foldLeft(Container(Vec<Option<int>>()), fn(prev,i) { prev.v(fn(v) { v.push(Some(i));});});
+    let result = vecRange(0, n1).foldLeft(Container(Vec<Option<int>>()), fn(prev,i) { prev.v(fn(v) { v.push(Some(i))})})
     // println(result.v.len);
     //let result = vecRange(0, 5000).foldLeft(Container(Vec<Option<int>>()), { prev,i -> prev.v(prev.v.push(Some(i)));});
     //let result = vecRange(0, 5000).foldLeft(Vec<Option<int>>(), { prev,i -> prev.push(Some(i));});
-});
+})
 
 // println(len(points(n)));
 
 fn points(count: int) -> Vec<Point> {
-    vecRange(0, count).map(fn(it) { Point(it, it); });
+    vecRange(0, count).map(fn(it) { Point(it, it) })
 }

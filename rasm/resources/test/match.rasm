@@ -9,51 +9,51 @@ struct MatchABC<T> {
     value: Option<T>
 }
 
-let abc = A();
+let abc = A()
 
-abc.matchA({ println("A"); })
-   .matchB({ println("B"); })
-   .matchC({ println("C"); })
-   .else({ println("Other"); });
+abc.matchA({ println("A") })
+   .matchB({ println("B") })
+   .matchC({ println("C") })
+   .else({ println("Other") })
 
 fn matchA<T>(abc: ABC, f: fn() -> T) -> MatchABC<T> {
     abc.matchA(
-        { MatchABC(abc, Some(f()));
-    },  { MatchABC(abc, None()); });
+        { MatchABC(abc, Some(f()))
+    },  { MatchABC(abc, None()) })
 }
 
 fn matchB<T>(abc: ABC, f: fn() -> T) -> MatchABC<T> {
     abc.matchB(
-        { MatchABC(abc, Some(f()));
-    },  { MatchABC(abc, None()); });
+        { MatchABC(abc, Some(f()))
+    },  { MatchABC(abc, None()) })
 }
 
 fn matchC<T>(abc: ABC, f: fn() -> T) -> MatchABC<T> {
     abc.matchC(
-        { MatchABC(abc, Some(f()));
-    },  { MatchABC(abc, None()); });
+        { MatchABC(abc, Some(f()))
+    },  { MatchABC(abc, None()) })
 }
 
 fn matchA<T>(abc: MatchABC<T>, f: fn() -> T) -> MatchABC<T> {
     abc.abc.matchA(
-        { abc.value(Some(f())); },
-        { abc; });
+        { abc.value(Some(f())) },
+        { abc })
 }
 
 fn matchB<T>(abc: MatchABC<T>, f: fn() -> T) -> MatchABC<T> {
     abc.abc.matchB(
-        { abc.value(Some(f())); },
-        { abc; });
+        { abc.value(Some(f())) },
+        { abc })
 }
 
 fn matchC<T>(abc: MatchABC<T>, f: fn() -> T) -> MatchABC<T> {
     abc.abc.matchC(
-        { abc.value(Some(f())); },
-        { abc; });
+        { abc.value(Some(f())) },
+        { abc })
 }
 
 fn else<T>(abc: MatchABC<T>, f: fn() -> T) -> T {
     abc.value.match(
-        fn(value) { value; },
-        { f(); });
+        fn(value) { value },
+        { f() })
 }

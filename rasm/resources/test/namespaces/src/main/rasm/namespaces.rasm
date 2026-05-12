@@ -1,5 +1,5 @@
-printstr();
-printInt();
+printstr()
+printInt()
 
-printstr2();
-printInt2();
+printstr2()
+printInt2()

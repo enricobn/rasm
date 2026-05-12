@@ -1,10 +1,10 @@
-let l = listOf(1.1, 2.1);
+let l = listOf(1.1, 2.1)
 
-println(l.map(add.curry(100.1)));
+println(l.map(add.curry(100.1)))
 
-let l1 = listOf(1, 2);
+let l1 = listOf(1, 2)
 
-println(l1.map(add.curry(100)));
+println(l1.map(add.curry(100)))
 
-l.forEach(println.curry("int: "));
-l1.forEach(println.curry("float: "));
+l.forEach(println.curry("int: "))
+l1.forEach(println.curry("float: "))

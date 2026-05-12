@@ -1,6 +1,6 @@
 pub fn random(max: int) -> int {
-    let r = random();
-    r.sub(r.div(max).mul(max));
+    let r = random()
+    r.sub(r.div(max).mul(max))
 }
 
 pub struct EnumerateEntry<T> {
@@ -10,7 +10,7 @@ pub struct EnumerateEntry<T> {
 
 pub fn indexOf<M,T>(list: M<EnumerateEntry<T>>, what: T) -> Option<int> {
     list
-        .filter(fn(entry) { entry.value.eq(what); })
+        .filter(fn(entry) { entry.value.eq(what) })
         .first
-        .map(index);
+        .map(index)
 }

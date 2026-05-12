@@ -22,42 +22,42 @@ pub struct Rasm2DApplication {
 }
 
 pub fn render(app: Rasm2DApplication, rend: Rasm2DRenderer, handler: fn(Rasm2DGraphics) -> ()) {
-    let graphics = Rasm2DGraphics(rend.rend, app.fonts);
-    handler(graphics);
-    graphics.present();
+    let graphics = Rasm2DGraphics(rend.rend, app.fonts)
+    handler(graphics)
+    graphics.present()
 }
 
 pub fn Rasm2DApplication() -> Rasm2DApplication {
-    let app = Rasm2DApplication("Rasm2D", 0, 0, 800, 600, Vec());
+    let app = Rasm2DApplication("Rasm2D", 0, 0, 800, 600, Vec())
 
     // We must initialize rasm2d here, because the user could load fonts before running the app
     rasm2DInit()
     .match(fn(error) {
-        println("Error initializing rasm2d: ", error);
-    }, {});
+        println("Error initializing rasm2d: ", error)
+    }, {})
 
-    app;
+    app
 }
 
 pub fn run<MODEL,MESSAGE>(app: Rasm2DApplication, initialModel: MODEL, updateHandler: fn(MODEL, MESSAGE) -> MODEL, 
         renderHandler: fn(Rasm2DGraphics, MODEL) -> (), subscriptionsHandler: fn(Rasm2DEvents) -> Vec<MESSAGE>) {
 
-    let window = Rasm2DWindow(app.title, app.x, app.y, app.width, app.height);
-    let renderer = window.createRenderer();
+    let window = Rasm2DWindow(app.title, app.x, app.y, app.width, app.height)
+    let renderer = window.createRenderer()
     run(renderer, initialModel, updateHandler, fn(r,model) {
         app.render(
             r,
             fn(graphics) {
-                renderHandler(graphics, model);
+                renderHandler(graphics, model)
             }
-        );
+        )
     }, {
-        subscriptionsHandler(Rasm2DEvents());
-    });
-    renderer.close();
-    window.close();
-    app.fonts.forEach(fn(it) { it.second.close(); });
-    rasm2dQuit();
+        subscriptionsHandler(Rasm2DEvents())
+    })
+    renderer.close()
+    window.close()
+    app.fonts.forEach(fn(it) { it.second.close() })
+    rasm2dQuit()
 }
 
 // SDL implemenation
@@ -76,42 +76,42 @@ struct Rasm2DWindow {
 }
 
 fn rasm2dQuit() {
-    ttfQuit();
-    sdlQuit();
+    ttfQuit()
+    sdlQuit()
 }
 
 fn Rasm2DWindow(title: str, x: int, y: int, width: int, height: int) -> Rasm2DWindow {
-    Rasm2DWindow(sdlCreateWindow(title, x, y, width, height));
+    Rasm2DWindow(sdlCreateWindow(title, x, y, width, height))
 }
 
 fn close(window: Rasm2DWindow) {
-    sdlDestroyWindow(window.win);
+    sdlDestroyWindow(window.win)
 }
 
 pub fn clear(graphics: Rasm2DGraphics) {
-    sdlRenderClear(graphics.rend);
+    sdlRenderClear(graphics.rend)
 }
 
 pub fn setColor(graphics: Rasm2DGraphics, color: RGBAColor) {
-    sdlSetRenderDrawColor(graphics.rend, color.r, color.g, color.b, color.a);
+    sdlSetRenderDrawColor(graphics.rend, color.r, color.g, color.b, color.a)
 }
 
 pub fn fillRect(graphics: Rasm2DGraphics, rect: Rect2D) {
-    sdlRenderFillRect(graphics.rend, SDLRect(rect.x, rect.y, rect.w, rect.h));
+    sdlRenderFillRect(graphics.rend, SDLRect(rect.x, rect.y, rect.w, rect.h))
 }
 
 pub fn fillRect(graphics: Rasm2DGraphics, x: int, y: int, width: int, height: int) {
-    sdlRenderFillRect(graphics.rend, x, y, width, height);
+    sdlRenderFillRect(graphics.rend, x, y, width, height)
 }
 
 fn present(graphics: Rasm2DGraphics) {
-    sdlRenderPresent(graphics.rend);
+    sdlRenderPresent(graphics.rend)
 }
 
 fn createRenderer(window: Rasm2DWindow) -> Rasm2DRenderer {
-    Rasm2DRenderer(sdlCreateRenderer(window.win, -1, SDLRENDERERACCELERATED));
+    Rasm2DRenderer(sdlCreateRenderer(window.win, -1, SDLRENDERERACCELERATED))
 }
 
 fn close(rend: Rasm2DRenderer) {
-    sdlDestroyRenderer(rend.rend);
+    sdlDestroyRenderer(rend.rend)
 }

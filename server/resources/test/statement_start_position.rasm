@@ -1,18 +1,18 @@
-let o = Some(1);
+let o = Some(1)
 
 o.match(fn(v) {
-    print("Some ");
-    println(v);
+    print("Some ")
+    println(v)
 }, {
-    println("None");
-});
+    println("None")
+})
 
 fn aFunction() -> int {
-    let a = 1;
-    let b = a.add(1);
+    let a = 1
+    let b = a.add(1)
 }
 
 fn anotherFunction() -> int {
-    let a = 1;
-    let b = a.add(1);
+    let a = 1
+    let b = a.add(1)
 }

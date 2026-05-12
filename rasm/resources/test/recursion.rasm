@@ -1,9 +1,9 @@
-println(aFunction("a"));
+println(aFunction("a"))
 
 fn aFunction(a: str) -> str {
     if(a.eq(""), {
-        vecOf(a, "b").map(aFunction).join(",");
+        vecOf(a, "b").map(aFunction).join(",")
     }, {
-        "";
-    });
+        ""
+    })
 }

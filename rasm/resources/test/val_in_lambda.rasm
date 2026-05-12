@@ -1,13 +1,13 @@
-let n = argv(1).fmap(fn(s) { s.toInt;}).getOrElse(999);
+let n = argv(1).fmap(fn(s) { s.toInt}).getOrElse(999)
 
-println(test1(n));
+println(test1(n))
 
 fn test1(n: int) -> int {
     // TODO I don't know why sometimes returning n works... I have not discovered when, but it's stable.
     //      It seems that the behaviour changes when something changes in the order of the processed functions
-    test({ n; });
+    test({ n })
 }
 
 fn test(f: fn() -> int) -> int {
-    f();
+    f()
 }

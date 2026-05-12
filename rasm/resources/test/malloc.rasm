@@ -1,9 +1,9 @@
 
-printOption(Some(Some("1")));
+printOption(Some(Some("1")))
 
 
 //printAllocated();
 
 fn printOption(o: Option<Option<str>>) {
-    forEach(o, { v -> print("Some(");print(v);println(")");}, { -> println("None");});
+    forEach(o, { v -> print("Some(")print(v)println(")")}, { -> println("None")})
 }

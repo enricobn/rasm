@@ -1,33 +1,33 @@
 include "sdl/sdl.rasm"
 
-let win = sdlCreateWindow("Bricks", 100, 100, 800, 600);
-let ren = sdlCreateRenderer(win);
+let win = sdlCreateWindow("Bricks", 100, 100, 800, 600)
+let ren = sdlCreateRenderer(win)
 
-sdlSetRenderDrawColor(ren, 0, 0, 0, 0);
-sdlRenderClear(ren);
-sdlRenderPresent(ren);
+sdlSetRenderDrawColor(ren, 0, 0, 0, 0)
+sdlRenderClear(ren)
+sdlRenderPresent(ren)
 
-m();
+m()
 
-sdlDestroyRenderer(ren);
-sdlDestroyWindow(win);
+sdlDestroyRenderer(ren)
+sdlDestroyWindow(win)
 
 fn m() {
     //println(now());
-    sleep(0, 10000);
-    let event = keyEvent();
+    sleep(0, 10000)
+    let event = keyEvent()
 
     forEach(event, fn(e) {
-        printAllocated();
-        printTableSlotsAllocated();
-    }, { });
+        printAllocated()
+        printTableSlotsAllocated()
+    }, { })
 
     forEach(event, fn(e) {
-        let key = e.key;
+        let key = e.key
         if(eq(key, 41), {
         }, {
-            println(e);
-            m();
-        });
-    }, { m();});
+            println(e)
+            m()
+        })
+    }, { m()})
 }

@@ -5,11 +5,11 @@ pub struct Circle {
 }
 
 pub fn center(circle: Circle) -> Point {
-    Point(circle.x, circle.y);
+    Point(circle.x, circle.y)
 }
 
 pub fn move(circle: Circle, dx: int, dy: int) -> Shape {
-    toShape(Circle(circle.x.add(dx), circle.y.add(dy), circle.radius));
+    toShape(Circle(circle.x.add(dx), circle.y.add(dy), circle.radius))
 }
 
 pub fn toString(circle: Circle) -> str {
@@ -19,5 +19,5 @@ pub fn toString(circle: Circle) -> str {
         .append(circle.y)
         .append(",")
         .append(circle.radius)
-        .append(")");
+        .append(")")
 }

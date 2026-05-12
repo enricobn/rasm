@@ -1,73 +1,73 @@
 pub fn call<T>(lambda: fn() -> T) -> T {
-    lambda();
+    lambda()
 }
 
 pub fn call<PT,T>(lambda: fn(PT) -> T, v: PT) -> T {
-    lambda(v);
+    lambda(v)
 }
 
 pub fn call<PT1,PT2,T>(lambda: fn(PT1,PT2) -> T, v1: PT1, v2: PT2) -> T {
-    lambda(v1, v2);
+    lambda(v1, v2)
 }
 
 pub fn call<PT1,PT2,PT3,T>(lambda: fn(PT1,PT2,PT3) -> T, v1: PT1, v2: PT2, v3: PT3) -> T {
-    lambda(v1, v2,v3);
+    lambda(v1, v2,v3)
 }
 
 pub fn curry<PT,T>(lambda: fn(PT) -> T, v: PT) -> fn() -> T {
-    { lambda(v); };
+    { lambda(v) }
 }
 
 pub fn curry<PT1,PT2,T>(lambda: fn(PT1,PT2) -> T, v1: PT1) -> fn(PT2) -> T {
-    fn(v2) { lambda(v1, v2); };
+    fn(v2) { lambda(v1, v2) }
 }
 
 pub fn curry<PT1,PT2,PT3,T>(lambda: fn(PT1,PT2,PT3) -> T, v1: PT1, v2: PT2) -> fn(PT3) -> T {
-    fn(v3) { lambda(v1, v2, v3); };
+    fn(v3) { lambda(v1, v2, v3) }
 }
 
 pub fn curryRight<PT1,PT2,T>(lambda: fn(PT1,PT2) -> T, v2: PT2) -> fn(PT1) -> T {
-    fn(v1) { lambda(v1, v2); };
+    fn(v1) { lambda(v1, v2) }
 }
 
 pub fn compose<T1,T2,T3>(f1: fn(T1) -> T2, f2: fn(T2) -> T3) -> fn(T1) -> T3 {
-    fn(v1) {f2(f1(v1));};
+    fn(v1) {f2(f1(v1))}
 }
 
 pub fn compose<T1,T2,T3,T4>(f1: fn(T1,T2) -> T3, f2: fn(T3) -> T4) -> fn(T1,T2) -> T4 {
-    fn(v1, v2) {f2(f1(v1, v2));};
+    fn(v1, v2) {f2(f1(v1, v2))}
 }
 
 pub fn update<O,T,T1>(o: O, ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, fn(T1) -> T1) -> T, f: fn(T1) -> T1) -> O {
-    ft(o, fn(t) { ft1(t, f); });
+    ft(o, fn(t) { ft1(t, f) })
 }
 
 pub fn update<O,T,T1,T2>(o: O, ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, fn(T1) -> T1) -> T, ft2: fn(T1, fn(T2) -> T2) -> T1, f: fn(T2) -> T2) -> O {
     //ft(o, fn(t) { ft1(t, fn(t1) { ft2(t1, f); });});
-    ft(o, fn(t) { t.update(ft1, ft2, f);});
+    ft(o, fn(t) { t.update(ft1, ft2, f)})
 }
 
 pub fn update<O,T,T1,T2,T3>(o: O, ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, fn(T1) -> T1) -> T, ft2: fn(T1, fn(T2) -> T2) -> T1, ft3: fn(T2, fn(T3) -> T3) -> T2, f: fn(T3) -> T3) -> O {
-    ft(o, fn(t) { t.update(ft1, ft2, ft3, f);});
+    ft(o, fn(t) { t.update(ft1, ft2, ft3, f)})
 }
 
 pub fn set<O,T,T1>(o: O, ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, T1) -> T, v: T1) -> O {
-    ft(o, fn(t) { ft1(t, v); });
+    ft(o, fn(t) { ft1(t, v) })
 }
 
 pub fn set<O,T,T1,T2>(o: O, ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, fn(T1) -> T1) -> T, ft2: fn(T1, T2) -> T1, v: T2) -> O {
-    ft(o, fn(t) { t.set(ft1, ft2, v);});
+    ft(o, fn(t) { t.set(ft1, ft2, v)})
 }
 
 pub fn set<O,T,T1,T2,T3>(o: O, ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, fn(T1) -> T1) -> T, ft2: fn(T1, fn(T2) -> T2) -> T1, ft3: fn(T2, T3) -> T2, v: T3) -> O {
-    ft(o, fn(t) { t.set(ft1, ft2, ft3, v);});
+    ft(o, fn(t) { t.set(ft1, ft2, ft3, v)})
 }
 
 // TODO naming and if it is useful add other two with more arguments
 pub fn updateLens<O,T,T1>(ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, fn(T1) -> T1) -> T) -> fn(O, fn(T1) -> T1) -> O {
     fn(o, f) {
-        ft(o, fn(t) { ft1(t, f); });
-    };
+        ft(o, fn(t) { ft1(t, f) })
+    }
 }
 
 // TODO naming and if it is useful add other two with more arguments
@@ -77,6 +77,6 @@ pub fn updateLens<O,T,T1>(ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, fn(T1) -> T1) -
 // the parameter ft1, because it matches both
 pub fn setLens<O,T,T1>(ft: fn(O, fn(T) -> T) -> O, ft1: fn(T, fn(T1) -> T1) -> T) -> fn(O, T1) -> O {
     fn(o, v) {
-        ft(o, fn(t) { ft1(t, fn(v1) {v;}); });
-    };
+        ft(o, fn(t) { ft1(t, fn(v1) {v}) })
+    }
 }

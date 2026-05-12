@@ -1,28 +1,28 @@
-const COUNT = 3;
+const COUNT = 3
 
-println(map(range(1,COUNT), getAdd()));
-println(map(range(1,COUNT), getSub()));
+println(map(range(1,COUNT), getAdd()))
+println(map(range(1,COUNT), getSub()))
 
-let options = map(range(1,COUNT), getOption());
+let options = map(range(1,COUNT), getOption())
 
-let options1 = map(range(1,COUNT), getOption());
+let options1 = map(range(1,COUNT), getOption())
 
-println(options);
-println(options1);
+println(options)
+println(options1)
 
 fn getAdd() -> fn(int) -> int {
-    fn(n) { add(n, 1);};
+    fn(n) { add(n, 1)}
 }
 
 fn getSub() -> fn(int) -> int {
-    fn(n) { sub(n, 1);};
+    fn(n) { sub(n, 1)}
 }
 
 fn getOption() -> fn(int) -> Option<int> {
-    let o = Some(1);
+    let o = Some(1)
     fn(n) {
         // don't remove it, it's used to allocate memory inside a lambda to be sure that "o" memory is not reused
-        let b = Some(2);
-        o;
-    };
+        let b = Some(2)
+        o
+    }
 }

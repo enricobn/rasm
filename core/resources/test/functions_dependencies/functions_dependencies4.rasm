@@ -1,3 +1,3 @@
 fn aFun<T>(v: Vec<T>) {
-    println(v);
+    println(v)
 }

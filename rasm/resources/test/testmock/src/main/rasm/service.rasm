@@ -25,10 +25,10 @@ fn findUser<T>(conn: T, userName: str) -> Result<User,str> {
 
 fn save(conn: Connection, userName: str, amount: int) -> Result<Amount,str> {
     conn.findUser(userName)
-    .map(fn(user) { Amount(user, amount); });
+    .map(fn(user) { Amount(user, amount) })
 }
 
 fn findUser(conn: Connection, userName: str) -> Result<User,str> {
-    panic("It should not be called");
-    Ok(User(userName));
+    panic("It should not be called")
+    Ok(User(userName))
 }

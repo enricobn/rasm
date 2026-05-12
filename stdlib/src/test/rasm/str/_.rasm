@@ -1,11 +1,11 @@
 pub fn strSuite() -> TestSuite {
     TestSuite("str")
-    .add("substr", substr);
+    .add("substr", substr)
 }
 
 fn substr() -> Assertions {
     Assertions()
     .assertEquals(Some("12"), "012345".substr(1, 2))
     .assertEquals(Some("45"), "012345".substr(4, 2))
-    .assertEquals(Some("123.456"), "-123.456".substr(1, 7));
+    .assertEquals(Some("123.456"), "-123.456".substr(1, 7))
 }

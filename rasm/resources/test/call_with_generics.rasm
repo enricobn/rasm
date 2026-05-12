@@ -1,13 +1,13 @@
-function(10).match(fn(v) { println("Ok"); }, fn(e) { println("Error: ".add(e));});
-function(0).match(fn(v) { println("Ok"); }, fn(e) { println("Error: ".add(e));});
+function(10).match(fn(v) { println("Ok") }, fn(e) { println("Error: ".add(e))})
+function(0).match(fn(v) { println("Ok") }, fn(e) { println("Error: ".add(e))})
 
 fn function<T>(value: T) -> Result<T,str> {
     if(true, {
-        let o = Some(value);
-        let r = Ok<Option<T>,str>(o);
-        print("");
-    }, { });
+        let o = Some(value)
+        let r = Ok<Option<T>,str>(o)
+        print("")
+    }, { })
 
     if(value.eq(10), Ok<T,str>(value))
-    .else(Error<T,str>("an error"));
+    .else(Error<T,str>("an error"))
 }

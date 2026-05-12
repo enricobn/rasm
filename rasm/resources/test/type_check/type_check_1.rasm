@@ -1,9 +1,9 @@
 
-println(doMap());
+println(doMap())
 
 fn doMap() -> List<str> {
     map(
-        filter(range(0,1), fn(v) { eq(v, 0);}),
-        fn(v) { "a string";}
-    );
+        filter(range(0,1), fn(v) { eq(v, 0)}),
+        fn(v) { "a string"}
+    )
 }

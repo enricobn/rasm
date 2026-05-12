@@ -1,10 +1,10 @@
 
-println(mc91(87));
+println(mc91(87))
 
 fn mc91(n: int) -> int {
     if (greater(n, 100), {
-        add(n, -10);
+        add(n, -10)
     },{
-        mc91(mc91(add(n, 11)));
-    });
+        mc91(mc91(add(n, 11)))
+    })
 }
