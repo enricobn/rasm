@@ -1399,13 +1399,7 @@ impl IDEHelper {
         end_index: &ASTIndex,
         last_position: ASTPosition,
     ) -> Option<IDEWorkspaceEdit> {
-        let (ends_with_semicolon, code) = if original_code.ends_with(';') {
-            (true, original_code.to_owned())
-        } else {
-            let mut new_code = original_code.to_owned();
-            new_code.push(';');
-            (false, new_code)
-        };
+        let code = original_code.to_owned();
 
         let (tokens, lexer_errors) = Lexer::new(code.clone()).process();
 
@@ -1547,10 +1541,6 @@ impl IDEHelper {
         function_code.push_str("\n}");
 
         let mut call_code = format!("newFunction({})", parameters_values.join(", "));
-
-        if ends_with_semicolon {
-            call_code.push(';');
-        }
 
         //println!("{function_code}");
 
@@ -2748,7 +2738,7 @@ let newHighScores = highScores.add(score);
 }", edit.text);
                 let edit = result.remove(0);
                 assert_eq!(
-                    "newFunction(highScores, score, resources, newKeys);",
+                    "newFunction(highScores, score, resources, newKeys)",
                     edit.text
                 );
             } else {
@@ -2788,7 +2778,7 @@ let newHighScores = highScores.add(score);
                 let edit = result.remove(0);
                 assert_eq!(
                     "\n\nfn newFunction(newHighScores: Vec<HighScore>) -> Stage {
-Menu(MenuState(newHighScores));
+Menu(MenuState(newHighScores))
 }",
                     edit.text
                 );
@@ -2835,7 +2825,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
 }", edit.text
                 );
                 let edit = result.remove(0);
-                assert_eq!("newFunction(resources, newKeys, newHighScores);", edit.text);
+                assert_eq!("newFunction(resources, newKeys, newHighScores)", edit.text);
             } else {
                 panic!("Cannot find statement.");
             }
@@ -2899,7 +2889,7 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores);
                 let mut result = result.changes().clone().remove(&info.module_id()).unwrap();
                 let edit = result.remove(0);
                 assert_eq!(
-                    "\n\nfn newFunction<T,T1,T2>(vec2: Vec<T2>, zipFunction: fn (T1,T2) -> T, v1: T1) -> T {\nmap(vec2, fn(v2) {zipFunction(v1, v2); });\n}",
+                    "\n\nfn newFunction<T,T1,T2>(vec2: Vec<T2>, zipFunction: fn (T1,T2) -> T, v1: T1) -> T {\nmap(vec2, fn(v2) {zipFunction(v1, v2); })\n}",
                     edit.text
                 );
                 let edit = result.remove(0);

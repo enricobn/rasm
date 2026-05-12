@@ -386,17 +386,14 @@ impl Parser {
                     }
                 }
                 Some(ParserState::Let) => {
-                    let is_semicolon = matches!(
-                        token.kind,
-                        TokenKind::Punctuation(PunctuationKind::SemiColon)
-                    );
-                    if !is_semicolon {
-                        self.add_error("Expected expression and semicolon".to_string());
-                    }
                     if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
                         if let Some(ParserData::Let(name, is_const, index, modifiers)) =
                             self.before_last_parser_data()
                         {
+                            let is_semicolon = matches!(
+                                token.kind,
+                                TokenKind::Punctuation(PunctuationKind::SemiColon)
+                            );
                             self.state.pop();
                             self.parser_data.pop();
                             self.parser_data.pop();
@@ -411,12 +408,20 @@ impl Parser {
                             } else {
                                 ASTStatement::ASTLetStatement(name, expr, index)
                             }));
-                            self.i += 1;
+                            if is_semicolon {
+                                self.i += 1;
+                            }
                             continue;
                         }
                     }
+                    let is_semicolon = matches!(
+                        token.kind,
+                        TokenKind::Punctuation(PunctuationKind::SemiColon)
+                    );
                     if is_semicolon {
                         self.add_error("Expected expression".to_string());
+                    } else {
+                        self.add_error("Expected expression and semicolon".to_string());
                     }
                 }
                 Some(ParserState::LambdaExpression) => {
@@ -613,18 +618,15 @@ impl Parser {
             if matches!(self.last_parser_data(), Some(ParserData::FunctionDef(_))) {
                 // Here probably we have an empty function...
                 self.state.pop();
+            } else if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
+                let statement_position = expr.position().copy();
+                self.state.pop();
+                self.parser_data.pop();
+                self.parser_data.push(ParserData::Statement(
+                    ASTStatement::ASTExpressionStatement(expr, statement_position),
+                ));
             } else {
-                self.add_error("Unexpected end of block.".to_string());
-                if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
-                    let statement_position = expr.position().copy();
-                    self.state.pop();
-                    self.parser_data.pop();
-                    self.parser_data.push(ParserData::Statement(
-                        ASTStatement::ASTExpressionStatement(expr, statement_position),
-                    ));
-                } else {
-                    self.state.pop();
-                }
+                self.state.pop();
             }
         } else if let Some((name, next_i, _)) = self.try_parse_let(false)? {
             self.parser_data
@@ -644,10 +646,6 @@ impl Parser {
             self.i = next_i;
         } else if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
             let statement_position = expr.position().copy();
-            self.add_error(Self::token_message(
-                "Unexpected token processing statement",
-                self.get_token_kind(),
-            ));
             self.state.pop();
             self.parser_data.pop();
             self.parser_data
@@ -659,14 +657,6 @@ impl Parser {
             self.state.push(ParserState::Expression);
         }
         Ok(())
-    }
-
-    fn token_message(message: &str, token: Option<&TokenKind>) -> String {
-        if let Some(t) = token {
-            format!("{message} `{t}`")
-        } else {
-            message.to_string()
-        }
     }
 
     fn process_expression(&mut self) -> Result<(), String> {
@@ -1711,23 +1701,19 @@ mod tests {
         let error = errors.remove(0);
         assert_eq!(
             error.message,
-            "Unexpected token processing statement `->`".to_string()
+            "Expected expression, found ->".to_string()
         );
     }
 
     #[test]
     fn unexpected_end_of_block() {
-        let (_, mut errors) = parse_with_errors("resources/test/test17.rasm");
+        let (_, errors) = parse_with_errors("resources/test/test17.rasm");
 
         for error in errors.iter() {
             println!("{error}");
         }
 
-        //assert_eq!(1, errors.len());
-
-        let error = errors.remove(0);
-
-        assert_eq!(error.message, "Unexpected end of block.".to_string());
+        assert!(errors.is_empty());
     }
 
     #[test]
