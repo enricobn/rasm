@@ -710,7 +710,7 @@ impl IDEHelper {
                                     completion_type = Some(IDECompletionType::Identifier(prefix));
                                     break;
                                 }
-                            } else if c == '{' || c == ';' || c == '=' || c == '(' {
+                            } else if c == '{' || c == '=' || c == '(' {
                                 if prefix.parse::<i32>().is_ok() {
                                     return Ok(CompletionResult::NotFound(
                                         "it's a number".to_owned(),

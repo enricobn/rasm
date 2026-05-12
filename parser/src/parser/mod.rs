@@ -216,7 +216,7 @@ impl Parser {
                 self.add_error("undefined parse error".to_owned());
                 return self.get_return();
             }
-            let mut token = if self.i == self.tokens.len() {
+            let token = if self.i == self.tokens.len() {
                 last_token.clone()
             } else {
                 self.tokens.get(self.i).unwrap().clone()
@@ -276,10 +276,8 @@ impl Parser {
                         self.i += 1;
                         continue;
                     }
-                    // probably it's an error, but we handle it later
                     self.add_error("Unterminated dot expression.".to_string());
                     self.i -= 1;
-                    token.kind = TokenKind::Punctuation(PunctuationKind::SemiColon);
                 }
             }
 
@@ -390,10 +388,6 @@ impl Parser {
                         if let Some(ParserData::Let(name, is_const, index, modifiers)) =
                             self.before_last_parser_data()
                         {
-                            let is_semicolon = matches!(
-                                token.kind,
-                                TokenKind::Punctuation(PunctuationKind::SemiColon)
-                            );
                             self.state.pop();
                             self.parser_data.pop();
                             self.parser_data.pop();
@@ -408,21 +402,10 @@ impl Parser {
                             } else {
                                 ASTStatement::ASTLetStatement(name, expr, index)
                             }));
-                            if is_semicolon {
-                                self.i += 1;
-                            }
                             continue;
                         }
                     }
-                    let is_semicolon = matches!(
-                        token.kind,
-                        TokenKind::Punctuation(PunctuationKind::SemiColon)
-                    );
-                    if is_semicolon {
-                        self.add_error("Expected expression".to_string());
-                    } else {
-                        self.add_error("Expected expression and semicolon".to_string());
-                    }
+                    self.add_error("Expected expression".to_string());
                 }
                 Some(ParserState::LambdaExpression) => {
                     if let Some(ParserData::FunctionDef(def)) = self.last_parser_data() {
@@ -587,29 +570,9 @@ impl Parser {
         Ok(true)
     }
 
-    fn process_statement(&mut self, token: Token) -> Result<(), String> {
+    fn process_statement(&mut self, _token: Token) -> Result<(), String> {
         if let Some(ParserData::Statement(_st)) = self.last_parser_data() {
             self.state.pop();
-        } else if let TokenKind::Punctuation(PunctuationKind::SemiColon) = token.kind {
-            if let Some(ParserData::Expression(expr)) = self.last_parser_data() {
-                let statement_position = expr.position().copy();
-                self.state.pop();
-                self.parser_data.pop();
-                self.parser_data
-                    .push(ParserData::Statement(ASTStatement::ASTExpressionStatement(
-                        expr,
-                        statement_position,
-                    )));
-                self.i += 1;
-            } else {
-                self.add_error(format!(
-                    "Found semicolon without an expression: {}",
-                    self.get_position(0)
-                ));
-                self.state.pop();
-                self.parser_data.pop();
-                self.i += 1;
-            }
         } else if Some(&TokenKind::Bracket(
             BracketKind::Brace,
             BracketStatus::Close,
@@ -670,11 +633,6 @@ impl Parser {
     fn process_expression(&mut self) -> Result<(), String> {
         if let Some(ParserData::Expression(_exp)) = self.last_parser_data() {
             self.state.pop();
-        } else if let Some(TokenKind::Punctuation(PunctuationKind::SemiColon)) =
-            self.get_token_kind()
-        {
-            self.state.pop();
-            self.i += 1;
         } else if let Some((
             function_name,
             generics,

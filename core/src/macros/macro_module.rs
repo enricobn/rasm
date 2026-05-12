@@ -36,7 +36,7 @@ fn macro_module_body(
     let mut modules_ids = HashMap::new();
 
     let mut body = String::new();
-    body.push_str("let id = argv(1).fmap(fn(it) { it.toInt(); }).getOrElse(-1);\n");
+    body.push_str("let id = argv(1).fmap(fn(it) { it.toInt() }).getOrElse(-1)\n");
     body.push_str("let functionToCall = \n");
 
     for (i, call) in calls.iter().enumerate() {
@@ -47,8 +47,8 @@ fn macro_module_body(
             call.id
         ));
     }
-    body.push_str(".else(macroEmpty);\n");
-    body.push_str("print(functionToCall());\n");
+    body.push_str(".else(macroEmpty)\n");
+    body.push_str("print(functionToCall())\n");
 
     for call in calls.iter() {
         let function_name = format!("macroCall{}", call.id());
@@ -71,35 +71,35 @@ fn macro_module_body(
 
                     let new_id = ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                     constants.push_str(&format!(
-                        "const moduleAST{} = {};\n",
+                        "const moduleAST{} = {}\n",
                         new_id,
                         ast_module(&module_for_namespace)
                     ));
                     new_id
                 });
-                body.push_str(&format!("let moduleAST = moduleAST{id}.selfASTModule;\n",));
+                body.push_str(&format!("let moduleAST = moduleAST{id}.selfASTModule\n",));
             }
         }
 
         body.push_str(&format!(
-            "let macroResult = {};\n",
+            "let macroResult = {}\n",
             call.transformed_macro()
         ));
 
         match &call.macro_result_type {
             MacroResultType::Statement => {
                 body.push_str(
-                    "macroResult.match(fn (statements, functions) { \"Statement\\n\".add(statements.join(\"\\n\")).add(\"\\n\").add(functions.join(\"\\n\")); }, fn (message) { \"Error\\n\".add(message); });\n",
+                    "macroResult.match(fn (statements, functions) { \"Statement\\n\".add(statements.join(\"\\n\")).add(\"\\n\").add(functions.join(\"\\n\")) }, fn (message) { \"Error\\n\".add(message) })\n",
                 );
             }
             MacroResultType::Expression => {
                 body.push_str(
-                    "macroResult.match(fn (expr, functions) { \"Expression\\n\".append(expr).add(\";\\n\").add(functions.join(\"\\n\")); }, fn (message) { \"Error\\n\".add(message); });\n",
+                    "macroResult.match(fn (expr, functions) { \"Expression\\n\".append(expr).add(\"\\n\").add(functions.join(\"\\n\")) }, fn (message) { \"Error\\n\".add(message) })\n",
                 );
             }
             MacroResultType::Attribute => {
                 body.push_str(
-                    "macroResult.match(fn (functions) { \"Attribute\\n\".add(functions.join(\"\\n\")); }, fn (message) { \"Error\\n\".add(message); });\n",
+                    "macroResult.match(fn (functions) { \"Attribute\\n\".add(functions.join(\"\\n\")) }, fn (message) { \"Error\\n\".add(message) })\n",
                 );
             }
         }
@@ -107,9 +107,9 @@ fn macro_module_body(
         body.push_str("}\n");
     }
 
-    body.push_str("pub fn macroEmpty() -> str {\"\";}");
+    body.push_str("pub fn macroEmpty() -> str {\"\"}");
     // TODO it's a trick since for now we cannot directly point to a const in a let
-    body.push_str("fn selfASTModule(module: ASTModule) -> ASTModule {module;}");
+    body.push_str("fn selfASTModule(module: ASTModule) -> ASTModule {module}");
 
     // println!("body:\n{}", constants.clone() + &body);
 

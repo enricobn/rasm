@@ -551,8 +551,8 @@ pub native removeFromReused(address: int) /{
 }/
 
 fn invalidAddress() {
-    print("invalid address \n");
-    exitMain(1);
+    print("invalid address \n")
+    exitMain(1)
 }
 
 pub native printAllocated() /{

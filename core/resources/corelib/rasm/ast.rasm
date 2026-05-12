@@ -40,7 +40,7 @@ pub fn toString(stmt: ASTStatement) -> str {
         fn (expr) { toString(expr)}, 
         fn (name, expr) { "let ".add(name).add(" = ").append(expr) },
         fn (name, expr, modifiers) { "const ".add(name).add(" = ").append(expr) }
-    ).add(";")
+    )
 }
 
 pub enum ASTModifiers {

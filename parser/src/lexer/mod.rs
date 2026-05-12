@@ -140,7 +140,6 @@ impl Lexer {
             ("", '.') => Some(TokenKind::Punctuation(PunctuationKind::Dot)),
             ("", ',') => Some(TokenKind::Punctuation(PunctuationKind::Comma)),
             ("", ':') => Some(TokenKind::Punctuation(PunctuationKind::Colon)),
-            ("", ';') => Some(TokenKind::Punctuation(PunctuationKind::SemiColon)),
             ("-", '>') => Some(TokenKind::Punctuation(PunctuationKind::RightArrow)),
             ("", '=') => Some(TokenKind::Punctuation(PunctuationKind::Equal)),
             ("", '!') => Some(TokenKind::Punctuation(PunctuationKind::Esclamation)),
@@ -646,28 +645,28 @@ mod tests {
 
     #[test]
     fn test_single_line_comments() {
-        let (tokens, errors) = lex_source("//\nlet a = 1;\n");
+        let (tokens, errors) = lex_source("//\nlet a = 1\n");
 
         assert!(errors.is_empty());
-        assert_eq!(7, tokens.len());
+        assert_eq!(6, tokens.len());
 
         assert_eq!(Some("//"), token_comment(&tokens[0]));
         assert_eq!(
-            "comment, Let, 'a', =, 1, ;, EOL",
+            "comment, Let, 'a', =, 1, EOL",
             format!("{}", SliceDisplay(&tokens))
         );
     }
 
     #[test]
     fn test_single_line_comments_2() {
-        let (tokens, errors) = lex_source("//\n\nlet a = 1;\n");
+        let (tokens, errors) = lex_source("//\n\nlet a = 1\n");
 
         assert!(errors.is_empty());
-        assert_eq!(8, tokens.len());
+        assert_eq!(7, tokens.len());
 
         assert_eq!(Some("//"), token_comment(&tokens[0]));
         assert_eq!(
-            "comment, EOL, Let, 'a', =, 1, ;, EOL",
+            "comment, EOL, Let, 'a', =, 1, EOL",
             format!("{}", SliceDisplay(&tokens))
         );
     }

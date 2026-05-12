@@ -189,9 +189,6 @@ impl Display for TokenKind {
                 PunctuationKind::RightArrow => {
                     write!(f, "->")
                 }
-                PunctuationKind::SemiColon => {
-                    write!(f, ";")
-                }
                 PunctuationKind::Equal => {
                     write!(f, "=")
                 }
@@ -220,7 +217,6 @@ pub enum PunctuationKind {
     Equal,
     Esclamation,
     RightArrow,
-    SemiColon,
 }
 
 impl PunctuationKind {

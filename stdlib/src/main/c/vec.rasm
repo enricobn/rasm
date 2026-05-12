@@ -665,14 +665,14 @@ native getUnsafe<T>(vec: Vec<T>, i: int) -> T /{
 }/
 
 pub fn iter<T>(o: Vec<T>) -> Iter<T> {
-    iter(o, 0);
+    iter(o, 0)
 }
 
 fn iter<T>(o: Vec<T>, index: int) -> Iter<T> {
     if(o.len.greater(index),
-        Iter({ Some(IterValue(o.getUnsafe(index), iter(o, index.add(1)))); }),
+        Iter({ Some(IterValue(o.getUnsafe(index), iter(o, index.add(1)))) }),
         emptyIter()
-    );
+    )
 }
 
 // by opencode with "Big Pickle" model

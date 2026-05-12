@@ -77,7 +77,7 @@ pub native sdlQuit() /{
 }/
 
 pub fn sdlSetRenderDrawColor(ren: SDLRenderer, color: SDLColor) {
-    sdlSetRenderDrawColor(ren, color.r, color.g, color.b, color.a);
+    sdlSetRenderDrawColor(ren, color.r, color.g, color.b, color.a)
 }
 
 pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: int) /{
