@@ -7,6 +7,10 @@ pub fn map<OK,ERROR,T>(result: Result<OK,ERROR>, mapFun: fn(OK) -> T) -> Result<
     result.match(fn(value) { Ok(mapFun(value)) }, Error)
 }
 
+pub fn mapErr<OK,ERROR,T>(result: Result<OK,ERROR>, mapFun: fn(ERROR) -> T) -> Result<OK,T> {
+    result.match(Ok, fn(e) { Error(mapFun(e)) })
+}
+
 pub fn flatten<OK,ERROR>(r: Result<Result<OK,ERROR>,ERROR>) -> Result<OK,ERROR> {
     r.match(identity, Error)
 }
