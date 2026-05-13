@@ -9,15 +9,13 @@ This is a brief introduction, for more insides look at [docs/index.html](docs/in
 
 ## Language Syntax
 
-Every statement must end with a semicolon (`;`), including statements inside closures and statements outside a function or closure, and even the last statement in a function/closure which represents the return value.
-
 ### Main
 
 There is no main function in the language; statements outside a function/closure are treated as the "main function".
 This is a valid RASM program:
 
 ```rasm
-println("Hello world");
+println("Hello world")
 ```
 
 ### Built-in Types
@@ -42,32 +40,32 @@ There are no operators, predefined functions, or macros in the language, except 
 
 ```rasm
 pub fn addTwo(n: int) -> int {
-    add(n, 2); // the last statement of a function is the return value.
+    add(n, 2) // the last statement of a function is the return value.
 }
 
 // generic function
 pub fn addOne<T>(n: T) -> T {
-    add(n, 1);
+    add(n, 1)
 }
 
-fn anInt() -> int { 0; }
+fn anInt() -> int { 0 }
 
 // method: no return type
 fn printName(name: str) {
-    println("Name: ", name);
+    println("Name: ", name)
 }
 ```
 
 ### Function Calls
 
 ```rasm
-let two = add(1, 1);
+let two = add(1, 1)
 
 // syntactic sugar...
-let three = two.add(1);
+let three = two.add(1)
 
 // generic function call, useful when the compiler cannot determine the type automatically
-let v = evaluate<int>("10"); // probably it's not possible to create such function, but as an example...
+let v = evaluate<int>("10") // probably it's not possible to create such function, but as an example...
 ```
 
 ### Structs
@@ -79,13 +77,13 @@ pub struct Pair<A,B> {
     second: B
 }
 
-let p = Pair("number", 1);
-println(first(p));
+let p = Pair("number", 1)
+println(first(p))
 // or with syntactic sugar...
-println(p.first);
+println(p.first)
 
-let p1 = p.second(2); // Pair("number", 2)
-let p2 = p.second(fn(v) { v.add(1);}); // Pair("number", 2)
+let p1 = p.second(2) // Pair("number", 2)
+let p2 = p.second(fn(v) { v.add(1) }) // Pair("number", 2)
 ```
 
 ### Enums
@@ -103,26 +101,26 @@ pub enum Planet {
     Other
 }
 
-let v = Some(10);
-let s = v.match(fn(v) { v.add(1);}, { 0;}); // Some(11)
+let v = Some(10)
+let s = v.match(fn(v) { v.add(1) }, { 0 }) // Some(11)
 
-let planet = Earth(); // or, for disambiguation... Planet::Earth();
-println(planet.matchEarth({"it's the Earth";}, { "it's not the Earth";}));
+let planet = Earth() // or, for disambiguation... Planet::Earth()
+println(planet.matchEarth({"it's the Earth"}, { "it's not the Earth"}))
 ```
 
 ### Variables
 
 ```rasm
-let one = 1;
-let two = one.add(1);
+let one = 1
+let two = one.add(1)
 ```
 
 ### Closures
 
 ```rasm
-fn(x) { x; }
-fn(x, y) { x.add(y); }
-fn(accum, current) { accum.add(current); }
+fn(x) { x }
+fn(x, y) { x.add(y) }
+fn(accum, current) { accum.add(current) }
 ```
 
 ### Macros
