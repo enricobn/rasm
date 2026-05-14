@@ -1,6 +1,6 @@
 # RASM
 
-A native compiler (for now it produces only i386/x86-64 Linux executables, depending on the target) for a "non-pure" functional language.  
+A compiler (for now it produces only i386/x86-64 Linux executables, depending on the target) for a "non-pure" functional language.  
 It is still in an experimental phase (and probably it will always be...)
 
 **It is not secure, so try it at your own risk!!!**
@@ -56,6 +56,16 @@ fn printName(name: str) {
 }
 ```
 
+## Native functions
+
+Native functions can be defined as:
+
+pub native print(s: str) /{
+
+}/
+
+in the language specification, it is not defined what is the syntax of a native function, and in which language is written, it depends on the specific compiler.
+
 ### Function Calls
 
 ```rasm
@@ -107,6 +117,16 @@ let s = v.match(fn(v) { v.add(1) }, { 0 }) // Some(11)
 let planet = Earth() // or, for disambiguation... Planet::Earth()
 println(planet.matchEarth({"it's the Earth"}, { "it's not the Earth"}))
 ```
+
+## Native types
+
+```rasm
+pub type Vec /{
+
+}/
+```
+
+in the language specification, it is not defined what can be inside the body of a native type, it depends on the specific compiler.
 
 ### Variables
 

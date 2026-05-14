@@ -1,11 +1,5 @@
 # Common Errors & Solutions
 
-## Missing semicolons
-
-- Every single statement must end with a semicolon (`;`) - this includes statements inside closures and statements outside functions and closures
-- no exceptions: even single statement inside functions or closures need a semicolon
-- common error: "Unexpected end of block" or "Found semicolon without an expression"
-
 ## "No such file or directory"
 
 - Ensure dependencies are installed. For the examples in this project run:

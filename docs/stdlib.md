@@ -6,34 +6,31 @@
 
 ```rasm
 // Using Option
-let maybeValue: Option<int> = Some(42);
-match(maybeValue, fn(v) { v.mul(2); }, { 0; });
+let maybeValue: Option<int> = Some(42)
+match(maybeValue, fn(v) { v.mul(2) }, { 0 })
 
 // Using Result
-let result: Result<int, str> = Ok(42);
-match(result, fn(v) { v; }, fn(e) { println(e); 0; });
+let result: Result<int, str> = Ok(42)
+match(result, fn(v) { v }, fn(e) { println(e) 0 })
 ```
 
 ### Functional Operations
 
 ```rasm
-// Map - closure body ends with semicolon
-let doubled = vec.map(fn(x) { x.mul(2); });
+let doubled = vec.map(fn(x) { x.mul(2) })
 
-// Filter - closure body ends with semicolon
-let evens = vec.filter(fn(x) { x.mod(2).eq(0); });
+let evens = vec.filter(fn(x) { x.mod(2).eq(0) })
 
-// Fold - closure body ends with semicolon
-let sum = vec.foldLeft(0, fn(acc, x) { acc.add(x); });
+let sum = vec.foldLeft(0, fn(acc, x) { acc.add(x) })
 
 // Enumerate
-let indexed = vec.enumerate();
+let indexed = vec.enumerate()
 ```
 
 ## String Operations
 
 ```rasm
-let s = "hello";
+let s = "hello"
 ```
 
 ## AST Builder Functions

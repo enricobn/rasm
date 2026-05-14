@@ -31,12 +31,12 @@ it should print the 40th Fibonacci number (102334155)
 ```rasm
 pub fn fib(n: int) -> int {
     if(lessOrEqual(n, 1), n, {
-        fib(n.sub(1)).add(fib(n.sub(2)));
-    });
+        fib(n.sub(1)).add(fib(n.sub(2)))
+    })
 }
 
 // Using stdlib
-let nums = vec!(1, 2, 3, 4, 5);
-let sum = nums.foldLeft(0, fn(acc, n) { acc.add(n); });
-println!("Sum: {}", sum);
+let nums = vec!(1, 2, 3, 4, 5)
+let sum = nums.foldLeft(0, fn(acc, n) { acc.add(n) })
+println!("Sum: {}", sum)
 ```
