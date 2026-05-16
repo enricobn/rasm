@@ -208,6 +208,12 @@ main=
 
 ### Usage
 
+you can install the compiler locally with:
+
+```bash
+./install.sh
+```
+
 to get an help of the command line tools
 
 ```bash

@@ -413,7 +413,7 @@ impl IDEHelper {
                         Some(IDESelectableItemTarget::Function(
                             function_index.clone(),
                             function_signature.return_type.clone(),
-                            format!("{function_signature}"),
+                            format!("{}", function_signature.clone().remove_generic_prefix()),
                         ))
                     } else {
                         None
@@ -432,7 +432,7 @@ impl IDEHelper {
                         Some(IDESelectableItemTarget::Function(
                             lambda_index.clone(),
                             function_signature.return_type.clone(),
-                            format!("{function_signature}"),
+                            format!("{}", function_signature.clone().remove_generic_prefix()),
                         )),
                     ))
                 }
@@ -443,7 +443,7 @@ impl IDEHelper {
                         Some(IDESelectableItemTarget::Function(
                             ref_index.clone(),
                             function_signature.return_type.clone(),
-                            format!("{function_signature}"),
+                            format!("{}", function_signature.clone().remove_generic_prefix()),
                         )),
                     ))
                 }

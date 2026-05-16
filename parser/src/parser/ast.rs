@@ -1140,9 +1140,11 @@ pub fn lambda_unit() -> ASTType {
 #[cfg(test)]
 mod tests {
 
+    use std::vec;
+
     use crate::parser::ast::{
-        ASTBuiltinTypeKind, ASTFunctionBody, ASTFunctionDef, ASTModifiers, ASTParameterDef,
-        ASTPosition, ASTType,
+        ASTBuiltinTypeKind, ASTFunctionBody, ASTFunctionDef, ASTFunctionSignature, ASTModifiers,
+        ASTParameterDef, ASTPosition, ASTType,
     };
 
     #[test]
@@ -1215,5 +1217,33 @@ mod tests {
 
         assert!(a.id > b.id);
         assert!(a.cmp(&b).is_lt());
+    }
+
+    #[test]
+    fn function_signature_display() {
+        let os = ASTType::ASTCustomType {
+            name: "Option".to_owned(),
+            param_types: vec![ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType)],
+            position: ASTPosition::none(),
+        };
+        let ot = ASTType::ASTCustomType {
+            name: "Option".to_owned(),
+            param_types: vec![ASTType::ASTGenericType(
+                ASTPosition::none(),
+                "T".to_string(),
+                vec![],
+            )],
+            position: ASTPosition::none(),
+        };
+        let fs = ASTFunctionSignature {
+            return_type: ot,
+            name: "aFunction".to_owned(),
+            generics: vec!["T".to_string()],
+            parameters_types: vec![os],
+            modifiers: ASTModifiers::Public,
+            target: None,
+        };
+
+        assert_eq!(format!("{fs}"), "aFunction<T>(Option<str>) -> Option<T>");
     }
 }
