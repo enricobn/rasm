@@ -286,9 +286,7 @@ impl IDEHelper {
         let target = CompileTarget::C(COptions::default());
 
         let mut modules_container = ASTModulesContainer::new();
-        let mut selectable_items = Vec::new();
         let mut lexer_and_parser_errors = Vec::new();
-        let mut type_check_errors = Vec::new();
         let mut catalog = RasmProjectCatalog::new();
 
         for profile in project.profiles() {
@@ -304,27 +302,6 @@ impl IDEHelper {
                 false,
             );
 
-            let (profile_selectable_items, profile_type_check_errors) =
-                Self::calculate_selectable_items_and_errors(&profile_modules_container);
-
-            for selectable_item in profile_selectable_items {
-                if !selectable_items
-                    .iter()
-                    .any(|item: &IDESelectableItem| item.start == selectable_item.start)
-                {
-                    selectable_items.push(selectable_item);
-                }
-            }
-
-            for error in profile_type_check_errors {
-                if !type_check_errors
-                    .iter()
-                    .any(|item: &ASTTypeCheckError| &item.index() == &error.index())
-                {
-                    type_check_errors.push(error);
-                }
-            }
-
             for error in profile_lexer_and_parser_errors.iter() {
                 if !lexer_and_parser_errors
                     .iter()
@@ -337,6 +314,9 @@ impl IDEHelper {
             modules_container.extend(profile_modules_container);
             catalog.extend(profile_catalog);
         }
+
+        let (selectable_items, type_check_errors) =
+            Self::calculate_selectable_items_and_errors(&modules_container);
 
         IDEHelper::new(
             target,
