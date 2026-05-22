@@ -66,7 +66,7 @@ impl UniqueFunctionNameEntry {
 pub struct EnhTypeCheck<'a> {
     stack: Vec<EnhASTIndex>,
     functions_stack: LinkedHashMap<String, Vec<EnhASTIndex>>,
-    new_functions: HashMap<String, EnhASTFunctionDef>,
+    new_functions: HashMap<String, (EnhASTFunctionDef, EnhASTNameSpace)>,
     type_checker: ASTTypeChecker,
     modules_catalog: &'a dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     modules_container: &'a ASTModulesContainer,
@@ -117,8 +117,10 @@ impl<'a> EnhTypeCheck<'a> {
                 module.find_precise_function(&default_function.name, &default_function.name)
             {
                 // TODO check error
-                self.new_functions
-                    .insert(default_function.name.clone(), f.clone());
+                self.new_functions.insert(
+                    default_function.name.clone(),
+                    (f.clone(), f.namespace.clone()),
+                );
                 self.functions_stack
                     .insert(default_function.name.clone(), vec![]);
             } else {
@@ -157,6 +159,7 @@ impl<'a> EnhTypeCheck<'a> {
                 None,
                 &mut new_functions,
                 true,
+                &module.body_namespace,
             )
             .map_err(|it| CompilationError {
                 index: EnhASTIndex::none(),
@@ -169,10 +172,10 @@ impl<'a> EnhTypeCheck<'a> {
                 ),
             })?;
 
-        for (f, s) in new_functions {
+        for (f, s, n) in new_functions {
             let new_function_name = f.name.clone();
             if !self.functions_stack.contains_key(&new_function_name) {
-                self.new_functions.insert(new_function_name.clone(), f);
+                self.new_functions.insert(new_function_name.clone(), (f, n));
                 self.functions_stack.insert(new_function_name, s);
             }
         }
@@ -190,11 +193,18 @@ impl<'a> EnhTypeCheck<'a> {
                     continue;
                 }
 
-                let mut function = self.new_functions.get(&function_name).unwrap().clone();
+                let (mut function, original_call_namespace) =
+                    self.new_functions.get(&function_name).unwrap().clone();
 
                 let mut new_functions = Vec::new();
                 match self
-                    .transform_function(&module, statics, &function, &mut new_functions)
+                    .transform_function(
+                        &module,
+                        statics,
+                        &function,
+                        &mut new_functions,
+                        &original_call_namespace,
+                    )
                     .map_err(|it| CompilationError {
                         index: function.index.clone(),
                         error_kind: CompilationErrorKind::TypeCheck(
@@ -207,14 +217,16 @@ impl<'a> EnhTypeCheck<'a> {
                     })? {
                     Some(new_body) => {
                         function.body = new_body;
-                        self.new_functions.insert(function.name.clone(), function);
+                        self.new_functions
+                            .insert(function.name.clone(), (function, original_call_namespace));
                     }
                     None => {}
                 }
-                for (f, s) in new_functions {
+                for (f, s, original_call_namespace) in new_functions {
                     let new_function_name = f.name.clone();
                     if !self.functions_stack.contains_key(&new_function_name) {
-                        self.new_functions.insert(f.name.clone(), f);
+                        self.new_functions
+                            .insert(f.name.clone(), (f, original_call_namespace));
                         self.functions_stack.insert(new_function_name, s);
                     }
                 }
@@ -234,7 +246,7 @@ impl<'a> EnhTypeCheck<'a> {
             body_namespace: module.body_namespace,
         };
 
-        for (_, function) in self.new_functions {
+        for (_, (function, _)) in self.new_functions {
             typed_module.add_function(function.original_name.clone(), function);
         }
 
@@ -257,8 +269,9 @@ impl<'a> EnhTypeCheck<'a> {
         expected_return_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
         inside_function: Option<&EnhASTFunctionDef>,
-        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>, EnhASTNameSpace)>,
         strict: bool,
+        original_call_namespace: &EnhASTNameSpace,
     ) -> Result<EnhASTStatement, EnhTypeCheckError> {
         match statement {
             EnhASTStatement::Expression(e) => self
@@ -272,6 +285,7 @@ impl<'a> EnhTypeCheck<'a> {
                     inside_function,
                     new_functions,
                     strict,
+                    original_call_namespace,
                 )
                 .map(EnhASTStatement::Expression),
             EnhASTStatement::LetStatement(name, e, index) => self
@@ -285,6 +299,7 @@ impl<'a> EnhTypeCheck<'a> {
                     inside_function,
                     new_functions,
                     strict,
+                    original_call_namespace,
                 )
                 .map(|it| EnhASTStatement::LetStatement(name.clone(), it, index.clone())),
             EnhASTStatement::ConstStatement(name, e, index, namespace, modifiers) => self
@@ -298,6 +313,7 @@ impl<'a> EnhTypeCheck<'a> {
                     inside_function,
                     new_functions,
                     strict,
+                    original_call_namespace,
                 )
                 .map(|it| {
                     EnhASTStatement::ConstStatement(
@@ -320,8 +336,9 @@ impl<'a> EnhTypeCheck<'a> {
         expected_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
         inside_function: Option<&EnhASTFunctionDef>,
-        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>, EnhASTNameSpace)>,
         strict: bool,
+        original_call_namespace: &EnhASTNameSpace,
     ) -> Result<EnhASTExpression, EnhTypeCheckError> {
         match expression {
             EnhASTExpression::ASTFunctionCallExpression(call) => self
@@ -335,6 +352,7 @@ impl<'a> EnhTypeCheck<'a> {
                     inside_function,
                     new_functions,
                     strict,
+                    original_call_namespace,
                 )
                 .map(EnhASTExpression::ASTFunctionCallExpression),
             EnhASTExpression::Lambda(lambda_def) => self
@@ -348,6 +366,7 @@ impl<'a> EnhTypeCheck<'a> {
                     inside_function,
                     new_functions,
                     strict,
+                    original_call_namespace,
                 )
                 .map(EnhASTExpression::Lambda),
             EnhASTExpression::ValueRef(name, index, const_namespace) => {
@@ -495,7 +514,11 @@ impl<'a> EnhTypeCheck<'a> {
                         new_function_def.generic_types = function_generics;
                         new_function_def.resolved_generic_types = resolved_generic_types;
 
-                        new_functions.push((new_function_def, self.stack.clone()));
+                        new_functions.push((
+                            new_function_def,
+                            self.stack.clone(),
+                            original_call_namespace.clone(),
+                        ));
                         match new_function_name_entry {
                             UniqueFunctionNameEntry::Vacant(name, value) => {
                                 self.unique_function_names.insert(name, value);
@@ -574,8 +597,9 @@ impl<'a> EnhTypeCheck<'a> {
         expected_return_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
         inside_function: Option<&EnhASTFunctionDef>,
-        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>, EnhASTNameSpace)>,
         strict: bool,
+        original_call_namespace: &EnhASTNameSpace,
     ) -> Result<EnhASTFunctionCall, EnhTypeCheckError> {
         debug_i!(
             "transform_call {call} expected_return_type {}",
@@ -606,6 +630,7 @@ impl<'a> EnhTypeCheck<'a> {
                             inside_function,
                             new_functions,
                             strict,
+                            original_call_namespace,
                         )
                     })
                     .collect::<Result<Vec<_>, EnhTypeCheckError>>()
@@ -637,6 +662,7 @@ impl<'a> EnhTypeCheck<'a> {
                 inside_function,
                 new_functions,
                 strict,
+                original_call_namespace,
             )
             .map_err(|it| {
                 self.stack.pop();
@@ -730,14 +756,18 @@ impl<'a> EnhTypeCheck<'a> {
             .or(self.new_functions.get(&call.original_function_name));
 
         if let Some(converted_function) = converted_functions {
-            new_call.function_name = converted_function.name.clone();
+            new_call.function_name = converted_function.0.name.clone();
             debug_i!("already added function {}", new_call.function_name);
         } else {
             new_call.function_name = new_function_name;
 
             debug_i!("adding new function {}", new_function_def);
 
-            new_functions.push((new_function_def, self.stack.clone()));
+            new_functions.push((
+                new_function_def,
+                self.stack.clone(),
+                original_call_namespace.clone(),
+            ));
             // TODO check error
 
             /*
@@ -901,8 +931,9 @@ impl<'a> EnhTypeCheck<'a> {
         expected_return_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
         inside_function: Option<&EnhASTFunctionDef>,
-        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>, EnhASTNameSpace)>,
         strict: bool,
+        original_call_namespace: &EnhASTNameSpace,
     ) -> Result<
         (
             EnhASTFunctionDef,
@@ -940,7 +971,10 @@ impl<'a> EnhTypeCheck<'a> {
                 .iter()
                 //.chain(same_in_new_functions.iter())
                 .filter(|it| {
-                    it.namespace.visible_from(namespace, &it.modifiers)
+                    (it.namespace.visible_from(namespace, &it.modifiers)
+                        || it
+                            .namespace
+                            .visible_from(original_call_namespace, &it.modifiers))
                         && it.parameters.len() == call.parameters.len()
                         && (!call.is_macro || it.can_be_a_macro())
                 })
@@ -977,7 +1011,13 @@ impl<'a> EnhTypeCheck<'a> {
 
             return Err(EnhTypeCheckError::new_with_kind(
                 call.index.clone(),
-                Self::invalid_function_message(namespace, first_type, call, expected_return_type),
+                Self::invalid_function_message(
+                    namespace,
+                    first_type,
+                    call,
+                    expected_return_type,
+                    original_call_namespace,
+                ),
                 self.stack.clone(),
                 EnhTypeCheckErrorKind::Important,
             ));
@@ -1117,6 +1157,7 @@ impl<'a> EnhTypeCheck<'a> {
                                 inside_function,
                                 &mut inner_new_functions,
                                 strict,
+                                original_call_namespace
                             )?/*
                             .map_err(|it| {
                                 it.add(
@@ -1229,7 +1270,13 @@ impl<'a> EnhTypeCheck<'a> {
             dedent!();
             let result = Err(EnhTypeCheckError::new(
                 call.index.clone(),
-                Self::invalid_function_message(namespace, first_type, call, expected_return_type),
+                Self::invalid_function_message(
+                    namespace,
+                    first_type,
+                    call,
+                    expected_return_type,
+                    original_call_namespace,
+                ),
                 self.stack.clone(),
             )
             .add_errors(errors));
@@ -1296,13 +1343,14 @@ impl<'a> EnhTypeCheck<'a> {
         first_type: Option<EnhASTType>,
         call: &EnhASTFunctionCall,
         expected_return_type: Option<&EnhASTType>,
+        original_call_namespace: &EnhASTNameSpace,
     ) -> String {
         let first_type = first_type
             .map(|it| format!("{it} ..."))
             .unwrap_or(format!("with {} arguments", call.parameters.len()));
 
         let mut message = format!(
-            "cannot find a valid function from namespace {namespace} for call {}({first_type})",
+            "cannot find a valid function from namespace {namespace} for call {}({first_type}), original call namespace {original_call_namespace}",
             call.original_function_name
         );
 
@@ -1409,8 +1457,9 @@ impl<'a> EnhTypeCheck<'a> {
         param_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
         inside_function: Option<&EnhASTFunctionDef>,
-        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>, EnhASTNameSpace)>,
         strict: bool,
+        original_call_namespace: &EnhASTNameSpace,
     ) -> Result<(EnhTypeFilter, EnhASTExpression), EnhTypeCheckError> {
         let e = self.transform_expression(
             module,
@@ -1422,6 +1471,7 @@ impl<'a> EnhTypeCheck<'a> {
             inside_function,
             new_functions,
             strict,
+            original_call_namespace,
         )?;
 
         let t = self.type_of_expression(
@@ -1433,6 +1483,7 @@ impl<'a> EnhTypeCheck<'a> {
             namespace,
             new_functions,
             strict,
+            original_call_namespace,
         )?;
         if let EnhTypeFilter::Exact(et) = &t {
             if !et.is_generic() {
@@ -1515,7 +1566,8 @@ impl<'a> EnhTypeCheck<'a> {
         module: &InputModule,
         statics: &mut Statics,
         new_function_def: &EnhASTFunctionDef,
-        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>, EnhASTNameSpace)>,
+        original_call_namespace: &EnhASTNameSpace,
     ) -> Result<Option<EnhASTFunctionBody>, EnhTypeCheckError> {
         debug_i!("transform_function {new_function_def}");
         debug_i!(
@@ -1553,6 +1605,7 @@ impl<'a> EnhTypeCheck<'a> {
                     Some(&new_function_def),
                     new_functions,
                     true,
+                    original_call_namespace,
                 )?;
                 Some(EnhASTFunctionBody::RASMBody(new_statements))
             }
@@ -1611,6 +1664,7 @@ impl<'a> EnhTypeCheck<'a> {
                                 Some(new_function_def),
                                 new_functions,
                                 true,
+                                original_call_namespace,
                             )
                             .map_err(|it| {
                                 dedent!();
@@ -1667,6 +1721,7 @@ impl<'a> EnhTypeCheck<'a> {
                                 Some(new_function_def),
                                 new_functions,
                                 true,
+                                original_call_namespace,
                             )
                             .map_err(|it| {
                                 dedent!();
@@ -1714,8 +1769,9 @@ impl<'a> EnhTypeCheck<'a> {
         expected_return_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
         inside_function: Option<&EnhASTFunctionDef>,
-        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>, EnhASTNameSpace)>,
         strict: bool,
+        original_call_namespace: &EnhASTNameSpace,
     ) -> Result<Vec<EnhASTStatement>, EnhTypeCheckError> {
         debug_i!(
             "transform_statements expected_return_type {}",
@@ -1741,6 +1797,7 @@ impl<'a> EnhTypeCheck<'a> {
                     inside_function,
                     new_functions,
                     strict,
+                    original_call_namespace,
                 );
 
                 if let Ok(EnhASTStatement::LetStatement(name, expr, index)) = &new_statement {
@@ -1753,6 +1810,7 @@ impl<'a> EnhTypeCheck<'a> {
                         namespace,
                         new_functions,
                         strict,
+                        original_call_namespace,
                     )?;
 
                     if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
@@ -1785,6 +1843,7 @@ impl<'a> EnhTypeCheck<'a> {
                         namespace,
                         new_functions,
                         strict,
+                        original_call_namespace,
                     )?;
 
                     if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
@@ -1964,8 +2023,9 @@ impl<'a> EnhTypeCheck<'a> {
         statics: &mut Statics,
         expected_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
-        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>, EnhASTNameSpace)>,
         strict: bool,
+        original_call_namespace: &EnhASTNameSpace,
     ) -> Result<EnhTypeFilter, EnhTypeCheckError> {
         debug_i!(
             "type_of_expression {typed_expression} expected type {}",
@@ -2024,11 +2084,11 @@ impl<'a> EnhTypeCheck<'a> {
                     .or(self.new_functions.get(&call.original_function_name))
                 {
                     dedent!();
-                    return Ok(EnhTypeFilter::Exact(f.return_type.clone()));
+                    return Ok(EnhTypeFilter::Exact(f.0.return_type.clone()));
                 } else {
-                    if let Some((f, _)) = new_functions
+                    if let Some((f, _, _)) = new_functions
                         .iter()
-                        .find(|(f, _)| f.name == call.function_name)
+                        .find(|(f, _, _)| f.name == call.function_name)
                     {
                         dedent!();
                         return Ok(EnhTypeFilter::Exact(f.return_type.clone()));
@@ -2045,6 +2105,7 @@ impl<'a> EnhTypeCheck<'a> {
                     None,
                     new_functions,
                     strict,
+                    original_call_namespace,
                 ) {
                     Ok((found_function, resolved_generic_types, _)) => {
                         let return_ast_type = if let Some(new_t) =
@@ -2156,6 +2217,7 @@ impl<'a> EnhTypeCheck<'a> {
                             namespace,
                             new_functions,
                             strict,
+                            namespace,
                         )?;
 
                         if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
@@ -2187,6 +2249,7 @@ impl<'a> EnhTypeCheck<'a> {
                                 namespace,
                                 new_functions,
                                 strict,
+                                namespace,
                             )?));
                         }
                     }
@@ -2237,8 +2300,9 @@ impl<'a> EnhTypeCheck<'a> {
         expected_type: Option<&EnhASTType>,
         namespace: &EnhASTNameSpace,
         inside_function: Option<&EnhASTFunctionDef>,
-        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>, EnhASTNameSpace)>,
         strict: bool,
+        original_call_namespace: &EnhASTNameSpace,
     ) -> Result<EnhASTLambdaDef, EnhTypeCheckError> {
         let mut new_lambda = lambda_def.clone();
 
@@ -2276,6 +2340,7 @@ impl<'a> EnhTypeCheck<'a> {
             inside_function,
             new_functions,
             strict,
+            original_call_namespace,
         )?;
 
         Ok(new_lambda)
@@ -2333,7 +2398,7 @@ impl<'a> EnhTypeCheck<'a> {
         module: &'a EnhancedASTModule,
         expected_type: Option<&EnhASTType>,
         name: &str,
-        new_functions: &'a Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>)>,
+        new_functions: &'a Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>, EnhASTNameSpace)>,
         namespace: &EnhASTNameSpace,
         index: &EnhASTIndex,
     ) -> Vec<&EnhASTFunctionDef> {
@@ -2341,7 +2406,7 @@ impl<'a> EnhTypeCheck<'a> {
 
         if self.function_name_already_converted(name) {
             if let Some(f) = self.new_functions.get(name) {
-                function_references.push(f);
+                function_references.push(&f.0);
                 return function_references;
             }
 
