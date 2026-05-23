@@ -743,8 +743,6 @@ impl<'a> EnhTypeCheck<'a> {
             module,
         );
 
-        new_function_def.name = new_function_name.clone();
-
         let mut new_call = call.clone();
         new_call.parameters = new_expressions;
 
@@ -757,8 +755,9 @@ impl<'a> EnhTypeCheck<'a> {
 
         if let Some(converted_function) = converted_functions {
             new_call.function_name = converted_function.0.name.clone();
-            debug_i!("already added function {}", new_call.function_name);
+            debug_i!("already converted function {}", new_call.function_name);
         } else {
+            new_function_def.name = new_function_name.clone();
             new_call.function_name = new_function_name;
 
             debug_i!("adding new function {}", new_function_def);
@@ -2532,6 +2531,12 @@ mod tests {
     #[test]
     pub fn gameoflife_tc() {
         let project = dir_to_project("../rasm/resources/examples/gameoflife_tc");
+        test_project(project).unwrap();
+    }
+
+    #[test]
+    pub fn generic_visibility_tc() {
+        let project = dir_to_project("../rasm/resources/test/generic_visibility");
         test_project(project).unwrap();
     }
 
