@@ -769,7 +769,7 @@ impl<'a> EnhTypeCheck<'a> {
 
             debug_i!("adding new function {}", new_function_def);
 
-            new_functions.push((new_function_def, self.stack.clone(), namespace.clone()));
+            new_functions.push((new_function_def, self.stack.clone(), original_call_namespace.clone()));
             // TODO check error
 
             /*
@@ -1595,6 +1595,12 @@ impl<'a> EnhTypeCheck<'a> {
                 })?;
         }
 
+        let inner_original_call_namespace =
+            if new_function_def.resolved_generic_types.len() == 0 {
+                &new_function_def.namespace
+            } else {
+                original_call_namespace
+            };
         let new_body = match &new_function_def.body {
             EnhASTFunctionBody::RASMBody(statements) => {
                 let new_statements = self.transform_statements(
@@ -1607,7 +1613,7 @@ impl<'a> EnhTypeCheck<'a> {
                     Some(&new_function_def),
                     new_functions,
                     true,
-                    original_call_namespace,
+                    inner_original_call_namespace,
                 )?;
                 Some(EnhASTFunctionBody::RASMBody(new_statements))
             }
@@ -1666,7 +1672,7 @@ impl<'a> EnhTypeCheck<'a> {
                                 Some(new_function_def),
                                 new_functions,
                                 true,
-                                original_call_namespace,
+                                inner_original_call_namespace,
                             )
                             .map_err(|it| {
                                 dedent!();
@@ -1723,7 +1729,7 @@ impl<'a> EnhTypeCheck<'a> {
                                 Some(new_function_def),
                                 new_functions,
                                 true,
-                                original_call_namespace,
+                                inner_original_call_namespace,
                             )
                             .map_err(|it| {
                                 dedent!();
@@ -2496,7 +2502,9 @@ mod tests {
     use crate::enh_type_check::typed_ast::ASTTypedModule;
     use crate::errors::CompilationError;
     use crate::project::RasmProject;
-    use crate::test_utils::project_to_ast_typed_module;
+    use crate::test_utils::{
+        project_to_ast_typed_module, project_to_ast_typed_module_with_macros,
+    };
     use rasm_parser::parser::ast::ASTModifiers;
 
     #[test]
@@ -2540,7 +2548,7 @@ mod tests {
     #[test]
     pub fn generic_visibility_tc() {
         let project = dir_to_project("../rasm/resources/test/generic_visibility");
-        if let Err(errors) = test_project(project) {
+        if let Err(errors) = test_project_with_macros(project) {
             for error in errors {
                 println!("{}", error);
             }
@@ -2551,7 +2559,7 @@ mod tests {
     #[test]
     pub fn generic_visibility_2_tc() {
         let project = dir_to_project("../rasm/resources/test/generic_visibility_2");
-        if let Err(errors) = test_project(project) {
+        if let Err(errors) = test_project_with_macros(project) {
             for error in errors {
                 println!("{}", error);
             }
@@ -2909,6 +2917,21 @@ mod tests {
             &RasmProfile::Main,
         )?;
         project_to_ast_typed_module(
+            &project,
+            &CompileTarget::C(COptions::default()),
+            &RasmProfile::Main,
+        )
+    }
+
+    fn test_project_with_macros(
+        project: RasmProject,
+    ) -> Result<(ASTTypedModule, Statics), Vec<CompilationError>> {
+        project_to_ast_typed_module_with_macros(
+            &project,
+            &CompileTarget::Nasmi386(AsmOptions::default()),
+            &RasmProfile::Main,
+        )?;
+        project_to_ast_typed_module_with_macros(
             &project,
             &CompileTarget::C(COptions::default()),
             &RasmProfile::Main,

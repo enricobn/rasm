@@ -810,7 +810,7 @@ fn native_generic_call() {
 
 #[test]
 fn test_generic_visibility() {
-    run_test("generic_visibility", vec![], "my struct: MyStruct(Hello)\n");
+    run_test("generic_visibility", vec![], "my struct: MyStruct(Hello)\nmy struct: MyStruct(Hello, 10)\n");
 }
 
 // Compile tests
