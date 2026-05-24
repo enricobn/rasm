@@ -1,0 +1,14 @@
+@toString()
+struct MyStruct {
+    dummy:str,
+    p4: int
+}
+
+pub fn p4() {
+    p41()
+    p2()
+}
+
+fn p41() {
+    println("my struct 4: ", MyStruct("hello", 4))
+}
