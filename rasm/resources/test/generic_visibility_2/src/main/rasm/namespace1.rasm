@@ -1,0 +1,10 @@
+	struct AStruct {
+	}
+
+	pub fn p1() {
+		p2(AStruct())	
+	}
+	
+	fn someFunction(s: AStruct) {
+        println("someFunction")
+	}

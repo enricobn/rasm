@@ -601,6 +601,12 @@ impl<'a> EnhTypeCheck<'a> {
         strict: bool,
         original_call_namespace: &EnhASTNameSpace,
     ) -> Result<EnhASTFunctionCall, EnhTypeCheckError> {
+        if namespace != &call.namespace {
+            println!("namespace {namespace} != call.namespace {}", call.namespace);
+            if let Some(f) = inside_function {
+                println!("inside_function {f}");
+            }
+        }
         debug_i!(
             "transform_call {call} expected_return_type {}",
             OptionDisplay(&expected_return_type)
@@ -758,15 +764,12 @@ impl<'a> EnhTypeCheck<'a> {
             debug_i!("already converted function {}", new_call.function_name);
         } else {
             new_function_def.name = new_function_name.clone();
+            //new_function_def.namespace = namespace.clone();
             new_call.function_name = new_function_name;
 
             debug_i!("adding new function {}", new_function_def);
 
-            new_functions.push((
-                new_function_def,
-                self.stack.clone(),
-                original_call_namespace.clone(),
-            ));
+            new_functions.push((new_function_def, self.stack.clone(), namespace.clone()));
             // TODO check error
 
             /*
@@ -2537,7 +2540,23 @@ mod tests {
     #[test]
     pub fn generic_visibility_tc() {
         let project = dir_to_project("../rasm/resources/test/generic_visibility");
-        test_project(project).unwrap();
+        if let Err(errors) = test_project(project) {
+            for error in errors {
+                println!("{}", error);
+            }
+            panic!("test failed");
+        }
+    }
+
+    #[test]
+    pub fn generic_visibility_2_tc() {
+        let project = dir_to_project("../rasm/resources/test/generic_visibility_2");
+        if let Err(errors) = test_project(project) {
+            for error in errors {
+                println!("{}", error);
+            }
+            panic!("test failed");
+        }
     }
 
     #[test]
