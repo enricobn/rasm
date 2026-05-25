@@ -4,75 +4,75 @@ pub type SDLSurface /{ hasReferences = false }/
 pub type SDLTexture /{ hasReferences = false }/
 pub type SDLRWops /{ hasReferences = false }/
 
-pub native sdlInit() -> int /{
+pub fn sdlInit() -> int /{
     ; SDL_Init(SDL_INIT_EVERYTHING)
     $ccall(SDL_Init, 62001)
 }/
 
-pub native sdlCreateWindow(title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
+pub fn sdlCreateWindow(title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
     $ccall(SDL_CreateWindow, $title, $x, $y, $width, $height, 4)
 }/
 
-pub native sdlDelay(millis: int) /{
+pub fn sdlDelay(millis: int) /{
     $ccall(SDL_Delay, $millis)
 }/
 
-pub native sdlCreateRenderer(win: SDLWindow, index: int, flags: int) -> SDLRenderer /{
+pub fn sdlCreateRenderer(win: SDLWindow, index: int, flags: int) -> SDLRenderer /{
     $ccall(SDL_CreateRenderer, $win, $index, $flags)
 }/
 
 
-pub native sdlLoadBMPRW(rw: SDLRWops) -> SDLSurface /{
+pub fn sdlLoadBMPRW(rw: SDLRWops) -> SDLSurface /{
     $ccall(SDL_LoadBMP_RW, $rw, 1)
 }/
 
-pub native sdlRWFromFile(file: str, mode: str) -> SDLRWops /{
+pub fn sdlRWFromFile(file: str, mode: str) -> SDLRWops /{
     $ccall(SDL_RWFromFile, $file, $mode);
 }/
 
-pub native sdlIMGLoadSVGRW(rw: SDLRWops) -> SDLSurface /{
+pub fn sdlIMGLoadSVGRW(rw: SDLRWops) -> SDLSurface /{
     $ccall(IMG_LoadSVG_RW, $rw)
 }/
 
-pub native sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> SDLTexture /{
+pub fn sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> SDLTexture /{
     $ccall(SDL_CreateTextureFromSurface, $ren, $surface)
 }/
 
-pub native sdlFreeSurface(surface: SDLSurface) /{
+pub fn sdlFreeSurface(surface: SDLSurface) /{
     $ccall(SDL_FreeSurface, $surface)
 }/
 
-pub native sdlRenderClear(ren: SDLRenderer) /{
+pub fn sdlRenderClear(ren: SDLRenderer) /{
     $ccall(SDL_RenderClear, $ren)
 }/
 
-pub native sdlRenderCopy(ren: SDLRenderer, tex: SDLTexture) /{
+pub fn sdlRenderCopy(ren: SDLRenderer, tex: SDLTexture) /{
     $ccall(SDL_RenderCopy, $ren, $tex, 0, 0)
 }/
 
-pub native sdlRenderPresent(ren: SDLRenderer) /{
+pub fn sdlRenderPresent(ren: SDLRenderer) /{
     $ccall(SDL_RenderPresent, $ren)
 }/
 
-pub native sdlDestroyRenderer(ren: SDLRenderer) /{
+pub fn sdlDestroyRenderer(ren: SDLRenderer) /{
     $ccall(SDL_DestroyRenderer, $ren)
 }/
 
-pub native sdlDestroyTexture(tex: SDLTexture) /{
+pub fn sdlDestroyTexture(tex: SDLTexture) /{
     $ccall(SDL_DestroyTexture, $tex)
 }/
 
-pub native sdlDestroyWindow(win: SDLWindow) /{
+pub fn sdlDestroyWindow(win: SDLWindow) /{
     $ccall(SDL_DestroyWindow, $win)
 }/
 
-pub native sdlGetError() -> str /{
+pub fn sdlGetError() -> str /{
     $ccall(SDL_GetError)
     ; TODO I don't know if it works or if it is correct: it is not a static string
     $call(addStaticStringToHeap, eax)
 }/
 
-pub native sdlQuit() /{
+pub fn sdlQuit() /{
     $ccall(SDL_Quit)
 }/
 
@@ -80,18 +80,18 @@ pub fn sdlSetRenderDrawColor(ren: SDLRenderer, color: SDLColor) {
     sdlSetRenderDrawColor(ren, color.r, color.g, color.b, color.a)
 }
 
-pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: int) /{
+pub fn sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: int) /{
     $ccall(SDL_SetRenderDrawColor, $ren, $r, $g, $b, $a)
 }/
 
-pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
+pub fn sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
     push    ecx
     mov     dword ecx, $rect
     $ccall(SDL_RenderFillRect, $ren, [ecx])
     pop     ecx
 }/
 
-pub native sdlRenderFillRect(ren: SDLRenderer, x: int, y: int, width: int, height: int) /{
+pub fn sdlRenderFillRect(ren: SDLRenderer, x: int, y: int, width: int, height: int) /{
     push    ecx
     sub     esp, 16
     mov     dword ecx, $x
@@ -109,19 +109,19 @@ pub native sdlRenderFillRect(ren: SDLRenderer, x: int, y: int, width: int, heigh
     pop     ecx
 }/
 
-pub native sdlRenderCopy(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
+pub fn sdlRenderCopy(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
     push    ecx
     mov     dword ecx, $rect
     $ccall(SDL_RenderCopy, $ren, $texture, 0, [ecx])
     pop     ecx
 }/
 
-pub native w(surface: SDLSurface) -> int /{
+pub fn w(surface: SDLSurface) -> int /{
     mov     dword eax, $surface
     mov     dword eax, [eax + 8]
 }/
 
-pub native h(surface: SDLSurface) -> int /{
+pub fn h(surface: SDLSurface) -> int /{
     mov     dword eax, $surface
     mov     dword eax, [eax + 12]
 }/

@@ -1,5 +1,5 @@
 // from https://stackoverflow.com/questions/8465006/how-do-i-concatenate-two-strings-in-c
-pub native add(s1: str, s2: str) -> str /{
+pub fn add(s1: str, s2: str) -> str /{
     $include(<stdlib.h>)
     $include(<string.h>)
 
@@ -16,7 +16,7 @@ pub native add(s1: str, s2: str) -> str /{
     return result;
 }/
 
-pub native add(s: str, c: char) -> str /{
+pub fn add(s: str, c: char) -> str /{
     $include(<stdlib.h>)
     $include(<string.h>)
 
@@ -36,7 +36,7 @@ pub native add(s: str, c: char) -> str /{
 }/
 
 // from https://stackoverflow.com/questions/26080829/detecting-strtol-failure
-pub native toInt(s: str) -> Option<int> /{
+pub fn toInt(s: str) -> Option<int> /{
     $include(<errno.h>)
 
     char *end = NULL;
@@ -55,7 +55,7 @@ pub native toInt(s: str) -> Option<int> /{
     }
 }/
 
-pub native eq(s1: str, s2: str) -> bool /{
+pub fn eq(s1: str, s2: str) -> bool /{
     $include(<string.h>)
     $inline()
 
@@ -66,7 +66,7 @@ pub native eq(s1: str, s2: str) -> bool /{
 }/
 
 // TODO does it work for UTF-8?
-pub native less(s1: str, s2: str) -> bool /{
+pub fn less(s1: str, s2: str) -> bool /{
     $include(<string.h>)
     $inline()
 
@@ -77,7 +77,7 @@ pub native less(s1: str, s2: str) -> bool /{
 }/
 
 // TODO does it work for UTF-8?
-pub native greater(s1: str, s2: str) -> bool /{
+pub fn greater(s1: str, s2: str) -> bool /{
     $include(<string.h>)
     $inline()
 
@@ -87,7 +87,7 @@ pub native greater(s1: str, s2: str) -> bool /{
     return (strcmp(s1_, s2_) > 0);
 }/
 
-pub native len(s: str) -> int /{
+pub fn len(s: str) -> int /{
     $include(<string.h>)
 
     char* s_ = (char *)$s->address;
@@ -119,7 +119,7 @@ pub native len(s: str) -> int /{
 
 // from https://stackoverflow.com/questions/2114377/copying-a-part-of-a-string-substring-in-c
 // TODO it does not work for UTF-8
-pub native substr(s: str, pos: int, len: int) -> Option<str> /{
+pub fn substr(s: str, pos: int, len: int) -> Option<str> /{
     $include(<stdlib.h>)
     $include(<string.h>)
 

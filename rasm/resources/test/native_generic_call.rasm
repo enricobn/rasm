@@ -3,20 +3,20 @@ println(none())
 println(ok())
 println(error())
 
-native some() -> Option<int> /{
+fn some() -> Option<int> /{
     return $call(Some<int>, 1);
 }/
 
-native none() -> Option<int> /{
+fn none() -> Option<int> /{
     return $call(None<str>);
 }/
 
-native ok() -> Result<int,str> /{
+fn ok() -> Result<int,str> /{
     long value = 20;
     return $call(Ok<int,str>, value);
 }/
 
-native error() -> Result<int,str> /{
+fn error() -> Result<int,str> /{
     struct RasmPointer_* s = addStaticStringToHeap("an error");
     return $call(Error<int,str>, s:str);
 }/

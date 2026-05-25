@@ -1,4 +1,4 @@
-pub native sdlPollEvent() -> Option<SDLEvent> /{
+pub fn sdlPollEvent() -> Option<SDLEvent> /{
     SDL_Event event;
     if (SDL_PollEvent(&event)) {
         if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {

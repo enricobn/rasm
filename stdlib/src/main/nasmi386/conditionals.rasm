@@ -1,4 +1,4 @@
-pub native if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
+pub fn if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     $inline()
     mov     eax,$cond
     cmp     eax, 0
@@ -31,7 +31,7 @@ pub native if<T>(cond: bool, ftrue: fn() -> T, ffalse: fn() -> T) -> T /{
     ATTENTION: it is not short circuit, it always evaluates both arguments,
     if you need a short circuit then use the version with lambda
 **/
-pub native if<T>(cond: bool, trueVal: T, falseVal: T) -> T /{
+pub fn if<T>(cond: bool, trueVal: T, falseVal: T) -> T /{
     $inline()
     push  ebx
     push  edx
@@ -53,7 +53,7 @@ pub native if<T>(cond: bool, trueVal: T, falseVal: T) -> T /{
     ATTENTION: it is not completely short circuit, the true value is always evaluated,
     if you need a short circuit then use if function with lambda
 **/
-pub native if<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
+pub fn if<T>(cond: bool, vtrue: T, ffalse: fn() -> T) -> T /{
     $inline()
     mov     eax,$cond
     cmp     eax, 0

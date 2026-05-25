@@ -452,18 +452,6 @@ mod tests {
     }
 
     #[test]
-    fn not_matching_test() {
-        let parser = get_parser("enum Option<T> {");
-
-        let mut matcher = TokensMatcher::default();
-        matcher.add_kind(TokenKind::KeyWord(KeywordKind::Native));
-
-        let match_result = matcher.match_tokens(&parser, 0);
-
-        assert!(match_result.is_none());
-    }
-
-    #[test]
     fn few_tokens() {
         let parser = get_parser("enum");
 

@@ -1,6 +1,6 @@
 pub type Vec<T> /{ hasReferences = true }/
 
-pub native vecOf<T>(value: T) -> Vec<T> /{
+pub fn vecOf<T>(value: T) -> Vec<T> /{
     $call(rasmalloc, 8, " for vecOf")
     push    eax
 
@@ -14,7 +14,7 @@ pub native vecOf<T>(value: T) -> Vec<T> /{
     pop     eax
 }/
 
-pub native vecOf<T>(v1: T, v2: T) -> Vec<T> /{
+pub fn vecOf<T>(v1: T, v2: T) -> Vec<T> /{
     $call(rasmalloc, 12, " for vecOf 2")
     push    eax
     mov     dword eax, [eax]
@@ -30,7 +30,7 @@ pub native vecOf<T>(v1: T, v2: T) -> Vec<T> /{
     pop     eax
 }/
 
-pub native vecOf<T>(v1: T, v2: T, v3: T) -> Vec<T> /{
+pub fn vecOf<T>(v1: T, v2: T, v3: T) -> Vec<T> /{
     $call(rasmalloc, 16, " for vecOf")
     push    eax
 
@@ -48,7 +48,7 @@ pub native vecOf<T>(v1: T, v2: T, v3: T) -> Vec<T> /{
     pop     eax
 }/
 
-pub native vecOf<T>(v1: T, v2: T, v3: T, v4: T) -> Vec<T> /{
+pub fn vecOf<T>(v1: T, v2: T, v3: T, v4: T) -> Vec<T> /{
     $call(rasmalloc, 20, " for vecOf 4")
     push    eax
     mov     dword eax, [eax]
@@ -73,7 +73,7 @@ pub native vecOf<T>(v1: T, v2: T, v3: T, v4: T) -> Vec<T> /{
 }/
 
 
-pub native vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T) -> Vec<T> /{
+pub fn vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T) -> Vec<T> /{
     $call(rasmalloc, 24, " for vecOf 5")
     push    eax
     mov     dword eax, [eax]
@@ -100,7 +100,7 @@ pub native vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T) -> Vec<T> /{
     pop     eax
 }/
 
-pub native vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
+pub fn vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> Vec<T> /{
     $call(rasmalloc, 36, " for vecOf 8")
     push    eax
     mov     dword eax, [eax]
@@ -136,7 +136,7 @@ pub native vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T, v8: T) -> V
     pop     eax
 }/
 
-pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
+pub fn forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
     push    ebx
     push    ecx
     push    edx
@@ -164,7 +164,7 @@ pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
 }/
 
 // end exclusive
-pub native vecRange(start: int, end: int) -> Vec<int> /{
+pub fn vecRange(start: int, end: int) -> Vec<int> /{
     push    ebx
     push    ecx
     push    edx
@@ -198,7 +198,7 @@ pub native vecRange(start: int, end: int) -> Vec<int> /{
     pop     ebx
 }/
 
-pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
+pub fn map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     push    ebx
     push    ecx
     push    edx
@@ -244,7 +244,7 @@ pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
 }/
 
 /** false = 0 true = any other value **/
-pub native anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
+pub fn anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     push    ebx
     push    ecx
 
@@ -274,7 +274,7 @@ pub native anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
 }/
 
 /** false = 0 true = any other value **/
-pub native allMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
+pub fn allMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     push    ebx
     push    ecx
 
@@ -303,7 +303,7 @@ pub native allMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     pop     ebx
 }/
 
-pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> int /{
+pub fn count<T>(vec: Vec<T>, f: fn(T) -> bool) -> int /{
     push    ebx
     push    ecx
     push    edx
@@ -337,7 +337,7 @@ pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> int /{
 }/
 
 // TODO the resulting vector is allocated with the size of the original vector, but the count of the elements is right
-pub native filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
+pub fn filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     push    ebx
     push    ecx
     push    edx
@@ -391,7 +391,7 @@ pub native filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     pop     ebx
 }/
 
-pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
+pub fn flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
     $call(vecFlattenCreate, $vec:int)
     push    eax
 
@@ -431,11 +431,11 @@ pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
     pop     eax
 }/
 
-/* TODO theoretically it should be native vecFlattenCreate<T>(vec: Vec<Vec<T>>) -> Vec<T>
+/* TODO theoretically it should be fn vecFlattenCreate<T>(vec: Vec<Vec<T>>) -> Vec<T>
  *      but for now there's no support for calling a generic function from assembly
  *      (the real function name is different for each real type)...
  */
-native vecFlattenCreate(vec: int) -> int /{
+fn vecFlattenCreate(vec: int) -> int /{
     push    ebx
     push    ecx
     push    edx
@@ -472,13 +472,13 @@ native vecFlattenCreate(vec: int) -> int /{
     pop     ebx
 }/
 
-pub native len<T>(vec: Vec<T>) -> int /{
+pub fn len<T>(vec: Vec<T>) -> int /{
       mov     dword eax, $vec
       mov     dword eax, [eax]
       mov     dword eax, [eax]
 }/
 
-pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
+pub fn foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     push    ebx
     push    ecx
     push    edx
@@ -522,7 +522,7 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     pop     ebx
 }/
 
-pub native first<T>(vec: Vec<T>) -> Option<T> /{
+pub fn first<T>(vec: Vec<T>) -> Option<T> /{
     push    ebx
     mov     dword ebx, $vec
     mov     dword ebx, [ebx]
@@ -539,7 +539,7 @@ pub native first<T>(vec: Vec<T>) -> Option<T> /{
     pop     ebx
 }/
 
-pub native last<T>(vec: Vec<T>) -> Option<T> /{
+pub fn last<T>(vec: Vec<T>) -> Option<T> /{
     push    ebx
     mov     dword ebx, $vec
     mov     dword ebx, [ebx]
@@ -558,7 +558,7 @@ pub native last<T>(vec: Vec<T>) -> Option<T> /{
     pop     ebx
 }/
 
-pub native push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
+pub fn push<T>(vec: Vec<T>, o: T) -> Vec<T>/{
     push    ebx
     push    ecx
     push    edx
@@ -597,7 +597,7 @@ pub fn VecReferences(vec: int, generic: int) -> int {
     vec
 }
 
-pub native Vec<T>() -> Vec<T> /{
+pub fn Vec<T>() -> Vec<T> /{
     $call(rasmalloc, 4, " for Vec")
     push    eax
     mov     dword eax, [eax]
@@ -605,7 +605,7 @@ pub native Vec<T>() -> Vec<T> /{
     pop     eax
 }/
 
-pub native zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> /{
+pub fn zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> /{
     push    ebx
     push    ecx
     push    edx
@@ -667,7 +667,7 @@ pub native zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) ->
     pop     ebx
 }/
 
-pub native add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
+pub fn add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
     push    ebx
     push    ecx
     push    edx
@@ -719,7 +719,7 @@ pub native add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
     pop     ebx
 }/
 
-pub native charsVec(s: str) -> Vec<char> /{
+pub fn charsVec(s: str) -> Vec<char> /{
     push    ebx
     push    ecx
     push    edx
@@ -781,7 +781,7 @@ pub native charsVec(s: str) -> Vec<char> /{
     pop     ebx
 }/
 
-pub native get<T>(vec: Vec<T>, i: int) -> Option<T> /{
+pub fn get<T>(vec: Vec<T>, i: int) -> Option<T> /{
     push    ebx
     mov     dword ebx, $vec  ; address to the allocation table
     mov     dword ebx, [ebx] ; address to the "Vec struct"

@@ -1,6 +1,6 @@
 pub type Vec<T> /{ hasReferences = true, nativeType = struct Vector* }/
 
-native Vec(length: int, size: int) -> RasmPointer /{
+fn Vec(length: int, size: int) -> RasmPointer /{
     size_t total_length = length * 1.2;
     if (total_length < 10) {
         total_length = 10;
@@ -14,7 +14,7 @@ native Vec(length: int, size: int) -> RasmPointer /{
     return result;
 }/
 
-pub native VecAddRef<T>(address: Vec<T>) /{
+pub fn VecAddRef<T>(address: Vec<T>) /{
     if (address->count == 0) {
         struct Vector *vector = $castAddress($address);
 
@@ -30,7 +30,7 @@ pub native VecAddRef<T>(address: Vec<T>) /{
     addRef(address);
 }/
 
-pub native VecDeref<T>(address: Vec<T>) /{
+pub fn VecDeref<T>(address: Vec<T>) /{
     if (address->count == 1) {
         struct Vector *vector = $castAddress($address);
 
@@ -47,12 +47,12 @@ pub native VecDeref<T>(address: Vec<T>) /{
     deref(address);
 }/
 
-pub native Vec<T>() -> Vec<T> /{
+pub fn Vec<T>() -> Vec<T> /{
     size_t s = sizeof($realTypeName(T));
     return $call(Vec,0,s);
 }/
 
-pub native first<T>(vec: Vec<T>) -> Option<T> /{
+pub fn first<T>(vec: Vec<T>) -> Option<T> /{
     size_t length = $castAddress($vec)->length;
 
     if (length == 0) {
@@ -68,7 +68,7 @@ pub native first<T>(vec: Vec<T>) -> Option<T> /{
     }
 }/
 
-pub native last<T>(vec: Vec<T>) -> Option<T> /{
+pub fn last<T>(vec: Vec<T>) -> Option<T> /{
     size_t length = $castAddress($vec)->length;
 
     if (length == 0) {
@@ -84,7 +84,7 @@ pub native last<T>(vec: Vec<T>) -> Option<T> /{
     }
 }/
 
-pub native push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
+pub fn push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
     $include(<stdlib.h>)
     $include(<string.h>)
 
@@ -114,11 +114,11 @@ pub native push<T>(vec: Vec<T>, o: T) -> Vec<T> /{
     }
 }/
 
-pub native len<T>(vec: Vec<T>) -> int /{
+pub fn len<T>(vec: Vec<T>) -> int /{
     return $castAddress($vec)->length;
 }/
 
-pub native vecOf<T>(o: T) -> Vec<T> /{
+pub fn vecOf<T>(o: T) -> Vec<T> /{
     size_t s = sizeof($realTypeName(T));
     struct RasmPointer_ *result = $call(Vec,1,s:int);
     struct Vector *result_vec = (struct Vector*)result->address;
@@ -130,7 +130,7 @@ pub native vecOf<T>(o: T) -> Vec<T> /{
     return result;
 }/
 
-pub native toVec<T>(iter: Iter<T>) -> Vec<T> /{
+pub fn toVec<T>(iter: Iter<T>) -> Vec<T> /{
     long chunkSize = 50;
     size_t t_size = sizeof($realTypeName(T));
     struct RasmPointer_ *result = $call(Vec,chunkSize,t_size:int);
@@ -189,7 +189,7 @@ pub native toVec<T>(iter: Iter<T>) -> Vec<T> /{
     return result;
 }/
 
-pub native vecOf<T>(o1: T, o2: T) -> Vec<T> /{
+pub fn vecOf<T>(o1: T, o2: T) -> Vec<T> /{
     size_t s = sizeof($realTypeName(T));
     struct RasmPointer_ *result = $call(Vec,2,s);
     struct Vector *result_vec = (struct Vector*)result->address;
@@ -202,7 +202,7 @@ pub native vecOf<T>(o1: T, o2: T) -> Vec<T> /{
     return result;
 }/
 
-pub native vecOf<T>(o1: T, o2: T, o3: T) -> Vec<T> /{
+pub fn vecOf<T>(o1: T, o2: T, o3: T) -> Vec<T> /{
     size_t s = sizeof($realTypeName(T));
     struct RasmPointer_ *result = $call(Vec,3,s:int);
     struct Vector *result_vec = (struct Vector*)result->address;
@@ -216,7 +216,7 @@ pub native vecOf<T>(o1: T, o2: T, o3: T) -> Vec<T> /{
     return result;
 }/
 
-pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T) -> Vec<T> /{
+pub fn vecOf<T>(o1: T, o2: T, o3: T, o4: T) -> Vec<T> /{
     size_t s = sizeof($realTypeName(T));
     struct RasmPointer_ *result = $call(Vec, 4,s:int);
     struct Vector *result_vec = (struct Vector*)result->address;
@@ -231,7 +231,7 @@ pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T) -> Vec<T> /{
     return result;
 }/
 
-pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T) -> Vec<T> /{
+pub fn vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T) -> Vec<T> /{
     size_t s = sizeof($realTypeName(T));
     struct RasmPointer_ *result = $call(Vec, 5,s:int);
     struct Vector *result_vec = (struct Vector*)result->address;
@@ -247,7 +247,7 @@ pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T) -> Vec<T> /{
     return result;
 }/
 
-pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T, o8: T) -> Vec<T> /{
+pub fn vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T, o8: T) -> Vec<T> /{
     size_t s = sizeof($realTypeName(T));
     struct RasmPointer_ *result = $call(Vec,8,s:int);
     struct Vector *result_vec = (struct Vector*)result->address;
@@ -266,7 +266,7 @@ pub native vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T, o8: T) -> V
     return result;
 }/
 
-native optIOError() -> Option<IOError> /{
+fn optIOError() -> Option<IOError> /{
     $include(<errno.h>)
 
     if (errno == 0) {
@@ -278,8 +278,8 @@ native optIOError() -> Option<IOError> /{
 }/
 
 /*
-TODO it does not addRef/deref in call print of single element, so for now, we use the non native implementation
-pub native print<T>(file: File, vec: Vec<T>) -> Option<IOError> /{
+TODO it does not addRef/deref in call print of single element, so for now, we use the non fn implementation
+pub fn print<T>(file: File, vec: Vec<T>) -> Option<IOError> /{
     $include(<stdio.h>)
 
     size_t length = $castAddress($vec)->length;
@@ -297,7 +297,7 @@ pub native print<T>(file: File, vec: Vec<T>) -> Option<IOError> /{
 */
 
 // end exclusive
-pub native vecRange(start: int, end: int) -> Vec<int> /{
+pub fn vecRange(start: int, end: int) -> Vec<int> /{
     $include(<stdlib.h>)
 
     size_t length = end-start;
@@ -316,7 +316,7 @@ pub native vecRange(start: int, end: int) -> Vec<int> /{
     return result;
 }/
 
-pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
+pub fn map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
     $realTypeName(T) *array = ($realTypeName(T) *)values->address;
@@ -355,7 +355,7 @@ pub native map<T,T1>(vec: Vec<T>, f: fn(T) -> T1) -> Vec<T1>/{
 }/
 
 // false 0 true 1
-pub native anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
+pub fn anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
     $realTypeName(T) *array = ($realTypeName(T) *)values->address;
@@ -370,7 +370,7 @@ pub native anyMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
 }/
 
 // false 0 true 1
-pub native allMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
+pub fn allMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
     $realTypeName(T) *array = ($realTypeName(T) *)values->address;
@@ -384,7 +384,7 @@ pub native allMatch<T>(vec: Vec<T>, f: fn(T) -> bool) -> bool /{
     return 1;
 }/
 
-pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> int /{
+pub fn count<T>(vec: Vec<T>, f: fn(T) -> bool) -> int /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
     $realTypeName(T) *array = ($realTypeName(T) *)values->address;
@@ -399,7 +399,7 @@ pub native count<T>(vec: Vec<T>, f: fn(T) -> bool) -> int /{
     return result;
 }/
 
-pub native filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
+pub fn filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
     $realTypeName(T) *array = ($realTypeName(T) *)values->address;
@@ -431,7 +431,7 @@ pub native filter<T>(vec: Vec<T>, filter: fn(T) -> bool) -> Vec<T> /{
     return result;
 }/
 
-pub native zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> /{
+pub fn zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) -> T) -> Vec<T> /{
     size_t length1 = $castAddress($vec1)->length;
     struct RasmPointer_ *values1 = $castAddress($vec1)->values;
     $realTypeName(T1) *array1 = ($realTypeName(T1) *)values1->address;
@@ -465,7 +465,7 @@ pub native zip<T1,T2,T>(vec1: Vec<T1>, vec2: Vec<T2>, zipFunction: fn(T1, T2) ->
     return result;
 }/
 
-pub native add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
+pub fn add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
     $include(<string.h>)
 
     size_t length1 = $castAddress($vec1)->length;
@@ -491,7 +491,7 @@ pub native add<T>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> /{
     return result;
 }/
 
-pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
+pub fn flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
     size_t s = sizeof($realTypeName(T));
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
@@ -524,7 +524,7 @@ pub native flatten<T>(vec: Vec<Vec<T>>) -> Vec<T> /{
     return result;
 }/
 
-pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
+pub fn foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     $isRef(T1, "", "/*")
         size_t TO_DEREF_CACHE_SIZE = 100;
     $isRef(T1, "", "*/")
@@ -590,7 +590,7 @@ pub native foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
     return result;
 }/
 
-pub native charsVec(s: str) -> Vec<char> /{
+pub fn charsVec(s: str) -> Vec<char> /{
     $include(<stdlib.h>)
 
     int length = 
@@ -634,7 +634,7 @@ pub native charsVec(s: str) -> Vec<char> /{
     return result;
 }/
 
-pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
+pub fn forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
     size_t length = $castAddress($vec)->length;
     struct RasmPointer_ *values = $castAddress($vec)->values;
     $realTypeName(T) *array = ($realTypeName(T) *)values->address;
@@ -644,7 +644,7 @@ pub native forEach<T>(vec: Vec<T>, f: fn(T) -> ()) /{
     }
 }/
 
-pub native get<T>(vec: Vec<T>, i: int) -> Option<T> /{
+pub fn get<T>(vec: Vec<T>, i: int) -> Option<T> /{
     int l = $castAddress($vec)->length;
     if (i >= l || i < 0) {
         return $enumSimple(None);
@@ -658,7 +658,7 @@ pub native get<T>(vec: Vec<T>, i: int) -> Option<T> /{
     }
 }/
 
-native getUnsafe<T>(vec: Vec<T>, i: int) -> T /{
+fn getUnsafe<T>(vec: Vec<T>, i: int) -> T /{
     struct RasmPointer_ *array_values = $castAddress($vec)->values;           \
     $realTypeName(T) *array = ($realTypeName(T) *)array_values->address;     \
     return array[i];

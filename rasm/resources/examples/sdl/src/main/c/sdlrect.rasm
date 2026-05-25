@@ -1,6 +1,6 @@
 pub type SDLRect /{ hasReferences = true, nativeType = SDL_Rect* }/
 
-pub native SDLRect(x: int, y: int, w: int, h: int) -> SDLRect /{
+pub fn SDLRect(x: int, y: int, w: int, h: int) -> SDLRect /{
     struct RasmPointer_ *result = rasmMalloc(sizeof(struct SDL_Rect));
     struct SDL_Rect *rect = (struct SDL_Rect*)result->address;
     
@@ -9,26 +9,26 @@ pub native SDLRect(x: int, y: int, w: int, h: int) -> SDLRect /{
     return result;
 }/
 
-pub native SDLRectAddRef<T>(address: Vec<T>) /{
+pub fn SDLRectAddRef<T>(address: Vec<T>) /{
     addRef(address);
 }/
 
-pub native SDLRectDeref<T>(address: Vec<T>) /{
+pub fn SDLRectDeref<T>(address: Vec<T>) /{
     deref(address);
 }/
 
-pub native x(rect: SDLRect) -> int /{
+pub fn x(rect: SDLRect) -> int /{
     return $castAddress($rect)->x;
 }/
 
-pub native y(rect: SDLRect) -> int /{
+pub fn y(rect: SDLRect) -> int /{
     return $castAddress($rect)->y;
 }/
 
-pub native w(rect: SDLRect) -> int /{
+pub fn w(rect: SDLRect) -> int /{
     return $castAddress($rect)->w;
 }/
 
-pub native h(rect: SDLRect) -> int /{
+pub fn h(rect: SDLRect) -> int /{
     return $castAddress($rect)->h;
 }/

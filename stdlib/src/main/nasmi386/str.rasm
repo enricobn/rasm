@@ -2,7 +2,7 @@
  * parse a string to a number
  from https://stackoverflow.com/questions/19461476/convert-string-to-int-x86-32-bit-assembler-using-nasm
  **/
-pub native toInt(s: str) -> Option<int> /{
+pub fn toInt(s: str) -> Option<int> /{
     push    ecx
     push    edx ; don't remove since imul stores the "high" result to edx
     mov edx, $s ; the pointer to the stack table our string
@@ -31,7 +31,7 @@ pub native toInt(s: str) -> Option<int> /{
     pop    ecx
 }/
 
-pub native add(s1: str, s2: str) -> str /{
+pub fn add(s1: str, s2: str) -> str /{
     push    ebx
     push    ecx
     push    edx
@@ -67,7 +67,7 @@ pub native add(s1: str, s2: str) -> str /{
 
 // TODO I don't like it as public, but it's used in print, probably we need a pub(lib) option
 /** Returns the length of the string in bytes **/
-pub native slen(s: str) -> int /{
+pub fn slen(s: str) -> int /{
     push    ebx             ; Save ebx to the stack since we use it
     mov     eax, $s         ; Get the parameter from the stack (4 the PC + 4 ebp) and put it in eax
     mov     dword eax,[eax]
@@ -85,7 +85,7 @@ pub native slen(s: str) -> int /{
 }/
 
 // TODO: check for negative pos or len
-pub native substr(s: str, pos: int, len: int) -> Option<str> /{
+pub fn substr(s: str, pos: int, len: int) -> Option<str> /{
     push ebx
     push ecx
 
@@ -132,7 +132,7 @@ pub native substr(s: str, pos: int, len: int) -> Option<str> /{
  *  TODO handle beyond the end of the string.
  *  It is used to handle UTF-8 encoding
  **/
-pub native nextChar(s: str, offset: int) -> int /{
+pub fn nextChar(s: str, offset: int) -> int /{
 
     push    ebx
     push    ecx
@@ -176,7 +176,7 @@ pub native nextChar(s: str, offset: int) -> int /{
     pop     ebx
 }/
 
-pub native eq(s1: str, s2: str) -> bool /{
+pub fn eq(s1: str, s2: str) -> bool /{
     push   ebx
     push   ecx
     push   edx
@@ -205,7 +205,7 @@ pub native eq(s1: str, s2: str) -> bool /{
     pop   ebx
 }/
 
-pub native eq(a: char, b: char) -> bool /{
+pub fn eq(a: char, b: char) -> bool /{
     $inline()
     mov     eax,$a
     cmp     eax,$b
@@ -214,7 +214,7 @@ pub native eq(a: char, b: char) -> bool /{
     mov     eax,0 ; false
 }/
 
-pub native len(s: str) -> int /{
+pub fn len(s: str) -> int /{
     push    ebx
     push    ecx
 
@@ -234,7 +234,7 @@ pub native len(s: str) -> int /{
     pop     ebx
 }/
 
-pub native add(s: str, c: char) -> str /{
+pub fn add(s: str, c: char) -> str /{
     push    ebx
     push    ecx
     push    edx
@@ -268,7 +268,7 @@ pub native add(s: str, c: char) -> str /{
 /*
 false = 0 true = 1
 */
-pub native isAlpha(c: char) -> bool /{
+pub fn isAlpha(c: char) -> bool /{
     push    ebx
     mov     dword eax,0
 
@@ -291,7 +291,7 @@ pub native isAlpha(c: char) -> bool /{
 /*
 false = 0 true = 1
 */
-pub native isNumber(c: char) -> bool /{
+pub fn isNumber(c: char) -> bool /{
     push    ebx
     mov     dword eax,0
 

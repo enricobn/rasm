@@ -10,7 +10,6 @@ use crate::lexer::tokens::{
     BracketKind, BracketStatus, KeywordKind, PunctuationKind, Token, TokenKind,
 };
 use crate::parser::ParserState::StructDef;
-use crate::parser::asm_def_parser::NativeFnParser;
 use crate::parser::ast::ASTExpression::ASTFunctionCallExpression;
 use crate::parser::ast::ASTFunctionBody::{NativeBody, RASMBody};
 use crate::parser::ast::{
@@ -26,7 +25,6 @@ use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
 use rasm_utils::{OptionDisplay, SliceDisplay, debug_i};
 
-mod asm_def_parser;
 pub mod ast;
 pub mod builtin_functions;
 mod enum_parser;
@@ -510,24 +508,6 @@ impl Parser {
                 self.add_error(format!("Expected function name, but got {}", name_token));
                 self.i += 1;
             }
-        } else if let Some((name_token, param_types, modifiers, next_i)) =
-            NativeFnParser::new(self).try_parse()?
-        {
-            let name = name_token.alpha().unwrap();
-            let function_def = ASTFunctionDef {
-                name,
-                parameters: Vec::new(),
-                body: NativeBody("".into()),
-                return_type: ASTType::ASTUnitType,
-                generic_types: param_types,
-                position: name_token.position.clone(),
-                modifiers,
-                target: None,
-            };
-            self.parser_data.push(ParserData::FunctionDef(function_def));
-            self.state.push(ParserState::FunctionDef);
-            self.state.push(ParserState::FunctionDefParameter);
-            self.i = next_i;
         } else if let Some((name_token, type_params, modifiers, next_i)) =
             ENUM_PARSER.try_parse(self)
         {
@@ -585,9 +565,11 @@ impl Parser {
                 let statement_position = expr.position().copy();
                 self.state.pop();
                 self.parser_data.pop();
-                self.parser_data.push(ParserData::Statement(
-                    ASTStatement::ASTExpressionStatement(expr, statement_position),
-                ));
+                self.parser_data
+                    .push(ParserData::Statement(ASTStatement::ASTExpressionStatement(
+                        expr,
+                        statement_position,
+                    )));
             } else {
                 self.state.pop();
             }
@@ -1670,10 +1652,7 @@ mod tests {
         println!("errors {}", SliceDisplay(&errors));
 
         let error = errors.remove(0);
-        assert_eq!(
-            error.message,
-            "Expected expression, found ->".to_string()
-        );
+        assert_eq!(error.message, "Expected expression, found ->".to_string());
     }
 
     #[test]

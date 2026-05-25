@@ -1,4 +1,4 @@
-pub native sdlPollEvent() -> Option<SDLEvent> /{
+pub fn sdlPollEvent() -> Option<SDLEvent> /{
     push    ebx
     push    ecx
     push    edx

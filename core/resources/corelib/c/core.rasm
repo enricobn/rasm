@@ -3,15 +3,15 @@ pub type RasmPointer /{
     nativeType = struct RasmPointer_*
 }/
 
-pub native exitMain(status: int) /{
+pub fn exitMain(status: int) /{
     exit($status);
 }/
 
-pub native argc() -> int /{
+pub fn argc() -> int /{
     return argc_;
 }/
 
-pub native argv(i: int) -> Option<str> /{
+pub fn argv(i: int) -> Option<str> /{
     if (i >= argc_) {
         return $call(Option::None<str>);
     } else {

@@ -1,4 +1,4 @@
-pub native now() -> TimeVal /{
+pub fn now() -> TimeVal /{
     $include(<sys/time.h>)
     $include(<time.h>)
 
@@ -12,7 +12,7 @@ pub native now() -> TimeVal /{
 }/
 
 // from https://stackoverflow.com/questions/14818084/what-is-the-proper-include-for-the-function-sleep
-pub native sleep(timeVal: TimeVal) /{
+pub fn sleep(timeVal: TimeVal) /{
     $include(<unistd.h>)
 
     usleep(timeVal->sec * 1000000 + timeVal->nano);

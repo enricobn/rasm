@@ -1,3 +1,3 @@
-pub native printStacktrace() /{
+pub fn printStacktrace() /{
   print_stack_trace(5);
 }/

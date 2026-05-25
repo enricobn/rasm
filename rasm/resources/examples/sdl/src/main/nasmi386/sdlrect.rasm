@@ -1,6 +1,6 @@
 pub type SDLRect /{ hasReferences = true }/
 
-pub native SDLRect(x: int, y: int, w: int, h: int) -> SDLRect /{
+pub fn SDLRect(x: int, y: int, w: int, h: int) -> SDLRect /{
     push    ebx
     $call(rasmalloc, 16, " for SDLRect")
     push    eax
@@ -20,25 +20,25 @@ pub native SDLRect(x: int, y: int, w: int, h: int) -> SDLRect /{
     pop     ebx
 }/
 
-pub native x(rect: SDLRect) -> int /{
+pub fn x(rect: SDLRect) -> int /{
     mov     dword eax, $rect
     mov     dword eax, [eax]
     mov     dword eax, [eax]
 }/
 
-pub native y(rect: SDLRect) -> int /{
+pub fn y(rect: SDLRect) -> int /{
     mov     dword eax, $rect
     mov     dword eax, [eax]
     mov     dword eax, [eax + 4]
 }/
 
-pub native w(rect: SDLRect) -> int /{
+pub fn w(rect: SDLRect) -> int /{
     mov     dword eax, $rect
     mov     dword eax, [eax]
     mov     dword eax, [eax + 8]
 }/
 
-pub native h(rect: SDLRect) -> int /{
+pub fn h(rect: SDLRect) -> int /{
     mov     dword eax, $rect
     mov     dword eax, [eax]
     mov     dword eax, [eax + 12]

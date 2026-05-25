@@ -1,4 +1,4 @@
-pub native initRandom() /{
+pub fn initRandom() /{
     $include(<time.h>)
     $include(<sys/time.h>)
     $include(<stdlib.h>)
@@ -6,7 +6,7 @@ pub native initRandom() /{
     srand(time(NULL));   // Initialization, should only be called once.
 }/
 
-pub native random() -> int /{
+pub fn random() -> int /{
     $include(<time.h>)
     $include(<sys/time.h>)
     $include(<stdlib.h>)
@@ -15,6 +15,6 @@ pub native random() -> int /{
     return rand();
 }/
 
-pub native toUnit<T>(o: T) /{
+pub fn toUnit<T>(o: T) /{
     $inline()
 }/

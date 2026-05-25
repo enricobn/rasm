@@ -1,5 +1,5 @@
 /*
-native malloc(size: int) -> int /{
+fn malloc(size: int) -> int /{
     push    ebx
     push    ecx
     push    edx
@@ -100,7 +100,7 @@ native malloc(size: int) -> int /{
     pop     ebx
 }/
 
-native deref(address: int, descr: str) -> int /{
+fn deref(address: int, descr: str) -> int /{
     push    eax
     push    ebx
 
@@ -163,7 +163,7 @@ native deref(address: int, descr: str) -> int /{
     pop     eax
 }/
 
-native addRef(address: int, descr: str) /{
+fn addRef(address: int, descr: str) /{
     push    eax
     push    ebx
 
@@ -278,7 +278,7 @@ fn reused() {
     println("  reused");
 }
 
-native printAllocated() /{
+fn printAllocated() /{
     push    eax
     push    ebx
     push    ecx
@@ -308,7 +308,7 @@ native printAllocated() /{
     pop     eax
 }/
 
-native printTableSlotsAllocated() /{
+fn printTableSlotsAllocated() /{
     push    eax
     push    ebx
 

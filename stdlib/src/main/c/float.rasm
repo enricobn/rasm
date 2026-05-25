@@ -1,87 +1,87 @@
-pub native toFloat(n: int) -> float /{
+pub fn toFloat(n: int) -> float /{
     $inline()
     return ((float) $n);
 }/
 
-pub native toInt(n: float) -> Option<int> /{
+pub fn toInt(n: float) -> Option<int> /{
     int result = (int)$n;
     return
         $call(Some, result)
     ;
 }/
 
-pub native divf(n1: int, n2: int) -> float /{
+pub fn divf(n1: int, n2: int) -> float /{
     $inline()
     return (((float)$n1) / ((float) $n2));
 }/
 
-pub native sub(a: float, b: float) -> float /{
+pub fn sub(a: float, b: float) -> float /{
     $inline()
     return ($a - $b);
 }/
 
-pub native add(a: float, b: float) -> float /{
+pub fn add(a: float, b: float) -> float /{
     $inline()
     return ($a + $b);
 }/
 
-pub native add(a: float, b: int) -> float /{
+pub fn add(a: float, b: int) -> float /{
     $inline()
     return ($a + $b);
 }/
 
-pub native mul(a: float, b: float) -> float /{
+pub fn mul(a: float, b: float) -> float /{
     $inline()
     return ($a * $b);
 }/
 
-pub native div(a: float, b: float) -> float /{
+pub fn div(a: float, b: float) -> float /{
     $inline()
     return ($a / $b);
 }/
 
-pub native sub(a: float, b: int) -> float /{
+pub fn sub(a: float, b: int) -> float /{
     $inline()
     return ($a - $b);
 }/
 
-pub native sub(a: int, b: float) -> float /{
+pub fn sub(a: int, b: float) -> float /{
     $inline()
     return ($a - $b);
 }/
 
-pub native greater(a: float, b: float) -> bool /{
+pub fn greater(a: float, b: float) -> bool /{
     $inline()
     return ($a > $b);
 }/
 
-pub native greater(a: float, b: int) -> bool /{
+pub fn greater(a: float, b: int) -> bool /{
     $inline()
     return ($a > $b);
 }/
 
-pub native less(a: float, b: float) -> bool /{
+pub fn less(a: float, b: float) -> bool /{
     $inline()
     return ($a < $b);
 }/
 
-pub native less(a: float, b: int) -> bool /{
+pub fn less(a: float, b: int) -> bool /{
     $inline()
     return ($a < $b);
 }/
 
-pub native mul(f1: float, n2: int) -> float /{
+pub fn mul(f1: float, n2: int) -> float /{
     $inline()
     return ($f1 * $n2);
 }/
 
-pub native div(a: float, b: int) -> float /{
+pub fn div(a: float, b: int) -> float /{
     $inline()
     return ($a / $b);
 }/
 
 // from https://stackoverflow.com/questions/8257714/how-can-i-convert-an-int-to-a-string-in-c
-pub native toString(n: float) -> str /{
+pub fn toString(n: float) -> str /{
     // TODO calculate max length
     // $include(<math.h>)
     // int s_len = (int)((ceil(log10((double)$n));
@@ -93,7 +93,7 @@ pub native toString(n: float) -> str /{
     return _str;
 }/
 
-pub native toFloat(s: str) -> Option<float> /{
+pub fn toFloat(s: str) -> Option<float> /{
     char* pEnd;
     float f = strtof((char*)s->address, &pEnd);
     if (errno == 0) {

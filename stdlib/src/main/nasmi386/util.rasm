@@ -1,8 +1,8 @@
-pub native initRandom() /{
+pub fn initRandom() /{
     ; TODO
 }/
 
-pub native random() -> int /{
+pub fn random() -> int /{
     push    dword ebx
     push    dword ecx
     push    dword edx
@@ -22,6 +22,6 @@ pub native random() -> int /{
     pop ebx
 }/
 
-pub native toUnit<T>(o: T) /{
+pub fn toUnit<T>(o: T) /{
     $inline()
 }/

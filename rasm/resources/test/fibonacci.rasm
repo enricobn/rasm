@@ -46,7 +46,7 @@ fn fib(n: int) -> int {
 }
 
 /*
-native ff(n: int) -> int /{
+fn ff(n: int) -> int /{
     push    ebx
 
     mov     eax, $n

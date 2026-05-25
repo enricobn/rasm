@@ -225,12 +225,6 @@ impl Display for EnhASTFunctionDef {
             "()".into()
         };
 
-        let fun_or_asm = if let EnhASTFunctionBody::RASMBody(_) = self.body {
-            "fn"
-        } else {
-            "native"
-        };
-
         let args = self
             .parameters
             .iter()
@@ -238,8 +232,8 @@ impl Display for EnhASTFunctionDef {
             .collect::<Vec<String>>()
             .join(",");
         f.write_str(&format!(
-            "{}{} {}{generic_types}({args}) -> {rt}",
-            self.modifiers, fun_or_asm, self.name
+            "{}fn {}{generic_types}({args}) -> {rt}",
+            self.modifiers, self.name
         ))
     }
 }

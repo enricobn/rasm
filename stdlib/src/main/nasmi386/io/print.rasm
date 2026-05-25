@@ -1,4 +1,4 @@
-pub native STDOut() -> File /{
+pub fn STDOut() -> File /{
     $inline()
     mov dword eax, 1
 }/
@@ -7,7 +7,7 @@ pub native STDOut() -> File /{
  * Prints the number to the File specified.
  * https://stackoverflow.com/questions/25064565/printing-an-integer-with-x86-32-bit-linux-sys-write-nasm
  **/
-pub native print(file: File, n: int) -> Option<IOError>/{
+pub fn print(file: File, n: int) -> Option<IOError>/{
     push    esi
     push    ebx
     push    ecx
@@ -60,7 +60,7 @@ pub native print(file: File, n: int) -> Option<IOError>/{
 /**
  * Prints the number to the File specified.
  * now it's done via the toString function
-pub native print(file: File, n: float) -> Option<IOError> /{
+pub fn print(file: File, n: float) -> Option<IOError> /{
     push    ebx
     push    ecx
     push    edx
@@ -106,7 +106,7 @@ pub native print(file: File, n: float) -> Option<IOError> /{
     pop     ebx
 }/
 
-native printAligned(file: File, alignedMantissa: int, intNumbersCount: int) -> Option<IOError> /{
+fn printAligned(file: File, alignedMantissa: int, intNumbersCount: int) -> Option<IOError> /{
     push    ecx
 
     mov     dword ecx, 24
@@ -126,7 +126,7 @@ native printAligned(file: File, alignedMantissa: int, intNumbersCount: int) -> O
     pop     ecx
 }/
 
-native printDecimals(file: File, n: int, count: int) -> Option<IOError> /{
+fn printDecimals(file: File, n: int, count: int) -> Option<IOError> /{
     ; local val for result
     sub     dword esp,4
 
@@ -196,7 +196,7 @@ native printDecimals(file: File, n: int, count: int) -> Option<IOError> /{
     add    dword esp,4
 }/
 
-native printPadLeft(file: File, n: int, ch: char, count: int) -> Option<IOError> /{
+fn printPadLeft(file: File, n: int, ch: char, count: int) -> Option<IOError> /{
     push    ebx
 
     mov     dword ebx,$count
@@ -218,7 +218,7 @@ native printPadLeft(file: File, n: int, ch: char, count: int) -> Option<IOError>
 
 // false = 0 true = any other value
 // false if not valid
-native getNthBit(value: int, n: int) -> bool /{
+fn getNthBit(value: int, n: int) -> bool /{
     push ecx
 
     mov     dword eax,1
@@ -240,14 +240,14 @@ native getNthBit(value: int, n: int) -> bool /{
 /**
  * Prints a new line to file.
  */
-pub native println(file: File) -> Option<IOError> /{
+pub fn println(file: File) -> Option<IOError> /{
     $call(sysPrint, $file, _NEW_LINE: int, 1)
 }/
 
 /**
  * Prints the string to the file.
  **/
-pub native print(file: File, s: str) -> Option<IOError> /{
+pub fn print(file: File, s: str) -> Option<IOError> /{
     push    ebx
 
     $call(slen, $s)
@@ -260,7 +260,7 @@ pub native print(file: File, s: str) -> Option<IOError> /{
 }/
 
 // false = 0 true = any other value
-pub native print(file: File, b: bool) -> Option<IOError> /{
+pub fn print(file: File, b: bool) -> Option<IOError> /{
     cmp     dword $b,0
     jz      .false
     mov     eax,"true"
@@ -271,7 +271,7 @@ pub native print(file: File, b: bool) -> Option<IOError> /{
 .end:
 }/
 
-pub native printESC() /{
+pub fn printESC() /{
     push    eax
     push    ebx
     push    ecx
@@ -289,7 +289,7 @@ pub native printESC() /{
     pop     eax
 }/
 
-pub native print(file: File, c: char) -> Option<IOError> /{
+pub fn print(file: File, c: char) -> Option<IOError> /{
     push    ecx
     push    ebx
 
@@ -316,7 +316,7 @@ pub native print(file: File, c: char) -> Option<IOError> /{
     pop     ecx
 }/
 
-native sysPrint(file: File, s: int, len: int) -> Option<IOError> /{
+fn sysPrint(file: File, s: int, len: int) -> Option<IOError> /{
     push    dword edx
     push    dword ecx
     push    dword ebx

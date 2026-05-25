@@ -3,7 +3,7 @@ pub type File /{
     nativeType = FILE*
 }/
 
-pub native readFile(path: str) -> str /{
+pub fn readFile(path: str) -> str /{
     $include(<stdio.h>)
 
     struct RasmPointer_ *buffer = 0;
@@ -25,13 +25,13 @@ pub native readFile(path: str) -> str /{
     return buffer;
 }/
 
-pub native createFile(path: str) -> File /{
+pub fn createFile(path: str) -> File /{
     $include(<stdio.h>)
 
     return fopen(path->address, "w");
 }/
 
-pub native close(file: File) /{
+pub fn close(file: File) /{
     $include(<stdio.h>)
 
     /*
@@ -43,13 +43,13 @@ pub native close(file: File) /{
     }
 }/
 
-pub native delete(path: str) /{
+pub fn delete(path: str) /{
     $include(<stdio.h>)
 
     remove(path->address);
 }/
 
-pub native fileExists(path: str) -> bool /{
+pub fn fileExists(path: str) -> bool /{
     // TODO it's UNIX
     $include(<unistd.h>)
 

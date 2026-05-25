@@ -4,74 +4,74 @@ pub type SDLSurface /{ hasReferences = false, nativeType = SDL_Surface* }/
 pub type SDLTexture /{ hasReferences = false, nativeType = SDL_Texture* }/
 pub type SDLRWops /{ hasReferences = false, nativeType = SDL_RWops* }/
 
-pub native sdlInit() -> int /{
+pub fn sdlInit() -> int /{
     $include(<SDL.h>)
     // SDL_Init(SDL_INIT_EVERYTHING)
     return SDL_Init(62001);
 }/
 
-pub native sdlGetError() -> str /{
+pub fn sdlGetError() -> str /{
     return addStaticStringToHeap(SDL_GetError());
 }/
 
-pub native sdlQuit() /{
+pub fn sdlQuit() /{
     SDL_Quit();
 }/
 
-pub native sdlCreateWindow(title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
+pub fn sdlCreateWindow(title: str, x: int, y: int, width: int, height: int) -> SDLWindow /{
     return SDL_CreateWindow(title->address, x, y, width, height, 4);
 }/
 
-pub native sdlDelay(millis: int) /{
+pub fn sdlDelay(millis: int) /{
     SDL_Delay(millis);
 }/
 
-pub native sdlCreateRenderer(win: SDLWindow, index: int, flags: int) -> SDLRenderer /{
+pub fn sdlCreateRenderer(win: SDLWindow, index: int, flags: int) -> SDLRenderer /{
     return SDL_CreateRenderer(win, index, flags);
 }/
 
-pub native sdlLoadBMPRW(rw: SDLRWops) -> SDLSurface /{
+pub fn sdlLoadBMPRW(rw: SDLRWops) -> SDLSurface /{
     return SDL_LoadBMP_RW(rw, 1);
 }/
 
-pub native sdlRWFromFile(file: str, mode: str) -> SDLRWops /{
+pub fn sdlRWFromFile(file: str, mode: str) -> SDLRWops /{
     SDL_RWFromFile(file->address, mode->address);
 }/
 
-pub native sdlIMGLoadSVGRW(rw: SDLRWops) -> SDLSurface /{
+pub fn sdlIMGLoadSVGRW(rw: SDLRWops) -> SDLSurface /{
     $include(<SDL_image.h>)
     return IMG_LoadSVG_RW(rw);
 }/
 
-pub native sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> SDLTexture /{
+pub fn sdlCreateTextureFromSurface(ren: SDLRenderer, surface: SDLSurface) -> SDLTexture /{
     return SDL_CreateTextureFromSurface(ren, surface);
 }/
 
-pub native sdlFreeSurface(surface: SDLSurface) /{
+pub fn sdlFreeSurface(surface: SDLSurface) /{
     SDL_FreeSurface(surface);
 }/
 
-pub native sdlRenderClear(ren: SDLRenderer) /{
+pub fn sdlRenderClear(ren: SDLRenderer) /{
     SDL_RenderClear(ren);
 }/
 
-pub native sdlRenderCopy(ren: SDLRenderer, tex: SDLTexture) /{
+pub fn sdlRenderCopy(ren: SDLRenderer, tex: SDLTexture) /{
     SDL_RenderCopy(ren, tex, 0, 0);
 }/
 
-pub native sdlRenderPresent(ren: SDLRenderer) /{
+pub fn sdlRenderPresent(ren: SDLRenderer) /{
     SDL_RenderPresent(ren);
 }/
 
-pub native sdlDestroyRenderer(ren: SDLRenderer) /{
+pub fn sdlDestroyRenderer(ren: SDLRenderer) /{
     SDL_DestroyRenderer(ren);
 }/
 
-pub native sdlDestroyTexture(tex: SDLTexture) /{
+pub fn sdlDestroyTexture(tex: SDLTexture) /{
     SDL_DestroyTexture(tex);
 }/
 
-pub native sdlDestroyWindow(win: SDLWindow) /{
+pub fn sdlDestroyWindow(win: SDLWindow) /{
     SDL_DestroyWindow(win);
 }/
 
@@ -79,30 +79,30 @@ pub fn sdlSetRenderDrawColor(ren: SDLRenderer, color: SDLColor) {
     sdlSetRenderDrawColor(ren, r(color), g(color), b(color), a(color))
 }
 
-pub native sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: int) /{
+pub fn sdlSetRenderDrawColor(ren: SDLRenderer, r: int, g: int, b: int, a: int) /{
     SDL_SetRenderDrawColor(ren, r, g, b, a);
 }/
 
-pub native sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
+pub fn sdlRenderFillRect(ren: SDLRenderer, rect: SDLRect) /{
     SDL_RenderFillRect(ren, rect->address);
 }/
 
-pub native sdlRenderFillRect(ren: SDLRenderer, x: int, y: int, width: int, height: int) /{
+pub fn sdlRenderFillRect(ren: SDLRenderer, x: int, y: int, width: int, height: int) /{
     SDL_RenderFillRect(ren, &(SDL_Rect){x, y, width, height});
 }/
 
-pub native sdlRenderCopy(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
+pub fn sdlRenderCopy(ren: SDLRenderer, texture: SDLTexture, rect: SDLRect) /{
     $include(<stdlib.h>)
 
     SDL_RenderCopy(ren, $texture, NULL, rect->address);
 }/
 
-pub native w(surface: SDLSurface) -> int /{
+pub fn w(surface: SDLSurface) -> int /{
     $inline()
     return surface->w;
 }/
 
-pub native h(surface: SDLSurface) -> int /{
+pub fn h(surface: SDLSurface) -> int /{
     $inline()
     return surface->h;
 }/

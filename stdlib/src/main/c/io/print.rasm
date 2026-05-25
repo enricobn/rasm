@@ -1,11 +1,11 @@
-pub native STDOut() -> File /{
+pub fn STDOut() -> File /{
     $include(<stdio.h>)
     $inline()
     
     return stdout;
 }/
 
-native optIOError() -> Option<IOError> /{
+fn optIOError() -> Option<IOError> /{
     $include(<errno.h>)
     $include(<string.h>)
 
@@ -19,7 +19,7 @@ native optIOError() -> Option<IOError> /{
     }
 }/
 
-pub native print(file: File, s: str) -> Option<IOError> /{
+pub fn print(file: File, s: str) -> Option<IOError> /{
     $include(<stdio.h>)
     $include(<errno.h>)
 
@@ -33,7 +33,7 @@ pub native print(file: File, s: str) -> Option<IOError> /{
     return $call(optIOError);
 }/
 
-pub native print(file: File, n: int) -> Option<IOError> /{
+pub fn print(file: File, n: int) -> Option<IOError> /{
     $include(<stdio.h>)
     $include(<errno.h>)
 
@@ -43,7 +43,7 @@ pub native print(file: File, n: int) -> Option<IOError> /{
     return $call(optIOError);
 }/
 
-pub native print(file: File, n: float) -> Option<IOError> /{
+pub fn print(file: File, n: float) -> Option<IOError> /{
     $include(<stdio.h>)
     $include(<errno.h>)
 
@@ -53,7 +53,7 @@ pub native print(file: File, n: float) -> Option<IOError> /{
     return $call(optIOError);
 }/
 
-pub native print(file: File, b: bool) -> Option<IOError> /{
+pub fn print(file: File, b: bool) -> Option<IOError> /{
     $include(<stdio.h>)
     $include(<errno.h>)
 
@@ -67,7 +67,7 @@ pub native print(file: File, b: bool) -> Option<IOError> /{
     return $call(optIOError);
 }/
 
-pub native print(file: File, c: char) -> Option<IOError> /{
+pub fn print(file: File, c: char) -> Option<IOError> /{
     $include(<stdio.h>)
     $include(<errno.h>)
 
@@ -87,7 +87,7 @@ pub native print(file: File, c: char) -> Option<IOError> /{
     return $call(optIOError);
 }/
 
-pub native println(file: File) -> Option<IOError> /{
+pub fn println(file: File) -> Option<IOError> /{
     $include(<stdio.h>)
     $include(<errno.h>)
 
@@ -101,7 +101,7 @@ pub native println(file: File) -> Option<IOError> /{
     return $call(optIOError);
 }/
 
-pub native printESC() /{
+pub fn printESC() /{
     $include(<stdio.h>)
 
     printf("%c", 27);

@@ -1,4 +1,4 @@
-pub native lines(s: str) -> List<str> /{
+pub fn lines(s: str) -> List<str> /{
     sub  esp, 4 ; I save local space to store temporary address of list to dereference : [ebp -4]
     sub  esp, 4 ; I save local space to store a count of strings to dereference : [ebp -8]
     push ebx
@@ -94,7 +94,7 @@ pub fn chars(s: str) -> List<char> {
 }
 
 /*
-pub native chars(s: str) -> List<str> /{
+pub fn chars(s: str) -> List<str> /{
     push ebx
     push ecx
     push edx
