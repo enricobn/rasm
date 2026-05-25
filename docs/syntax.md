@@ -50,11 +50,13 @@ Generic types in generic functions cannot be constrained; they can be any type. 
 
 ## Native functions
 
-Native functions can be defined as:
+Native functions can be defined with particular body delimiters as:
 
-pub native print(s: str) /{
+```rasm
+pub fn print(s: str) /{
 
 }/
+```
 
 in the language specification, it is not defined what can be the syntax of a native function, and in which language is written, it depends on the specific compiler.
 

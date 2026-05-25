@@ -58,11 +58,13 @@ fn printName(name: str) {
 
 ## Native functions
 
-Native functions can be defined as:
+Native functions can be defined with particular body delimiters as:
 
-pub native print(s: str) /{
+```rasm
+pub fn print(s: str) /{
 
 }/
+```
 
 in the language specification, it is not defined what is the syntax of a native function, and in which language is written, it depends on the specific compiler.
 
