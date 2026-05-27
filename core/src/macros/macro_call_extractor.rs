@@ -17,16 +17,31 @@ use crate::{
 };
 
 pub struct MacroCallExtractor {
-    pub calls: Vec<MacroCall>,
-    pub attribute_macros: Vec<MacroCall>,
+    calls: Vec<MacroCall>,
+    attribute_macros: Vec<MacroCall>,
 }
 
 impl MacroCallExtractor {
+    pub fn new(calls: Vec<MacroCall>, attribute_macros: Vec<MacroCall>) -> Self {
+        Self {
+            calls,
+            attribute_macros,
+        }
+    }
+
+    pub fn calls(&self) -> &[MacroCall] {
+        &self.calls
+    }
+
+    pub fn attribute_macros(&self) -> &[MacroCall] {
+        &self.attribute_macros
+    }
+
     pub fn is_empty(&self) -> bool {
         self.calls.is_empty() && self.attribute_macros.is_empty()
     }
 
-    fn calls(&self) -> Vec<&MacroCall> {
+    fn all_calls(&self) -> Vec<&MacroCall> {
         self.calls
             .iter()
             .chain(self.attribute_macros.iter())
@@ -37,10 +52,10 @@ impl MacroCallExtractor {
         let mut dependent_macro_calls = Vec::new();
         let mut independent_macro_calls = Vec::new();
 
-        for call in self.calls().into_iter() {
+        for call in self.all_calls().into_iter() {
             if let Some(in_function) = &call.in_function {
                 if self
-                    .calls()
+                    .all_calls()
                     .iter()
                     .any(|it| &it.function_signature == in_function)
                 {
@@ -194,10 +209,7 @@ pub fn extract_macro_calls(
         calls.len(),
         attribute_macros.len()
     );
-    MacroCallExtractor {
-        calls,
-        attribute_macros,
-    }
+    MacroCallExtractor::new(calls, attribute_macros)
 }
 
 use std::{
@@ -1117,12 +1129,12 @@ mod test {
         let extractor = extract_macro_calls(&container, &catalog);
         assert_eq!(
             extractor
-                .calls()
+                .all_calls()
                 .iter()
                 .filter(|it| it.module_id().0.contains("macro_calls"))
                 .count(),
             6
         );
-        assert!(!extractor.calls().iter().any(|it| it.in_function.is_some()));
+        assert!(!extractor.all_calls().iter().any(|it| it.in_function.is_some()));
     }
 }

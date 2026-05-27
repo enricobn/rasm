@@ -352,8 +352,8 @@ mod tests {
 
     #[test]
     fn test_create_macro_module() {
-        let mce = MacroCallExtractor {
-            calls: vec![MacroCall {
+        let mce = MacroCallExtractor::new(
+            vec![MacroCall {
                 id: 1,
                 module_namespace: ModuleNamespace::global(),
                 module_id: ModuleId::global(),
@@ -377,8 +377,8 @@ mod tests {
                 },
                 in_function: None,
             }],
-            attribute_macros: Vec::new(),
-        };
+            Vec::new(),
+        );
 
         let container = ASTModulesContainer::new();
 
