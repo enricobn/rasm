@@ -1,4 +1,4 @@
-pub struct Point {
+struct Point {
     x: int,
     y: int
 }
@@ -16,7 +16,7 @@ println("p ", p)
 
 println("moved ", move(p, 100))
 
-pub fn toString(p: Point) -> str {
+fn toString(p: Point) -> str {
     "("
     .append(p.x)
     .append(",")

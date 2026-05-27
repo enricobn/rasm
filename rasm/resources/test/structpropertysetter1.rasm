@@ -1,4 +1,4 @@
-pub struct Point {
+struct Point {
     x: Option<int>,
     y: Option<int>
 }
@@ -9,7 +9,7 @@ let p1 = p.x(fn(xo) { xo.map(fn(x) { x.add(10)}) })
 println("p ", p)
 println("p1 ", p1)
 
-pub fn toString(p: Point) -> str {
+fn toString(p: Point) -> str {
     "("
     .append(p.x)
     .append(",")

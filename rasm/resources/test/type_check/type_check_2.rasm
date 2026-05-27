@@ -1,13 +1,13 @@
 const BALLSIZE = 5
 
-pub struct Ball {
+struct Ball {
     x: float,
     y: float
 }
 
 println(collides(Ball(1.0, 2.0), 1.0))
 
-pub fn collides(ball: Ball, barPos: float) -> bool {
+fn collides(ball: Ball, barPos: float) -> bool {
     // ball.x.add(BALLSIZE).greater(barPos);
     greater(add(x(ball), BALLSIZE), barPos)
 }

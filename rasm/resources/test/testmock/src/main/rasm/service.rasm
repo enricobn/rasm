@@ -1,12 +1,12 @@
 struct Connection {}
 
 @toString()
-pub struct User {
+struct User {
     name: str
 }
 
 @toString()
-pub struct Amount {
+struct Amount {
     user: User,
     amount: int
 }

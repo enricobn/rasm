@@ -1,22 +1,22 @@
 @toString()
-pub struct Point {
+struct Point {
     x: int,
     y: int
 }
 
 @toString()
-pub struct Circle {
+struct Circle {
     center: Point,
     radius: int
 }
 
 @toString()
-pub struct Shape {
+struct Shape {
     circle: Circle
 }
 
 @toString()
-pub struct Shapes {
+struct Shapes {
     shape: Shape
 }
 
