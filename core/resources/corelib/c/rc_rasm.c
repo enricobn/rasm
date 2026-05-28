@@ -85,9 +85,16 @@ void freeRasmReferences() {
 }
 
 struct RasmPointer_ *addStaticStringToHeap(const char *s) {
-  struct RasmPointer_ *result = rasmMalloc(strlen(s) + 1);
-  strcpy((char *)result->address, s);
+  struct RasmPointer_ *result = fs_alloc(fs_allocator);
+  result->address = (void *)s;
+  result->count = 1;
+  result->zero = NULL;
+
   return result;
+}
+
+void freeStaticString(struct RasmPointer_ *address) {
+  fs_free(fs_allocator, address);
 }
 
 struct Void_ *deref(struct RasmPointer_ *address) {

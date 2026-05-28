@@ -378,9 +378,10 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
     ) {
         if let Some(strings) = statics.any::<CStrings>() {
             for (_, name) in strings.map.iter() {
-                self.add(code, &format!("deref({name});"), None, true);
+                self.add(code, &format!("freeStaticString({name});"), None, true);
             }
         }
+
         //self.add(code, "deref(RASMSOURCEFOLDER);", None, true);
 
         if let Some(consts) = statics.any::<CConsts>() {
@@ -1082,6 +1083,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                     None,
                     true,
                 );
+                /*
                 CodeGenC::call_add_ref(
                     &self.code_manipulator,
                     &mut after,
@@ -1090,6 +1092,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
                     "",
                     typed_module,
                 );
+                */
                 self.add(
                     &mut include,
                     &format!("extern struct RasmPointer_ *{name};"),

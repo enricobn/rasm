@@ -41,6 +41,8 @@ void freeRasmReferences();
 
 struct RasmPointer_ *addStaticStringToHeap(const char *s);
 
+void freeStaticString(struct RasmPointer_ *address);
+
 struct Void_ *deref(struct RasmPointer_ *address);
 
 struct Void_ *addRef(struct RasmPointer_ *address);
