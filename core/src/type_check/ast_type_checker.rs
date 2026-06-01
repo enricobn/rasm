@@ -1111,28 +1111,6 @@ impl ASTTypeChecker {
 
         indent!();
 
-        let mut parameter_types_filters = Vec::with_capacity(call.parameters().len());
-
-        for e in call.parameters().iter() {
-            if let Some(entry) = self
-                .add_expr(
-                    e,
-                    val_context,
-                    statics,
-                    None,
-                    module_namespace,
-                    module_id,
-                    modules_container,
-                    function,
-                )
-                .and_then(|it| it.filter.clone())
-            {
-                parameter_types_filters.push(entry);
-            } else {
-                parameter_types_filters.push(ASTTypeFilter::Any);
-            }
-        }
-
         if let Some((lambda_return_type, parameters_types)) =
             val_context.get_lambda(call.function_name(), module_namespace)
         {
@@ -1168,7 +1146,6 @@ impl ASTTypeChecker {
 
             let result = self.process_function_signature(
                 &entry,
-                &parameter_types_filters,
                 call,
                 val_context,
                 statics,
@@ -1182,6 +1159,28 @@ impl ASTTypeChecker {
             dedent!();
 
             return result;
+        }
+
+        let mut parameter_types_filters = Vec::with_capacity(call.parameters().len());
+
+        for e in call.parameters().iter() {
+            if let Some(entry) = self
+                .add_expr(
+                    e,
+                    val_context,
+                    statics,
+                    None,
+                    module_namespace,
+                    module_id,
+                    modules_container,
+                    function,
+                )
+                .and_then(|it| it.filter.clone())
+            {
+                parameter_types_filters.push(entry);
+            } else {
+                parameter_types_filters.push(ASTTypeFilter::Any);
+            }
         }
 
         let mut functions = modules_container
@@ -1285,7 +1284,6 @@ impl ASTTypeChecker {
 
             self.process_function_signature(
                 &found_function,
-                &parameter_types_filters,
                 &call,
                 val_context,
                 statics,
@@ -1304,7 +1302,6 @@ impl ASTTypeChecker {
     fn process_function_signature(
         &mut self,
         function_signature_entry: &ASTFunctionSignatureEntry,
-        parameter_types_filters: &Vec<ASTTypeFilter>,
         call: &ASTFunctionCall,
         val_context: &mut ValContext,
         statics: &mut ValContext,
@@ -1315,9 +1312,8 @@ impl ASTTypeChecker {
         index: &ASTIndex,
     ) -> Option<Arc<ASTTypeCheckEntry>> {
         debug_i!(
-            "process_function_signature {} with {} expected {}",
+            "process_function_signature {} expected {}",
             function_signature_entry.signature,
-            SliceDisplay(parameter_types_filters),
             OptionDisplay(&expected_expression_type)
         );
         indent!();
@@ -2390,6 +2386,23 @@ mod tests {
                 }
             "#,
             32,
+            false,
+        );
+    }
+
+    #[test]
+    fn test_type_check_function_ref3() {
+        type_check_functions(
+            r#"
+                pub fn aFunction()-> str {
+                    Some(0).match(substr, "None")
+                }
+
+                fn substr(n: int) -> str {
+                    "Hello"
+                }
+            "#,
+            5,
             false,
         );
     }
