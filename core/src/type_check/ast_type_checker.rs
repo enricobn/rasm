@@ -1,15 +1,10 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Display,
-    iter::zip,
-    sync::Arc,
-};
+use std::{collections::HashMap, fmt::Display, iter::zip, sync::Arc};
 
 use itertools::Itertools;
 
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::{
-    OptionDisplay, SliceDisplay, chunk_size, debug_i,
+    OptionDisplay, chunk_size, debug_i,
     debug_indent::{enable_log, log_enabled},
     dedent, indent,
 };
@@ -239,9 +234,9 @@ impl ASTTypeCheckerResult {
         }
     }
 
-    fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) -> Arc<ASTTypeCheckEntry> {
+    fn insert(&mut self, id: usize, entry: ASTTypeCheckEntry) -> Arc<ASTTypeCheckEntry> {
         let e = Arc::new(entry);
-        self.map.insert(index.position().id, e.clone());
+        self.map.insert(id, e.clone());
         e
     }
 
@@ -257,8 +252,8 @@ impl ASTTypeCheckerResult {
         self.map.extend(other.map);
     }
 
-    pub fn remove(&mut self, index: &ASTIndex) -> Option<Arc<ASTTypeCheckEntry>> {
-        self.map.remove(&index.position().id)
+    pub fn remove(&mut self, id: &usize) -> Option<Arc<ASTTypeCheckEntry>> {
+        self.map.remove(id)
     }
 
     pub fn find_by_index(&self, index: &ASTIndex) -> Vec<(&usize, &Arc<ASTTypeCheckEntry>)> {
@@ -287,7 +282,7 @@ impl ASTTypeChecker {
         }
 
         debug_i!("ast_type_check added: {entry} : {}", entry.index());
-        self.result.insert(index, entry)
+        self.result.insert(index.position().id, entry)
     }
 
     fn add_error(&mut self, kind: ASTTypeCheckErroKind, index: ASTIndex, message: String) {
@@ -337,12 +332,14 @@ impl ASTTypeChecker {
             ASTTypeCheckerResult,
             LinkedHashMap<usize, ASTTypeCheckError>,
         )> = chunks
-            .par_iter()
+            // HENRY
+            .iter()
             .map(|chunk| {
                 enable_log(log_enabled);
 
                 let mut type_checker_chunk = ASTTypeChecker::new();
                 for (id, namespace, function) in chunk {
+                    println!("adding function: {function}");
                     type_checker_chunk.add_function(
                         function,
                         &static_val_context,
@@ -1101,6 +1098,7 @@ impl ASTTypeChecker {
         modules_container: &ASTModulesContainer,
         function: Option<&ASTFunctionDef>,
     ) -> Option<Arc<ASTTypeCheckEntry>> {
+        //println!("  add_call {index}");
         let module_namespace = index.module_namespace();
         let module_id = index.module_id();
 
@@ -1154,6 +1152,7 @@ impl ASTTypeChecker {
                 modules_container,
                 function,
                 index,
+                &Vec::new(),
             );
 
             dedent!();
@@ -1161,57 +1160,134 @@ impl ASTTypeChecker {
             return result;
         }
 
-        let mut parameter_types_filters = Vec::with_capacity(call.parameters().len());
-
-        for e in call.parameters().iter() {
-            if let Some(entry) = self
-                .add_expr(
-                    e,
-                    val_context,
-                    statics,
-                    None,
-                    module_namespace,
-                    module_id,
-                    modules_container,
-                    function,
-                )
-                .and_then(|it| it.filter.clone())
-            {
-                parameter_types_filters.push(entry);
-            } else {
-                parameter_types_filters.push(ASTTypeFilter::Any);
-            }
-        }
-
-        let mut functions = modules_container
-            .find_call_vec(
-                call.function_name(),
-                call.target(),
-                &parameter_types_filters,
-                expected_expression_type,
-                module_namespace,
-                index,
-            )
-            .into_iter()
-            .filter(|it| {
-                !call.is_macro() || get_macro_result_type(&it.signature.return_type).is_some()
+        let functions = modules_container
+            .get_signatures(&call.function_name())
+            .map(|it| {
+                it.iter()
+                    .filter(|entry| {
+                        entry.signature.parameters_types.len() == call.parameters().len()
+                            && entry
+                                .namespace
+                                .visible_from(&entry.signature.modifiers, module_namespace)
+                    })
+                    .filter(|it| {
+                        call.target()
+                            .as_ref()
+                            .map(|t| match &it.target {
+                                Some(target) => t == target,
+                                _ => false,
+                            })
+                            .unwrap_or(true)
+                    })
+                    .filter(|it| {
+                        !call.is_macro()
+                            || get_macro_result_type(&it.signature.return_type).is_some()
+                    })
+                    .collect_vec()
             })
-            .collect::<Vec<_>>();
+            .unwrap_or(Vec::new());
 
-        let result = if functions.is_empty() {
+        if functions.is_empty() {
             self.add_error(
                 ASTTypeCheckErroKind::Error,
                 index.clone(),
                 format!(
-                    "no functions for {}({}), expected expression type: {}, call target: {}",
+                    "no functions for {}, expected expression type: {}, call target: {}",
                     call.function_name(),
-                    SliceDisplay(&parameter_types_filters),
                     OptionDisplay(&expected_expression_type),
                     OptionDisplay(call.target())
                 ),
             );
-            None
-        } else if functions.len() > 1 {
+            dedent!();
+            return None;
+        } else {
+            let mut good_functions = Vec::new();
+            for signature in functions.into_iter() {
+                let mut parameter_types_filters = Vec::with_capacity(call.parameters().len());
+
+                for (i, e) in call.parameters().iter().enumerate() {
+                    let mut internal_type_checker = ASTTypeChecker::new();
+                    if let Some(entry) = internal_type_checker.add_expr(
+                        e,
+                        val_context,
+                        statics,
+                        signature.signature.parameters_types.get(i),
+                        module_namespace,
+                        module_id,
+                        modules_container,
+                        function,
+                    ) {
+                        if let Some(filter) = entry.filter().as_ref() {
+                            if filter.is_compatible(
+                                signature.signature.parameters_types.get(i).unwrap(),
+                                &signature.namespace,
+                                modules_container,
+                            ) {
+                                parameter_types_filters.push((e.position().id, entry));
+                                continue;
+                            }
+                        }
+                        //self.result.remove(&e.position().id);
+                    }
+                    break;
+                }
+
+                if parameter_types_filters.len() == call.parameters().len() {
+                    good_functions.push((parameter_types_filters, signature));
+                    if good_functions.len() > 1 {
+                        self.add_error(
+                            ASTTypeCheckErroKind::Error,
+                            index.clone(),
+                            format!(
+                                "found more than one valid function for {}\n{}",
+                                call.function_name(),
+                                good_functions
+                                    .iter()
+                                    .map(|it| format!(
+                                        "{}",
+                                        it.1.signature.clone().remove_generic_prefix(),
+                                    ))
+                                    .join("\n")
+                            ),
+                        );
+                        dedent!();
+                        return None;
+                    }
+                }
+            }
+
+            if good_functions.len() == 1 {
+                let p: &Vec<(usize, Arc<ASTTypeCheckEntry>)> = &good_functions[0].0;
+                let result = self.process_function_signature(
+                    &good_functions[0].1,
+                    call,
+                    val_context,
+                    statics,
+                    expected_expression_type,
+                    false,
+                    modules_container,
+                    function,
+                    index,
+                    p,
+                );
+                for (id, entry) in good_functions[0].0.iter() {
+                    self.result.insert(*id, entry.as_ref().clone());
+                }
+                dedent!();
+                return result;
+            } else {
+                self.add_error(
+                    ASTTypeCheckErroKind::Error,
+                    index.clone(),
+                    format!("cannot find a valid function for {}", call.function_name(),),
+                );
+                dedent!();
+                return None;
+            }
+        };
+
+        /*
+        else if functions.len() > 1 {
             let functions_msg = functions
                 .iter()
                 .map(|it| {
@@ -1294,9 +1370,7 @@ impl ASTTypeChecker {
                 &index,
             )
         };
-
-        dedent!();
-        return result;
+        */
     }
 
     fn process_function_signature(
@@ -1310,6 +1384,7 @@ impl ASTTypeChecker {
         modules_container: &ASTModulesContainer,
         function: Option<&ASTFunctionDef>,
         index: &ASTIndex,
+        entries: &Vec<(usize, Arc<ASTTypeCheckEntry>)>,
     ) -> Option<Arc<ASTTypeCheckEntry>> {
         debug_i!(
             "process_function_signature {} expected {}",
@@ -1365,7 +1440,8 @@ impl ASTTypeChecker {
             for (i, e) in call.parameters().iter().enumerate() {
                 let parameter_type = function_signature.parameters_types.get(i).unwrap();
 
-                if let Some(entry) = self.result.get(e.position().id) {
+                if i < entries.len() {
+                    let entry = &entries[i].1;
                     if let Some(calculated_type_filter) = entry.exact_filter_not_generic() {
                         if parameter_type.is_generic() {
                             loop_errors.extend(Self::add_resolve_type_filter(
@@ -1412,14 +1488,13 @@ impl ASTTypeChecker {
             dedent!();
 
             if resolved_generic_types.len() == resolved_generic_types_len {
-                if !loop_errors.is_empty() {
-                    for e in loop_errors {
-                        self.errors.insert(e.index.position().id, e);
-                    }
-                    dedent!();
-                    return None;
-                }
                 break;
+            } else if !loop_errors.is_empty() {
+                for e in loop_errors {
+                    self.errors.insert(e.index.position().id, e);
+                }
+                dedent!();
+                return None;
             }
         }
 
@@ -2402,7 +2477,7 @@ mod tests {
                     "Hello"
                 }
             "#,
-            5,
+            3,
             false,
         );
     }
