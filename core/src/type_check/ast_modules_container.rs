@@ -494,7 +494,7 @@ impl ASTModulesContainer {
         self.trees.get(id)
     }
 
-    fn is_compatible(
+    pub fn is_compatible(
         &self,
         a_type: &ASTType,
         a_namespace: &ModuleNamespace,

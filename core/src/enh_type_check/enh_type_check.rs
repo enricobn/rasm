@@ -67,7 +67,7 @@ pub struct EnhTypeCheck<'a> {
     stack: Vec<EnhASTIndex>,
     functions_stack: LinkedHashMap<String, Vec<EnhASTIndex>>,
     new_functions: HashMap<String, (EnhASTFunctionDef, EnhASTNameSpace)>,
-    type_checker: ASTTypeChecker,
+    type_checker: ASTTypeChecker<'a>,
     modules_catalog: &'a dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
     modules_container: &'a ASTModulesContainer,
     unique_function_names: HashMap<String, String>,
@@ -81,7 +81,7 @@ impl<'a> EnhTypeCheck<'a> {
     pub fn new(
         target: CompileTarget,
         memory_debug: bool,
-        type_checker: ASTTypeChecker,
+        type_checker: ASTTypeChecker<'a>,
         modules_catalog: &'a dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
         modules_container: &'a ASTModulesContainer,
         debug: bool,
@@ -769,7 +769,11 @@ impl<'a> EnhTypeCheck<'a> {
 
             debug_i!("adding new function {}", new_function_def);
 
-            new_functions.push((new_function_def, self.stack.clone(), original_call_namespace.clone()));
+            new_functions.push((
+                new_function_def,
+                self.stack.clone(),
+                original_call_namespace.clone(),
+            ));
             // TODO check error
 
             /*
@@ -1595,12 +1599,11 @@ impl<'a> EnhTypeCheck<'a> {
                 })?;
         }
 
-        let inner_original_call_namespace =
-            if new_function_def.resolved_generic_types.len() == 0 {
-                &new_function_def.namespace
-            } else {
-                original_call_namespace
-            };
+        let inner_original_call_namespace = if new_function_def.resolved_generic_types.len() == 0 {
+            &new_function_def.namespace
+        } else {
+            original_call_namespace
+        };
         let new_body = match &new_function_def.body {
             EnhASTFunctionBody::RASMBody(statements) => {
                 let new_statements = self.transform_statements(
@@ -2020,7 +2023,7 @@ impl<'a> EnhTypeCheck<'a> {
     }
 
     fn get_type_check_entry(&self, enh_index: &EnhASTIndex) -> Option<&Arc<ASTTypeCheckEntry>> {
-        self.type_checker.result.get(enh_index.position().id)
+        self.type_checker.get(enh_index.position().id)
     }
 
     pub fn type_of_expression(
@@ -2502,9 +2505,7 @@ mod tests {
     use crate::enh_type_check::typed_ast::ASTTypedModule;
     use crate::errors::CompilationError;
     use crate::project::RasmProject;
-    use crate::test_utils::{
-        project_to_ast_typed_module, project_to_ast_typed_module_with_macros,
-    };
+    use crate::test_utils::{project_to_ast_typed_module, project_to_ast_typed_module_with_macros};
     use rasm_parser::parser::ast::ASTModifiers;
 
     #[test]

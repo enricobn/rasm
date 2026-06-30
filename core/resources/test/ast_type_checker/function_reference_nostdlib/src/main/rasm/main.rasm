@@ -1,0 +1,31 @@
+pub enum List<T> {
+  Full(head: T, tail: List<T>),
+  Empty
+}
+
+pub enum Option<T> {
+  Some(value : T),
+  None
+}
+
+run()
+
+fn run() {
+    let l = listOf(1.1, 2.1)
+    println(l.map(add.curry(100.1))) // println(map(l, curry(add, 100.1)))
+
+    let l1 = listOf(1, 2)
+    println(l1.map(add.curry(100)))
+}
+
+fn listOf<T>(a: T, b:T) -> List<T> /{ }/
+
+fn println<T>(l: List<T>) /{ }/
+
+fn map<T,T1>(l: List<T>, f: fn(T) -> T1) -> List<T1> /{ }/
+
+fn add(a: float, b: float) -> float /{ }/
+
+fn add(a: int, b: int) -> int /{ }/
+
+pub fn curry<PT1,PT2,T>(lambda: fn(PT1,PT2) -> T, v1: PT1) -> fn(PT2) -> T /{ }/

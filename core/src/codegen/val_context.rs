@@ -96,6 +96,9 @@ impl ValContext {
         ast_type: ASTType,
         ast_index: &ASTIndex,
     ) -> Result<Option<ValKind>, String> {
+        if key == "function" {
+            println!("insert_let {}", key);
+        }
         debug_i!("adding let val {key} of type {ast_type} to context");
 
         let result = self.value_to_address.insert(
