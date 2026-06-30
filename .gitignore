@@ -11,3 +11,4 @@ perf.data*
 graphify-out/
 .opencode/
 .graphifyignore
+debug.log.xml

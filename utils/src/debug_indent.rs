@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::Write;
 
 pub static mut ENABLE_INDENT: bool = true;
+pub static mut ENABLE_LOG_STDOUT: bool = false;
 
 thread_local! {
     pub static ENABLE_LOG: RefCell<bool> = RefCell::new(true);
@@ -79,14 +80,16 @@ macro_rules! debug_i {
         ($ ( $ a: expr), *) => {
             if $crate::debug_indent::log_enabled() {
                 unsafe {
-                    $crate::debug_indent::INDENT.with(|indent| {
-                        let s = if !$crate::debug_indent::ENABLE_INDENT || *indent.borrow() == 0 {
-                            "".into()
-                        } else {
-                            "|  ".repeat(*indent.borrow())
-                        };
-                        log::debug!("{}{}", s, & format ! ( $( $ a), * ));
-                    });
+                    if $crate::debug_indent::ENABLE_LOG_STDOUT {
+                        $crate::debug_indent::INDENT.with(|indent| {
+                            let s = if !$crate::debug_indent::ENABLE_INDENT || *indent.borrow() == 0 {
+                                "".into()
+                            } else {
+                                "|  ".repeat(*indent.borrow())
+                            };
+                            log::debug!("{}{}", s, & format ! ( $( $ a), * ));
+                        });
+                    }
                 }
                 if log::log_enabled!(log::Level::Debug) {
                     $crate::debug_indent::write_to_log(& format ! ( $( $ a), * ));
