@@ -281,17 +281,17 @@ impl UI {
                     );
                 }
 
-                if !ast_type_checker.errors.is_empty() {
+                if !ast_type_checker.errors().is_empty() {
                     println!("selected_module errors");
                     ast_type_checker
-                        .errors
+                        .errors()
                         .iter()
                         .for_each(|(_, error)| println!("{error}"));
                 }
 
                 println!("selected_module takes {:?}", start.elapsed());
 
-                (ast_type_checker.result, info)
+                (ast_type_checker.result().clone(), info)
             } else {
                 (
                     ASTTypeCheckerResult::new(),

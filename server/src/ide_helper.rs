@@ -369,13 +369,13 @@ impl IDEHelper {
 
         (
             selectable_items,
-            type_checker.errors.values().cloned().collect(),
+            type_checker.errors().values().cloned().collect(),
         )
     }
 
     fn calculate_selectable_items(ast_type_checker: &ASTTypeChecker) -> Vec<IDESelectableItem> {
         let mut selectable_items = Vec::new();
-        for entry in ast_type_checker.result.map.values() {
+        for entry in ast_type_checker.values().values() {
             let ast_type = entry.filter().clone().and_then(|it| {
                 if let ASTTypeFilter::Exact(exact, _id) = it {
                     Some(exact)
