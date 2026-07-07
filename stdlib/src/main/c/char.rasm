@@ -1,6 +1,6 @@
 pub fn toString(c: char) -> str /{
-    char buf[5];
-    uint32_to_utf8_str(c, buf, sizeof(buf));
+    void *buf = malloc(5);
+    uint32_to_utf8_str(c, (char*)buf, 5);
     return addStaticStringToHeap(buf);
 }/
 
