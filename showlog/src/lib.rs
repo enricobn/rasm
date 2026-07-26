@@ -1,17 +1,11 @@
-use std::{collections::HashSet, env, fs};
+use std::{collections::HashSet, fs};
 
 use iced::{
     Element, Length, Padding, Task,
     widget::{Column, Row, Scrollable, button, horizontal_space, row, scrollable, text},
 };
 
-fn main() -> iced::Result {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Usage: {} <file.xml>", args[0]);
-        std::process::exit(1);
-    }
-    let file_path = &args[1];
+pub fn show_log(file_path: &str) -> iced::Result {
     let content = fs::read_to_string(file_path).unwrap_or_else(|e| {
         eprintln!("Error reading {}: {}", file_path, e);
         std::process::exit(1);
@@ -148,7 +142,11 @@ impl App {
     }
 }
 
-fn render_tree<'a>(node: &'a TreeNode, indent: usize, expanded: &HashSet<usize>) -> Column<'a, Message> {
+fn render_tree<'a>(
+    node: &'a TreeNode,
+    indent: usize,
+    expanded: &HashSet<usize>,
+) -> Column<'a, Message> {
     let mut col = Column::new();
 
     if node.children.is_empty() {

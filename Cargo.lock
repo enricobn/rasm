@@ -3028,6 +3028,7 @@ dependencies = [
  "rand 0.9.2",
  "rasm-core",
  "rasm-server",
+ "rasm-showlog",
  "rasm-ui",
  "rasm-utils",
  "tempdir",

@@ -1,6 +1,5 @@
 [workspace]
 members = ["core",  "parser", "rasm", "server", "utils", "showlog"]
-default-members = ["rasm"]
 resolver = "2"
 
 [workspace.package]
@@ -12,6 +11,7 @@ license = "GPL-3.0-or-later"
 rasm-core = { path = "./core" }
 rasm-parser = { path = "./parser" }
 rasm-server = { path = "./server" }
+rasm-showlog = { path = "./showlog" }
 rasm-ui = { path = "./ui" }
 rasm-utils = { path = "./utils" }
 

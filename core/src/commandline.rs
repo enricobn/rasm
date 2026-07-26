@@ -26,6 +26,7 @@ pub enum CommandLineAction {
     Install,
     Run,
     Server,
+    ShowLog,
     Test,
     UI,
 }

@@ -13,6 +13,7 @@ use rasm_core::{
     commandline::RasmProfile,
     pm::repository::PackageManager,
 };
+use rasm_showlog::show_log;
 use rasm_utils::debug_i;
 
 use rasm_core::project::RasmProject;
@@ -21,7 +22,7 @@ use rasm_server::server::rasm_server;
 use rasm_core::commandline::{CommandLineAction, CommandLineOptions};
 use rasm_ui::UI;
 
-fn main() {
+fn main() -> Result<(), String> {
     Builder::from_default_env()
         .format(|buf, record| {
             writeln!(
@@ -41,7 +42,7 @@ fn main() {
         .arg(
             Arg::new("ACTION")
                 .help("the action to perform")
-                .value_parser(["build", "install", "run", "buildtest", "test", "server", "ui"])
+                .value_parser(["build", "install", "run", "buildtest", "test", "showlog", "server", "ui"])
                 .required(true)
                 .index(1),
         )
@@ -149,6 +150,10 @@ fn main() {
 
     let command_line_options = parse_command_line_options(&matches);
 
+    if command_line_options.action == CommandLineAction::ShowLog {
+        return show_log(&src).map_err(|it| it.to_string());
+    }
+
     let src_path = Path::new(&src);
 
     let project = RasmProject::new(src_path.to_path_buf());
@@ -174,6 +179,8 @@ fn main() {
 
         target.run(project, command_line_options);
     }
+
+    Ok(())
 }
 
 fn parse_command_line_options(matches: &ArgMatches) -> CommandLineOptions {
@@ -183,6 +190,7 @@ fn parse_command_line_options(matches: &ArgMatches) -> CommandLineOptions {
         "install" => CommandLineAction::Install,
         "run" => CommandLineAction::Run,
         "server" => CommandLineAction::Server,
+        "showlog" => CommandLineAction::ShowLog,
         "test" => CommandLineAction::Test,
         "ui" => CommandLineAction::UI,
         it => panic!("Unsupported action {it}"),
