@@ -1,0 +1,13 @@
+[package]
+name = "rasm-showlog"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "showlog"
+path = "src/main.rs"
+
+[dependencies]
+iced = "0.13.1"
+roxmltree = "0.20"

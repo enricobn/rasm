@@ -3099,6 +3099,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-showlog"
+version = "0.1.0-alpha.0"
+dependencies = [
+ "iced",
+ "roxmltree",
+]
+
+[[package]]
 name = "rasm-ui"
 version = "0.1.0-alpha.0"
 dependencies = [

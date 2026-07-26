@@ -1,5 +1,6 @@
 [workspace]
-members = ["core", "parser", "rasm", "server", "utils"]
+members = ["core",  "parser", "rasm", "server", "utils", "showlog"]
+default-members = ["rasm"]
 resolver = "2"
 
 [workspace.package]
