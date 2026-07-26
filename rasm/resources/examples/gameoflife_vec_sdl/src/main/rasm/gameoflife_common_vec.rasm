@@ -24,7 +24,7 @@ pub fn moveCells(cells: Vec<Cell>, d: int) -> Vec<Cell> {
 pub fn next(cells: Vec<Cell>, allCells: Vec<FullCell>) -> Vec<Cell> {
     let result = map(filter(allCells, fn(it) {
         let adjsAlive = count(adjacents(it), fn(a) { isAlive(cells, a) })
-        if(isAlive(cells, it.cell),
+        iif(isAlive(cells, it.cell),
             or(eq(adjsAlive, 2),eq(adjsAlive,3)),
             eq(adjsAlive, 3)
         )

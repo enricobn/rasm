@@ -34,7 +34,7 @@ pub fn render(ren: Rasm2DGraphics, menuState : MenuState) {
         let time = highScore.time
 
         let color = match(last, fn(h) {
-            if(eq(h.time, time), COLORS.yellow, COLORS.blue)
+            iif(eq(h.time, time), COLORS.yellow, COLORS.blue)
         }, { COLORS.blue})
 
         let sScore = padLeft(toString(score), 10)

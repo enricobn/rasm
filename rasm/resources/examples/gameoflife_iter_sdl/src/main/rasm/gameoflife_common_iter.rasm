@@ -28,7 +28,7 @@ pub fn moveCells(cells: Iter<Cell>, d: int) -> Iter<Cell> {
 pub fn next(cells: Iter<Cell>, allCells: Iter<FullCell>) -> Iter<Cell> {
     let r = allCells.filter(fn(it) {
         let adjsAlive = it.adjacents.count(fn(a) { isAlive(cells, a) })
-        if(isAlive(cells, cell(it)),
+        iif(isAlive(cells, cell(it)),
             adjsAlive.eq(2).or(adjsAlive.eq(3)),
             adjsAlive.eq(3)
         )

@@ -53,7 +53,7 @@ fn next<M>(cells: M<Cell>, allCells: M<FullCell) -> M<Cell> {
     allCells
     .filter(fn(it) {
         let adjsAlive = count(adjacents(it), fn(a) { isAlive(cells, a) })
-        if(isAlive(cells, it.cell),
+        iif(isAlive(cells, it.cell),
             or(eq(adjsAlive, 2),eq(adjsAlive,3)),
             eq(adjsAlive, 3)
         )

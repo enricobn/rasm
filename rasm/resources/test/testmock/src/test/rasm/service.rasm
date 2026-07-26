@@ -152,7 +152,7 @@ fn changePar(expr: ASTExpression, newExpr: ASTExpression) -> ASTExpression {
                 call.parameters.map(changePar.curryRight(newExpr))
             ASTFunctionCallExpression(newCall)
         }, 
-        fn(s) { if(s.eq("whenParameter"), newExpr, expr) }, 
+        fn(s) { iif(s.eq("whenParameter"), newExpr, expr) }, 
         fn(value) { expr }, 
         fn(lambda) { 
             expr

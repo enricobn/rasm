@@ -7,7 +7,7 @@ pub struct Ball {
 }
 
 pub fn initialBall(now: TimeVal) -> Ball {
-    Ball(WIDTH.div(2).toFloat, HEIGHT.div(4).toFloat, if(random(2).eq(0), Right(), Left()), Down(), now)
+    Ball(WIDTH.div(2).toFloat, HEIGHT.div(4).toFloat, iif(random(2).eq(0), Right(), Left()), Down(), now)
 }
 
 pub fn update(ball: Ball, actualTime: TimeVal) -> Ball {

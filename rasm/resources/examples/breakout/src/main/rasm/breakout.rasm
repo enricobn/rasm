@@ -124,7 +124,7 @@ fn subscriptions(events: Rasm2DEvents) -> Vec<Message> {
     }, {
         let keys = events.keyPressed.map(KeyPressed)
             .add(events.keyReleased.map(KeyReleased))
-        if (keys.isEmpty, vecOf(Tick()), keys)
+        iif(keys.isEmpty, vecOf(Tick()), keys)
     })
 }
 

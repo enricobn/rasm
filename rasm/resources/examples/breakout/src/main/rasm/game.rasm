@@ -29,8 +29,8 @@ fn initialWorld() -> World {
         fn(x, y) {
             let yellow = random(10).eq(0)
 
-            let color = if(yellow, COLORS.yellow, COLORS.red)
-            let score = if(yellow, 100, 10)
+            let color = iif(yellow, COLORS.yellow, COLORS.red)
+            let score = iif(yellow, 100, 10)
             Brick(mul(x, BRICKWIDTH), add(HEADERHEIGHT, mul(y, BRICKHEIGHT)) , color, score) 
         })
 

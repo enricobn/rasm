@@ -80,7 +80,7 @@ pub fn toString(call: ASTFunctionCall) -> str {
             "<".add(call.generics.map(fn(it) { it.toString()}).join(", ")).add(">")
         })
 
-    let suffix = if(call.macro, "!", "")
+    let suffix = iif(call.macro, "!", "")
     call.functionName.add(suffix).add(prefix).append("(")
     .append(call.parameters.join(", "))
     .append(")")
@@ -97,7 +97,7 @@ pub enum ASTValue {
 pub fn toString(v: ASTValue) -> str {
     v.match(
         fn(value) { "\"".add(value).add("\"") }, 
-        fn(value) { if(value, "true", "false") },
+        fn(value) { iif(value, "true", "false") },
         fn(value) { value.toString() },
         fn(value) { value },
         fn(value) { value.toString() }
@@ -120,7 +120,7 @@ pub fn toString(astType: ASTType) -> str {
         fn(name, types) { name },
         fn(name, generics) { 
             let genericTypes = generics.map(toString).join(", ")
-            name.add(if(genericTypes.len.eq(0), "", "<".add(genericTypes).add(">"))) 
+            name.add(iif(genericTypes.len.eq(0), "", "<".add(genericTypes).add(">"))) 
         },
         { "()" }
     )
@@ -179,7 +179,7 @@ pub fn toString(def: ASTFunctionDef) -> str {
         fn(name, types) { " -> ".add(name) },
         fn(name, generics) { 
             " -> ".add(name)
-            .add(if(generics.len.greater(0), "<".add(generics.join(",")).add(">"), "")) 
+            .add(iif(generics.len.greater(0), "<".add(generics.join(",")).add(">"), "")) 
         },
         { "" }
     )
@@ -195,7 +195,7 @@ pub fn toString(def: ASTFunctionDef) -> str {
     def.modifiers.match({"pub "}, {""}, {"internal "})
     .add("fn ")
     .add(def.name)
-    .add(if(genericTypes.len.greater(0), "<".add(genericTypes).add(">"), ""))
+    .add(iif(genericTypes.len.greater(0), "<".add(genericTypes).add(">"), ""))
     .add("(")
     .add(parameters)
     .add(") ")
