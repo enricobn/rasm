@@ -367,11 +367,12 @@ impl RasmProject {
         }
     }
 
-    fn all_modules(
+    pub fn all_modules(
         &self,
         sub_project: &RasmSubProject,
         target: &CompileTarget,
-        is_principal_sub_project: bool,
+        could_have_main_body: bool,
+        add_dependencies: bool,
     ) -> (Vec<(ASTModule, EnhModuleInfo)>, Vec<CompilationError>) {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
@@ -382,17 +383,12 @@ impl RasmProject {
                 rasm_source_folder,
                 target,
                 sub_project,
-                is_principal_sub_project,
+                could_have_main_body,
             ));
         }
 
         if let Some(native_folder) = self.native_source_folder(sub_project, target.folder()) {
-            pairs.push(self.get_modules(
-                native_folder,
-                target,
-                sub_project,
-                is_principal_sub_project,
-            ));
+            pairs.push(self.get_modules(native_folder, target, sub_project, could_have_main_body));
         }
 
         /*
@@ -407,7 +403,7 @@ impl RasmProject {
 
         let log_enabled = log_enabled();
 
-        if is_principal_sub_project {
+        if add_dependencies {
             pairs.append(
                 &mut self
                     .dependencies_projects()
@@ -480,21 +476,7 @@ impl RasmProject {
             .collect::<Vec<_>>()
     }
 
-    pub fn container_and_catalog(
-        &self,
-        command_line_profile: &RasmProfile,
-        target: &CompileTarget,
-    ) -> (
-        ASTModulesContainer,
-        impl ModulesCatalog<EnhModuleId, EnhASTNameSpace> + use<>,
-        Vec<CompilationError>,
-    ) {
-        let mut catalog = RasmProjectCatalog::new();
-        let mut container = ASTModulesContainer::new();
-        let (mut modules, errors) = self.get_all_modules(command_line_profile, target);
-
-        // let start = Instant::now();
-
+    pub fn add_resources_module(&self, modules: &mut Vec<(ASTModule, EnhModuleInfo)>) {
         let mut resources_body = Vec::new();
 
         Self::add_folder(
@@ -518,6 +500,23 @@ impl RasmProject {
                 EnhASTNameSpace::global(),
             ),
         ));
+    }
+
+    pub fn container_and_catalog(
+        &self,
+        command_line_profile: &RasmProfile,
+        target: &CompileTarget,
+    ) -> (
+        ASTModulesContainer,
+        RasmProjectCatalog,
+        Vec<CompilationError>,
+    ) {
+        let mut catalog = RasmProjectCatalog::new();
+        let mut container = ASTModulesContainer::new();
+        let (mut modules, errors) = self.get_all_modules(command_line_profile, target);
+
+        // let start = Instant::now();
+        self.add_resources_module(&mut modules);
 
         for (module, info) in modules {
             container.add(
@@ -552,6 +551,7 @@ impl RasmProject {
             &RasmSubProject::main(),
             target,
             command_line_profile == &RasmProfile::Main,
+            true, //command_line_profile == &RasmProfile::Main,
         );
 
         let core_modules = self.core_modules(target);
@@ -578,8 +578,12 @@ impl RasmProject {
                 it.body = new_body;
             });
 
-            let (profile_modules, profile_errors) =
-                self.all_modules(&command_line_profile.principal_sub_project(), target, true);
+            let (profile_modules, profile_errors) = self.all_modules(
+                &command_line_profile.principal_sub_project(),
+                target,
+                true,
+                false,
+            );
 
             modules.extend(profile_modules);
             errors.extend(profile_errors);
@@ -632,7 +636,7 @@ impl RasmProject {
         source_folder: PathBuf,
         target: &CompileTarget,
         sub_project: &RasmSubProject,
-        is_principal_sub_project: bool,
+        could_have_main_body: bool,
     ) -> Vec<(ASTModule, Vec<CompilationError>, EnhModuleInfo)> {
         if self.from_file {
             let main_src_file = self.main_src_file(sub_project).unwrap();
@@ -663,7 +667,7 @@ impl RasmProject {
                 .filter(|it| it.file_name().to_str().unwrap().ends_with(".rasm"))
                 .filter_map(|entry| {
                     enable_log(log_enabled);
-                    self.get_module(entry.path(), target, sub_project, is_principal_sub_project)
+                    self.get_module(entry.path(), target, sub_project, could_have_main_body)
                 })
                 .collect::<Vec<_>>()
         }
@@ -694,7 +698,7 @@ impl RasmProject {
         path: &Path,
         target: &CompileTarget,
         sub_project: &RasmSubProject,
-        is_principal_sub_project: bool,
+        could_have_main_body: bool,
     ) -> Option<(ASTModule, Vec<CompilationError>, EnhModuleInfo)> {
         let mut source_folder_opt = None;
         let mut body_opt = None;
@@ -721,7 +725,7 @@ impl RasmProject {
                 .starts_with(rasm_source_folder.canonicalize().unwrap())
         {
             body_opt = if let Some(main_src_file) = self.main_src_file(sub_project) {
-                if is_principal_sub_project {
+                if could_have_main_body {
                     Some(
                         path.canonicalize().unwrap()
                             == main_src_file.as_path().canonicalize().unwrap(),
@@ -802,7 +806,7 @@ impl RasmProject {
                     );
                 }
             } else if let Some(fbs) = first_body_statement {
-                if !is_principal_sub_project {
+                if !could_have_main_body {
                     Self::add_generic_error(
                         path,
                         &mut module_errors,
@@ -1100,6 +1104,10 @@ impl RasmProject {
 
     pub fn root(&self) -> &PathBuf {
         &self.root
+    }
+
+    pub fn config(&self) -> &RasmConfig {
+        &self.config
     }
 
     pub fn get_native_string_array(&self, target: &str, key: &str) -> Vec<String> {

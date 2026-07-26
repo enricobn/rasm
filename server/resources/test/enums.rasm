@@ -12,6 +12,6 @@ enum MyOption<T> {
     None
 }
 
-let aStruct = MyStruct(MySome(10))
+let aStruct = MyStruct(Some(10))
 
 aStruct.op.match(fn(value) {println(value)}, {println("None")})

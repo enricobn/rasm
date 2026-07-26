@@ -1135,6 +1135,11 @@ mod test {
                 .count(),
             6
         );
-        assert!(!extractor.all_calls().iter().any(|it| it.in_function.is_some()));
+        assert!(
+            !extractor
+                .all_calls()
+                .iter()
+                .any(|it| it.in_function.is_some())
+        );
     }
 }

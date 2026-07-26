@@ -358,9 +358,11 @@ impl EnhancedASTModule {
                     it.index != function.index
                         && it.parameters.len() == function.parameters.len()
                         && zip(it.parameters.iter(), function.parameters.iter()).all(|(p1, p2)| {
-                            EnhTypeFilter::Exact(p1.ast_type.clone())
-                                .almost_equal(&p2.ast_type, self)
-                                .unwrap_or(false)
+                            (p1.ast_type.is_strictly_generic() && p2.ast_type.is_generic()
+                                || p2.ast_type.is_strictly_generic() && p1.ast_type.is_generic())
+                                || EnhTypeFilter::Exact(p1.ast_type.clone())
+                                    .almost_equal(&p2.ast_type, self)
+                                    .unwrap_or(false)
                         })
                         && EnhTypeFilter::Exact(it.return_type.clone())
                             .almost_equal(&function.return_type, self)

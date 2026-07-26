@@ -37,7 +37,7 @@ fn property() -> int {
 }
 
 fn string() -> int {
-    "aString".length
+    "aString".len
 }
 
 fn aChar() -> char {

@@ -4,7 +4,9 @@ use std::process::{Command, Stdio};
 use rasm_core::codegen::asm::code_gen_asm::AsmOptions;
 use rasm_core::codegen::c::options::COptions;
 use rasm_core::codegen::compile_target::{C, CompileTarget, NASMI386};
+
 use rasm_core::commandline::{CommandLineAction, RasmProfile};
+
 use tempdir::TempDir;
 
 #[cfg(test)]
@@ -762,9 +764,24 @@ fn test_testmock() {
         "testmock",
         vec![],
         "saved Amount(User(mocked user), 10)\n",
-        CommandLineAction::Build,
+        CommandLineAction::Run,
         RasmProfile::Test,
     );
+    /*
+
+    let test_name = "testmock";
+
+    let dir = TempDir::new("rasm_int_test").unwrap();
+
+    let main = format!("resources/test/{}", test_name);
+
+    let target = CompileTarget::C(COptions::default());
+    let project = RasmProject::new(PathBuf::from(main));
+    let mut command_line_options = CommandLineOptions::new(CommandLineAction::Run);
+    command_line_options.profile = RasmProfile::Test;
+    command_line_options.out = Some(dir.path().to_string_lossy().to_string());
+    target.run(project, command_line_options);
+    */
 }
 
 #[test]
@@ -810,7 +827,11 @@ fn native_generic_call() {
 
 #[test]
 fn test_generic_visibility() {
-    run_test("generic_visibility", vec![], "my struct 3: MyStruct(hello, 3)\nmy struct: MyStruct(Hello)\nmy struct 4: MyStruct(hello, 4)\nmy struct: MyStruct(Hello, 10)\n");
+    run_test(
+        "generic_visibility",
+        vec![],
+        "my struct 3: MyStruct(hello, 3)\nmy struct: MyStruct(Hello)\nmy struct 4: MyStruct(hello, 4)\nmy struct: MyStruct(Hello, 10)\n",
+    );
 }
 
 #[test]

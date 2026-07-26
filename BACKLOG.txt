@@ -12,10 +12,6 @@ Bug
   but we have not yet found a way to reproduce this problem, probably it's not related only to macro 
   transformation, because there's a test for it (translate_functions) that works
 - in stdlib, if.rasm, look at the TODO
-- if I have a private struct and implement a toString, to use it in println the function must be public,
-  but since it exposes a parameter that is private (the struct) it does not compile, so I have to make 
-  the struct public: structpropertysetter.rasm, lens.rasm, structpropertysetter1.rasm, type_check2.rasm,
-  testmock/src/main/rasm/service.rasm
 - consts are not reliable: if a const is defined with a function call, that uses a const that is defined after, 
   then it will compile, but it will crash at runtime!!! Add a verify or sort them by dependency
 - "Universal Polymorphism" can create an infinite recursion, for example:
@@ -42,14 +38,58 @@ Road to language version 1.0.0 (not compiler)
   
 Major
 -----
+- more on target:
+  - I think that target can be used when a function that is related to a type, even if the type is not in the signature of
+    the function, typically for a function that returns that type. 
+    I thought to that for disambiguation, for example for enum variant constructors, since the name of an enum 
+    variant can be used in more enums, (None is an example), but I think that it can be used even for a way,
+    for a generic function, to call a function on the generic type even if the type is not a parameter of the function.
+    It could be even useful for type classes, where it can be use, for example to implement the monadic return function:
+    
+    fn List::return<T>(v: T) -> List<T> {
+      listOf(v)
+    }
+
+    fn Option::return<T>(v:T) -> Option<T> {
+      Option::Some(v)
+    }
+
+  - in the above is true, for the generated functions of enums and structs, only enum variants constructors should have a target,
+    what about struct constructors? In this case it could be name::new
+
+  - let the user specify a target for a function with:
+    fn TARGET::name(...) -> ...
+
+    then the sum implementation in functional.rasm in stdlib could be:
+
+    pub fn sum<M,T>(v: M<T>) -> T {
+      v.foldLeft(T::zero(), fn(accum, current) {
+          accum.add(current)
+      })
+    }
+
+    so we can define
+
+    fn int::zero() -> int {
+      0
+    }
+
+    fn float::zero() -> float {
+      0.0
+    }
+
+    fn str::zero() -> str {
+      ""
+    }
+
+  - should the target be mandatory when present? I think it is the best option, but it could be complicated to implement
+
 - are default_function_calls in TextMacro needed?
 - command line tool:
   - add "new" for creating a new project
   - add "init" for creating a new project in the current folder
 - I don't like methods to handle "generic prefix" in AST, it should be handled outside the AST modules
-- populate target for ASTFunctionDef, for regular functions (not builtin), 
-  with the name of the type of the first parameter, even if generic, when not completely generic 
-  (Option<T>)? Adjust code completion
+
 - sometimes are added structs / enum / functions that are not used. It can be verified compiling with c target the test/enum.rasm
 - rename EnhancedASTModule: it is the untyped container for all the modules in the project
 - move all asm code to backend
@@ -59,11 +99,11 @@ Major
 - Unit type: ()
 - cannot ignore a return value from a function:
     // This is an invalid code
-    add(10, 10);
+    add(10, 10)
     ...
 
     // This is a valid code
-    println(10);
+    println(10)
     ...
     - check for unused parameters, let (and static let?), it should be an error
 - it would be better if we cannot use .someFunction without parenthesis, if the function does not return anything
@@ -83,7 +123,7 @@ Major
       - getters are private
 - optimize
   - can a recursive function's lambda space be reused?
-  - enums in C can be a unions?
+  - enums in C can be unions?
 - threads library
 - use Result in standard library
 - standardize compiler errors with source (what does it means?)
@@ -126,7 +166,7 @@ Ideas
   and let i64,i32,f64,f32 etc. be native types, that can be constructed with those literals, but we 
   need a way to check, at compile time, if the literal can be stored in that particular native type
 - stdlib: print and prinln go to stdout, the ones with file as input must be called writeln and write
-- in type check, try to evaluate in opposite order:
+- in type check, try to evaluate in opposite order (but does it really not be already that?):
   fa(fb(p1, p2), fc(p3, p4)) => p1.fb(p2).fa(p3.fc(p4))
   we should evaluate the type of p1 and p2, so we have the type of fb
   then we evaluate p3 and p4, so we have the type of fc

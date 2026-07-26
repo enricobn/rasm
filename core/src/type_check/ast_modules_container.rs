@@ -190,10 +190,48 @@ impl ASTModulesContainer {
 
         for function in module.functions.iter() {
             let signature = function.signature();
+
+            if let Some(signatures) = self.signatures.get(&signature.name) {
+                if let Some(same) = signatures.iter().find(|it| {
+                    if it.target != function.target {
+                        return false;
+                    }
+                    if !(it
+                        .namespace
+                        .visible_from(&it.signature.modifiers, &namespace))
+                        && !(namespace.visible_from(&signature.modifiers, &it.namespace))
+                    {
+                        return false;
+                    }
+                    self.has_same_signature(&it.signature, &it.namespace, &signature, &namespace)
+                }) {
+                    /*
+                    let prefix = if let Some(target) = &signature.target {
+                        format!("{target}::")
+                    } else {
+                        String::new()
+                    };
+
+                    let other_prefix = if let Some(target) = &same.signature.target {
+                        format!("{target}::")
+                    } else {
+                        String::new()
+                    };
+
+                    println!(
+                        "duplicate signature:\n  {prefix}{}\n  {other_prefix}{}",
+                        signature,
+                        same.signature.clone().remove_generic_prefix(),
+                    );
+                    */
+                }
+            }
+
             let signatures = self
                 .signatures
                 .entry(signature.name.clone())
                 .or_insert(Vec::new());
+
             signatures.push(ASTFunctionSignatureEntry::new(
                 signature.add_generic_prefix(&namespace.safe_name()),
                 namespace.clone(),
@@ -237,8 +275,9 @@ impl ASTModulesContainer {
         call_index: &ASTIndex,
     ) -> Vec<&ASTFunctionSignatureEntry> {
         debug_i!(
-            "find_call_vec {function_to_call} {}",
-            SliceDisplay(parameter_types_filter)
+            "find_call_vec {function_to_call} {} -> {}, namespace: {call_module_namespace}",
+            SliceDisplay(parameter_types_filter),
+            OptionDisplay(&return_type_filter)
         );
 
         let signatures = if let Some(signatures) = self.signatures.get(function_to_call) {
@@ -661,6 +700,76 @@ impl ASTModulesContainer {
         self.readonly_modules
             .extend(profile_modules_container.readonly_modules);
         self.trees.extend(profile_modules_container.trees);
+    }
+
+    fn has_same_function_signature(
+        &self,
+        f: &ASTFunctionDef,
+        f_namespace: &ModuleNamespace,
+        other: &ASTFunctionDef,
+        o_namespace: &ModuleNamespace,
+    ) -> bool {
+        if f.name != other.name {
+            return false;
+        }
+        if f.parameters.len() != other.parameters.len() {
+            return false;
+        }
+
+        if !zip(f.parameters.iter(), other.parameters.iter()).all(|(f_p, other_p)| {
+            self.is_compatible(&f_p.ast_type, f_namespace, &other_p.ast_type, o_namespace)
+        }) {
+            return false;
+        }
+
+        let rank: usize = f
+            .parameters
+            .iter()
+            .map(|it| ASTFunctionSignatureEntry::generic_type_coeff(&it.ast_type))
+            .sum();
+
+        let o_rank: usize = other
+            .parameters
+            .iter()
+            .map(|it| ASTFunctionSignatureEntry::generic_type_coeff(&it.ast_type))
+            .sum();
+
+        rank == o_rank
+    }
+
+    fn has_same_signature(
+        &self,
+        f: &ASTFunctionSignature,
+        f_namespace: &ModuleNamespace,
+        other: &ASTFunctionSignature,
+        o_namespace: &ModuleNamespace,
+    ) -> bool {
+        if f.name != other.name {
+            return false;
+        }
+        if f.parameters_types.len() != other.parameters_types.len() {
+            return false;
+        }
+
+        if !zip(f.parameters_types.iter(), other.parameters_types.iter())
+            .all(|(f_t, other_t)| self.is_compatible(f_t, f_namespace, other_t, o_namespace))
+        {
+            return false;
+        }
+
+        let rank: usize = f
+            .parameters_types
+            .iter()
+            .map(|it| ASTFunctionSignatureEntry::generic_type_coeff(it))
+            .sum();
+
+        let o_rank: usize = other
+            .parameters_types
+            .iter()
+            .map(|it| ASTFunctionSignatureEntry::generic_type_coeff(it))
+            .sum();
+
+        rank == o_rank
     }
 }
 

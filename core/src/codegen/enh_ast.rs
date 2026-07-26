@@ -611,6 +611,13 @@ impl EnhASTType {
         }
     }
 
+    pub fn is_strictly_generic(&self) -> bool {
+        match self {
+            EnhASTType::Generic(_, _, _) => true,
+            _ => false,
+        }
+    }
+
     pub fn is_generic(&self) -> bool {
         return match self {
             EnhASTType::Builtin(kind) => match kind {

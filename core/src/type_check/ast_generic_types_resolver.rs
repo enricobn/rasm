@@ -375,9 +375,9 @@ impl ASTResolvedGenericTypes {
             ASTType::ASTUnitType => None,
         };
 
-        if let Some(r) = &result {
-            debug_i!("something substituted {ast_type} -> {r}");
-        }
+        //if let Some(r) = &result {
+        //    debug_i!("something substituted {ast_type} -> {r}");
+        //}
         result
     }
 
