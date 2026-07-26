@@ -37,7 +37,7 @@ struct LexerState {
 }
 
 pub fn lexe(json: str) -> Result<Vec<JsonToken>, str> {
-    let resultState = json.charsVec.foldLeft(Ok(LexerState(Vec(), LexerStatus::None(), "")), processChar)
+    let resultState = json.charsVec.foldLeft(Ok<LexerState,str>(LexerState(Vec(), LexerStatus::None(), "")), processChar)
     resultState.fmap(fn(state) {
         state.status.matchNone(
         { Ok(state.tokens) }, 

@@ -5,11 +5,11 @@ pub struct If<T> {
 
 pub fn if<T>(cond: bool, trueValue: T) -> If<T> {
     // TODO why I must explicitly prefix None? It does not work only in ASTTypeCheker
-    If(cond, if(cond, Some(trueValue), Option::None()))
+    If(cond, iif(cond, Some(trueValue), Option::None()))
 }
 
 pub fn elseIf<T>(ifValue: If<T>, cond: bool, trueValue: T) -> If<T> {
-    if(ifValue.cond, ifValue, { if(cond, trueValue) })
+    ilif(ifValue.cond, ifValue, { if(cond, trueValue) })
 }
 
 pub fn else<T>(ifValue: If<T>, elseValue: T) -> T {

@@ -33,11 +33,11 @@ pub fn forEach<T>(l: List<T>, f: fn(T) -> ()) {
 
 /** false = 0 true = 1 **/
 pub fn anyMatch<T>(l: List<T>, predicate: fn(T) -> bool) -> bool {
-    match(l, fn(head,tail) {if(predicate(head), true, {anyMatch(tail, predicate) }) }, {false})
+    match(l, fn(head,tail) {ilif(predicate(head), true, {anyMatch(tail, predicate) }) }, {false})
 }
 
 pub fn count<T>(l: List<T>, predicate: fn(T) -> bool) -> int {
-    match(l, fn(head,tail) {add(count(tail, predicate), if(predicate(head), 1, 0)) }, {0})
+    match(l, fn(head,tail) {add(count(tail, predicate), iif(predicate(head), 1, 0)) }, {0})
 }
 
 pub fn insert<T>(l: List<T>, value: T) -> List<T> {

@@ -669,7 +669,7 @@ pub fn iter<T>(o: Vec<T>) -> Iter<T> {
 }
 
 fn iter<T>(o: Vec<T>, index: int) -> Iter<T> {
-    if(o.len.greater(index),
+    iif(o.len.greater(index),
         Iter({ Some(IterValue(o.getUnsafe(index), iter(o, index.add(1)))) }),
         emptyIter()
     )

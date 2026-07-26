@@ -14,9 +14,10 @@ pub fn if<T>(cond: bool, ftrue: fn() -> T, elseIfCond1: bool, fElseIf1: fn() -> 
 /**
     ATTENTION: it is not short circuit, it always evaluates both arguments,
     if you need a short circuit then use the version with lambda
+    TODO should it be called iif?
 **/
 pub fn if<T>(cond: bool, trueValue: T, elseIfCond: bool, valueElseIf: T, valueElse: T) -> T {
-    if(cond, trueValue, if(elseIfCond, valueElseIf, valueElse))
+    iif(cond, trueValue, iif(elseIfCond, valueElseIf, valueElse))
 }
 
 pub fn neq<T>(a: T, b: T) -> bool {

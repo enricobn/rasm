@@ -1,18 +1,18 @@
 pub fn min<T>(a: T, b: T) -> T {
-    if(less(a, b), a, b)
+    iif(less(a, b), a, b)
 }
 
 pub fn max<T>(a: T, b: T) -> T {
-    if(greater(a, b), a, b)
+    iif(greater(a, b), a, b)
 }
 
 pub fn between<T>(actual: T, minValue: T, maxValue: T) -> T {
     let g = greater(actual, maxValue)
     let l = less(actual, minValue)
 
-    if(g, maxValue, if(l, minValue, actual))
+    iif(g, maxValue, iif(l, minValue, actual))
 }
 
 pub fn cmp<T>(a: T, b: T) -> Compare {
-    if(less(a, b), Less(), if(eq(a, b), Equal(), Greater()))
+    iif(less(a, b), Less(), iif(eq(a, b), Equal(), Greater()))
 }
