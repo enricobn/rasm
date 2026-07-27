@@ -1,18 +1,21 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
-use rasm_parser::catalog::modules_catalog::ModulesCatalog;
+use rasm_parser::catalog::{ModuleId, modules_catalog::ModulesCatalog};
 use tempdir::TempDir;
 
 use crate::{
+    ast::ast_module_tree::ASTElement,
     codegen::{
-        compile_target::CompileTarget, enh_ast::EnhModuleInfo, enhanced_module::EnhancedASTModule,
-        get_typed_module, statics::Statics,
+        compile_target::CompileTarget,
+        enh_ast::{EnhASTNameSpace, EnhModuleId, EnhModuleInfo},
+        enhanced_module::EnhancedASTModule,
+        get_typed_module,
+        statics::Statics,
     },
     commandline::{CommandLineAction, CommandLineOptions, RasmProfile},
     enh_type_check::typed_ast::ASTTypedModule,
     errors::CompilationError,
-    macros::macro_call_extractor::extract_macro_calls,
-    macros::macro_compiler::resolve_macros,
+    macros::{macro_call_extractor::extract_macro_calls, macro_compiler::resolve_macros},
     project::RasmProject,
     transformations::enrich_container,
     type_check::{ast_modules_container::ASTModulesContainer, ast_type_checker::ASTTypeChecker},
@@ -152,4 +155,41 @@ pub fn project_to_ast_typed_module_with_macros(
         Ok(module) => Ok((module, statics)),
         Err(e) => Err(vec![e]),
     }
+}
+
+pub fn get_id(
+    path: &str,
+    catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+    container: &ASTModulesContainer,
+    row: usize,
+    column: usize,
+) -> Option<usize> {
+    if let Some(info) = catalog.info(&EnhModuleId::Path(
+        PathBuf::from_str(path).unwrap().canonicalize().unwrap(),
+    )) {
+        return get_id_from_moduleid(info.id(), container, row, column);
+    }
+    None
+}
+
+pub fn get_id_from_moduleid(
+    module_id: &ModuleId,
+    container: &ASTModulesContainer,
+    row: usize,
+    column: usize,
+) -> Option<usize> {
+    let tree = container.tree(module_id).unwrap();
+
+    let mut elements = tree.get_elements_at(row, column);
+
+    // for expression statements, we find two elements the statement and the expression, we usually
+    // want the expression
+    if elements.len() != 1 {
+        elements = elements
+            .into_iter()
+            .filter(|it| matches!(it.element, ASTElement::Expression(_)))
+            .collect();
+    }
+
+    return Some(elements.get(0).unwrap().element.position().id);
 }

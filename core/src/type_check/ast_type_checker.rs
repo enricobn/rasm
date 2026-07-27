@@ -1509,6 +1509,7 @@ impl<'a> ASTTypeChecker<'a> {
                     let mut invalid_function = false;
 
                     loop {
+                        let mut val_context = val_context.clone();
                         debug_i!("loop resolved generic types: {resolved_generic_types}");
                         indent!();
                         for (i, e) in call.parameters().iter().enumerate() {
@@ -1528,56 +1529,9 @@ impl<'a> ASTTypeChecker<'a> {
                                 signature_type.clone()
                             };
 
-                            /*
-                            if i == 0
-                                && let Some(entry) = &good_first
-                            {
-                                if signature_type.is_generic() && !entry.is_generic_or_any() {
-                                    Self::add_resolve_type_filter(
-                                        entry.index(),
-                                        signature_type,
-                                        entry.filter().as_ref().unwrap(),
-                                        &mut resolved_generic_types,
-                                    );
-                                }
-                                parameter_types_filters.push((e.position().id, entry.clone()));
-                                continue;
-                            }
-                            */
-                            /*
-                            if let Some(r) = self.get(e.position().id) {
-                                println!("cached {e} : {r}");
-                                if let Some(ri) = internal_type_checker.get(e.position().id) {
-                                    println!("chached internal {ri}");
-                                } else {
-                                    println!("not chached internal");
-                                }
-                            }
-                            */
-
-                            if found {
-                                let rst_format = format!("{}", resolved_signature_type);
-                                // println!("resolved_signature_type: {rst_format}");
-                            }
-
-                            /*
-                            if let Some(entry) = self.get(e.position().id) {
-                                if let Some(filter) = entry.exact_filter_not_generic() {
-                                    if filter.is_compatible(
-                                        &resolved_signature_type,
-                                        moldule_namespace,
-                                        modules_container,
-                                    ) {
-                                        parameter_types_filters
-                                            .push((e.position().id, entry.clone()));
-                                        continue;
-                                    }
-                                }
-                            }
-                            */
                             if let Some(entry) = internal_type_checker.add_expr(
                                 e,
-                                val_context,
+                                &mut val_context,
                                 statics,
                                 Some(&resolved_signature_type),
                                 module_namespace,
@@ -2176,7 +2130,6 @@ impl<'a> ASTTypeChecker<'a> {
 mod tests {
     use std::{
         path::{Path, PathBuf},
-        str::FromStr,
         sync::Arc,
     };
 
@@ -2186,7 +2139,7 @@ mod tests {
     };
 
     use crate::{
-        ast::ast_module_tree::{ASTElement, ASTModuleTree},
+        ast::ast_module_tree::ASTModuleTree,
         codegen::{
             c::options::COptions,
             compile_target::CompileTarget,
@@ -2196,7 +2149,8 @@ mod tests {
         },
         commandline::RasmProfile,
         project::RasmProject,
-        test_utils::project_and_container,
+        project_catalog::RasmProjectCatalog,
+        test_utils::{get_id, get_id_from_moduleid, project_and_container},
         transformations::enrich_container,
         type_check::{
             ast_modules_container::ASTModulesContainer,
@@ -3023,6 +2977,30 @@ mod tests {
     }
 
     #[test]
+    fn test_type_check_par_ref() {
+        let (ast_type_checker, _, container) = type_check_functions(
+            r#"
+                pub fn aFunction(s: str) -> str { 
+                    s
+                }
+            "#,
+            1,
+            false,
+        );
+
+        let id = get_id_from_moduleid(&ModuleId::global(), &container, 3, 21).unwrap();
+
+        let entry = ast_type_checker.get(id).unwrap();
+
+        match &entry.info {
+            ASTTypeCheckInfo::Ref(name, _) => {
+                assert_eq!(name, "s");
+            }
+            _ => panic!("not a ref: {entry}"),
+        }
+    }
+
+    #[test]
     fn test_type_check_stdlib() {
         let (tc, catalog, _, container) =
             check_project_with_profile("../stdlib", &RasmProfile::Test);
@@ -3072,7 +3050,11 @@ mod tests {
         );
     }
 
-    fn type_check_functions(s: &str, expected_entries: usize, can_be_generic: bool) {
+    fn type_check_functions<'a>(
+        s: &'a str,
+        expected_entries: usize,
+        can_be_generic: bool,
+    ) -> (ASTTypeChecker<'a>, RasmProjectCatalog, ASTModulesContainer) {
         let project = RasmProject::new(PathBuf::from("../stdlib"));
 
         let (modules_container, catalog, _) = project
@@ -3145,6 +3127,8 @@ mod tests {
         if !checker.errors.is_empty() {
             panic!();
         }
+
+        (checker, catalog, modules_container)
     }
 
     fn get_type_check_entry<'a>(
@@ -3208,34 +3192,6 @@ mod tests {
         }
 
         panic!();
-    }
-
-    fn get_id(
-        path: &str,
-        catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
-        container: &ASTModulesContainer,
-        row: usize,
-        column: usize,
-    ) -> Option<usize> {
-        if let Some(info) = catalog.info(&EnhModuleId::Path(
-            PathBuf::from_str(path).unwrap().canonicalize().unwrap(),
-        )) {
-            let tree = container.tree(info.id()).unwrap();
-
-            let mut elements = tree.get_elements_at(row, column);
-
-            // for expression statements, we find two elements the statement and the expression, we usually
-            // want the expression
-            if elements.len() != 1 {
-                elements = elements
-                    .into_iter()
-                    .filter(|it| matches!(it.element, ASTElement::Expression(_)))
-                    .collect();
-            }
-
-            return Some(elements.get(0).unwrap().element.position().id);
-        }
-        None
     }
 
     fn check_project<'a>(

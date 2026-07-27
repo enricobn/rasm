@@ -360,8 +360,11 @@ impl IDEHelper {
         selectable_items.extend(main_profile_selectable_items);
         type_check_errors.extend(main_profile_type_check_errors);
 
-        selectable_items.dedup_by(|a, b| a.start == b.start);
-        type_check_errors.dedup_by(|a, b| a.index() == b.index());
+        selectable_items.sort_by(|a, b| a.start.position().id.cmp(&b.start.position().id));
+        selectable_items.dedup_by(|a, b| a.start.position().id == b.start.position().id);
+
+        type_check_errors.sort_by(|a, b| a.index().position().id.cmp(&b.index().position().id));
+        type_check_errors.dedup_by(|a, b| a.index().position().id == b.index().position().id);
 
         let all_container = enrich_container(
             &target,
@@ -3017,15 +3020,28 @@ fn f1(s: str) {
     }
 
     #[test]
-    #[ignore = "There's one error in stdlib"]
     fn test_ide_helper_stdlib() {
-        let (_, _, errors) = get_helper_with_errors("../stdlib");
+        let (project, helper, errors) = get_helper_with_errors("../stdlib");
 
         for error in errors.iter() {
             println!("{}", error);
         }
 
-        assert!(errors.is_empty());
+        let items = get_items_at(&project, &helper, "../stdlib/src/main/rasm/str.rasm", 15, 5);
+
+        assert_eq!(1, items.len());
+    }
+
+    fn get_items_at(
+        project: &RasmProject,
+        helper: &IDEHelper,
+        file_name: &str,
+        row: usize,
+        col: usize,
+    ) -> Vec<IDESelectableItem> {
+        let index = get_index(&project, file_name, row, col);
+
+        helper.find(&index)
     }
 
     fn same_signature(s1: &ASTFunctionSignature, s2: &ASTFunctionSignature) -> bool {
