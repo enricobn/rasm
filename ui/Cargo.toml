@@ -8,6 +8,7 @@ license.workspace = true
 # local deps
 rasm-core.workspace = true
 rasm-parser.workspace = true
+rasm-server.workspace = true
 
 # others
 iced = "0.13.1"

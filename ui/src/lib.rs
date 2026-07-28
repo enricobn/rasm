@@ -20,12 +20,10 @@ use rasm_core::{
     codegen::{
         compile_target::CompileTarget,
         enh_ast::{EnhASTNameSpace, EnhModuleId, EnhModuleInfo},
-        statics::Statics,
         val_context::ValContext,
     },
     commandline::RasmProfile,
     project::RasmProject,
-    transformations::enrich_container,
     type_check::{
         ast_modules_container::ASTModulesContainer,
         ast_type_checker::{ASTTypeChecker, ASTTypeCheckerResult},
@@ -35,6 +33,7 @@ use rasm_parser::{
     catalog::modules_catalog::ModulesCatalog,
     parser::ast::{ASTFunctionDef, ASTPosition},
 };
+use rasm_server::ide_helper::IDEHelper;
 
 mod module_view;
 mod project_tree;
@@ -82,16 +81,10 @@ impl UI {
         target: CompileTarget,
         profile: &RasmProfile,
     ) -> iced::Result {
-        let (container, catalog, _errors) = project.container_and_catalog(profile, &target);
+        let helper = IDEHelper::from_project(&project, &target);
 
-        let container = enrich_container(
-            &target,
-            &mut Statics::new(),
-            container,
-            &catalog,
-            false,
-            false,
-        );
+        let container = helper.container().clone();
+        let catalog = helper.catalog().clone_catalog();
 
         let mut static_val_context = ValContext::new(None);
 
@@ -152,19 +145,19 @@ impl UI {
             //.window(Settings::default())
             //.window_size(Size)
             .centered()
-            .run_with(|| {
+            .run_with(move || {
                 (
                     UI {
                         project,
                         current_module,
                         current_function: None,
                         pane_state,
-                        modules_container: container,
+                        modules_container: container.clone(),
                         info: None,
                         selected_token: None,
                         text_scroll_positions: HashMap::new(),
                         static_val_context,
-                        catalog: Box::new(catalog),
+                        catalog: catalog,
                     },
                     Task::none(),
                 )
@@ -211,7 +204,7 @@ impl UI {
                     &self.modules_container,
                     &s,
                     &self.static_val_context,
-                    self.catalog.as_ref(),
+                    &self.catalog,
                 ));
 
                 let scroll_position = if let Some(position) = self.text_scroll_positions.get(&s) {
@@ -239,11 +232,11 @@ impl UI {
         Task::none()
     }
 
-    fn selected_module(
-        modules_container: &ASTModulesContainer,
+    fn selected_module<'a>(
+        modules_container: &'a ASTModulesContainer,
         path: &str,
         static_val_context: &ValContext,
-        catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+        catalog: &'a Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>>,
     ) -> SelectedModule {
         let module_info = catalog
             .info(&EnhModuleId::Path(PathBuf::from(path)))

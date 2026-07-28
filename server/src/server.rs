@@ -209,7 +209,7 @@ async fn file<'a>(
     );
     */
 
-    let ide_helper = IDEHelper::from_project(project);
+    let ide_helper = IDEHelper::from_project(project, &target);
 
     let result = if let Ok(mut file) = File::open(file_path.clone()) {
         let mut s = String::new();

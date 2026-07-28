@@ -3114,6 +3114,7 @@ dependencies = [
  "iced",
  "rasm-core",
  "rasm-parser",
+ "rasm-server",
 ]
 
 [[package]]

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use linked_hash_map::LinkedHashMap;
 
 use rasm_core::ast::ast_module_tree::{ASTModuleTree, ASTModuleTreeLocation};
-use rasm_core::codegen::c::options::COptions;
+
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 use rasm_core::codegen::statics::Statics;
@@ -278,18 +278,17 @@ pub struct IDEHelper {
 }
 
 impl IDEHelper {
-    pub fn from_root(root: PathBuf) -> IDEHelper {
+    pub fn from_root(root: PathBuf, target: &CompileTarget) -> IDEHelper {
         let project = RasmProject::new(root);
-        IDEHelper::from_project(&project)
+        IDEHelper::from_project(&project, target)
     }
 
-    pub fn from_project(project: &RasmProject) -> IDEHelper {
-        let target = CompileTarget::C(COptions::default());
+    pub fn from_project(project: &RasmProject, target: &CompileTarget) -> IDEHelper {
         let mut selectable_items = Vec::new();
         let mut type_check_errors = Vec::new();
 
         let (main_profile_container, main_profile_catalog, mut lexer_and_parser_errors) =
-            project.container_and_catalog(&RasmProfile::Main, &target);
+            project.container_and_catalog(&RasmProfile::Main, target);
 
         let mut all_container = main_profile_container.clone();
         let mut all_catalog = main_profile_catalog.clone();
@@ -303,7 +302,7 @@ impl IDEHelper {
             let mut profile_container = ASTModulesContainer::new();
 
             let (modules, errors) =
-                project.all_modules(&profile.principal_sub_project(), &target, true, false);
+                project.all_modules(&profile.principal_sub_project(), target, true, false);
 
             lexer_and_parser_errors.extend(errors);
 
@@ -330,7 +329,7 @@ impl IDEHelper {
             profile_catalog.extend(main_profile_catalog.clone());
 
             let profile_container = enrich_container(
-                &target,
+                target,
                 &mut Statics::new(),
                 profile_container,
                 &profile_catalog,
@@ -346,7 +345,7 @@ impl IDEHelper {
         }
 
         let main_profile_container = enrich_container(
-            &target,
+            target,
             &mut Statics::new(),
             main_profile_container,
             &main_profile_catalog,
@@ -376,7 +375,7 @@ impl IDEHelper {
         );
 
         IDEHelper::new(
-            target,
+            target.clone(),
             all_container,
             Box::new(all_catalog),
             selectable_items,
@@ -910,6 +909,10 @@ impl IDEHelper {
 
     pub fn container(&self) -> &ASTModulesContainer {
         &self.modules_container
+    }
+
+    pub fn catalog(&self) -> &Box<dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>> {
+        &self.catalog
     }
 
     fn dot_completion(
@@ -2973,7 +2976,10 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores)
     #[test]
     fn incomplete_source_completion_reload() {
         let path = PathBuf::from("resources/test/incomplete_source_completion.rasm");
-        let mut helper = IDEHelper::from_project(&RasmProject::new(path.clone()));
+        let mut helper = IDEHelper::from_project(
+            &RasmProject::new(path.clone()),
+            &CompileTarget::C(COptions::default()),
+        );
         assert!(!helper.errors().is_empty());
 
         let new_module_content = "let s = \"\"
@@ -3003,7 +3009,10 @@ fn f1(s: str) {
     #[test]
     fn simple_with_struct_reload() {
         let path = PathBuf::from("resources/test/simple_with_struct.rasm");
-        let mut helper = IDEHelper::from_project(&RasmProject::new(path.clone()));
+        let mut helper = IDEHelper::from_project(
+            &RasmProject::new(path.clone()),
+            &CompileTarget::C(COptions::default()),
+        );
 
         assert!(helper.errors().is_empty());
 
@@ -3233,7 +3242,7 @@ fn f1(s: str) {
         let file_name = Path::new(project_path);
         let project = RasmProject::new(file_name.to_path_buf());
 
-        let helper = IDEHelper::from_project(&project);
+        let helper = IDEHelper::from_project(&project, &CompileTarget::C(COptions::default()));
         let errors = helper.errors();
         (project, helper, errors)
     }
@@ -3250,7 +3259,7 @@ fn f1(s: str) {
         } else {
             RasmProject::new(PathBuf::from(file_name))
         };
-        let helper = IDEHelper::from_project(&project);
+        let helper = IDEHelper::from_project(&project, &CompileTarget::C(COptions::default()));
 
         for error in helper.errors().iter() {
             if format!("{}", error.index).contains(file_name) {
@@ -3312,7 +3321,7 @@ fn f1(s: str) {
         } else {
             RasmProject::new(PathBuf::from(file_name))
         };
-        let helper = IDEHelper::from_project(&project);
+        let helper = IDEHelper::from_project(&project, &CompileTarget::C(COptions::default()));
 
         let index = get_index(&&project, file_name, row, col);
 
