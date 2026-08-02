@@ -2,8 +2,10 @@ use std::{
     collections::HashMap,
     iter::zip,
     ops::Deref,
-    sync::Arc,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
 
 use itertools::Itertools;
@@ -197,6 +199,9 @@ impl<'a> EnhTypeCheck<'a> {
                     self.new_functions.get(&function_name).unwrap().clone();
 
                 let mut new_functions = Vec::new();
+                // let start = Instant::now();
+                // let elapsed_message = format!("{function} : {}", function.index);
+
                 match self
                     .transform_function(
                         &module,
@@ -222,6 +227,14 @@ impl<'a> EnhTypeCheck<'a> {
                     }
                     None => {}
                 }
+
+                /*
+                let end = Instant::now();
+                if end - start > Duration::from_millis(100) {
+                    info!("function took {:?} : {elapsed_message}", end - start,);
+                }
+                */
+
                 for (f, s, original_call_namespace) in new_functions {
                     let new_function_name = f.name.clone();
                     if !self.functions_stack.contains_key(&new_function_name) {
@@ -985,7 +998,7 @@ impl<'a> EnhTypeCheck<'a> {
                         && (!call.is_macro || it.can_be_a_macro())
                 })
                 .filter(|it| {
-                    if let Some(ref ft) = first_type {
+                    if let Some(ft) = &first_type {
                         match EnhTypeFilter::Exact(ft.clone())
                             .almost_equal(&it.parameters.get(0).unwrap().ast_type, module)
                         {
@@ -1023,10 +1036,12 @@ impl<'a> EnhTypeCheck<'a> {
                     call,
                     expected_return_type,
                     original_call_namespace,
+                    "",
                 ),
                 self.stack.clone(),
                 EnhTypeCheckErrorKind::Important,
-            ));
+            )
+            .add_errors(errors));
         }
 
         let mut ok_inner_new_functions = Vec::new();
@@ -1282,6 +1297,7 @@ impl<'a> EnhTypeCheck<'a> {
                     call,
                     expected_return_type,
                     original_call_namespace,
+                    "",
                 ),
                 self.stack.clone(),
             )
@@ -1350,13 +1366,14 @@ impl<'a> EnhTypeCheck<'a> {
         call: &EnhASTFunctionCall,
         expected_return_type: Option<&EnhASTType>,
         original_call_namespace: &EnhASTNameSpace,
+        message: &str,
     ) -> String {
         let first_type = first_type
             .map(|it| format!("{it} ..."))
             .unwrap_or(format!("with {} arguments", call.parameters.len()));
 
         let mut message = format!(
-            "cannot find a valid function from namespace {namespace} for call {}({first_type}), original call namespace {original_call_namespace}",
+            "{message} cannot find a valid function from namespace {namespace} for call {}({first_type}), original call namespace {original_call_namespace}",
             call.original_function_name
         );
 

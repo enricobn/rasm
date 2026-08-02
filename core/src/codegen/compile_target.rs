@@ -395,6 +395,15 @@ impl CompileTarget {
     ) -> Result<(), Vec<CompilationError>> {
         let start = Instant::now();
 
+        /*
+        to print the generated macro functions
+        for (_, namespace, m) in container.modules().iter() {
+            if namespace == &&ModuleNamespace::global() {
+                println!("module: {}", m);
+            }
+        }
+        */
+
         let mut statics = Statics::new();
 
         let enriched_container = enrich_container(
@@ -418,6 +427,12 @@ impl CompileTarget {
         let (ast_type_check, _) = ASTTypeChecker::from_modules_container(&enriched_container);
 
         info!("AST type check ended in {:?}", start.elapsed());
+
+        /*
+        for (_, e) in ast_type_check.errors().iter() {
+            println!("ASTTypeCheckError {e}");
+        }
+        */
 
         let start = Instant::now();
 

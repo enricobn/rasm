@@ -3014,6 +3014,10 @@ fn f1(s: str) {
             &CompileTarget::C(COptions::default()),
         );
 
+        for error in helper.errors().iter() {
+            println!("{}", error);
+        }
+
         assert!(helper.errors().is_empty());
 
         let new_module_content = "struct S1 {}

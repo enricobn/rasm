@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, iter::zip, sync::Arc};
+use std::{collections::HashMap, fmt::Display, iter::zip, sync::Arc, time::Instant};
 
 use itertools::Itertools;
 
@@ -8,7 +8,7 @@ use rasm_utils::{
     debug_indent::{enable_log, log_enabled},
     dedent, indent,
 };
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     codegen::val_context::ValContext, macros::macro_call_extractor::get_macro_result_type,
@@ -60,6 +60,20 @@ impl ASTTypeCheckError {
         }
     }
 
+    pub fn new_with_inner(
+        kind: ASTTypeCheckErroKind,
+        index: ASTIndex,
+        message: String,
+        inner: Vec<ASTTypeCheckError>,
+    ) -> Self {
+        Self {
+            kind,
+            index,
+            message,
+            inner,
+        }
+    }
+
     pub fn add(self, kind: ASTTypeCheckErroKind, index: ASTIndex, message: String) -> Self {
         let mut result = self;
         result
@@ -79,15 +93,22 @@ impl ASTTypeCheckError {
     pub fn kind(&self) -> &ASTTypeCheckErroKind {
         &self.kind
     }
+
+    fn write(&self, f: &mut std::fmt::Formatter<'_>, indent: usize) -> std::fmt::Result {
+        let spaces = " ".repeat(indent * 2);
+        let m = self.message.replace("$indent", &spaces);
+        write!(f, "{spaces}{} : {}", m, self.index)?;
+        for error in &self.inner {
+            write!(f, "\n")?;
+            error.write(f, indent + 1)?;
+        }
+        Result::Ok(())
+    }
 }
 
 impl Display for ASTTypeCheckError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} : {}", self.message, self.index)?;
-        for error in &self.inner {
-            write!(f, "\n{}", error)?;
-        }
-        Result::Ok(())
+        self.write(f, 0)
     }
 }
 
@@ -114,7 +135,7 @@ impl Display for ASTTypeCheckInfo {
                 } else {
                     write!(f, "call to {mc}{name} which can be one of \n")?;
                     for function_signature in vec {
-                        write!(f, "{}\n", function_signature.0)?;
+                        write!(f, "  $indent{}\n", function_signature.0)?;
                     }
                 }
                 Result::Ok(())
@@ -317,15 +338,33 @@ impl<'a> ASTTypeChecker<'a> {
         &self.result
     }
 
+    pub fn get_exact_non_generics(self) -> Vec<(usize, Arc<ASTTypeCheckEntry>)> {
+        self.result
+            .map
+            .into_iter()
+            .filter(|it| it.1.is_exact_not_generic())
+            .collect_vec()
+    }
+
     fn insert(&mut self, index: ASTIndex, entry: ASTTypeCheckEntry) -> Arc<ASTTypeCheckEntry> {
+        self.insert_by_id(index.position().id, entry)
+    }
+
+    fn insert_by_id(&mut self, id: usize, entry: ASTTypeCheckEntry) -> Arc<ASTTypeCheckEntry> {
+        let entry = Arc::new(entry);
+        self.insert_arc_by_id(id, entry.clone());
+        entry
+    }
+
+    fn insert_arc_by_id(&mut self, id: usize, entry: Arc<ASTTypeCheckEntry>) {
         if let Some((ast_type, _)) = entry.exact_type() {
             if !ast_type.is_generic() {
-                self.errors.remove(&index.position().id);
+                self.errors.remove(&id);
             }
         }
 
         debug_i!("ast_type_check added: {entry} : {}", entry.index());
-        self.result.insert(index.position().id, entry)
+        self.result.map.insert(id, entry);
     }
 
     fn add_error(&mut self, kind: ASTTypeCheckErroKind, index: ASTIndex, message: String) {
@@ -334,6 +373,21 @@ impl<'a> ASTTypeChecker<'a> {
         self.errors.insert(
             index.position().id,
             ASTTypeCheckError::new(kind, index, message),
+        );
+    }
+
+    fn add_error_with_inner(
+        &mut self,
+        kind: ASTTypeCheckErroKind,
+        index: ASTIndex,
+        message: String,
+        inner: Vec<ASTTypeCheckError>,
+    ) {
+        debug_i!("ast_type_check error: {kind} : {index} : {message}");
+
+        self.errors.insert(
+            index.position().id,
+            ASTTypeCheckError::new_with_inner(kind, index, message, inner),
         );
     }
 
@@ -361,11 +415,11 @@ impl<'a> ASTTypeChecker<'a> {
             functions_count += module.functions.len();
         }
 
-        let functions_data = modules.iter().flat_map(|(id, namespace, module)| {
+        let functions_data = modules.into_iter().flat_map(|(id, namespace, module)| {
             module
                 .functions
                 .iter()
-                .filter(|f| !f.is_generic())
+                //.filter(|f| !f.is_generic())
                 .map(move |f| (id, namespace, f))
         });
 
@@ -382,8 +436,8 @@ impl<'a> ASTTypeChecker<'a> {
             LinkedHashMap<usize, ASTTypeCheckError>,
         )> = chunks
             // HENRY
-            //.iter()
-            .par_iter()
+            //.into_iter()
+            .into_par_iter()
             .map(|chunk| {
                 enable_log(log_enabled);
 
@@ -400,6 +454,8 @@ impl<'a> ASTTypeChecker<'a> {
                     //println!("adding function: {function}");
                     debug_i!("adding function: {function}");
                     indent!();
+                    // let start = Instant::now();
+
                     type_checker_chunk.add_function(
                         function,
                         &static_val_context,
@@ -407,6 +463,18 @@ impl<'a> ASTTypeChecker<'a> {
                         id,
                         modules_container,
                     );
+
+                    /*
+                    let elapsed = start.elapsed();
+                    if elapsed > Duration::from_millis(50) {
+                        println!(
+                            "function {function} took {} ms : {}",
+                            elapsed.as_millis(),
+                            ASTIndex::new(namespace.clone(), id.clone(), function.position.clone())
+                        );
+                    }
+                    */
+
                     dedent!();
 
                     if found {
@@ -589,9 +657,9 @@ impl<'a> ASTTypeChecker<'a> {
         module_id: &ModuleId,
         modules_container: &ASTModulesContainer,
         function: Option<&ASTFunctionDef>,
-    ) -> Option<Arc<ASTTypeCheckEntry>> {
+    ) -> Result<Arc<ASTTypeCheckEntry>, Vec<ASTTypeCheckError>> {
         if body.is_empty() {
-            return Some(Arc::new(ASTTypeCheckEntry {
+            return Ok(Arc::new(ASTTypeCheckEntry {
                 index: ASTIndex::none(),
                 filter: Some(ASTTypeFilter::Exact(
                     ASTType::ASTUnitType,
@@ -604,6 +672,7 @@ impl<'a> ASTTypeChecker<'a> {
         let mut return_type = None;
         let inner_val_context = &mut ValContext::new(Some(val_context));
 
+        let mut errors = Vec::new();
         for (i, statement) in body.iter().enumerate() {
             match statement {
                 ASTStatement::ASTExpressionStatement(e, _) => {
@@ -669,6 +738,10 @@ impl<'a> ASTTypeChecker<'a> {
                             function,
                         );
                     }
+
+                    if let Some(error) = self.errors.get(&e.position().id) {
+                        errors.push(error.clone());
+                    }
                 }
                 ASTStatement::ASTLetStatement(name, e, position) => {
                     self.add_binding(
@@ -684,6 +757,9 @@ impl<'a> ASTTypeChecker<'a> {
                         modules_container,
                         function,
                     );
+                    if let Some(error) = self.errors.get(&e.position().id) {
+                        errors.push(error.clone());
+                    }
                 }
                 ASTStatement::ASTConstStatement(name, e, position, astmodifiers) => {
                     self.add_binding(
@@ -699,11 +775,14 @@ impl<'a> ASTTypeChecker<'a> {
                         modules_container,
                         function,
                     );
+                    if let Some(error) = self.errors.get(&e.position().id) {
+                        errors.push(error.clone());
+                    }
                 }
             }
         }
 
-        return_type
+        return_type.ok_or(errors)
     }
 
     fn add_binding(
@@ -951,25 +1030,104 @@ impl<'a> ASTTypeChecker<'a> {
                 })) = expected_expression_type
                 {
                     let module_info = ModuleInfo::new(module_namespace.clone(), module_id.clone());
-                    modules_container.find_call_vec(
-                        name,
-                        &None, //TODO
-                        parameters
-                            .iter()
-                            .map(move |it| ASTTypeFilter::Exact(it.clone(), module_info.clone()))
-                            .collect_vec()
-                            .as_ref(),
-                        Some(&return_type.clone()),
-                        module_namespace,
-                        index,
-                    )
+                    let function_references = modules_container
+                        .find_call_vec(
+                            name,
+                            &None, //TODO
+                            parameters
+                                .iter()
+                                .map(move |it| {
+                                    ASTTypeFilter::Exact(it.clone(), module_info.clone())
+                                })
+                                .collect_vec()
+                                .as_ref(),
+                            Some(&return_type.clone()),
+                            module_namespace,
+                            index,
+                        )
+                        .into_iter()
+                        .filter(|it| {
+                            let function_is_macro = function
+                                .map_or(false, |f| get_macro_result_type(&f.return_type).is_some());
+
+                            if function_is_macro {
+                                true
+                            } else {
+                                let current_function_is_macro =
+                                    get_macro_result_type(&it.signature.return_type).is_some();
+                                if current_function_is_macro {
+                                    // println!("main function ({}) is not macro, current function ({it}) is, we skip", OptionDisplay(&function) );
+                                }
+                                !current_function_is_macro
+                            }
+                        })
+                        .collect_vec();
+
+                    if function_references.len() > 1 {
+                        if let Some(rt) = Self::get_return_type_from_signatures(
+                            &function_references
+                                .iter()
+                                .map(|it| &it.signature)
+                                .collect_vec(),
+                        ) {
+                            let module_info =
+                                ModuleInfo::new(module_namespace.clone(), module_id.clone());
+                            return Some(
+                                self.insert(
+                                    index.clone(),
+                                    ASTTypeCheckEntry::new(
+                                        index.clone(),
+                                        Some(ASTTypeFilter::Lambda(
+                                            parameters.len(),
+                                            Some(Box::new(ASTTypeFilter::Exact(
+                                                rt.clone(),
+                                                module_info.clone(),
+                                            ))),
+                                        )),
+                                        ASTTypeCheckInfo::Call(
+                                            name.to_owned(),
+                                            function_references
+                                                .into_iter()
+                                                .map(|it| {
+                                                    (it.signature.clone(), it.index().clone())
+                                                })
+                                                .collect_vec(),
+                                            false,
+                                        ),
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+
+                    function_references
                 } else {
                     if let Some(signatures) = modules_container.get_signatures(name) {
                         signatures
                             .iter()
                             .filter(|it| {
-                                it.namespace
+                                if !it
+                                    .namespace
                                     .visible_from(&it.signature.modifiers, &module_namespace)
+                                {
+                                    return false;
+                                } else {
+                                    let function_is_macro = function.map_or(false, |f| {
+                                        get_macro_result_type(&f.return_type).is_some()
+                                    });
+
+                                    if function_is_macro {
+                                        true
+                                    } else {
+                                        let current_function_is_macro =
+                                            get_macro_result_type(&it.signature.return_type)
+                                                .is_some();
+                                        if current_function_is_macro {
+                                            // println!("main function ({}) is not macro, current function ({it}) is, we skip", OptionDisplay(&function) );
+                                        }
+                                        !current_function_is_macro
+                                    }
+                                }
                             })
                             .collect_vec()
                     } else {
@@ -1145,57 +1303,68 @@ impl<'a> ASTTypeChecker<'a> {
             function,
         );
 
-        if let Some(ASTTypeFilter::Exact(brt, _position)) =
-            body_return_type.and_then(|it| it.filter.clone())
-        {
-            let type_filter = if let Some((_return_type, parameters)) =
-                expected_last_statement_type_and_parameters
-            {
-                ASTTypeFilter::Exact(
-                    ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
-                        parameters: parameters.clone(),
-                        return_type: Box::new(brt),
-                    }),
-                    ModuleInfo::new(module_namespace.clone(), module_id.clone()),
-                )
-            } else {
-                if lambda.parameter_names.is_empty() {
-                    ASTTypeFilter::Lambda(
-                        lambda.parameter_names.len(),
-                        Some(Box::new(ASTTypeFilter::Exact(
-                            brt,
+        match body_return_type {
+            Ok(entry) => {
+                if let Some(ASTTypeFilter::Exact(brt, _position)) = entry.filter.clone() {
+                    let type_filter = if let Some((_return_type, parameters)) =
+                        expected_last_statement_type_and_parameters
+                    {
+                        ASTTypeFilter::Exact(
+                            ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
+                                parameters: parameters.clone(),
+                                return_type: Box::new(brt),
+                            }),
                             ModuleInfo::new(module_namespace.clone(), module_id.clone()),
-                        ))),
-                    )
+                        )
+                    } else {
+                        if lambda.parameter_names.is_empty() {
+                            ASTTypeFilter::Lambda(
+                                lambda.parameter_names.len(),
+                                Some(Box::new(ASTTypeFilter::Exact(
+                                    brt,
+                                    ModuleInfo::new(module_namespace.clone(), module_id.clone()),
+                                ))),
+                            )
+                        } else {
+                            ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
+                        }
+                    };
+                    Some(self.insert(
+                        index.clone(),
+                        ASTTypeCheckEntry::lambda(index.clone(), type_filter),
+                    ))
                 } else {
-                    ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
+                    /*
+                    let type_filter = if let Some((return_type, parameters)) =
+                        expected_last_statement_type_and_parameters
+                    {
+                        ASTTypeFilter::Exact(
+                            ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
+                                parameters: parameters.clone(),
+                                return_type: Box::new(return_type.clone()),
+                            }),
+                            ModuleInfo::new(module_namespace.clone(), module_id.clone()),
+                        )
+                    } else {
+                        ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
+                    };
+                    Some(self.insert(
+                        index.clone(),
+                        ASTTypeCheckEntry::lambda(index.clone(), type_filter),
+                    ))
+                    */
+                    None
                 }
-            };
-            Some(self.insert(
-                index.clone(),
-                ASTTypeCheckEntry::lambda(index.clone(), type_filter),
-            ))
-        } else {
-            /*
-            let type_filter = if let Some((return_type, parameters)) =
-                expected_last_statement_type_and_parameters
-            {
-                ASTTypeFilter::Exact(
-                    ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
-                        parameters: parameters.clone(),
-                        return_type: Box::new(return_type.clone()),
-                    }),
-                    ModuleInfo::new(module_namespace.clone(), module_id.clone()),
-                )
-            } else {
-                ASTTypeFilter::Lambda(lambda.parameter_names.len(), None)
-            };
-            Some(self.insert(
-                index.clone(),
-                ASTTypeCheckEntry::lambda(index.clone(), type_filter),
-            ))
-            */
-            None
+            }
+            Err(error) => {
+                self.add_error_with_inner(
+                    ASTTypeCheckErroKind::Error,
+                    index.clone(),
+                    format!("Invalid lambda {lambda}"),
+                    error,
+                );
+                None
+            }
         }
     }
 
@@ -1237,6 +1406,8 @@ impl<'a> ASTTypeChecker<'a> {
         modules_container: &ASTModulesContainer,
         function: Option<&ASTFunctionDef>,
     ) -> Option<Arc<ASTTypeCheckEntry>> {
+        let inside_a_generic_function = function.map_or(false, |f| f.is_generic());
+
         let found = call.function_name() == "not used for now"
             && format!("{index}").contains("function_reference.rasm:7:1");
 
@@ -1323,6 +1494,8 @@ impl<'a> ASTTypeChecker<'a> {
             return result;
         }
 
+        let start = Instant::now();
+
         let candidate_functions = modules_container
             .get_signatures(&call.function_name())
             .map(|it| {
@@ -1344,9 +1517,30 @@ impl<'a> ASTTypeChecker<'a> {
                             .unwrap_or(true)
                     })
                     .filter(|it| {
-                        !call.is_macro()
-                            || get_macro_result_type(&it.signature.return_type).is_some()
+                        if call.is_macro() {
+                            get_macro_result_type(&it.signature.return_type).is_some()
+                        } else {
+                            // TODO it is not correct. A function that is a macro, can be called inside a non macro function,
+                            // it is what does the macro compiler itself to resolve an expression macro, it calls it inside the
+                            // auto generated function that resolves that call...
+                            /*
+                            let main_function_is_macro = function
+                                .map_or(false, |f| get_macro_result_type(&f.return_type).is_some());
+                            if main_function_is_macro {
+                                true
+                            } else {
+                                let current_function_is_macro =
+                                    get_macro_result_type(&it.signature.return_type).is_some();
+                                if current_function_is_macro {
+                                    //println!("main function ({}) is not macro, current function ({it}) is, we skip", OptionDisplay(&function) );
+                                }
+                                !current_function_is_macro
+                            }
+                            */
+                            true
+                        }
                     });
+
                 let functions_iter = functions_iter.filter_map(move |it| {
                     if let Some(et) = &expected_expression_type {
                         if found {
@@ -1379,6 +1573,8 @@ impl<'a> ASTTypeChecker<'a> {
             */
         }
 
+        let mut inner_errors = Vec::new();
+
         if candidate_functions.is_empty() {
             self.add_error(
                 ASTTypeCheckErroKind::Error,
@@ -1406,6 +1602,40 @@ impl<'a> ASTTypeChecker<'a> {
                     compatible_functions.push((signature, Vec::new(), ASTTypeCheckerResult::new()));
                 }
             } else {
+                // for now I disable this, because it was meant to be an optimization, but it slows down
+                if false {
+                    let mut val_context = val_context.clone();
+                    let mut internal_type_checker = ASTTypeChecker::new(); //ASTTypeChecker::new();
+
+                    for (i, e) in call.parameters().iter().enumerate() {
+                        if matches!(e, ASTExpression::ASTLambdaExpression(_)) {
+                            // || matches!(e, ASTExpression::ASTFunctionCallExpression(_)) {
+                            continue;
+                        }
+                        debug_i!("trying to resolve parameter {i}: {e}");
+                        indent!();
+
+                        internal_type_checker.add_expr(
+                            e,
+                            &mut val_context,
+                            statics,
+                            None,
+                            module_namespace,
+                            module_id,
+                            modules_container,
+                            function,
+                        );
+
+                        dedent!();
+                    }
+
+                    let exact_non_generic = internal_type_checker.get_exact_non_generics();
+                    for (id, entry) in exact_non_generic {
+                        //println!("inserting resolved filter: {entry} : {id}");
+                        self.insert_arc_by_id(id, entry);
+                    }
+                }
+
                 /*
                 let mut internal_type_checker = ASTTypeChecker::with_parent(&self.result);
                 let first_param = &call.parameters()[0];
@@ -1508,7 +1738,10 @@ impl<'a> ASTTypeChecker<'a> {
                     let mut internal_type_checker = ASTTypeChecker::with_parent(&self.result);
                     let mut invalid_function = false;
 
+                    let mut function_errors = Vec::new();
+
                     loop {
+                        function_errors.clear();
                         let mut val_context = val_context.clone();
                         debug_i!("loop resolved generic types: {resolved_generic_types}");
                         indent!();
@@ -1529,6 +1762,9 @@ impl<'a> ASTTypeChecker<'a> {
                                 signature_type.clone()
                             };
 
+                            if self.get(e.position().id).is_some() {
+                                //println!("already resolved {e}");
+                            }
                             if let Some(entry) = internal_type_checker.add_expr(
                                 e,
                                 &mut val_context,
@@ -1569,6 +1805,13 @@ impl<'a> ASTTypeChecker<'a> {
                                         debug_i!(
                                             "not compatible filter filter={filter}, type={resolved_signature_type}"
                                         );
+                                        function_errors.push(ASTTypeCheckError::new(
+                                            ASTTypeCheckErroKind::Error,
+                                            ASTIndex::new(module_namespace.clone(), module_id.clone(), e.position().clone()),
+                                            format!(
+                                                "not compatible filter filter={filter}, type={resolved_signature_type}"
+                                            ),
+                                        ));
                                         // TODO we found that the expression type is not compatible with the function parameter type.
                                         //      Is it still possible that the function is the right one? Can the type of expression be misleading, due to the
                                         //      fact that the parameter type is generic, but we have not yet found the generic?
@@ -1577,16 +1820,87 @@ impl<'a> ASTTypeChecker<'a> {
                                         break;
                                     }
                                 } else {
+                                    /*
+                                    if let ASTTypeCheckInfo::Call(_, functions, _) = &entry.info() {
+                                        let mut return_types = functions
+                                            .iter()
+                                            .map(|f| f.0.return_type.clone())
+                                            .collect_vec();
+                                        return_types.dedup();
+                                        if return_types.len() == 1 {
+                                            println!(
+                                                "Multple calls with same return type: {}",
+                                                return_types[0]
+                                            );
+                                            parameter_types_filters.push((
+                                                e.position().id,
+                                                Arc::new(ASTTypeCheckEntry::new(
+                                                    ASTIndex::new(
+                                                        module_namespace.clone(),
+                                                        module_id.clone(),
+                                                        e.position().clone(),
+                                                    ),
+                                                    Some(ASTTypeFilter::exact(
+                                                        return_types[0].clone(),
+                                                        module_namespace,
+                                                        module_id,
+                                                    )),
+                                                    ASTTypeCheckInfo::UnknownCall,
+                                                )),
+                                            ));
+                                            continue;
+                                        }
+                                    }
+                                    */
                                     // we cannot break, because we need to check all parameters for eventually substitute generics
                                     // and try another time
                                     dedent!();
-                                    debug_i!("no filter");
+                                    debug_i!(
+                                        "no filter for {e} : {}",
+                                        ASTIndex::new(
+                                            module_namespace.clone(),
+                                            module_id.clone(),
+                                            e.position().clone()
+                                        )
+                                    );
+                                    function_errors.push(ASTTypeCheckError::new(
+                                        ASTTypeCheckErroKind::Error,
+                                        ASTIndex::new(
+                                            module_namespace.clone(),
+                                            module_id.clone(),
+                                            e.position().clone(),
+                                        ),
+                                        format!("no filter for {e}, info={}", entry.info()),
+                                    ));
                                 }
 
                                 //self.result.remove(&e.position().id);
+                            } else if let Some(error) =
+                                internal_type_checker.errors.get(&e.position().id)
+                            {
+                                function_errors.push(ASTTypeCheckError::new_with_inner(
+                                    ASTTypeCheckErroKind::Error,
+                                    ASTIndex::new(
+                                        module_namespace.clone(),
+                                        module_id.clone(),
+                                        e.position().clone(),
+                                    ),
+                                    format!("error in expression {e}"),
+                                    vec![error.clone()],
+                                ));
                             } else {
                                 dedent!();
                                 debug_i!("not valid expression");
+
+                                function_errors.push(ASTTypeCheckError::new(
+                                    ASTTypeCheckErroKind::Error,
+                                    ASTIndex::new(
+                                        module_namespace.clone(),
+                                        module_id.clone(),
+                                        e.position().clone(),
+                                    ),
+                                    format!("not valid expression {e}",),
+                                ))
                             }
                         }
 
@@ -1649,6 +1963,20 @@ impl<'a> ASTTypeChecker<'a> {
                             parameter_types_filters.len(),
                             call.parameters().len()
                         );
+
+                        inner_errors.push(ASTTypeCheckError::new_with_inner(
+                            ASTTypeCheckErroKind::Error,
+                            index.clone(),
+                            format!(
+                                "function {signature} is not compatible : {}",
+                                ASTIndex::new(
+                                    module_namespace.clone(),
+                                    module_id.clone(),
+                                    call.position().clone(),
+                                ),
+                            ),
+                            function_errors,
+                        ));
                     }
                 }
             }
@@ -1688,7 +2016,7 @@ impl<'a> ASTTypeChecker<'a> {
                 }
             }
 
-            if compatible_functions.len() == 1 {
+            let result = if compatible_functions.len() == 1 {
                 let (signature, entries, result) = compatible_functions.remove(0);
 
                 /*
@@ -1719,8 +2047,7 @@ impl<'a> ASTTypeChecker<'a> {
                 if found {
                     enable_log(false);
                 }
-
-                return process_result;
+                process_result
             } else if compatible_functions.len() > 1 {
                 self.add_error(
                     ASTTypeCheckErroKind::Warning,
@@ -1734,9 +2061,9 @@ impl<'a> ASTTypeChecker<'a> {
                                 "{} -> {}",
                                 it.0.signature.clone().remove_generic_prefix(),
                                 it.1.iter()
-                                    .map(|it| format!("{}", it.1))
+                                    .map(|it| format!("  $indent{}", it.1))
                                     .collect::<Vec<String>>()
-                                    .join(", ")
+                                    .join("\n")
                             ))
                             .join("\n")
                     ),
@@ -1744,12 +2071,21 @@ impl<'a> ASTTypeChecker<'a> {
 
                 dedent!();
 
-                return Some(
+                let signatures = compatible_functions
+                    .iter()
+                    .map(|it| &it.0.signature)
+                    .collect_vec();
+
+                Some(
                     self.insert(
                         index.clone(),
                         ASTTypeCheckEntry::new(
                             index.clone(),
-                            None,
+                            Self::get_filter_from_signatures(
+                                module_namespace,
+                                module_id,
+                                &signatures,
+                            ),
                             ASTTypeCheckInfo::Call(
                                 call.function_name().clone(),
                                 compatible_functions
@@ -1769,19 +2105,69 @@ impl<'a> ASTTypeChecker<'a> {
                             ),
                         ),
                     ),
-                );
+                )
             } else {
-                self.add_error(
-                    ASTTypeCheckErroKind::Error,
+                self.add_error_with_inner(
+                    if inside_a_generic_function {
+                        ASTTypeCheckErroKind::Warning
+                    } else {
+                        ASTTypeCheckErroKind::Error
+                    },
                     index.clone(),
                     format!("cannot find a valid function for {}", call.function_name()),
+                    inner_errors,
                 );
                 dedent!();
                 if found {
                     enable_log(false);
                 }
-                return None;
+
+                None
+            };
+
+            let elapsed = start.elapsed();
+            if elapsed.as_millis() > 1 {
+                debug_i!("call {call } took {} ms : {}", elapsed.as_millis(), index);
             }
+
+            result
+        }
+    }
+
+    fn get_filter_from_signatures(
+        module_namespace: &ModuleNamespace,
+        module_id: &ModuleId,
+        signatures: &Vec<&ASTFunctionSignature>,
+    ) -> Option<ASTTypeFilter> {
+        if signatures.is_empty() {
+            None
+        } else if let Some(rt) = Self::get_return_type_from_signatures(signatures) {
+            return Some(ASTTypeFilter::exact(rt, module_namespace, module_id));
+        } else {
+            None
+        }
+    }
+
+    fn get_return_type_from_signatures(signatures: &Vec<&ASTFunctionSignature>) -> Option<ASTType> {
+        if signatures.is_empty() {
+            return None;
+        }
+        let mut return_types = signatures
+            .into_iter()
+            .map(|f| f.return_type.clone())
+            .collect_vec();
+        return_types.dedup();
+
+        if return_types.len() == 1 {
+            /*
+            println!(
+                "Multiple calls to {} with same return type: {}",
+                signatures[0].name, return_types[0]
+            );
+            */
+            Some(return_types[0].clone())
+        } else {
+            None
         }
     }
 
@@ -1874,16 +2260,18 @@ impl<'a> ASTTypeChecker<'a> {
                     parameter_type
                 };
 
-                if let Some(entry) = self.add_expr(
-                    e,
-                    val_context,
-                    statics,
-                    Some(ast_type),
-                    call_module_namespace,
-                    call_module_id,
-                    modules_container,
-                    function,
-                ) {
+                if let Some(entry) = self.get(e.position().id).cloned().or_else(|| {
+                    self.add_expr(
+                        e,
+                        val_context,
+                        statics,
+                        Some(ast_type),
+                        call_module_namespace,
+                        call_module_id,
+                        modules_container,
+                        function,
+                    )
+                }) {
                     if let Some(ref calculated_type_filter) = entry.filter {
                         if parameter_type.is_generic() {
                             loop_errors.extend(Self::add_resolve_type_filter(
@@ -2677,7 +3065,7 @@ mod tests {
             None,
         );
 
-        if let Some(entry) = res {
+        if let Ok(entry) = res {
             if let Some((t, _)) = entry.exact_type() {
                 assert_eq!("Option<int>", &format!("{t}"));
                 return;
@@ -3001,7 +3389,7 @@ mod tests {
     }
 
     #[test]
-    fn test_type_check_stdlib() {
+    fn test_type_check_stdlib_vec() {
         let (tc, catalog, _, container) =
             check_project_with_profile("../stdlib", &RasmProfile::Test);
 
@@ -3049,6 +3437,32 @@ mod tests {
             false,
         );
     }
+
+    #[test]
+    #[ignore = "the result of json call cannot be determined"]
+    /*
+       the result of json call cannot be determined, because apart from regular json functions, that all return str,
+       there is also the json macro function, but we cannot disambiguate it
+    */
+    fn test_type_check_json() {
+        type_check_functions(
+            r#"
+                pub fn json<T>(s : AStruct<T>)  -> str {
+                    add(append(add(add(add(add(append(add(add(add(add(append(add(add(add("{", "\""), "x"), "\" : "), json(x(s))), ", "), "\""), "y"), "\" : "), json(y(s))), ", "), "\""), "v"), "\" : "), json(v(s))), "}") 
+                }
+            "#,
+            6,
+            true,
+        );
+    }
+
+    /*
+
+    pub fn json<T>(s : AStruct<T>)  -> str {
+    add(append(add(add(add(add(append(add(add(add(add(append(add(add(add("{", "\""), "x"), "\" : "), json(x(s))), ", "), "\""), "y"), "\" : "), json(y(s))), ", "), "\""), "v"), "\" : "), json(v(s))), "}") }
+
+
+         */
 
     fn type_check_functions<'a>(
         s: &'a str,
