@@ -57,7 +57,7 @@ pub fn eq<T>(o1: Option<T>, o2: Option<T>) -> bool {
 }
 
 pub fn filter<T>(o: Option<T>, predicate: fn(T) -> bool) -> Option<T> {
-    o.match(fn(v) { if(predicate(v), o, {None() }) }, {None() })
+    o.match(fn(v) { iif(predicate(v), o, None()) }, {None() })
 }
 
 pub fn zip<T,T1>(o1: Option<T>, o2: Option<T1>) -> Option<Pair<T,T1>> {
