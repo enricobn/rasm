@@ -2058,10 +2058,10 @@ impl<'a> ASTTypeChecker<'a> {
                         compatible_functions
                             .iter()
                             .map(|it| format!(
-                                "{} -> {}",
+                                "$indent  {} ->\n{}",
                                 it.0.signature.clone().remove_generic_prefix(),
                                 it.1.iter()
-                                    .map(|it| format!("  $indent{}", it.1))
+                                    .map(|it| format!("$indent    {}", it.1))
                                     .collect::<Vec<String>>()
                                     .join("\n")
                             ))
@@ -2732,7 +2732,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "it's generic"]
     fn test_functions_checker6() {
         init_minimal_log();
 
@@ -2752,7 +2751,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "it's generic"]
     fn test_functions_checker6_1() {
         init_minimal_log();
 
@@ -2772,7 +2770,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "it's generic"]
     fn test_functions_checker7() {
         let file = "resources/test/ast_type_checker/ast_type_checker7.rasm";
 
@@ -3091,9 +3088,11 @@ mod tests {
         )
         .unwrap();
 
+        /*
         for e in tc.errors().values() {
             println!("error: {e}");
         }
+        */
 
         if let Some(entry) = tc.get(id) {
             if let ASTTypeCheckInfo::Call(_, vec, _) = &entry.info {
@@ -3124,10 +3123,11 @@ mod tests {
             9,
         )
         .unwrap();
-
+        /*
         for e in tc.errors().values() {
             println!("error: {e}");
         }
+        */
 
         if let Some(entry) = tc.get(id) {
             if let ASTTypeCheckInfo::Call(_, vec, _) = &entry.info {
@@ -3393,9 +3393,11 @@ mod tests {
         let (tc, catalog, _, container) =
             check_project_with_profile("../stdlib", &RasmProfile::Test);
 
+        /*
         for error in tc.errors().values() {
             println!("{error}");
         }
+        */
 
         let id = get_id(
             "../stdlib/src/test/rasm/vec/vec.rasm",
@@ -3509,9 +3511,11 @@ mod tests {
             enable_log(false);
         }
 
+        /*
         for (i, e) in checker.errors.iter() {
             println!("Error: {e} : {i}");
         }
+        */
 
         if checker.result.map.len() != expected_entries {
             for entry in checker.result.map.values() {
@@ -3647,11 +3651,13 @@ mod tests {
             .filter(|(_, error)| error.kind == ASTTypeCheckErroKind::Fatal)
             .collect::<Vec<_>>();
 
+        /*
         for (_, error) in errors.iter() {
-            //if error.kind == ASTTypeCheckErroKind::Error {
-            println!("error {error}");
-            //}
+            if error.kind == ASTTypeCheckErroKind::Error {
+                println!("error {error}");
+            }
         }
+        */
 
         if !errors.is_empty() {
             panic!();
@@ -3662,12 +3668,14 @@ mod tests {
 
     fn check_body(file: &str) -> (ASTTypeCheckerResult, EnhModuleInfo, ASTModule) {
         apply_to_functions_checker(file, file, |module, mut ftc, info, cont| {
+            /*
             for (_, e) in ftc.errors.iter() {
                 println!("type checker error {e}");
             }
+            */
             let mut val_context = ValContext::new(None);
             let mut static_val_context = ValContext::new(None);
-            ftc.add_body(
+            if let Err(errors) = ftc.add_body(
                 &mut val_context,
                 &mut static_val_context,
                 &module.body,
@@ -3676,7 +3684,14 @@ mod tests {
                 &info.module_id(),
                 &cont,
                 None,
-            );
+            ) {
+                errors
+                    .iter()
+                    .filter(|e| e.kind != ASTTypeCheckErroKind::Fatal)
+                    .for_each(|e| {
+                        println!("type checker error {e}");
+                    });
+            }
             ftc.result
         })
     }
