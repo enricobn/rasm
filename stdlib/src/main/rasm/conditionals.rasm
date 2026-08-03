@@ -16,7 +16,7 @@ pub fn if<T>(cond: bool, ftrue: fn() -> T, elseIfCond1: bool, fElseIf1: fn() -> 
     if you need a short circuit then use the version with lambda
     TODO should it be called iif?
 **/
-pub fn if<T>(cond: bool, trueValue: T, elseIfCond: bool, valueElseIf: T, valueElse: T) -> T {
+pub fn iif<T>(cond: bool, trueValue: T, elseIfCond: bool, valueElseIf: T, valueElse: T) -> T {
     iif(cond, trueValue, iif(elseIfCond, valueElseIf, valueElse))
 }
 
