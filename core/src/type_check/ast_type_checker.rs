@@ -240,6 +240,10 @@ impl ASTTypeCheckEntry {
         }
     }
 
+    pub fn is_exact(&self) -> bool {
+        matches!(self.filter, Some(ASTTypeFilter::Exact(_, _)))
+    }
+
     fn is_generic_or_any(&self) -> bool {
         self.filter
             .as_ref()
@@ -343,6 +347,14 @@ impl<'a> ASTTypeChecker<'a> {
             .map
             .into_iter()
             .filter(|it| it.1.is_exact_not_generic())
+            .collect_vec()
+    }
+
+    pub fn get_exact(self) -> Vec<(usize, Arc<ASTTypeCheckEntry>)> {
+        self.result
+            .map
+            .into_iter()
+            .filter(|it| it.1.is_exact())
             .collect_vec()
     }
 
@@ -1602,39 +1614,49 @@ impl<'a> ASTTypeChecker<'a> {
                     compatible_functions.push((signature, Vec::new(), ASTTypeCheckerResult::new()));
                 }
             } else {
-                // for now I disable this, because it was meant to be an optimization, but it slows down
-                if false {
-                    let mut val_context = val_context.clone();
-                    let mut internal_type_checker = ASTTypeChecker::new(); //ASTTypeChecker::new();
+                /*
+                   Here we try to fill the cache with some simple expressions.
+                   It is not a great optimization, but let insert a simple expression if resolvable (even if is generic),
+                   regardless of this call. So if the call is not resolvable, the simple expressions are
+                */
 
-                    for (i, e) in call.parameters().iter().enumerate() {
-                        if matches!(e, ASTExpression::ASTLambdaExpression(_)) {
-                            // || matches!(e, ASTExpression::ASTFunctionCallExpression(_)) {
-                            continue;
+                // TODO I don't know why some tests work only if we use a "fresh" checker
+                let mut internal_type_checker = ASTTypeChecker::new();
+
+                for (i, e) in call.parameters().iter().enumerate() {
+                    if matches!(e, ASTExpression::ASTLambdaExpression(_))
+                        || matches!(e, ASTExpression::ASTFunctionCallExpression(_))
+                    {
+                        continue;
+                    }
+                    debug_i!("trying to resolve parameter {i}: {e}");
+                    indent!();
+
+                    if let Some(entry) = internal_type_checker.add_expr(
+                        e,
+                        val_context,
+                        statics,
+                        None,
+                        module_namespace,
+                        module_id,
+                        modules_container,
+                        function,
+                    ) {
+                        if entry.is_exact() {
+                            self.insert_arc_by_id(e.position().id, entry);
                         }
-                        debug_i!("trying to resolve parameter {i}: {e}");
-                        indent!();
-
-                        internal_type_checker.add_expr(
-                            e,
-                            &mut val_context,
-                            statics,
-                            None,
-                            module_namespace,
-                            module_id,
-                            modules_container,
-                            function,
-                        );
-
-                        dedent!();
                     }
 
-                    let exact_non_generic = internal_type_checker.get_exact_non_generics();
-                    for (id, entry) in exact_non_generic {
-                        //println!("inserting resolved filter: {entry} : {id}");
-                        self.insert_arc_by_id(id, entry);
-                    }
+                    dedent!();
                 }
+
+                /*
+                let exact_non_generic = internal_type_checker.get_exact();
+                for (id, entry) in exact_non_generic {
+                    //println!("inserting resolved filter: {entry} : {id}");
+                    self.insert_arc_by_id(id, entry);
+                }
+                */
 
                 /*
                 let mut internal_type_checker = ASTTypeChecker::with_parent(&self.result);
@@ -1762,9 +1784,6 @@ impl<'a> ASTTypeChecker<'a> {
                                 signature_type.clone()
                             };
 
-                            if self.get(e.position().id).is_some() {
-                                //println!("already resolved {e}");
-                            }
                             if let Some(entry) = internal_type_checker.add_expr(
                                 e,
                                 &mut val_context,
@@ -2797,7 +2816,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "it's generic"]
     fn test_functions_checker8() {
         let file: &str = "resources/test/ast_type_checker/ast_type_checker8.rasm";
 
