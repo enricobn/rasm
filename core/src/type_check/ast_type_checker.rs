@@ -1380,34 +1380,6 @@ impl<'a> ASTTypeChecker<'a> {
         }
     }
 
-    fn signature_entries_rank(
-        signature: &ASTFunctionSignature,
-        entries: &Vec<(usize, Arc<ASTTypeCheckEntry>)>,
-    ) -> usize {
-        if entries.iter().any(|it| {
-            if let Some(e_type) = it.1.exact_type() {
-                e_type.0.is_strictly_generic()
-            } else {
-                true
-            }
-        }) {
-            return usize::MAX;
-        }
-        let coeff = zip(signature.parameters_types.iter(), entries.iter())
-            .map(|(p, e)| {
-                let p_coeff = ASTFunctionSignatureEntry::generic_type_coeff(p);
-                let e_coeff = if let Some(e_type) = e.1.exact_type() {
-                    ASTFunctionSignatureEntry::generic_type_coeff(e_type.0)
-                } else {
-                    usize::MAX / 100
-                };
-                p_coeff.max(e_coeff)
-            })
-            .sum();
-
-        coeff
-    }
-
     fn add_call(
         &mut self,
         index: &ASTIndex,
@@ -1420,8 +1392,7 @@ impl<'a> ASTTypeChecker<'a> {
     ) -> Option<Arc<ASTTypeCheckEntry>> {
         let inside_a_generic_function = function.map_or(false, |f| f.is_generic());
 
-        let found = call.function_name() == "not used for now"
-            && format!("{index}").contains("function_reference.rasm:7:1");
+        let found = false; //call.function_name() == "print" && format!("{index}").contains("13:5");
 
         if found {
             // println!("found: {}", call.function_name());
@@ -1624,9 +1595,9 @@ impl<'a> ASTTypeChecker<'a> {
                 let mut internal_type_checker = ASTTypeChecker::new();
 
                 for (i, e) in call.parameters().iter().enumerate() {
-                    if matches!(e, ASTExpression::ASTLambdaExpression(_))
-                        || matches!(e, ASTExpression::ASTFunctionCallExpression(_))
-                    {
+                    if
+                    //matches!(e, ASTExpression::ASTLambdaExpression(_)) ||
+                    matches!(e, ASTExpression::ASTFunctionCallExpression(_)) {
                         continue;
                     }
                     debug_i!("trying to resolve parameter {i}: {e}");
@@ -2011,19 +1982,34 @@ impl<'a> ASTTypeChecker<'a> {
             if compatible_functions.len() > 1
             //&& expected_expression_type.map_or(false, |e| !e.is_generic())
             {
-                if found {
-                    println!("index type {}", expected_expression_type.unwrap());
-                }
-
                 let len_before = compatible_functions.len();
                 let mut min_rank = usize::MAX;
                 for (signature, entries, _) in compatible_functions.iter() {
-                    let rank: usize = Self::signature_entries_rank(&signature.signature, entries);
+                    if found {
+                        println!("signature: {}", signature);
+                        println!(
+                            "  entries: {}",
+                            entries.iter().map(|it| format!("{}", it.1)).join(", ")
+                        );
+                    }
+
+                    if !entries
+                        .iter()
+                        .all(|(_m, entry)| entry.is_exact_not_generic())
+                    {
+                        continue;
+                    }
+
+                    let rank: usize = signature.rank; // Self::signature_entries_rank(&signature.signature, entries);
                     min_rank = min_rank.min(rank);
+                    if found {
+                        println!("    rank: {}", rank);
+                    }
                 }
-                compatible_functions.retain(|(signature, entries, _)| {
-                    Self::signature_entries_rank(&signature.signature, entries) == min_rank
-                });
+
+                if min_rank != usize::MAX {
+                    compatible_functions.retain(|(signature, _, _)| signature.rank == min_rank);
+                }
 
                 if len_before != compatible_functions.len() {
                     debug_i!(
@@ -2032,6 +2018,14 @@ impl<'a> ASTTypeChecker<'a> {
                         len_before,
                         compatible_functions.len()
                     );
+
+                    if found {
+                        let ct = &compatible_functions
+                            .iter()
+                            .map(|it| it.0.signature.clone())
+                            .collect::<Vec<_>>();
+                        println!("filtered compatible_functions: {}", SliceDisplay(&ct));
+                    }
                 }
             }
 
@@ -2089,6 +2083,10 @@ impl<'a> ASTTypeChecker<'a> {
                 );
 
                 dedent!();
+
+                if found {
+                    enable_log(false);
+                }
 
                 let signatures = compatible_functions
                     .iter()
@@ -3091,9 +3089,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "it's generic"]
-    fn test_print() {
+    fn test_ast_checker_print() {
         init_minimal_log();
+
+        enable_log(false);
 
         let (tc, catalog, _, container) = check_project("../stdlib");
 
@@ -3529,11 +3528,9 @@ mod tests {
             enable_log(false);
         }
 
-        /*
         for (i, e) in checker.errors.iter() {
             println!("Error: {e} : {i}");
         }
-        */
 
         if checker.result.map.len() != expected_entries {
             for entry in checker.result.map.values() {
