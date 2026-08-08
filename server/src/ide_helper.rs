@@ -1942,7 +1942,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "generic function"]
     fn complex_expression_completions() {
         let values = get_completion_values(
             Some(RasmProject::new(PathBuf::from(
@@ -1961,7 +1960,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "generic function"]
     fn complex_expression_ref() {
         let values = get_find(
             Some(RasmProject::new(PathBuf::from(
@@ -2932,7 +2930,6 @@ State(resources, newKeys, Menu(MenuState(newHighScores)), newHighScores)
     }
 
     #[test]
-    #[ignore = "generic function"]
     fn test_extract_function_vec() {
         let (project, helper) = get_helper("../stdlib");
 
