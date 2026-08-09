@@ -1768,6 +1768,25 @@ impl<'a> ASTTypeChecker<'a> {
                                         break;
                                     }
                                 } else {
+                                    // if we have a call, it means that every function call has a result compatible with the
+                                    // resolved function parametr type of the signature
+                                    // TODO move this when we create the Call
+                                    if let ASTTypeCheckInfo::Call(_, _, _) = entry.info() {
+                                        let entry = ASTTypeCheckEntry::new(
+                                            entry.index().clone(),
+                                            Some(ASTTypeFilter::Exact(
+                                                resolved_signature_type.clone(),
+                                                ModuleInfo::new(
+                                                    index.module_namespace().clone(),
+                                                    index.module_id().clone(),
+                                                ),
+                                            )),
+                                            entry.info().clone(),
+                                        );
+                                        parameter_types_filters[i] =
+                                            Some((e.position().id, Arc::new(entry)));
+                                        continue;
+                                    }
                                     // we cannot break, because we need to check all parameters for eventually substitute generics
                                     // and try another time
                                     dedent!();
