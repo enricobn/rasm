@@ -500,7 +500,7 @@ impl CompileTarget {
 
                     let backend = BackendNasmi386::new(command_line_options.memory_debug);
 
-                    let out = out_paths.remove(0);
+                    let out = out_paths.pop().unwrap();
 
                     if command_line_options.only_compile {
                         backend

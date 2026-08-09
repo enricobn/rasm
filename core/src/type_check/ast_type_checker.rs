@@ -1148,7 +1148,7 @@ impl<'a> ASTTypeChecker<'a> {
                 };
 
             if function_references.len() == 1 {
-                let fun_entry = function_references.remove(0);
+                let fun_entry = function_references.pop().unwrap();
 
                 let lambda =
                     if let Some(ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {

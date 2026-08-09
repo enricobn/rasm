@@ -430,7 +430,7 @@ impl<'a> EnhTypeCheck<'a> {
                 }
 
                 if function_references.len() == 1 {
-                    let new_function_def = function_references.remove(0);
+                    let new_function_def = function_references.pop().unwrap();
 
                     let mut function_parameters = new_function_def.parameters.clone();
                     let mut function_return_type = new_function_def.return_type.clone();
@@ -1354,7 +1354,7 @@ impl<'a> EnhTypeCheck<'a> {
             //self.stack.pop();
             dedent!();
             let (valid_function, _x, resolved_generic_types, expressions) =
-                valid_functions.remove(0);
+                valid_functions.pop().unwrap();
 
             Ok((valid_function, resolved_generic_types, expressions))
         }
@@ -2168,7 +2168,7 @@ impl<'a> EnhTypeCheck<'a> {
                         );
 
                         if function_references.len() == 1 {
-                            let new_function_def = function_references.remove(0);
+                            let new_function_def = function_references.pop().unwrap();
 
                             let lambda = EnhBuiltinTypeKind::Lambda {
                                 parameters: new_function_def
