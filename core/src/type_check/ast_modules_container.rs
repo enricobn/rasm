@@ -773,7 +773,7 @@ impl ASTModulesContainer {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypeFilter {
     Exact(ASTType, ModuleInfo),
     Any,

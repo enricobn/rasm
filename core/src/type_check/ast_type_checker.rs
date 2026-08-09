@@ -112,7 +112,7 @@ impl Display for ASTTypeCheckError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypeCheckInfo {
     Call(String, Vec<(ASTFunctionSignature, ASTIndex)>, bool),
     LambdaCall(ASTFunctionSignature, ASTIndex),
@@ -156,7 +156,7 @@ impl Display for ASTTypeCheckInfo {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ASTTypeCheckEntry {
     index: ASTIndex,
     filter: Option<ASTTypeFilter>,
@@ -1392,7 +1392,7 @@ impl<'a> ASTTypeChecker<'a> {
     ) -> Option<Arc<ASTTypeCheckEntry>> {
         let inside_a_generic_function = function.map_or(false, |f| f.is_generic());
 
-        let found = false;
+        let found = false; //function.map(|it| it.name == "generic").unwrap_or(false);
         // call.function_name() == "append" && format!("{index}").contains("3:71");
 
         if found {
@@ -1559,20 +1559,19 @@ impl<'a> ASTTypeChecker<'a> {
             } else {
                 /*
                    Here we try to fill the cache with some simple expressions.
-                   It is not a great optimization, but let insert a simple expression if resolvable (even if is generic),
-                   regardless of this call. So if the call is not resolvable, the simple expressions are
+                   But it seems that it's not faster
                 */
 
-                {
-                    let mut internal_type_checker = //ASTTypeChecker::new();
-                    ASTTypeChecker::with_parent(&self.result);
+                if false && compatible_functions.len() > 1 {
+                    let mut internal_type_checker = ASTTypeChecker::with_parent(&self.result);
 
                     for (i, e) in call.parameters().iter().enumerate() {
-                        if
+                        /*if
                         //matches!(e, ASTExpression::ASTLambdaExpression(_)) ||
                         matches!(e, ASTExpression::ASTFunctionCallExpression(_)) {
                             continue;
                         }
+                        */
                         debug_i!("trying to resolve parameter {i}: {e}");
                         indent!();
 
@@ -1654,9 +1653,6 @@ impl<'a> ASTTypeChecker<'a> {
                     let mut function_errors = Vec::new();
 
                     loop {
-                        // TOD must we clear it after if to_resolve.is_empty()?
-                        function_errors.clear();
-
                         // by opencode
                         // We only need to re-resolve a parameter if its type changed since the last
                         // iteration (a generic got bound), or if it was never successfully resolved.
@@ -1690,6 +1686,9 @@ impl<'a> ASTTypeChecker<'a> {
                         if to_resolve.is_empty() {
                             break;
                         }
+
+                        //internal_type_checker = ASTTypeChecker::with_parent(&self.result);
+                        function_errors.clear();
 
                         debug_i!("loop resolved generic types: {resolved_generic_types}");
                         indent!();
@@ -1761,8 +1760,9 @@ impl<'a> ASTTypeChecker<'a> {
                                             ),
                                         ));
                                         // TODO we found that the expression type is not compatible with the function parameter type.
-                                        //      Is it still possible that the function is the right one? Can the type of expression be misleading, due to the
-                                        //      fact that the parameter type is generic, but we have not yet found the generic?
+                                        //      Is it still possible that the function is the right one? Can the type of expression
+                                        //      be misleading, due to the fact that the parameter type is generic, but we have not yet
+                                        //      found the generic?
                                         //      For now we assume that it is not possible, so we can break, but also in the outer loop.
                                         invalid_function = true;
                                         break;
@@ -1933,7 +1933,7 @@ impl<'a> ASTTypeChecker<'a> {
             }
 
             let result = if compatible_functions.len() == 1 {
-                let (signature, entries, result) = compatible_functions.remove(0);
+                let (signature, entries, result) = compatible_functions.pop().unwrap();
 
                 /*
                 println!(
@@ -1963,6 +1963,19 @@ impl<'a> ASTTypeChecker<'a> {
                 }
                 process_result
             } else if compatible_functions.len() > 1 {
+                for i in 0..call.parameters().len() {
+                    let mut entries = compatible_functions
+                        .iter()
+                        .map(|it| it.1[i].1.clone())
+                        .collect_vec();
+                    entries.dedup();
+
+                    if entries.len() == 1 {
+                        let entry = entries.pop().unwrap();
+                        self.insert_arc_by_id(call.parameters()[i].position().id, entry);
+                    }
+                }
+
                 self.add_error(
                     ASTTypeCheckErroKind::Warning,
                     index.clone(),
@@ -2716,6 +2729,8 @@ mod tests {
 
     #[test]
     fn test_functions_checker8() {
+        init_minimal_log();
+
         let file: &str = "resources/test/ast_type_checker/ast_type_checker8.rasm";
 
         let (types_map, _info, module) = check_function(file, "generic");
