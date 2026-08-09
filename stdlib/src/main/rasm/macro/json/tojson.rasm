@@ -29,7 +29,7 @@ pub fn json(s: ASTStructDef) -> MacroAttributeResult {
             basePropertyExpression, 
             fn(prev, act) { 
                 let propertyJson = simpleASTCall("json", vecOf(act.value.second))
-                let propertyValue = prev.add("\\\"").add(act.value.first.name).add("\\\" : ").append(propertyJson)
+                let propertyValue = prev.add("\\\"").add(act.value.first.name).add("\\\" : ").add(propertyJson)
                 iif(act.index.less(parameters.len.sub(1)), propertyValue.add(", "), propertyValue)
             }
         ).add("}")
@@ -69,7 +69,7 @@ pub fn json(e: ASTEnumDef) -> MacroAttributeResult {
                 stringASTValue("\\\"").add(variant.name).add("\\\": {"), 
                 fn(prev, act) { 
                     let propertyValue = prev.add("\\\"").add(act.value).add("\\\": ")
-                        .append(simpleASTCall("json", vecOf(ASTValueRefExpression(act.value))))
+                        .add(simpleASTCall("json", vecOf(ASTValueRefExpression(act.value))))
                     iif(act.index.less(variantParamNames.len.sub(1)), propertyValue.add(", "), propertyValue)
                 }
             ).add("}")
