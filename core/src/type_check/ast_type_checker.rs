@@ -1464,7 +1464,6 @@ impl<'a> ASTTypeChecker<'a> {
                 modules_container,
                 function,
                 index,
-                &Vec::new(),
             );
 
             dedent!();
@@ -1925,14 +1924,7 @@ impl<'a> ASTTypeChecker<'a> {
             }
 
             let result = if compatible_functions.len() == 1 {
-                let (signature, entries, result) = compatible_functions.pop().unwrap();
-
-                /*
-                println!(
-                    "internal type checker: {}",
-                    result.map.len()
-                );
-                */
+                let (signature, _, result) = compatible_functions.pop().unwrap();
 
                 self.result.extend(result);
 
@@ -1946,7 +1938,6 @@ impl<'a> ASTTypeChecker<'a> {
                     modules_container,
                     function,
                     index,
-                    &entries,
                 );
 
                 dedent!();
@@ -2113,7 +2104,6 @@ impl<'a> ASTTypeChecker<'a> {
         modules_container: &ASTModulesContainer,
         function: Option<&ASTFunctionDef>,
         index: &ASTIndex,
-        entries: &Vec<(usize, Arc<ASTTypeCheckEntry>)>,
     ) -> Option<Arc<ASTTypeCheckEntry>> {
         debug_i!(
             "process_function_signature {} expected {}",
@@ -2168,21 +2158,6 @@ impl<'a> ASTTypeChecker<'a> {
 
             for (i, e) in call.parameters().iter().enumerate() {
                 let parameter_type = function_signature.parameters_types.get(i).unwrap();
-
-                if i < entries.len() {
-                    let entry = &entries[i].1;
-                    if let Some(calculated_type_filter) = entry.exact_filter_not_generic() {
-                        if parameter_type.is_generic() {
-                            loop_errors.extend(Self::add_resolve_type_filter(
-                                entry.index(),
-                                &parameter_type,
-                                calculated_type_filter,
-                                &mut resolved_generic_types,
-                            ));
-                        }
-                        continue;
-                    }
-                }
 
                 let ps = resolved_generic_types.substitute(&parameter_type);
                 let ast_type = if let Some(ref a) = ps {
