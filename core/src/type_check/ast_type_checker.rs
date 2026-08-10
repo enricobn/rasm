@@ -1768,25 +1768,6 @@ impl<'a> ASTTypeChecker<'a> {
                                         break;
                                     }
                                 } else {
-                                    // if we have a call, it means that every function call has a result compatible with the
-                                    // resolved function parametr type of the signature
-                                    // TODO move this when we create the Call
-                                    if let ASTTypeCheckInfo::Call(_, _, _) = entry.info() {
-                                        let entry = ASTTypeCheckEntry::new(
-                                            entry.index().clone(),
-                                            Some(ASTTypeFilter::Exact(
-                                                resolved_signature_type.clone(),
-                                                ModuleInfo::new(
-                                                    index.module_namespace().clone(),
-                                                    index.module_id().clone(),
-                                                ),
-                                            )),
-                                            entry.info().clone(),
-                                        );
-                                        parameter_types_filters[i] =
-                                            Some((e.position().id, Arc::new(entry)));
-                                        continue;
-                                    }
                                     // we cannot break, because we need to check all parameters for eventually substitute generics
                                     // and try another time
                                     dedent!();
@@ -2035,6 +2016,7 @@ impl<'a> ASTTypeChecker<'a> {
                                 module_namespace,
                                 module_id,
                                 &signatures,
+                                expected_expression_type,
                             ),
                             ASTTypeCheckInfo::Call(
                                 call.function_name().clone(),
@@ -2088,11 +2070,18 @@ impl<'a> ASTTypeChecker<'a> {
         module_namespace: &ModuleNamespace,
         module_id: &ModuleId,
         signatures: &Vec<&ASTFunctionSignature>,
+        expected_expression_type: Option<&ASTType>,
     ) -> Option<ASTTypeFilter> {
         if signatures.is_empty() {
             None
         } else if let Some(rt) = Self::get_return_type_from_signatures(signatures) {
             return Some(ASTTypeFilter::exact(rt, module_namespace, module_id));
+        } else if let Some(rt) = expected_expression_type {
+            return Some(ASTTypeFilter::exact(
+                rt.clone(),
+                module_namespace,
+                module_id,
+            ));
         } else {
             None
         }
