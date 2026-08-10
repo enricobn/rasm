@@ -1601,23 +1601,15 @@ impl<'a> ASTTypeChecker<'a> {
                         println!("  signature: {signature}");
                     }
                     let mut resolved_generic_types = ASTResolvedGenericTypes::new();
-                    if !call.generics().is_empty() {
-                        if call.generics().len() != signature.signature.generics.len() {
-                            dedent!();
-                            debug_i!(
-                                "generics in the call do not match the generics in the function signature, the call has {} generics and the function signature has {} generics",
-                                call.generics().len(),
-                                signature.signature.generics.len()
-                            );
-                            continue;
-                        }
-                        for (t, name) in zip(call.generics(), signature.signature.generics.iter()) {
-                            resolved_generic_types.insert(name.to_owned(), Vec::new(), t.clone());
-                        }
-                        debug_i!(
-                            "initializing resolved generics from call: {resolved_generic_types}"
-                        );
-                    }
+
+                    self.resolve_signature_generics_with_call_generics(
+                        &signature.signature,
+                        call,
+                        &mut resolved_generic_types,
+                        function,
+                        index,
+                    );
+
                     if let Some(et) = &expected_expression_type {
                         if signature.signature.return_type.is_generic() {
                             // TODO collect errors?
