@@ -1654,6 +1654,15 @@ impl<'a> ASTTypeChecker<'a> {
                             let signature_type =
                                 signature.signature.parameters_types.get(i).unwrap();
 
+                            // A non-generic parameter type can never change between iterations and,
+                            // once successfully resolved, there is nothing left to do for it here.
+                            if !signature_type.is_generic()
+                                && resolved_signature_types[i].is_some()
+                                && parameter_types_filters[i].is_some()
+                            {
+                                continue;
+                            }
+
                             let resolved_signature_type = if signature_type.is_generic() {
                                 if let Some(t) = resolved_generic_types.substitute(signature_type) {
                                     debug_i!("substituted {signature_type} to {t}");
