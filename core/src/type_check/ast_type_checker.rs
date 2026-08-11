@@ -1,4 +1,10 @@
-use std::{collections::HashMap, fmt::Display, iter::zip, sync::Arc, time::Instant};
+use std::{
+    collections::HashMap,
+    fmt::Display,
+    iter::zip,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use itertools::Itertools;
 
@@ -455,9 +461,8 @@ impl<'a> ASTTypeChecker<'a> {
 
                 let mut type_checker_chunk = ASTTypeChecker::new();
                 for (id, namespace, function) in chunk {
-                    let found = !format!("{id}").contains("stdlib")
-                        && !format!("{id}").contains("ast")
-                        && !format!("{id}").contains("core");
+                    let found = function.name == "next"
+                        && format!("{}", function.return_type).contains("Internal");
                     if found {
                         //println!("found {} function", function.name);
                         enable_log(true);
@@ -466,7 +471,7 @@ impl<'a> ASTTypeChecker<'a> {
                     //println!("adding function: {function}");
                     debug_i!("adding function: {function}");
                     indent!();
-                    // let start = Instant::now();
+                    //let start = Instant::now();
 
                     type_checker_chunk.add_function(
                         function,
@@ -1084,6 +1089,7 @@ impl<'a> ASTTypeChecker<'a> {
                         ) {
                             let module_info =
                                 ModuleInfo::new(module_namespace.clone(), module_id.clone());
+                            dedent!();
                             return Some(
                                 self.insert(
                                     index.clone(),
@@ -1565,12 +1571,12 @@ impl<'a> ASTTypeChecker<'a> {
                     let mut internal_type_checker = ASTTypeChecker::with_parent(&self.result);
 
                     for (i, e) in call.parameters().iter().enumerate() {
-                        /*if
+                        if
                         //matches!(e, ASTExpression::ASTLambdaExpression(_)) ||
                         matches!(e, ASTExpression::ASTFunctionCallExpression(_)) {
                             continue;
                         }
-                        */
+
                         debug_i!("trying to resolve parameter {i}: {e}");
                         indent!();
 
@@ -1644,11 +1650,11 @@ impl<'a> ASTTypeChecker<'a> {
                     let mut function_errors = Vec::new();
 
                     loop {
-                        // by opencode
                         // We only need to re-resolve a parameter if its type changed since the last
                         // iteration (a generic got bound), or if it was never successfully resolved.
                         // Parameters whose type is unchanged already hold an entry resolved with the
                         // final bindings, so re-resolving them would repeat the same work.
+                        // By opencode.
                         let mut to_resolve = Vec::new();
                         for i in 0..call.parameters().len() {
                             let signature_type =
@@ -1656,6 +1662,7 @@ impl<'a> ASTTypeChecker<'a> {
 
                             // A non-generic parameter type can never change between iterations and,
                             // once successfully resolved, there is nothing left to do for it here.
+                            // By opencode.
                             if !signature_type.is_generic()
                                 && resolved_signature_types[i].is_some()
                                 && parameter_types_filters[i].is_some()
@@ -1788,6 +1795,11 @@ impl<'a> ASTTypeChecker<'a> {
                                         ),
                                         format!("no filter for {e}, info={}", entry.info()),
                                     ));
+                                    if !signature_type.is_generic() {
+                                        //println!("optimized no filter for {e}");
+                                        invalid_function = true;
+                                        break;
+                                    }
                                 }
                             } else if let Some(error) =
                                 internal_type_checker.errors.get(&e.position().id)
@@ -1802,6 +1814,14 @@ impl<'a> ASTTypeChecker<'a> {
                                     format!("error in expression {e}"),
                                     vec![error.clone()],
                                 ));
+                                dedent!();
+                                debug_i!("error in expression {e}");
+
+                                if !signature_type.is_generic() {
+                                    // println!("optimized error for {e}");
+                                    invalid_function = true;
+                                    break;
+                                }
                             } else {
                                 dedent!();
                                 debug_i!("not valid expression");
@@ -1814,7 +1834,12 @@ impl<'a> ASTTypeChecker<'a> {
                                         e.position().clone(),
                                     ),
                                     format!("not valid expression {e}",),
-                                ))
+                                ));
+                                if !signature_type.is_generic() {
+                                    // println!("optimized error for {e}");
+                                    invalid_function = true;
+                                    break;
+                                }
                             }
                         }
 
@@ -1852,8 +1877,11 @@ impl<'a> ASTTypeChecker<'a> {
                     } else {
                         dedent!();
                         debug_i!(
-                            "parameter_types_filters.len() != call.parameters().len(): {} != {}",
-                            parameter_types_filters.len(),
+                            "parameter_types_filters.iter().all(Option::is_some).len() != call.parameters().len(): {} != {}",
+                            parameter_types_filters
+                                .iter()
+                                .filter(|it| it.is_some())
+                                .count(),
                             call.parameters().len()
                         );
 
@@ -3306,6 +3334,8 @@ mod tests {
 
     #[test]
     fn test_type_check_stdlib_vec() {
+        init_minimal_log();
+        enable_log(false);
         let (tc, catalog, _, container) =
             check_project_with_profile("../stdlib", &RasmProfile::Test);
 
