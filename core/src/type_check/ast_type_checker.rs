@@ -1571,9 +1571,9 @@ impl<'a> ASTTypeChecker<'a> {
                     let mut internal_type_checker = ASTTypeChecker::with_parent(&self.result);
 
                     for (i, e) in call.parameters().iter().enumerate() {
-                        if
-                        //matches!(e, ASTExpression::ASTLambdaExpression(_)) ||
-                        matches!(e, ASTExpression::ASTFunctionCallExpression(_)) {
+                        if matches!(e, ASTExpression::ASTLambdaExpression(_))
+                            || matches!(e, ASTExpression::ASTFunctionCallExpression(_))
+                        {
                             continue;
                         }
 
@@ -1775,8 +1775,6 @@ impl<'a> ASTTypeChecker<'a> {
                                         break;
                                     }
                                 } else {
-                                    // we cannot break, because we need to check all parameters for eventually substitute generics
-                                    // and try another time
                                     dedent!();
                                     debug_i!(
                                         "no filter for {e} : {}",
@@ -1796,10 +1794,11 @@ impl<'a> ASTTypeChecker<'a> {
                                         format!("no filter for {e}, info={}", entry.info()),
                                     ));
                                     if !signature_type.is_generic() {
-                                        //println!("optimized no filter for {e}");
                                         invalid_function = true;
                                         break;
                                     }
+                                    // if generic, we cannot break, because we need to check all parameters for eventually substitute generics
+                                    // and try another time
                                 }
                             } else if let Some(error) =
                                 internal_type_checker.errors.get(&e.position().id)
@@ -1817,8 +1816,9 @@ impl<'a> ASTTypeChecker<'a> {
                                 dedent!();
                                 debug_i!("error in expression {e}");
 
-                                if !signature_type.is_generic() {
-                                    // println!("optimized error for {e}");
+                                if error.kind() == &ASTTypeCheckErroKind::Fatal
+                                    || !signature_type.is_generic()
+                                {
                                     invalid_function = true;
                                     break;
                                 }
