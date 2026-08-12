@@ -3387,11 +3387,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "the result of json call cannot be determined"]
-    /*
-       the result of json call cannot be determined, because apart from regular json functions, that all return str,
-       there is also the json macro function, but we cannot disambiguate it
-    */
     fn test_type_check_json() {
         type_check_functions(
             r#"
@@ -3399,18 +3394,10 @@ mod tests {
                     add(append(add(add(add(add(append(add(add(add(add(append(add(add(add("{", "\""), "x"), "\" : "), json(x(s))), ", "), "\""), "y"), "\" : "), json(y(s))), ", "), "\""), "v"), "\" : "), json(v(s))), "}") 
                 }
             "#,
-            34,
+            35,
             true,
         );
     }
-
-    /*
-
-    pub fn json<T>(s : AStruct<T>)  -> str {
-    add(append(add(add(add(add(append(add(add(add(add(append(add(add(add("{", "\""), "x"), "\" : "), json(x(s))), ", "), "\""), "y"), "\" : "), json(y(s))), ", "), "\""), "v"), "\" : "), json(v(s))), "}") }
-
-
-         */
 
     fn type_check_functions<'a>(
         s: &'a str,
