@@ -243,12 +243,6 @@ impl ASTTypeCheckEntry {
     pub fn is_exact(&self) -> bool {
         matches!(self.filter, Some(ASTTypeFilter::Exact(_, _)))
     }
-
-    fn is_generic_or_any(&self) -> bool {
-        self.filter
-            .as_ref()
-            .map_or(false, |it| it.is_generic_or_any())
-    }
 }
 
 impl Display for ASTTypeCheckEntry {
@@ -264,7 +258,7 @@ impl Display for ASTTypeCheckEntry {
 
 #[derive(Debug, Clone)]
 pub struct ASTTypeCheckerResult {
-    pub map: HashMap<usize, Arc<ASTTypeCheckEntry>>,
+    map: HashMap<usize, Arc<ASTTypeCheckEntry>>,
 }
 
 impl ASTTypeCheckerResult {
@@ -272,12 +266,6 @@ impl ASTTypeCheckerResult {
         Self {
             map: HashMap::new(),
         }
-    }
-
-    fn insert(&mut self, id: usize, entry: ASTTypeCheckEntry) -> Arc<ASTTypeCheckEntry> {
-        let e = Arc::new(entry);
-        self.map.insert(id, e.clone());
-        e
     }
 
     pub fn get_by_index(&self, index: &ASTIndex) -> Option<&Arc<ASTTypeCheckEntry>> {
@@ -413,7 +401,7 @@ impl<'a> ASTTypeChecker<'a> {
         for (id, namespace, module) in modules.iter() {
             let mut val_context = ValContext::new(None);
 
-            type_checker.add_body(
+            if let Result::Ok(return_type) = type_checker.add_body(
                 &mut val_context,
                 &mut static_val_context,
                 &module.body,
@@ -422,7 +410,24 @@ impl<'a> ASTTypeChecker<'a> {
                 &id,
                 &modules_container,
                 None,
-            );
+            ) {
+                if let Some(filter) = return_type.exact_filter_not_generic() {
+                    if let ASTTypeFilter::Exact(t, _) = filter {
+                        if !t.is_generic() && !t.is_unit() {
+                            let index = ASTIndex::new(
+                                (*namespace).clone(),
+                                (*id).clone(),
+                                module.body.last().unwrap().position().clone(),
+                            );
+                            type_checker.add_error(
+                                ASTTypeCheckErroKind::Fatal,
+                                index,
+                                "main body cannot return a value".to_owned(),
+                            );
+                        }
+                    }
+                }
+            }
 
             functions_count += module.functions.len();
         }
@@ -562,7 +567,7 @@ impl<'a> ASTTypeChecker<'a> {
                     &function.return_type
                 };
                 // TODO return_type
-                self.add_body(
+                if let Err(e) = self.add_body(
                     &mut val_context,
                     &mut tmp_static_val_context,
                     body,
@@ -571,7 +576,9 @@ impl<'a> ASTTypeChecker<'a> {
                     module_id,
                     modules_container,
                     Some(function),
-                );
+                ) {
+                    debug_i!("errors adding function {function} : {}", SliceDisplay(&e));
+                }
             }
             ASTFunctionBody::NativeBody(_body) => {}
         }

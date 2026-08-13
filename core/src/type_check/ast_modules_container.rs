@@ -870,7 +870,6 @@ impl ASTTypeFilter {
         match self {
             ASTTypeFilter::Exact(t, _) => Some(ASTFunctionSignatureEntry::generic_type_coeff(t)),
             ASTTypeFilter::Lambda(_, rt) => rt.as_ref().and_then(|it| it.generic_type_coeff()),
-            _ => None,
         }
     }
 
