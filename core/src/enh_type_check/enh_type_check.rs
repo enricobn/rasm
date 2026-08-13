@@ -1921,7 +1921,6 @@ impl<'a> EnhTypeCheck<'a> {
                 namespace,
                 None,
             )),
-            ASTTypeFilter::Any => EnhTypeFilter::Any,
             ASTTypeFilter::Lambda(s, asttype_filter) => EnhTypeFilter::Lambda(
                 *s,
                 asttype_filter
@@ -2148,7 +2147,7 @@ impl<'a> EnhTypeCheck<'a> {
                     }
                     Err(e) => {
                         debug_i!("{e}");
-                        EnhTypeFilter::Any
+                        return Err(e);
                     }
                 }
             }

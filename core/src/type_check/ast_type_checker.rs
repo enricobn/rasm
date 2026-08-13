@@ -1,10 +1,4 @@
-use std::{
-    collections::HashMap,
-    fmt::Display,
-    iter::zip,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{collections::HashMap, fmt::Display, iter::zip, sync::Arc, time::Instant};
 
 use itertools::Itertools;
 

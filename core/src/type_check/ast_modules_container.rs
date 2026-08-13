@@ -776,7 +776,6 @@ impl ASTModulesContainer {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTTypeFilter {
     Exact(ASTType, ModuleInfo),
-    Any,
     Lambda(usize, Option<Box<ASTTypeFilter>>),
 }
 
@@ -784,7 +783,6 @@ impl Display for ASTTypeFilter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ASTTypeFilter::Exact(asttype, _) => write!(f, "Exact({asttype})"),
-            ASTTypeFilter::Any => f.write_str("Any"),
             ASTTypeFilter::Lambda(n, function_type_filter) => {
                 write!(f, "Lambda({n}, {})", OptionDisplay(&function_type_filter))
             }
@@ -806,7 +804,6 @@ impl ASTTypeFilter {
                 f_ast_type,
                 f_module_info.namespace(),
             ),
-            ASTTypeFilter::Any => true,
             ASTTypeFilter::Lambda(par_len, return_type_filter) => match ast_type {
                 ASTType::ASTBuiltinType(builtin_type_kind) => match builtin_type_kind {
                     ASTBuiltinTypeKind::ASTLambdaType {
@@ -845,7 +842,6 @@ impl ASTTypeFilter {
     pub fn is_generic_or_any(&self) -> bool {
         match &self {
             ASTTypeFilter::Exact(asttype, _) => asttype.is_generic(),
-            ASTTypeFilter::Any => true,
             ASTTypeFilter::Lambda(_, asttype_filter) => {
                 //if *par_count == 0 {
                 asttype_filter
@@ -912,7 +908,6 @@ impl ASTTypeFilter {
                     }
                 }
             }
-            ASTTypeFilter::Any => 1000,
             ASTTypeFilter::Lambda(par_len, return_type_filter) => match ast_type {
                 ASTType::ASTBuiltinType(builtin_type_kind) => match builtin_type_kind {
                     ASTBuiltinTypeKind::ASTLambdaType {

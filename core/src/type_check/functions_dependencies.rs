@@ -493,7 +493,6 @@ fn function_dependencies_inner_2(
                                                 } else {
                                                 }
                                             }
-                                            ASTTypeFilter::Any => {}
                                             ASTTypeFilter::Lambda(_, _asttype_filter) => {}
                                         }
                                         let signature_parameter_type =
