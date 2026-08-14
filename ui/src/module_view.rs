@@ -168,7 +168,7 @@ impl UI {
                             TokenKind::WhiteSpaces(s) => {
                                 row = row.push(text(s));
                             }
-                            TokenKind::Reserved(k) => {
+                            TokenKind::BuiltinType(k) => {
                                 row = row.push(text(format!("{k}")).color(RESERVED_COLOR));
                             }
                             _ => {

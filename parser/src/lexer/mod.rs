@@ -5,7 +5,7 @@ use std::path::Path;
 use log::debug;
 
 use tokens::{
-    BracketKind, BracketStatus, KeywordKind, PunctuationKind, ReservedKind, Token, TokenKind,
+    BracketKind, BracketStatus, BuiltinTypeKind, KeywordKind, PunctuationKind, Token, TokenKind,
 };
 
 pub mod tokens;
@@ -290,9 +290,9 @@ impl Lexer {
                     } else if let Some(keyword) = KeywordKind::from_name(&actual) {
                         //self.chars.next_back();
                         return self.create_token_at_current_position(keyword);
-                    } else if let Some(keyword) = ReservedKind::from_name(&actual) {
+                    } else if let Some(kind) = BuiltinTypeKind::from_name(&actual) {
                         //self.chars.next_back();
-                        return self.create_token_at_current_position(keyword);
+                        return self.create_token_at_current_position(kind);
                     } else {
                         //self.chars.next_back();
                         if actual.chars().any(|it| !it.is_alphanumeric()) {
@@ -492,14 +492,14 @@ mod tests {
                 Bracket(Round, Open),
                 AlphaNumeric("a".into()),
                 Punctuation(Colon),
-                Reserved(ReservedKind::INT),
+                BuiltinType(BuiltinTypeKind::INT),
                 Punctuation(Comma),
                 AlphaNumeric("b".into()),
                 Punctuation(Colon),
-                Reserved(ReservedKind::INT),
+                BuiltinType(BuiltinTypeKind::INT),
                 Bracket(Round, Close),
                 Punctuation(RightArrow),
-                Reserved(ReservedKind::INT),
+                BuiltinType(BuiltinTypeKind::INT),
                 Bracket(Brace, Open),
                 EndOfLine,
                 AlphaNumeric("AType".into()),
@@ -571,7 +571,7 @@ mod tests {
                 Bracket(Round, Open),
                 AlphaNumeric("s".into()),
                 Punctuation(Colon),
-                Reserved(ReservedKind::STR),
+                BuiltinType(BuiltinTypeKind::STR),
                 Bracket(Round, Close),
                 Bracket(Brace, Open),
                 Bracket(Brace, Close),
@@ -847,7 +847,7 @@ mod tests {
                 TokenKind::Bracket(BracketKind::Round, BracketStatus::Open),
                 TokenKind::Bracket(BracketKind::Round, BracketStatus::Close),
                 TokenKind::Punctuation(RightArrow),
-                TokenKind::Reserved(ReservedKind::STR),
+                TokenKind::BuiltinType(BuiltinTypeKind::STR),
             ],
             tokens.iter().map(|it| it.kind.clone()).collect::<Vec<_>>()
         );

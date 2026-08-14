@@ -43,6 +43,18 @@ impl Token {
             None
         }
     }
+
+    pub fn reserved(&self) -> Option<String> {
+        if let TokenKind::BuiltinType(kind) = &self.kind {
+            Some(kind.name().to_owned())
+        } else {
+            None
+        }
+    }
+
+    pub fn identifier(&self) -> Option<String> {
+        self.alpha().or_else(|| self.reserved())
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Eq)]
@@ -59,7 +71,7 @@ pub enum TokenKind {
     StringLiteral(String),
     CharLiteral(String),
     WhiteSpaces(String),
-    Reserved(ReservedKind),
+    BuiltinType(BuiltinTypeKind),
 }
 
 impl TokenKind {
@@ -77,13 +89,13 @@ impl TokenKind {
             TokenKind::StringLiteral(s) => s.len(),
             TokenKind::CharLiteral(_) => 1,
             TokenKind::WhiteSpaces(s) => s.len(),
-            TokenKind::Reserved(reserved_kind) => reserved_kind.len(),
+            TokenKind::BuiltinType(reserved_kind) => reserved_kind.len(),
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, EnumIter)]
-pub enum ReservedKind {
+pub enum BuiltinTypeKind {
     INT,
     FLOAT,
     STR,
@@ -91,20 +103,20 @@ pub enum ReservedKind {
     CHAR,
 }
 
-impl ReservedKind {
+impl BuiltinTypeKind {
     pub fn from_name(name: &str) -> Option<TokenKind> {
-        ReservedKind::iter()
+        BuiltinTypeKind::iter()
             .find(|it| it.name() == name)
-            .map(TokenKind::Reserved)
+            .map(TokenKind::BuiltinType)
     }
 
     fn name(&self) -> &str {
         match self {
-            ReservedKind::INT => "int",
-            ReservedKind::FLOAT => "float",
-            ReservedKind::STR => "str",
-            ReservedKind::BOOL => "bool",
-            ReservedKind::CHAR => "char",
+            BuiltinTypeKind::INT => "int",
+            BuiltinTypeKind::FLOAT => "float",
+            BuiltinTypeKind::STR => "str",
+            BuiltinTypeKind::BOOL => "bool",
+            BuiltinTypeKind::CHAR => "char",
         }
     }
 
@@ -113,7 +125,7 @@ impl ReservedKind {
     }
 }
 
-impl Display for ReservedKind {
+impl Display for BuiltinTypeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name())
     }
@@ -203,7 +215,7 @@ impl Display for TokenKind {
                 write!(f, "WS")
             }
             TokenKind::CharLiteral(c) => write!(f, "{c}"),
-            TokenKind::Reserved(reserved_kind) => write!(f, "{reserved_kind}"),
+            TokenKind::BuiltinType(reserved_kind) => write!(f, "{reserved_kind}"),
         }
     }
 }

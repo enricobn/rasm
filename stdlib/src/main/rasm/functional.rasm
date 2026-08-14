@@ -12,7 +12,7 @@ pub fn join<M,T>(items: M<T>, separator: str) -> str {
 }
 
 pub fn sum<M,T>(v: M<T>) -> T {
-    v.foldLeft(zero(), fn(accum, current) {
+    v.foldLeft(T::zero(), fn(accum, current) {
         accum.add(current)
     })
 }
@@ -21,14 +21,14 @@ pub fn identity<T>(value: T) -> T {
     value
 }
 
-fn zero() -> int {
+fn int::zero() -> int {
     0
 }
 
-fn zero() -> float {
+fn float::zero() -> float {
     0.0
 }
 
-fn zero() -> str {
+fn str::zero() -> str {
     ""
 }

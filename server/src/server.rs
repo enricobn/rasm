@@ -357,7 +357,7 @@ fn token_to_string(token: &Token, row: usize) -> String {
         TokenKind::StringLiteral(s) => format!("\"{s}\""),
         TokenKind::CharLiteral(c) => format!("'{c}'"),
         TokenKind::WhiteSpaces(s) => s.clone(),
-        TokenKind::Reserved(reserved) => format!("{reserved}"),
+        TokenKind::BuiltinType(reserved) => format!("{reserved}"),
     }
 }
 

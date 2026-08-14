@@ -1,9 +1,9 @@
 use crate::lexer::tokens::BracketKind::Round;
 use crate::lexer::tokens::BracketStatus::{self, Close, Open};
 use crate::lexer::tokens::{BracketKind, KeywordKind, PunctuationKind, TokenKind};
+use crate::parser::ParserTrait;
 use crate::parser::ast::ASTType::{ASTBuiltinType, ASTCustomType, ASTGenericType};
 use crate::parser::ast::{ASTBuiltinTypeKind, ASTType};
-use crate::parser::ParserTrait;
 
 pub struct TypeParser<'a> {
     parser: &'a dyn ParserTrait,
@@ -42,21 +42,21 @@ impl<'a> TypeParser<'a> {
     ) -> Result<Option<(ASTType, usize)>, String> {
         let result = if let Some(kind) = self.parser.get_token_kind_n(n) {
             let next_i = self.parser.get_i() + n + 1;
-            if let TokenKind::Reserved(reserved_kind) = kind {
+            if let TokenKind::BuiltinType(reserved_kind) = kind {
                 match reserved_kind {
-                    crate::lexer::tokens::ReservedKind::INT => {
+                    crate::lexer::tokens::BuiltinTypeKind::INT => {
                         Some((ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType), next_i))
                     }
-                    crate::lexer::tokens::ReservedKind::FLOAT => {
+                    crate::lexer::tokens::BuiltinTypeKind::FLOAT => {
                         Some((ASTBuiltinType(ASTBuiltinTypeKind::ASTFloatType), next_i))
                     }
-                    crate::lexer::tokens::ReservedKind::STR => {
+                    crate::lexer::tokens::BuiltinTypeKind::STR => {
                         Some((ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType), next_i))
                     }
-                    crate::lexer::tokens::ReservedKind::BOOL => {
+                    crate::lexer::tokens::BuiltinTypeKind::BOOL => {
                         Some((ASTBuiltinType(ASTBuiltinTypeKind::ASTBooleanType), next_i))
                     }
-                    crate::lexer::tokens::ReservedKind::CHAR => {
+                    crate::lexer::tokens::BuiltinTypeKind::CHAR => {
                         Some((ASTBuiltinType(ASTBuiltinTypeKind::ASTCharType), next_i))
                     }
                 }
@@ -256,9 +256,9 @@ impl<'a> TypeParser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::tokens::Token;
     use crate::lexer::Lexer;
-    use crate::parser::ast::{lambda_unit, ASTPosition};
+    use crate::lexer::tokens::Token;
+    use crate::parser::ast::{ASTPosition, lambda_unit};
     use crate::parser::test_utils::get_parser;
 
     use super::*;
@@ -315,13 +315,19 @@ mod tests {
     #[test]
     fn test_lambda1() {
         let parse_result = try_parse("fn(int,str) -> int");
-        assert_eq!(format!("{:?}", parse_result), "Some((ASTBuiltinType(ASTLambdaType { parameters: [ASTBuiltinType(ASTIntegerType), ASTBuiltinType(ASTStringType)], return_type: ASTBuiltinType(ASTIntegerType) }), 8))");
+        assert_eq!(
+            format!("{:?}", parse_result),
+            "Some((ASTBuiltinType(ASTLambdaType { parameters: [ASTBuiltinType(ASTIntegerType), ASTBuiltinType(ASTStringType)], return_type: ASTBuiltinType(ASTIntegerType) }), 8))"
+        );
     }
 
     #[test]
     fn test_lambda2() {
         let parse_result = try_parse("fn(fn() -> (),str) -> int");
-        assert_eq!(format!("{:?}", parse_result), "Some((ASTBuiltinType(ASTLambdaType { parameters: [ASTBuiltinType(ASTLambdaType { parameters: [], return_type: ASTUnitType }), ASTBuiltinType(ASTStringType)], return_type: ASTBuiltinType(ASTIntegerType) }), 13))");
+        assert_eq!(
+            format!("{:?}", parse_result),
+            "Some((ASTBuiltinType(ASTLambdaType { parameters: [ASTBuiltinType(ASTLambdaType { parameters: [], return_type: ASTUnitType }), ASTBuiltinType(ASTStringType)], return_type: ASTBuiltinType(ASTIntegerType) }), 13))"
+        );
     }
 
     #[test]

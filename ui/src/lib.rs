@@ -98,7 +98,7 @@ impl UI {
 
         for (body, id, namespace) in bodies {
             let mut val_context = ValContext::new(None);
-            ast_type_checker.add_body(
+            if let Err(_) = ast_type_checker.add_body(
                 &mut val_context,
                 &mut static_val_context,
                 &body,
@@ -107,7 +107,9 @@ impl UI {
                 &id,
                 &container,
                 None,
-            );
+            ) {
+                println!("errors adding body");
+            }
         }
 
         let main = if let Some(main) = &project.main() {
@@ -253,7 +255,7 @@ impl UI {
 
                 let mut tmp_static_val_context = ValContext::new(None);
 
-                ast_type_checker.add_body(
+                if let Err(_) = ast_type_checker.add_body(
                     &mut val_context,
                     &mut tmp_static_val_context,
                     &module.body,
@@ -262,7 +264,9 @@ impl UI {
                     &info.module_id(),
                     modules_container,
                     None,
-                );
+                ) {
+                    println!("Errors in selected module body");
+                }
 
                 for function in module.functions.iter() {
                     ast_type_checker.add_function(

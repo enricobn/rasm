@@ -20,7 +20,7 @@ use crate::parser::enum_parser::EnumParser;
 use crate::parser::matchers::{generic_types_matcher, modifiers_matcher};
 use crate::parser::modifiers_parser::{try_parse_ast_modifiers, try_parse_ast_modifiers_tokens};
 use crate::parser::struct_parser::StructParser;
-use crate::parser::tokens_matcher::{TokensMatcher, TokensMatcherTrait};
+use crate::parser::tokens_matcher::{Quantifier, TokensMatcher, TokensMatcherTrait};
 use crate::parser::type_params_parser::TypeParamsParser;
 use crate::parser::type_parser::TypeParser;
 use rasm_utils::{OptionDisplay, SliceDisplay, debug_i};
@@ -46,7 +46,12 @@ lazy_static! {
         let mut function_def_matcher = TokensMatcher::default();
         function_def_matcher.add_matcher(modifiers_matcher());
         function_def_matcher.add_kind(TokenKind::KeyWord(KeywordKind::Fn));
-        function_def_matcher.add_alphanumeric();
+        function_def_matcher.add_type();
+        function_def_matcher.start_group("target", Quantifier::AtMostOne);
+        function_def_matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Colon));
+        function_def_matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Colon));
+        function_def_matcher.add_type();
+        function_def_matcher.end_group();
         function_def_matcher.add_matcher(generic_types_matcher());
         function_def_matcher.add_kind(TokenKind::Bracket(BracketKind::Round, BracketStatus::Open));
         function_def_matcher
@@ -486,7 +491,7 @@ impl Parser {
             self.i += 1;
             self.state.push(ParserState::AttributeMacro);
             self.process_expression()?;
-        } else if let Some((name_token, generic_types, modifiers, next_i)) =
+        } else if let Some((name_token, target, generic_types, modifiers, next_i)) =
             self.try_parse_function_def()?
         {
             if let Some(name) = name_token.alpha() {
@@ -498,7 +503,7 @@ impl Parser {
                     generic_types,
                     position: name_token.position,
                     modifiers,
-                    target: None,
+                    target,
                 };
                 self.parser_data.push(ParserData::FunctionDef(function_def));
                 self.state.push(ParserState::FunctionDef);
@@ -1001,7 +1006,7 @@ impl Parser {
     fn try_parse_function_call(
         &mut self,
     ) -> Option<(String, Vec<ASTType>, usize, usize, Option<String>, bool)> {
-        if let Some(TokenKind::AlphaNumeric(f_name)) = self.get_token_kind() {
+        if let Some(f_name) = self.get_token().and_then(|it| it.identifier()) {
             let (function_name, next_n, function_name_n, target) =
                 if let Some((function_name, next_n)) = self.try_parse_call_with_target() {
                     (function_name, next_n, next_n - 1, Some(f_name.clone()))
@@ -1112,15 +1117,29 @@ impl Parser {
 
     fn try_parse_function_def(
         &self,
-    ) -> Result<Option<(Token, Vec<String>, ASTModifiers, usize)>, String> {
+    ) -> Result<Option<(Token, Option<String>, Vec<String>, ASTModifiers, usize)>, String> {
         if let Some(matcher_result) = FUNCTION_DEF_MATCHER.match_tokens(self, 0) {
             let param_types = matcher_result.group_alphas("type");
             let modifiers_tokens = matcher_result.group_tokens("modifiers");
 
             let (modifiers, new_index) = try_parse_ast_modifiers_tokens(modifiers_tokens.clone())?;
             let modifiers = modifiers.unwrap_or(ASTModifiers::Private);
+
+            let mut target_tokens = matcher_result.group_tokens("target");
+
+            let (name_token, target) = if target_tokens.is_empty() {
+                (self.get_token_n(new_index + 1).unwrap().clone(), None)
+            } else {
+                let name_token = target_tokens.pop().unwrap();
+                let target = self
+                    .get_token_n(new_index + 1)
+                    .and_then(|it| it.identifier());
+                (name_token, target)
+            };
+
             Ok(Some((
-                self.get_token_n(new_index + 1).unwrap().clone(),
+                name_token,
+                target,
                 param_types,
                 modifiers,
                 self.get_i() + matcher_result.next_n(),
@@ -1508,6 +1527,50 @@ mod tests {
             position: ASTPosition::new(1, 4),
             modifiers: ASTModifiers::Private,
             target: None,
+        };
+
+        assert_eq!(module.functions, vec![function_def]);
+    }
+
+    #[test]
+    fn function_def_with_target() {
+        let lexer = Lexer::new("fn List::return<T>() {}".into());
+
+        let parser = Parser::new(lexer.collect_vec(), Vec::new());
+
+        let (module, _) = parser.parse();
+
+        let function_def = ASTFunctionDef {
+            name: "return".into(),
+            body: ASTFunctionBody::RASMBody(Vec::new()),
+            parameters: Vec::new(),
+            return_type: ASTType::ASTUnitType,
+            generic_types: vec!["T".into()],
+            position: ASTPosition::new(1, 10),
+            modifiers: ASTModifiers::Private,
+            target: Some("List".into()),
+        };
+
+        assert_eq!(module.functions, vec![function_def]);
+    }
+
+    #[test]
+    fn function_def_with_native_type_target() {
+        let lexer = Lexer::new("fn int::fromString() -> int {}".into());
+
+        let parser = Parser::new(lexer.collect_vec(), Vec::new());
+
+        let (module, _) = parser.parse();
+
+        let function_def = ASTFunctionDef {
+            name: "fromString".into(),
+            body: ASTFunctionBody::RASMBody(Vec::new()),
+            parameters: Vec::new(),
+            return_type: ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTIntegerType),
+            generic_types: Vec::new(),
+            position: ASTPosition::new(1, 9),
+            modifiers: ASTModifiers::Private,
+            target: Some("int".into()),
         };
 
         assert_eq!(module.functions, vec![function_def]);

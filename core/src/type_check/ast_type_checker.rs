@@ -1495,7 +1495,12 @@ impl<'a> ASTTypeChecker<'a> {
                         call.target()
                             .as_ref()
                             .map(|t| match &it.target {
-                                Some(target) => t == target,
+                                Some(target) => {
+                                    t == target
+                                        || function
+                                            .map(|f| f.generic_types.contains(t))
+                                            .unwrap_or(false)
+                                }
                                 _ => false,
                             })
                             .unwrap_or(true)

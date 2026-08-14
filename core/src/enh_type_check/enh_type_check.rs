@@ -1014,7 +1014,7 @@ impl<'a> EnhTypeCheck<'a> {
                         .as_ref()
                         .map(|t| {
                             if let Some(target) = &it.target {
-                                t == target
+                                Self::same_call_target(t, target, inside_function)
                             } else {
                                 false
                             }
@@ -1357,6 +1357,48 @@ impl<'a> EnhTypeCheck<'a> {
                 valid_functions.pop().unwrap();
 
             Ok((valid_function, resolved_generic_types, expressions))
+        }
+    }
+
+    ///
+    /// Checks if a call target matches a function target. When the call target is a generic
+    /// type parameter (e.g. `T::zero()` where `T` is a generic type of the current function),
+    /// the target must be resolved against the concrete generic types before comparison.
+    ///
+    fn same_call_target(
+        call_target: &str,
+        function_target: &str,
+        inside_function: Option<&EnhASTFunctionDef>,
+    ) -> bool {
+        if call_target == function_target {
+            return true;
+        }
+        let Some(inside_function) = inside_function else {
+            return false;
+        };
+
+        inside_function
+            .resolved_generic_types
+            .iter()
+            .find(|((generic_name, _), _)| {
+                ASTType::remove_generic_prefix_from_str(generic_name) == call_target
+            })
+            .map(|(_, resolved_type)| Self::target_type_name(resolved_type))
+            .is_some_and(|resolved_name| resolved_name == Some(function_target.to_owned()))
+    }
+
+    ///
+    /// Returns the name used as a call target for a concrete type.
+    ///
+    fn target_type_name(t: &EnhASTType) -> Option<String> {
+        match t {
+            EnhASTType::Custom { name, .. } => Some(name.clone()),
+            EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
+                parameters: _,
+                return_type: _,
+            }) => None,
+            EnhASTType::Generic(_, _, _) => None,
+            _ => Some(format!("{t}")),
         }
     }
 

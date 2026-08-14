@@ -2,7 +2,8 @@ use std::fmt::{Debug, Display, Formatter};
 
 use linked_hash_map::LinkedHashMap;
 
-use crate::lexer::tokens::TokenKind::AlphaNumeric;
+// use crate::lexer::tokens::TokenKind::AlphaNumeric;
+use crate::lexer::tokens::TokenKind::{AlphaNumeric, BuiltinType};
 use crate::lexer::tokens::{Token, TokenKind};
 use crate::parser::ParserTrait;
 use crate::parser::tokens_group::TokensGroup;
@@ -50,6 +51,10 @@ impl TokensMatcher {
 
     pub fn add_alphanumeric(&mut self) {
         self.group.add_matcher(AlphanumericTokenMatcher::new());
+    }
+
+    pub fn add_type(&mut self) {
+        self.group.add_matcher(TypeTokenMatcher::new());
     }
 
     pub fn start_group(&mut self, name: &str, quantifier: Quantifier) {
@@ -251,6 +256,31 @@ impl TokenMatcher for AlphanumericTokenMatcher {
             Some(AlphaNumeric(name.clone()))
         } else {
             None
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TypeTokenMatcher {}
+
+impl Display for TypeTokenMatcher {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "i")
+    }
+}
+
+impl TypeTokenMatcher {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl TokenMatcher for TypeTokenMatcher {
+    fn match_token(&self, kind: &TokenKind) -> Option<TokenKind> {
+        match kind {
+            AlphaNumeric(name) => Some(AlphaNumeric(name.clone())),
+            BuiltinType(kind) => Some(BuiltinType(kind.clone())),
+            _ => None,
         }
     }
 }
