@@ -251,12 +251,8 @@ impl AlphanumericTokenMatcher {
 }
 
 impl TokenMatcher for AlphanumericTokenMatcher {
-    fn match_token(&self, kind: &TokenKind) -> Option<TokenKind> {
-        if let AlphaNumeric(name) = kind {
-            Some(AlphaNumeric(name.clone()))
-        } else {
-            None
-        }
+    fn match_token(&self, kind: &TokenKind) -> bool {
+        matches!(kind, AlphaNumeric(_))
     }
 }
 
@@ -276,11 +272,11 @@ impl TypeTokenMatcher {
 }
 
 impl TokenMatcher for TypeTokenMatcher {
-    fn match_token(&self, kind: &TokenKind) -> Option<TokenKind> {
+    fn match_token(&self, kind: &TokenKind) -> bool {
         match kind {
-            AlphaNumeric(name) => Some(AlphaNumeric(name.clone())),
-            BuiltinType(kind) => Some(BuiltinType(kind.clone())),
-            _ => None,
+            AlphaNumeric(_) => true,
+            BuiltinType(_) => true,
+            _ => false,
         }
     }
 }
@@ -301,12 +297,8 @@ impl StringLiteralTokenMatcher {
 }
 
 impl TokenMatcher for StringLiteralTokenMatcher {
-    fn match_token(&self, kind: &TokenKind) -> Option<TokenKind> {
-        if let TokenKind::StringLiteral(value) = kind {
-            Some(TokenKind::StringLiteral(value.clone()))
-        } else {
-            None
-        }
+    fn match_token(&self, kind: &TokenKind) -> bool {
+        matches!(kind, TokenKind::StringLiteral(_))
     }
 }
 
@@ -317,7 +309,7 @@ where
     fn match_tokens(&self, parser: &dyn ParserTrait, n: usize) -> Option<TokensMatcherResult> {
         if let Some(token) = parser.get_token_n(n) {
             //println!("TokenMatcher match_tokens n {} token {:?}", n, token);
-            if let Some(_kind) = self.match_token(&token.kind) {
+            if self.match_token(&token.kind) {
                 let values = if let Some(_value) = token.alpha() {
                     vec![token.clone()]
                 } else {
@@ -588,16 +580,12 @@ mod tests {
 }
 
 pub trait TokenMatcher: Debug + TokensMatcherTrait {
-    fn match_token(&self, kind: &TokenKind) -> Option<TokenKind>;
+    fn match_token(&self, kind: &TokenKind) -> bool;
 }
 
 impl TokenMatcher for KindTokenMatcher {
-    fn match_token(&self, kind: &TokenKind) -> Option<TokenKind> {
-        if kind == &self.kind {
-            Some(kind.clone())
-        } else {
-            None
-        }
+    fn match_token(&self, kind: &TokenKind) -> bool {
+        kind == &self.kind
     }
 }
 
