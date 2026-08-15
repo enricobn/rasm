@@ -337,10 +337,11 @@ fn ast_value(value: &ASTValue) -> String {
 mod tests {
     use rasm_parser::{
         catalog::{ModuleId, ModuleNamespace},
-        parser::ast::{ASTFunctionCall, ASTFunctionSignature, ASTModifiers, ASTPosition},
+        parser::ast::{ASTFunctionCall, ASTModifiers, ASTPosition},
     };
 
     use crate::{
+        ast::ast_function_signature::ASTFunctionSignature,
         macros::macro_call_extractor::{MacroCall, MacroCallExtractor, MacroResultType},
         project_catalog::RasmProjectCatalog,
     };

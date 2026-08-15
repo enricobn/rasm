@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
-use std::iter::zip;
+
 use std::ops::Deref;
 use std::sync::atomic::AtomicUsize;
 
@@ -137,93 +137,6 @@ pub struct ASTFunctionDef {
     pub associated_type: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ASTFunctionSignature {
-    pub name: String,
-    pub generics: Vec<String>,
-    pub parameters_types: Vec<ASTType>,
-    pub return_type: ASTType,
-    pub modifiers: ASTModifiers,
-    pub associated_type: Option<String>,
-}
-
-impl Display for ASTFunctionSignature {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let generics = if self.generics.is_empty() {
-            ""
-        } else {
-            &format!("<{}>", self.generics.iter().join(", "))
-        };
-
-        write!(
-            f,
-            "{}{}({})",
-            self.name,
-            generics,
-            self.parameters_types
-                .iter()
-                .map(|it| format!("{it}"))
-                .join(", ")
-        )?;
-        if !self.return_type.is_unit() {
-            write!(f, " -> {}", self.return_type)?;
-        }
-        Ok(())
-    }
-}
-
-impl ASTFunctionSignature {
-    pub fn generics_prefix(&self, prefix: &str) -> String {
-        format!("{}_{}", prefix, self.safe_name())
-    }
-
-    fn safe_name(&self) -> String {
-        match &self.associated_type {
-            Some(associated_type) => format!("{}_{}", associated_type, self.name),
-            None => self.name.clone(),
-        }
-    }
-
-    pub fn add_generic_prefix(self, prefix: &str) -> Self {
-        let generics_prefix = self.generics_prefix(prefix);
-        let mut result = self;
-        result.parameters_types = result
-            .parameters_types
-            .into_iter()
-            .map(|it| it.add_generic_prefix(&generics_prefix))
-            .collect();
-        result.return_type = result.return_type.add_generic_prefix(&generics_prefix);
-        result.generics = result
-            .generics
-            .into_iter()
-            .map(|it| format!("{generics_prefix}:{it}"))
-            .collect();
-
-        result
-    }
-
-    pub fn remove_generic_prefix(self) -> Self {
-        let mut result = self;
-        result.parameters_types = result
-            .parameters_types
-            .into_iter()
-            .map(|it| it.remove_generic_prefix())
-            .collect();
-        result.return_type = result.return_type.remove_generic_prefix();
-        result.generics = result
-            .generics
-            .into_iter()
-            .map(|it| ASTType::remove_generic_prefix_from_str(&it).to_owned())
-            .collect();
-
-        result
-    }
-
-    pub fn is_generic(&self) -> bool {
-        !self.generics.is_empty()
-    }
-}
-
 impl Display for ASTFunctionDef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let modifiers = format!("{}", self.modifiers);
@@ -259,54 +172,6 @@ impl Display for ASTFunctionDef {
 }
 
 impl ASTFunctionDef {
-    pub fn signature(&self) -> ASTFunctionSignature {
-        ASTFunctionSignature {
-            name: self.name.clone(),
-            generics: self.generic_types.clone(),
-            parameters_types: self
-                .parameters
-                .iter()
-                .map(|it| it.ast_type.clone())
-                .collect(),
-            return_type: self.return_type.clone(),
-            modifiers: self.modifiers.clone(),
-            associated_type: self.associated_type.clone(),
-        }
-    }
-
-    pub fn from_signature(
-        signature: ASTFunctionSignature,
-        modifiers: ASTModifiers,
-        position: ASTPosition,
-        parameters_names: Vec<String>,
-        parameters_positions: Vec<ASTPosition>,
-        body: ASTFunctionBody,
-        associated_type: Option<String>,
-    ) -> Self {
-        assert_eq!(signature.parameters_types.len(), parameters_names.len());
-        assert_eq!(signature.parameters_types.len(), parameters_positions.len());
-        Self {
-            name: signature.name,
-            parameters: zip(
-                signature.parameters_types,
-                zip(parameters_names, parameters_positions),
-            )
-            .into_iter()
-            .map(|(ast_type, (name, position))| ASTParameterDef {
-                name,
-                ast_type,
-                position,
-            })
-            .collect(),
-            return_type: signature.return_type,
-            body,
-            generic_types: signature.generics,
-            position,
-            modifiers,
-            associated_type,
-        }
-    }
-
     pub fn is_generic(&self) -> bool {
         !self.generic_types.is_empty()
     }
@@ -414,109 +279,6 @@ impl ASTType {
     /// Returns true if this type is exactly a "full" generic type. Returns false even if it's a Custom generic type or a lambda generic type
     pub fn is_strictly_generic(&self) -> bool {
         return matches!(self, ASTType::ASTGenericType(..));
-    }
-
-    pub fn add_generic_prefix(self, prefix: &dyn Display) -> Self {
-        if !self.is_generic() {
-            return self;
-        }
-        if format!("{prefix}").contains(":") {
-            panic!("unsupported prefix {prefix}");
-        }
-        if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
-            parameters,
-            return_type,
-        }) = self
-        {
-            return ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
-                parameters: parameters
-                    .into_iter()
-                    .map(|it| it.add_generic_prefix(prefix))
-                    .collect(),
-                return_type: Box::new(return_type.add_generic_prefix(prefix)),
-            });
-        } else if let ASTType::ASTGenericType(position, name, var_types) = self {
-            if name.contains(":") {
-                panic!("generic has already been prefixed");
-            }
-            return ASTType::ASTGenericType(
-                position,
-                format!("{prefix}:{name}"),
-                var_types
-                    .into_iter()
-                    .map(|it| it.add_generic_prefix(prefix))
-                    .collect(),
-            );
-        } else if let ASTType::ASTCustomType {
-            name,
-            param_types,
-            position,
-        } = self
-        {
-            return ASTType::ASTCustomType {
-                name,
-                param_types: param_types
-                    .into_iter()
-                    .map(|it| it.add_generic_prefix(prefix))
-                    .collect(),
-                position,
-            };
-        }
-
-        self
-    }
-
-    pub fn remove_generic_prefix(self) -> Self {
-        if let ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
-            parameters,
-            return_type,
-        }) = self
-        {
-            ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTLambdaType {
-                parameters: parameters
-                    .into_iter()
-                    .map(|it| it.remove_generic_prefix())
-                    .collect(),
-                return_type: Box::new(return_type.remove_generic_prefix()),
-            })
-        } else if let ASTType::ASTGenericType(ref position, ref name, ref var_types) = self {
-            if let Some(original_generic) = Self::get_original_generic(name) {
-                ASTType::ASTGenericType(
-                    position.clone(),
-                    original_generic.to_owned(),
-                    var_types
-                        .into_iter()
-                        .map(|it| it.clone().remove_generic_prefix())
-                        .collect(),
-                )
-            } else {
-                self
-            }
-        } else if let ASTType::ASTCustomType {
-            name,
-            param_types,
-            position,
-        } = self
-        {
-            ASTType::ASTCustomType {
-                name,
-                param_types: param_types
-                    .into_iter()
-                    .map(|it| it.remove_generic_prefix())
-                    .collect(),
-                position,
-            }
-        } else {
-            self
-        }
-    }
-
-    pub fn get_original_generic(name: &str) -> Option<&str> {
-        name.find(':').map(|i| name.split_at(i + 1).1)
-    }
-
-    pub fn remove_generic_prefix_from_str(name: &str) -> &str {
-        Self::get_original_generic(name).unwrap_or(name)
     }
 
     pub fn generics(&self) -> HashSet<String> {
@@ -629,12 +391,6 @@ impl ASTParameterDef {
             ast_type,
             position,
         }
-    }
-
-    pub fn fix_generics(self, prefix: &dyn Display) -> Self {
-        let mut result = self;
-        result.ast_type = result.ast_type.add_generic_prefix(prefix);
-        result
     }
 }
 
@@ -1143,8 +899,8 @@ mod tests {
     use std::vec;
 
     use crate::parser::ast::{
-        ASTBuiltinTypeKind, ASTFunctionBody, ASTFunctionDef, ASTFunctionSignature, ASTModifiers,
-        ASTParameterDef, ASTPosition, ASTType,
+        ASTBuiltinTypeKind, ASTFunctionBody, ASTFunctionDef, ASTModifiers, ASTParameterDef,
+        ASTPosition, ASTType,
     };
 
     #[test]
@@ -1217,33 +973,5 @@ mod tests {
 
         assert!(a.id > b.id);
         assert!(a.cmp(&b).is_lt());
-    }
-
-    #[test]
-    fn function_signature_display() {
-        let os = ASTType::ASTCustomType {
-            name: "Option".to_owned(),
-            param_types: vec![ASTType::ASTBuiltinType(ASTBuiltinTypeKind::ASTStringType)],
-            position: ASTPosition::none(),
-        };
-        let ot = ASTType::ASTCustomType {
-            name: "Option".to_owned(),
-            param_types: vec![ASTType::ASTGenericType(
-                ASTPosition::none(),
-                "T".to_string(),
-                vec![],
-            )],
-            position: ASTPosition::none(),
-        };
-        let fs = ASTFunctionSignature {
-            return_type: ot,
-            name: "aFunction".to_owned(),
-            generics: vec!["T".to_string()],
-            parameters_types: vec![os],
-            modifiers: ASTModifiers::Public,
-            associated_type: None,
-        };
-
-        assert_eq!(format!("{fs}"), "aFunction<T>(Option<str>) -> Option<T>");
     }
 }

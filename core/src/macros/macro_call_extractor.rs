@@ -4,14 +4,14 @@ use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleNamespace, modules_catalog::ModulesCatalog},
     parser::ast::{
         ASTBuiltinTypeKind, ASTEnumDef, ASTExpression, ASTFunctionBody, ASTFunctionCall,
-        ASTFunctionSignature, ASTModifiers, ASTPosition, ASTStatement, ASTStructDef, ASTType,
-        ASTValue,
+        ASTModifiers, ASTPosition, ASTStatement, ASTStructDef, ASTType, ASTValue,
     },
 };
 use rasm_utils::chunk_size;
 use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 
 use crate::{
+    ast::ast_function_signature::ASTFunctionSignature,
     codegen::enh_ast::{EnhASTNameSpace, EnhModuleId},
     type_check::ast_modules_container::ASTModulesContainer,
 };
@@ -150,7 +150,7 @@ pub fn extract_macro_calls(
                             &id,
                             body,
                             &mut calls,
-                            Some(&function.signature()),
+                            Some(&ASTFunctionSignature::from_def(&function)),
                         );
                     }
                 }

@@ -26,7 +26,6 @@ use crate::parser::type_parser::TypeParser;
 use rasm_utils::{OptionDisplay, SliceDisplay, debug_i};
 
 pub mod ast;
-pub mod builtin_functions;
 mod enum_parser;
 mod matchers;
 pub mod modifiers_parser;

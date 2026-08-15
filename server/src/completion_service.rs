@@ -19,7 +19,8 @@
 use std::collections::HashSet;
 use std::fmt::Display;
 
-use rasm_parser::parser::ast::{ASTBuiltinTypeKind, ASTFunctionSignature, ASTType};
+use rasm_core::ast::ast_function_signature::ASTFunctionSignature;
+use rasm_parser::parser::ast::{ASTBuiltinTypeKind, ASTType};
 use rasm_utils::OptionDisplay;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -201,9 +202,8 @@ pub enum CompletionTrigger {
 
 #[cfg(test)]
 mod tests {
-    use rasm_parser::parser::ast::{
-        ASTBuiltinTypeKind, ASTFunctionSignature, ASTModifiers, ASTPosition, ASTType,
-    };
+    use rasm_core::ast::ast_function_signature::ASTFunctionSignature;
+    use rasm_parser::parser::ast::{ASTBuiltinTypeKind, ASTModifiers, ASTPosition, ASTType};
 
     use crate::completion_service::CompletionItem;
 

@@ -2,11 +2,12 @@ use std::ops::Deref;
 
 use itertools::Itertools;
 
-use super::ast::{
-    ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTEnumDef, ASTEnumVariantDef,
-    ASTFunctionSignature, ASTModifiers, ASTParameterDef, ASTPosition, ASTStructDef,
-    ASTStructPropertyDef, ASTType,
+use rasm_parser::parser::ast::{
+    ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTEnumDef, ASTEnumVariantDef, ASTModifiers,
+    ASTParameterDef, ASTPosition, ASTStructDef, ASTStructPropertyDef, ASTType,
 };
+
+use crate::ast::ast_function_signature::ASTFunctionSignature;
 
 pub struct BuiltinFunctions;
 

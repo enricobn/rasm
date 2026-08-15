@@ -9,6 +9,7 @@ use linked_hash_set::LinkedHashSet;
 use log::info;
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 
+use crate::ast::generic_prefix::get_original_generic;
 use crate::codegen::TypedValKind;
 use crate::codegen::c::code_gen_c::value_type_to_typed_type;
 use crate::codegen::compile_target::CompileTarget;
@@ -34,7 +35,7 @@ use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::type_check::ast_modules_container::ASTModulesContainer;
 use crate::type_check::ast_type_checker::{ASTTypeCheckErroKind, ASTTypeChecker};
 use crate::type_check::get_new_native_call;
-use rasm_parser::parser::ast::{ASTModifiers, ASTType, ASTValue};
+use rasm_parser::parser::ast::{ASTModifiers, ASTValue};
 use rasm_utils::{SliceDisplay, debug_i, dedent, indent};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -88,7 +89,7 @@ impl ResolvedGenericTypedTypes {
 
         for (name, inner) in self.map.into_iter() {
             let inner_new = new
-                .entry(ASTType::get_original_generic(&name).unwrap().to_owned())
+                .entry(get_original_generic(&name).unwrap().to_owned())
                 .or_insert(LinkedHashMap::new());
 
             for (var_types, t) in inner.into_iter() {

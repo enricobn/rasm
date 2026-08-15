@@ -1,5 +1,7 @@
 use rasm_utils::debug_i;
 
+use crate::ast::ast_function_signature::ASTFunctionSignature;
+use crate::ast::builtin_functions::BuiltinFunctions;
 use crate::codegen::CodeGen;
 use crate::codegen::asm::backend::{Backend, BackendAsm, BackendNasmi386};
 use crate::codegen::asm::code_gen_asm::CodeGenAsm;
@@ -7,15 +9,13 @@ use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::statics::Statics;
 use rasm_parser::parser::ast::{
     ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTEnumDef, ASTEnumVariantDef, ASTExpression,
-    ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTFunctionSignature, ASTModifiers,
-    ASTModule, ASTParameterDef, ASTPosition, ASTStatement, ASTStructDef, ASTStructPropertyDef,
-    ASTType,
+    ASTFunctionBody, ASTFunctionCall, ASTFunctionDef, ASTModifiers, ASTModule, ASTParameterDef,
+    ASTPosition, ASTStatement, ASTStructDef, ASTStructPropertyDef, ASTType,
 };
 
 use crate::codegen::enh_ast::{
     self, EnhASTFunctionDef, EnhASTNameSpace, EnhModuleId, EnhModuleInfo,
 };
-use rasm_parser::parser::builtin_functions::BuiltinFunctions;
 
 pub trait FunctionsCreator {
     fn create(
@@ -120,8 +120,7 @@ pub trait FunctionsCreator {
                 }
             }
 
-            let function_def = ASTFunctionDef::from_signature(
-                signature,
+            let function_def = signature.to_def(
                 modifiers,
                 position,
                 parameters_names,
@@ -146,8 +145,7 @@ pub trait FunctionsCreator {
         let (parameters_names, parameters_positions, signature) =
             BuiltinFunctions::match_signature(enum_def);
 
-        let function_def = ASTFunctionDef::from_signature(
-            signature,
+        let function_def = signature.to_def(
             enum_def.modifiers.clone(),
             ASTPosition::builtin(&enum_def.position, ASTBuiltinFunctionType::Match),
             parameters_names,
@@ -174,8 +172,7 @@ pub trait FunctionsCreator {
         let (parameters_names, parameters_positions, signature) =
             BuiltinFunctions::match_one_signature(enum_def, variant);
 
-        let function_def = ASTFunctionDef::from_signature(
-            signature,
+        let function_def = signature.to_def(
             enum_def.modifiers.clone(),
             ASTPosition::builtin(&variant.position, ASTBuiltinFunctionType::MatchOne),
             parameters_names,
@@ -212,8 +209,7 @@ pub trait FunctionsCreator {
             let ((lambda_parameters_names, lambda_parameters_positions, lambda_signature), ft) =
                 signatures.remove(0);
 
-            result.push(ASTFunctionDef::from_signature(
-                lambda_signature,
+            result.push(lambda_signature.to_def(
                 struct_def.modifiers.clone(),
                 ASTPosition::builtin(&property_def.position, ft),
                 lambda_parameters_names,
@@ -245,8 +241,7 @@ pub trait FunctionsCreator {
     ) -> ASTFunctionDef {
         let native_body = self.struct_property_body(i, struct_def, property_def);
 
-        ASTFunctionDef::from_signature(
-            signature,
+        signature.to_def(
             struct_def.modifiers.clone(),
             ASTPosition::builtin(&property_def.position, ASTBuiltinFunctionType::StructGetter),
             parameters_names,
@@ -265,8 +260,7 @@ pub trait FunctionsCreator {
         let (parameters_names, parameters_positions, signature) =
             BuiltinFunctions::struct_set_property_signature(struct_def, property_def);
 
-        ASTFunctionDef::from_signature(
-            signature,
+        signature.to_def(
             struct_def.modifiers.clone(),
             ASTPosition::builtin(&property_def.position, ASTBuiltinFunctionType::StructSetter),
             parameters_names,
@@ -285,8 +279,7 @@ pub trait FunctionsCreator {
         let (parameters_names, parameters_positions, signature) =
             BuiltinFunctions::struct_set_property_lambda_signature(struct_def, property_def);
 
-        ASTFunctionDef::from_signature(
-            signature,
+        signature.to_def(
             struct_def.modifiers.clone(),
             ASTPosition::builtin(
                 &property_def.position,
@@ -400,8 +393,7 @@ pub trait FunctionsCreator {
             let (parameters_names, parameters_positions, signature) =
                 BuiltinFunctions::enum_variant_constructor_signature(enum_def, variant);
 
-            let function_def = ASTFunctionDef::from_signature(
-                signature,
+            let function_def = signature.to_def(
                 enum_def.modifiers.clone(),
                 variant.position.clone(),
                 parameters_names,

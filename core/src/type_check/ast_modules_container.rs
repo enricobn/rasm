@@ -10,13 +10,13 @@ use rasm_utils::{OptionDisplay, SliceDisplay, debug_i, find_one};
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
     parser::ast::{
-        ASTBuiltinTypeKind, ASTEnumDef, ASTFunctionDef, ASTFunctionSignature, ASTModule,
-        ASTPosition, ASTStructDef, ASTType, ASTTypeDef, CustomTypeDef,
+        ASTBuiltinTypeKind, ASTEnumDef, ASTFunctionDef, ASTModule, ASTPosition, ASTStructDef,
+        ASTType, ASTTypeDef, CustomTypeDef,
     },
 };
 
 use crate::{
-    ast::ast_module_tree::ASTModuleTree,
+    ast::{ast_function_signature::ASTFunctionSignature, ast_module_tree::ASTModuleTree},
     type_check::ast_generic_types_resolver::ASTResolvedGenericTypes,
 };
 
@@ -189,7 +189,7 @@ impl ASTModulesContainer {
         }
 
         for function in module.functions.iter() {
-            let signature = function.signature();
+            let signature = ASTFunctionSignature::from_def(function);
 
             if let Some(signatures) = self.signatures.get(&signature.name) {
                 if let Some(same) = signatures.iter().find(|it| {

@@ -7,6 +7,7 @@ use linked_hash_map::LinkedHashMap;
 
 use rasm_core::ast::ast_module_tree::{ASTModuleTree, ASTModuleTreeLocation};
 
+use rasm_core::ast::generic_prefix::remove_generic_prefix;
 use rasm_core::codegen::compile_target::CompileTarget;
 use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, EnhModuleInfo};
 use rasm_core::codegen::statics::Statics;
@@ -1541,7 +1542,7 @@ impl IDEHelper {
         let mut generics = HashSet::new();
         for par in parameters {
             if let Some(kind) = val_context.get(&par.0, start_index.module_namespace()) {
-                let ast_type = kind.ast_type().clone().remove_generic_prefix();
+                let ast_type = remove_generic_prefix(kind.ast_type().clone());
                 generics.extend(ast_type.generics());
 
                 parameters_defs.push(format!("{}: {}", par.0, ast_type));
@@ -1561,7 +1562,7 @@ impl IDEHelper {
                 diff_col,
             )?;
             // println!("{} {}", par.0, par_type);
-            let ast_type = par_type.remove_generic_prefix();
+            let ast_type = remove_generic_prefix(par_type);
             generics.extend(ast_type.generics());
             parameters_defs.push(format!("{}: {}", par.0, ast_type));
             parameters_values.push(par.0);
@@ -1580,7 +1581,7 @@ impl IDEHelper {
         function_code.push_str(&format!(
             "({}) -> {} {{\n",
             parameters_defs.join(", "),
-            last_statement_type.remove_generic_prefix()
+            remove_generic_prefix(last_statement_type)
         ));
 
         function_code.push_str(&code);
@@ -1814,6 +1815,7 @@ mod tests {
     use std::iter::zip;
     use std::path::{Path, PathBuf};
 
+    use rasm_core::ast::ast_function_signature::ASTFunctionSignature;
     use rasm_core::codegen::c::options::COptions;
     use rasm_core::codegen::compile_target::CompileTarget;
     use rasm_core::commandline::RasmProfile;
@@ -1821,8 +1823,7 @@ mod tests {
     use rasm_core::project::RasmProject;
     use rasm_parser::catalog::ASTIndex;
     use rasm_parser::parser::ast::{
-        ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTFunctionSignature, ASTModifiers,
-        ASTPosition, ASTType,
+        ASTBuiltinFunctionType, ASTBuiltinTypeKind, ASTModifiers, ASTPosition, ASTType,
     };
     use rasm_utils::debug_indent::enable_log;
     use rasm_utils::test_utils::{init_minimal_log, read_chunk};

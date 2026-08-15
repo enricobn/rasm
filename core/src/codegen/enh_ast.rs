@@ -10,6 +10,7 @@ use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
 use rasm_utils::SliceDisplay;
 
+use crate::ast::generic_prefix::get_original_generic;
 use crate::codegen::enhanced_module::EnhancedASTModule;
 use crate::codegen::type_def_body::{TypeDefBodyCache, TypeDefBodyTarget};
 use crate::codegen::typedef_provider::TypeDefProvider;
@@ -916,7 +917,7 @@ impl EnhASTType {
                 }),
             },
             EnhASTType::Generic(ref index, ref name, ref var_types) => {
-                if let Some(original_generic) = ASTType::get_original_generic(name) {
+                if let Some(original_generic) = get_original_generic(name) {
                     if original_generic.match_indices(':').count() > 0 {
                         panic!();
                     }

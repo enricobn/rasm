@@ -11,7 +11,12 @@ use rasm_utils::{
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
-    codegen::val_context::ValContext, macros::macro_call_extractor::get_macro_result_type,
+    ast::{
+        ast_function_signature::ASTFunctionSignature,
+        generic_prefix::{add_generic_prefix, fix_ast_par_generics},
+    },
+    codegen::val_context::ValContext,
+    macros::macro_call_extractor::get_macro_result_type,
     type_check::ast_generic_types_resolver::ASTResolvedGenericTypes,
 };
 
@@ -19,7 +24,7 @@ use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
     parser::ast::{
         ASTBuiltinTypeKind, ASTExpression, ASTFunctionBody, ASTFunctionCall, ASTFunctionDef,
-        ASTFunctionSignature, ASTLambdaDef, ASTModifiers, ASTParameterDef, ASTStatement, ASTType,
+        ASTLambdaDef, ASTModifiers, ASTParameterDef, ASTStatement, ASTType,
     },
 };
 
@@ -520,9 +525,8 @@ impl<'a> ASTTypeChecker<'a> {
         // let start = Instant::now();
         let mut val_context = ValContext::new(None);
 
-        let generics_prefix = function
-            .signature()
-            .generics_prefix(&module_namespace.safe_name());
+        let generics_prefix =
+            ASTFunctionSignature::from_def(function).generics_prefix(&module_namespace.safe_name());
 
         for par in &function.parameters {
             self.check_valid_type(
@@ -533,7 +537,7 @@ impl<'a> ASTTypeChecker<'a> {
                 &par.ast_type,
             );
             let position = par.position.clone();
-            let par = par.clone().fix_generics(&generics_prefix);
+            let par = fix_ast_par_generics(par.clone(), &generics_prefix);
             if let Err(e) =
                 val_context.insert_par(par.name.clone(), par, module_namespace, module_id)
             {
@@ -559,10 +563,7 @@ impl<'a> ASTTypeChecker<'a> {
         match &function.body {
             ASTFunctionBody::RASMBody(body) => {
                 let rt = if function.return_type.is_generic() {
-                    &function
-                        .return_type
-                        .clone()
-                        .add_generic_prefix(&generics_prefix)
+                    &add_generic_prefix(function.return_type.clone(), &generics_prefix)
                 } else {
                     &function.return_type
                 };
@@ -2356,8 +2357,7 @@ impl<'a> ASTTypeChecker<'a> {
         if call.generics().iter().any(|it| it.is_generic()) {
             match inside_function {
                 Some(f) => {
-                    let generics_prefix = f
-                        .signature()
+                    let generics_prefix = ASTFunctionSignature::from_def(f)
                         .generics_prefix(&index.module_namespace().safe_name());
 
                     for (i, g) in call.generics().iter().enumerate() {
@@ -2367,7 +2367,7 @@ impl<'a> ASTTypeChecker<'a> {
                         resolved_generic_types.insert(
                             t,
                             Vec::new(),
-                            g.clone().add_generic_prefix(&generics_prefix),
+                            add_generic_prefix(g.clone(), &generics_prefix),
                         );
                     }
                 }

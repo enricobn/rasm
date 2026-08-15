@@ -22,10 +22,11 @@ use std::{
 };
 
 use linked_hash_map::LinkedHashMap;
-use rasm_parser::parser::ast::ASTType;
-use rasm_utils::{debug_i, dedent, indent, SliceDisplay};
+
+use rasm_utils::{SliceDisplay, debug_i, dedent, indent};
 
 use crate::{
+    ast::generic_prefix::get_original_generic,
     codegen::{
         enh_ast::{EnhASTIndex, EnhASTType, EnhBuiltinTypeKind},
         enhanced_module::EnhancedASTModule,
@@ -61,7 +62,9 @@ impl EnhResolvedGenericTypes {
             return Ok(result);
         }
 
-        debug_i!("resolve_generic_types_from_effective_type: generic_type {generic_type} effective_type  {effective_type}");
+        debug_i!(
+            "resolve_generic_types_from_effective_type: generic_type {generic_type} effective_type  {effective_type}"
+        );
         //println!("resolve_generic_types_from_effective_type: generic_type {generic_type} effective_type  {effective_type}");
         indent!();
 
@@ -123,7 +126,9 @@ impl EnhResolvedGenericTypes {
                         }
                         _ => {
                             dedent!();
-                            return Err(type_check_error(format!("unmatched types, generic type is {generic_type}, real type is {effective_type}")));
+                            return Err(type_check_error(format!(
+                                "unmatched types, generic type is {generic_type}, real type is {effective_type}"
+                            )));
                         }
                     },
                 }
@@ -225,7 +230,8 @@ impl EnhResolvedGenericTypes {
                 _ => {
                     dedent!();
                     return Err(type_check_error(format!(
-                        "unmatched types, generic type is {generic_type}, real type is {effective_type}")));
+                        "unmatched types, generic type is {generic_type}, real type is {effective_type}"
+                    )));
                 }
             },
             EnhASTType::Unit => {}
@@ -365,11 +371,7 @@ impl EnhResolvedGenericTypes {
 
         for (name, inner) in self.map.into_iter() {
             let inner_new = new
-                .entry(
-                    ASTType::get_original_generic(&name)
-                        .expect(&name)
-                        .to_owned(),
-                )
+                .entry(get_original_generic(&name).expect(&name).to_owned())
                 .or_insert(LinkedHashMap::new());
 
             for (var_types, t) in inner.into_iter() {

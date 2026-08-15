@@ -12,8 +12,11 @@ use rasm_parser::{
 };
 use rasm_utils::{HashMapDisplay, OptionDisplay, SliceDisplay, debug_i, dedent, indent};
 
-use crate::type_check::{
-    ast_generic_types_resolver::ASTResolvedGenericTypes, ast_modules_container::ASTTypeFilter,
+use crate::{
+    ast::generic_prefix::add_generic_prefix,
+    type_check::{
+        ast_generic_types_resolver::ASTResolvedGenericTypes, ast_modules_container::ASTTypeFilter,
+    },
 };
 
 use super::{
@@ -337,12 +340,14 @@ fn call_expr_dependencies(
                         Ok(rgt) => {
                             for par in function.parameters.iter() {
                                 if par.ast_type.is_generic() {
-                                    let par_type =
-                                        par.ast_type.clone().add_generic_prefix(&format!(
+                                    let par_type = add_generic_prefix(
+                                        par.ast_type.clone(),
+                                        &format!(
                                             "{}_{}",
                                             module_namespace.safe_name(),
                                             function.name
-                                        ));
+                                        ),
+                                    );
                                     debug_i!("resolved generic types {rgt}");
                                     if let Some(t) = rgt.substitute(&par_type) {
                                         call_result

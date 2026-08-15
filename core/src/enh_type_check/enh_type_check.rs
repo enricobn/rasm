@@ -19,6 +19,7 @@ use rasm_parser::{
 use rasm_utils::{OptionDisplay, SliceDisplay, debug_i, dedent, indent};
 
 use crate::{
+    ast::generic_prefix::remove_generic_prefix_from_str,
     codegen::{
         EnhValKind,
         c::code_gen_c::value_type_to_enh_type,
@@ -1381,7 +1382,7 @@ impl<'a> EnhTypeCheck<'a> {
             .resolved_generic_types
             .iter()
             .find(|((generic_name, _), _)| {
-                ASTType::remove_generic_prefix_from_str(generic_name) == call_associated_type
+                remove_generic_prefix_from_str(generic_name) == call_associated_type
             })
             .map(|(_, resolved_type)| Self::associated_type_name(resolved_type))
             .is_some_and(|resolved_name| resolved_name == Some(function_associated_type.to_owned()))

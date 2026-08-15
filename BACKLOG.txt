@@ -45,7 +45,6 @@ Major
 - command line tool:
   - add "new" for creating a new project
   - add "init" for creating a new project in the current folder
-- I don't like methods to handle "generic prefix" in AST, it should be handled outside the AST modules
 
 - sometimes are added structs / enum / functions that are not used. It can be verified compiling with c target the test/enum.rasm
 - rename EnhancedASTModule: it is the untyped container for all the modules in the project
