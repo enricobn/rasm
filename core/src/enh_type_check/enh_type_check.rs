@@ -1013,8 +1013,8 @@ impl<'a> EnhTypeCheck<'a> {
                     call.associated_type
                         .as_ref()
                         .map(|t| {
-                            if let Some(target) = &it.associated_type {
-                                Self::same_associated_type(t, target, inside_function)
+                            if let Some(associated_type) = &it.associated_type {
+                                Self::same_associated_type(t, associated_type, inside_function)
                             } else {
                                 false
                             }
@@ -1361,9 +1361,9 @@ impl<'a> EnhTypeCheck<'a> {
     }
 
     ///
-    /// Checks if a call target matches a function target. When the call target is a generic
+    /// Checks if a call associated type matches a function one. When the call associated type is a generic
     /// type parameter (e.g. `T::zero()` where `T` is a generic type of the current function),
-    /// the target must be resolved against the concrete generic types before comparison.
+    /// the associated type must be resolved against the concrete generic types before comparison.
     ///
     fn same_associated_type(
         call_associated_type: &str,

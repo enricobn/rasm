@@ -1546,7 +1546,7 @@ impl<'a> ASTTypeChecker<'a> {
                 ASTTypeCheckErroKind::Error,
                 index.clone(),
                 format!(
-                    "no functions for {}, expected expression type: {}, call target: {}",
+                    "no functions for {}, expected expression type: {}, call associated_type: {}",
                     call.function_name(),
                     OptionDisplay(&expected_expression_type),
                     OptionDisplay(call.associated_type())

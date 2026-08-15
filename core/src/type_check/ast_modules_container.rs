@@ -206,14 +206,14 @@ impl ASTModulesContainer {
                     self.has_same_signature(&it.signature, &it.namespace, &signature, &namespace)
                 }) {
                     /*
-                    let prefix = if let Some(target) = &signature.target {
-                        format!("{target}::")
+                    let prefix = if let Some(associated_type) = &signature.associated_type {
+                        format!("{associated_type}::")
                     } else {
                         String::new()
                     };
 
-                    let other_prefix = if let Some(target) = &same.signature.target {
-                        format!("{target}::")
+                    let other_prefix = if let Some(associated_type) = &same.signature.associated_type {
+                        format!("{associated_type}::")
                     } else {
                         String::new()
                     };
@@ -268,7 +268,7 @@ impl ASTModulesContainer {
     pub fn find_call_vec(
         &self,
         function_to_call: &str,
-        call_target: &Option<String>,
+        call_associated_type: &Option<String>,
         parameter_types_filter: &Vec<ASTTypeFilter>,
         return_type_filter: Option<&ASTType>,
         call_module_namespace: &ModuleNamespace,
@@ -300,10 +300,10 @@ impl ASTModulesContainer {
                 )
             })
             .filter(|it| {
-                call_target
+                call_associated_type
                     .as_ref()
                     .map(|t| match &it.associated_type {
-                        Some(target) => t == target,
+                        Some(associated_type) => t == associated_type,
                         _ => false,
                     })
                     .unwrap_or(true)

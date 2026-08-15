@@ -161,7 +161,7 @@ fn ast_function_def(function_def: &ASTFunctionDef) -> String {
     let parameters = vec_of(function_def.parameters.iter().map(ast_parameter).collect());
 
     let associated_type = match &function_def.associated_type {
-        Some(target) => format!("Some(\"{}\")", target),
+        Some(associated_type) => format!("Some(\"{associated_type}\")"),
         None => "None()".to_string(),
     };
 

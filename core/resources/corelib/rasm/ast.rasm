@@ -69,7 +69,7 @@ pub struct ASTFunctionCall {
     functionName: str,
     parameters: Vec<ASTExpression>,
     generics: Vec<ASTType>,
-    target: Option<str>,
+    associatedType: Option<str>,
     macro: bool
 }
 
@@ -170,7 +170,7 @@ pub struct ASTFunctionDef {
     body: ASTFunctionBody,
     genericTypes: Vec<str>,
     modifiers: ASTModifiers,
-    target: Option<str>
+    associatedType: Option<str>
 }
 
 pub fn toString(def: ASTFunctionDef) -> str {

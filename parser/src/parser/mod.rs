@@ -47,7 +47,7 @@ lazy_static! {
         function_def_matcher.add_matcher(modifiers_matcher());
         function_def_matcher.add_kind(TokenKind::KeyWord(KeywordKind::Fn));
         function_def_matcher.add_type();
-        function_def_matcher.start_group("target", Quantifier::AtMostOne);
+        function_def_matcher.start_group("associated_type", Quantifier::AtMostOne);
         function_def_matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Colon));
         function_def_matcher.add_kind(TokenKind::Punctuation(PunctuationKind::Colon));
         function_def_matcher.add_type();
@@ -236,7 +236,7 @@ impl Parser {
                         generics,
                         next_i,
                         function_name_i,
-                        target,
+                        associated_type,
                         is_macro,
                     )) = self.try_parse_function_call()
                     {
@@ -246,7 +246,7 @@ impl Parser {
                             vec![expr],
                             self.get_position(function_name_i),
                             generics,
-                            target,
+                            associated_type,
                             is_macro,
                         );
                         self.parser_data.push(ParserData::FunctionCall(call));
@@ -633,7 +633,7 @@ impl Parser {
             generics,
             next_i,
             function_name_index,
-            target,
+            associated_type,
             is_macro,
         )) = self.try_parse_function_call()
         {
@@ -642,7 +642,7 @@ impl Parser {
                 Vec::new(),
                 self.get_position(function_name_index),
                 generics,
-                target,
+                associated_type,
                 is_macro,
             );
             self.parser_data.push(ParserData::FunctionCall(call));
@@ -1007,8 +1007,8 @@ impl Parser {
         &mut self,
     ) -> Option<(String, Vec<ASTType>, usize, usize, Option<String>, bool)> {
         if let Some(f_name) = self.get_token().and_then(|it| it.identifier()) {
-            let (function_name, next_n, function_name_n, target) =
-                if let Some((function_name, next_n)) = self.try_parse_call_with_target() {
+            let (function_name, next_n, function_name_n, associated_type) =
+                if let Some((function_name, next_n)) = self.try_parse_call_with_associated_type() {
                     (function_name, next_n, next_n - 1, Some(f_name.clone()))
                 } else {
                     (f_name.clone(), 1, 0, None)
@@ -1076,7 +1076,7 @@ impl Parser {
                     generic_types,
                     self.i + n + 1,
                     function_name_n,
-                    target,
+                    associated_type,
                     is_macro,
                 ));
             }
@@ -1099,7 +1099,7 @@ impl Parser {
         }
     }
 
-    fn try_parse_call_with_target(&self) -> Option<(String, usize)> {
+    fn try_parse_call_with_associated_type(&self) -> Option<(String, usize)> {
         if let (
             Some(TokenKind::Punctuation(PunctuationKind::Colon)),
             Some(TokenKind::Punctuation(PunctuationKind::Colon)),
@@ -1125,21 +1125,21 @@ impl Parser {
             let (modifiers, new_index) = try_parse_ast_modifiers_tokens(modifiers_tokens.clone())?;
             let modifiers = modifiers.unwrap_or(ASTModifiers::Private);
 
-            let mut target_tokens = matcher_result.group_tokens("target");
+            let mut associated_type_tokens = matcher_result.group_tokens("associated_type");
 
-            let (name_token, target) = if target_tokens.is_empty() {
+            let (name_token, associated_type) = if associated_type_tokens.is_empty() {
                 (self.get_token_n(new_index + 1).unwrap().clone(), None)
             } else {
-                let name_token = target_tokens.pop().unwrap();
-                let target = self
+                let name_token = associated_type_tokens.pop().unwrap();
+                let associated_type = self
                     .get_token_n(new_index + 1)
                     .and_then(|it| it.identifier());
-                (name_token, target)
+                (name_token, associated_type)
             };
 
             Ok(Some((
                 name_token,
-                target,
+                associated_type,
                 param_types,
                 modifiers,
                 self.get_i() + matcher_result.next_n(),
@@ -1533,7 +1533,7 @@ mod tests {
     }
 
     #[test]
-    fn function_def_with_target() {
+    fn function_def_with_associated_type() {
         let lexer = Lexer::new("fn List::return<T>() {}".into());
 
         let parser = Parser::new(lexer.collect_vec(), Vec::new());
@@ -1555,7 +1555,7 @@ mod tests {
     }
 
     #[test]
-    fn function_def_with_native_type_target() {
+    fn function_def_with_native_associated_type() {
         let lexer = Lexer::new("fn int::fromString() -> int {}".into());
 
         let parser = Parser::new(lexer.collect_vec(), Vec::new());
