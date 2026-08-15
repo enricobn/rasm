@@ -1010,11 +1010,11 @@ impl<'a> EnhTypeCheck<'a> {
                     }
                 })
                 .filter(|it| {
-                    call.target
+                    call.associated_type
                         .as_ref()
                         .map(|t| {
-                            if let Some(target) = &it.target {
-                                Self::same_call_target(t, target, inside_function)
+                            if let Some(target) = &it.associated_type {
+                                Self::same_associated_type(t, target, inside_function)
                             } else {
                                 false
                             }
@@ -1365,12 +1365,12 @@ impl<'a> EnhTypeCheck<'a> {
     /// type parameter (e.g. `T::zero()` where `T` is a generic type of the current function),
     /// the target must be resolved against the concrete generic types before comparison.
     ///
-    fn same_call_target(
-        call_target: &str,
-        function_target: &str,
+    fn same_associated_type(
+        call_associated_type: &str,
+        function_associated_type: &str,
         inside_function: Option<&EnhASTFunctionDef>,
     ) -> bool {
-        if call_target == function_target {
+        if call_associated_type == function_associated_type {
             return true;
         }
         let Some(inside_function) = inside_function else {
@@ -1381,16 +1381,16 @@ impl<'a> EnhTypeCheck<'a> {
             .resolved_generic_types
             .iter()
             .find(|((generic_name, _), _)| {
-                ASTType::remove_generic_prefix_from_str(generic_name) == call_target
+                ASTType::remove_generic_prefix_from_str(generic_name) == call_associated_type
             })
-            .map(|(_, resolved_type)| Self::target_type_name(resolved_type))
-            .is_some_and(|resolved_name| resolved_name == Some(function_target.to_owned()))
+            .map(|(_, resolved_type)| Self::associated_type_name(resolved_type))
+            .is_some_and(|resolved_name| resolved_name == Some(function_associated_type.to_owned()))
     }
 
     ///
-    /// Returns the name used as a call target for a concrete type.
+    /// Returns the name used as a call associated type for a concrete type.
     ///
-    fn target_type_name(t: &EnhASTType) -> Option<String> {
+    fn associated_type_name(t: &EnhASTType) -> Option<String> {
         match t {
             EnhASTType::Custom { name, .. } => Some(name.clone()),
             EnhASTType::Builtin(EnhBuiltinTypeKind::Lambda {
@@ -1801,7 +1801,7 @@ impl<'a> EnhTypeCheck<'a> {
 
                         // I don't like the format here, it could not match spaces, but it seems to work
                         let mut new_function_name = call.function_name.clone();
-                        if let Some(target) = &call.target {
+                        if let Some(target) = &call.associated_type {
                             new_function_name = format!("{}::{}", target, new_function_name);
                         }
                         if !call.generics.is_empty() {
@@ -2765,7 +2765,7 @@ mod tests {
             modifiers: ASTModifiers::Private,
             namespace: EnhASTNameSpace::global(),
             rank: 0,
-            target: None,
+            associated_type: None,
         }
     }
 

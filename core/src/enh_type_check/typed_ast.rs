@@ -1541,7 +1541,7 @@ pub struct DefaultFunctionCall {
     pub param_types: Vec<EnhASTType>,
     pub i: usize,
     pub generics: Vec<EnhASTType>,
-    target: Option<String>,
+    associated_type: Option<String>,
 }
 
 impl Display for DefaultFunctionCall {
@@ -1566,14 +1566,14 @@ impl DefaultFunctionCall {
         param_types: Vec<EnhASTType>,
         i: usize,
         generics: Vec<EnhASTType>,
-        target: Option<String>,
+        associated_type: Option<String>,
     ) -> Self {
         Self {
             name: name.into(),
             param_types,
             i,
             generics,
-            target,
+            associated_type,
         }
     }
 
@@ -1585,7 +1585,7 @@ impl DefaultFunctionCall {
         let mut call = DefaultFunction {
             name: self.name.clone(),
             param_types: self.param_types.clone(),
-            target: self.target.clone(),
+            associated_type: self.associated_type.clone(),
         }
         .to_call(&function_def.namespace.clone())?;
         call.index = self.index(&function_def.index);
@@ -1598,7 +1598,7 @@ impl DefaultFunctionCall {
 pub struct DefaultFunction {
     pub name: String,
     pub param_types: Vec<EnhASTType>,
-    target: Option<String>,
+    associated_type: Option<String>,
 }
 
 impl DefaultFunction {
@@ -1606,7 +1606,7 @@ impl DefaultFunction {
         Self {
             name: name.into(),
             param_types: vec![],
-            target: None,
+            associated_type: None,
         }
     }
 
@@ -1614,7 +1614,7 @@ impl DefaultFunction {
         Self {
             name: name.into(),
             param_types: vec![EnhASTType::Builtin(kind)],
-            target: None,
+            associated_type: None,
         }
     }
 
@@ -1622,7 +1622,7 @@ impl DefaultFunction {
         Self {
             name: name.into(),
             param_types: vec![EnhASTType::Builtin(kind1), EnhASTType::Builtin(kind2)],
-            target: None,
+            associated_type: None,
         }
     }
 
@@ -1639,7 +1639,7 @@ impl DefaultFunction {
                 EnhASTType::Builtin(kind2),
                 EnhASTType::Builtin(kind3),
             ],
-            target: None,
+            associated_type: None,
         }
     }
 
@@ -1693,7 +1693,7 @@ impl DefaultFunction {
             parameters,
             index: EnhASTIndex::none(),
             generics: Vec::new(),
-            target: self.target.clone(),
+            associated_type: self.associated_type.clone(),
             is_macro: false,
         };
 

@@ -134,7 +134,7 @@ pub struct ASTFunctionDef {
     pub generic_types: Vec<String>,
     pub position: ASTPosition,
     pub modifiers: ASTModifiers,
-    pub target: Option<String>,
+    pub associated_type: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -144,7 +144,7 @@ pub struct ASTFunctionSignature {
     pub parameters_types: Vec<ASTType>,
     pub return_type: ASTType,
     pub modifiers: ASTModifiers,
-    pub target: Option<String>,
+    pub associated_type: Option<String>,
 }
 
 impl Display for ASTFunctionSignature {
@@ -178,8 +178,8 @@ impl ASTFunctionSignature {
     }
 
     fn safe_name(&self) -> String {
-        match &self.target {
-            Some(target) => format!("{}_{}", target, self.name),
+        match &self.associated_type {
+            Some(associated_type) => format!("{}_{}", associated_type, self.name),
             None => self.name.clone(),
         }
     }
@@ -270,7 +270,7 @@ impl ASTFunctionDef {
                 .collect(),
             return_type: self.return_type.clone(),
             modifiers: self.modifiers.clone(),
-            target: self.target.clone(),
+            associated_type: self.associated_type.clone(),
         }
     }
 
@@ -281,7 +281,7 @@ impl ASTFunctionDef {
         parameters_names: Vec<String>,
         parameters_positions: Vec<ASTPosition>,
         body: ASTFunctionBody,
-        target: Option<String>,
+        associated_type: Option<String>,
     ) -> Self {
         assert_eq!(signature.parameters_types.len(), parameters_names.len());
         assert_eq!(signature.parameters_types.len(), parameters_positions.len());
@@ -303,7 +303,7 @@ impl ASTFunctionDef {
             generic_types: signature.generics,
             position,
             modifiers,
-            target,
+            associated_type,
         }
     }
 
@@ -658,7 +658,7 @@ pub struct ASTFunctionCall {
     parameters: Vec<ASTExpression>,
     position: ASTPosition,
     generics: Vec<ASTType>,
-    target: Option<String>,
+    associated_type: Option<String>,
     is_macro: bool,
 }
 
@@ -668,7 +668,7 @@ impl ASTFunctionCall {
         parameters: Vec<ASTExpression>,
         position: ASTPosition,
         generics: Vec<ASTType>,
-        target: Option<String>,
+        associated_type: Option<String>,
         is_macro: bool,
     ) -> Self {
         Self {
@@ -676,7 +676,7 @@ impl ASTFunctionCall {
             parameters,
             position,
             generics,
-            target,
+            associated_type,
             is_macro,
         }
     }
@@ -706,8 +706,8 @@ impl ASTFunctionCall {
         self.parameters.push(expr);
     }
 
-    pub fn target(&self) -> &Option<String> {
-        &self.target
+    pub fn associated_type(&self) -> &Option<String> {
+        &self.associated_type
     }
 
     pub fn is_macro(&self) -> bool {
@@ -1193,7 +1193,7 @@ mod tests {
             generic_types: vec!["T".to_string()],
             position: ASTPosition::none(),
             modifiers: ASTModifiers::Private,
-            target: None,
+            associated_type: None,
         };
 
         assert_eq!(format!("{def}"), "fn aFun<T>(aPar: List<Option<T>>) -> T");
@@ -1241,7 +1241,7 @@ mod tests {
             generics: vec!["T".to_string()],
             parameters_types: vec![os],
             modifiers: ASTModifiers::Public,
-            target: None,
+            associated_type: None,
         };
 
         assert_eq!(format!("{fs}"), "aFunction<T>(Option<str>) -> Option<T>");

@@ -491,7 +491,7 @@ impl Parser {
             self.i += 1;
             self.state.push(ParserState::AttributeMacro);
             self.process_expression()?;
-        } else if let Some((name_token, target, generic_types, modifiers, next_i)) =
+        } else if let Some((name_token, associated_type, generic_types, modifiers, next_i)) =
             self.try_parse_function_def()?
         {
             if let Some(name) = name_token.alpha() {
@@ -503,7 +503,7 @@ impl Parser {
                     generic_types,
                     position: name_token.position,
                     modifiers,
-                    target,
+                    associated_type,
                 };
                 self.parser_data.push(ParserData::FunctionDef(function_def));
                 self.state.push(ParserState::FunctionDef);
@@ -709,7 +709,7 @@ impl Parser {
             generic_types: Vec::new(),
             position: ASTPosition::none(),
             modifiers: ASTModifiers::Public,
-            target: None,
+            associated_type: None,
         };
         self.parser_data
             .push(ParserData::FunctionDef(fake_function_def));
@@ -1526,7 +1526,7 @@ mod tests {
             generic_types: vec!["T".into(), "T1".into()],
             position: ASTPosition::new(1, 4),
             modifiers: ASTModifiers::Private,
-            target: None,
+            associated_type: None,
         };
 
         assert_eq!(module.functions, vec![function_def]);
@@ -1548,7 +1548,7 @@ mod tests {
             generic_types: vec!["T".into()],
             position: ASTPosition::new(1, 10),
             modifiers: ASTModifiers::Private,
-            target: Some("List".into()),
+            associated_type: Some("List".into()),
         };
 
         assert_eq!(module.functions, vec![function_def]);
@@ -1570,7 +1570,7 @@ mod tests {
             generic_types: Vec::new(),
             position: ASTPosition::new(1, 9),
             modifiers: ASTModifiers::Private,
-            target: Some("int".into()),
+            associated_type: Some("int".into()),
         };
 
         assert_eq!(module.functions, vec![function_def]);

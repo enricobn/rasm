@@ -27,7 +27,7 @@ pub struct ASTFunctionSignatureEntry {
     pub module_id: ModuleId,
     pub position: ASTPosition,
     pub rank: usize,
-    pub target: Option<String>,
+    pub associated_type: Option<String>,
 }
 
 impl ASTFunctionSignatureEntry {
@@ -36,7 +36,7 @@ impl ASTFunctionSignatureEntry {
         namespace: ModuleNamespace,
         module_id: ModuleId,
         position: ASTPosition,
-        target: Option<String>,
+        associated_type: Option<String>,
     ) -> Self {
         let rank = Self::signature_precedence_coeff(&signature);
         Self {
@@ -45,7 +45,7 @@ impl ASTFunctionSignatureEntry {
             module_id,
             position,
             rank,
-            target,
+            associated_type,
         }
     }
 
@@ -193,7 +193,7 @@ impl ASTModulesContainer {
 
             if let Some(signatures) = self.signatures.get(&signature.name) {
                 if let Some(same) = signatures.iter().find(|it| {
-                    if it.target != function.target {
+                    if it.associated_type != function.associated_type {
                         return false;
                     }
                     if !(it
@@ -237,7 +237,7 @@ impl ASTModulesContainer {
                 namespace.clone(),
                 module_id.clone(),
                 function.position.clone(),
-                function.target.clone(),
+                function.associated_type.clone(),
             ));
         }
 
@@ -302,7 +302,7 @@ impl ASTModulesContainer {
             .filter(|it| {
                 call_target
                     .as_ref()
-                    .map(|t| match &it.target {
+                    .map(|t| match &it.associated_type {
                         Some(target) => t == target,
                         _ => false,
                     })

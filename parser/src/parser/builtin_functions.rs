@@ -47,7 +47,7 @@ impl BuiltinFunctions {
             parameters_types,
             return_type,
             modifiers: ASTModifiers::Public,
-            target: Some(enum_def.name.clone()),
+            associated_type: Some(enum_def.name.clone()),
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -113,7 +113,7 @@ impl BuiltinFunctions {
             parameters_types,
             return_type,
             modifiers: ASTModifiers::Public,
-            target: None,
+            associated_type: None,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -191,7 +191,7 @@ impl BuiltinFunctions {
             parameters_types,
             return_type,
             modifiers: ASTModifiers::Public,
-            target: None,
+            associated_type: None,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -240,7 +240,7 @@ impl BuiltinFunctions {
             parameters_types,
             return_type,
             modifiers: ASTModifiers::Public,
-            target: None,
+            associated_type: None,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -345,7 +345,7 @@ impl BuiltinFunctions {
             parameters_types,
             return_type: lambda_return_type,
             modifiers: ASTModifiers::Public,
-            target: None,
+            associated_type: None,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -391,7 +391,7 @@ impl BuiltinFunctions {
             parameters_types,
             return_type: property_def.ast_type.clone(),
             modifiers: ASTModifiers::Public,
-            target: None,
+            associated_type: None,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -449,7 +449,7 @@ impl BuiltinFunctions {
             parameters_types,
             return_type: ast_type,
             modifiers: ASTModifiers::Public,
-            target: None,
+            associated_type: None,
         };
         (parameters_names, parameters_positions, signature)
     }
@@ -512,7 +512,7 @@ impl BuiltinFunctions {
             parameters_types,
             return_type: ast_type,
             modifiers: ASTModifiers::Public,
-            target: None,
+            associated_type: None,
         };
         (parameters_names, parameters_positions, signature)
     }

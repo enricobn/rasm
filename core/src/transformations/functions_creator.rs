@@ -571,7 +571,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
                 ASTBuiltinFunctionType::Other(name.to_owned()),
             ),
             modifiers: ASTModifiers::Public,
-            target: None,
+            associated_type: None,
         };
 
         module.add_function(
@@ -607,7 +607,7 @@ impl FunctionsCreator for FunctionsCreatorNasmi386 {
                 ASTBuiltinFunctionType::Other(name.to_owned()),
             ),
             modifiers: ASTModifiers::Public,
-            target: None,
+            associated_type: None,
         };
 
         module.add_function(

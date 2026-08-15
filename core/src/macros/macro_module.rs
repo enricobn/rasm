@@ -81,10 +81,7 @@ fn macro_module_body(
             }
         }
 
-        body.push_str(&format!(
-            "let macroResult = {}\n",
-            call.transformed_macro()
-        ));
+        body.push_str(&format!("let macroResult = {}\n", call.transformed_macro()));
 
         match &call.macro_result_type {
             MacroResultType::Statement => {
@@ -163,7 +160,7 @@ fn ast_function_def(function_def: &ASTFunctionDef) -> String {
 
     let parameters = vec_of(function_def.parameters.iter().map(ast_parameter).collect());
 
-    let target = match &function_def.target {
+    let associated_type = match &function_def.associated_type {
         Some(target) => format!("Some(\"{}\")", target),
         None => "None()".to_string(),
     };
@@ -171,7 +168,7 @@ fn ast_function_def(function_def: &ASTFunctionDef) -> String {
     let modifiers = ast_modifiers(&function_def.modifiers);
 
     format!(
-        "ASTFunctionDef(\"{}\", {parameters}, {}, {body}, {}, {modifiers}, {target})",
+        "ASTFunctionDef(\"{}\", {parameters}, {}, {body}, {}, {modifiers}, {associated_type})",
         function_def.name,
         ast_type(&function_def.return_type),
         vec_of(
@@ -305,7 +302,7 @@ fn ast_function_call(function_call: &ASTFunctionCall) -> String {
         .map(|e| ast_expression(e))
         .collect::<Vec<String>>();
     format!(
-        "ASTFunctionCall(\"{}\", {}, Vec(), None(), {})", // TODO generics, target
+        "ASTFunctionCall(\"{}\", {}, Vec(), None(), {})", // TODO generics, associated_type
         function_call.function_name(),
         vec_of(parameters),
         function_call.is_macro()
@@ -373,7 +370,7 @@ mod tests {
                     name: "testMacroCall".to_string(),
                     generics: vec![],
                     modifiers: ASTModifiers::Public,
-                    target: None,
+                    associated_type: None,
                 },
                 in_function: None,
             }],

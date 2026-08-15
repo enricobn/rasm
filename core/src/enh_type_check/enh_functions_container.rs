@@ -955,7 +955,7 @@ mod tests {
             ],
             index: EnhASTIndex::none(),
             generics: Vec::new(),
-            target: None,
+            associated_type: None,
             is_macro: false,
         };
 
@@ -1030,7 +1030,7 @@ mod tests {
             modifiers: ASTModifiers::Private,
             namespace: EnhASTNameSpace::global(),
             rank: 0,
-            target: None,
+            associated_type: None,
         }
     }
 
@@ -1055,7 +1055,7 @@ mod tests {
             modifiers: ASTModifiers::Private,
             namespace: EnhASTNameSpace::global(),
             rank: 0,
-            target: None,
+            associated_type: None,
         }
     }
 
@@ -1083,7 +1083,7 @@ mod tests {
             modifiers: ASTModifiers::Private,
             namespace: EnhASTNameSpace::global(),
             rank: 0,
-            target: None,
+            associated_type: None,
         }
     }
 }

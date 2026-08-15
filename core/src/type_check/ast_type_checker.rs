@@ -1450,7 +1450,7 @@ impl<'a> ASTTypeChecker<'a> {
                 return_type,
                 generics,
                 modifiers: ASTModifiers::Public, // TODO is it right?
-                target: call.target().clone(),
+                associated_type: call.associated_type().clone(),
             };
 
             let entry = ASTFunctionSignatureEntry::new(
@@ -1458,7 +1458,7 @@ impl<'a> ASTTypeChecker<'a> {
                 module_namespace.clone(),
                 module_id.clone(),
                 call.position().clone(),
-                call.target().clone(),
+                call.associated_type().clone(),
             );
 
             let result = self.process_function_signature(
@@ -1492,11 +1492,11 @@ impl<'a> ASTTypeChecker<'a> {
                                 .visible_from(&entry.signature.modifiers, module_namespace)
                     })
                     .filter(|it| {
-                        call.target()
+                        call.associated_type()
                             .as_ref()
-                            .map(|t| match &it.target {
-                                Some(target) => {
-                                    t == target
+                            .map(|t| match &it.associated_type {
+                                Some(associated_type) => {
+                                    t == associated_type
                                         || function
                                             .map(|f| f.generic_types.contains(t))
                                             .unwrap_or(false)
@@ -1549,7 +1549,7 @@ impl<'a> ASTTypeChecker<'a> {
                     "no functions for {}, expected expression type: {}, call target: {}",
                     call.function_name(),
                     OptionDisplay(&expected_expression_type),
-                    OptionDisplay(call.target())
+                    OptionDisplay(call.associated_type())
                 ),
             );
             dedent!();

@@ -1838,7 +1838,7 @@ mod tests {
             modifiers: ASTModifiers::Public,
             namespace: EnhASTNameSpace::global(),
             rank: 0,
-            target: None,
+            associated_type: None,
         }
     }
 }

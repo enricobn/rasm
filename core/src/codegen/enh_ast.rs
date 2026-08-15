@@ -202,7 +202,7 @@ pub struct EnhASTFunctionDef {
     /// of <T> is higher than Option<T> that is higher than Option<List<T>>
     /// So less is the rank, best suited is the function
     pub rank: usize,
-    pub target: Option<String>,
+    pub associated_type: Option<String>,
 }
 
 pub struct EnhASTFunctionSignature {
@@ -382,7 +382,7 @@ impl EnhASTFunctionDef {
             modifiers: function.modifiers,
             namespace: namespace.clone(),
             rank: 0,
-            target: function.target,
+            associated_type: function.associated_type,
         }
     }
 
@@ -1115,7 +1115,7 @@ pub struct EnhASTFunctionCall {
     pub parameters: Vec<EnhASTExpression>,
     pub index: EnhASTIndex,
     pub generics: Vec<EnhASTType>,
-    pub target: Option<String>,
+    pub associated_type: Option<String>,
     pub is_macro: bool,
 }
 
@@ -1168,7 +1168,7 @@ impl EnhASTFunctionCall {
                 call.generics().clone(),
                 function_name_for_fix_generics,
             ),
-            target: call.target().clone(),
+            associated_type: call.associated_type().clone(),
             is_macro: call.is_macro(),
         }
     }
@@ -2005,7 +2005,7 @@ mod tests {
                 path: "".to_string(),
             },
             rank: 0,
-            target: None,
+            associated_type: None,
         };
 
         assert_eq!(format!("{def}"), "fn aFun<T>(aPar: List<Option<T>>) -> T");

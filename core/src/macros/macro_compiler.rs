@@ -404,7 +404,7 @@ fn replace_expression_in_expression(
                     new_parameters,
                     call.position().clone(),
                     call.generics().clone(),
-                    call.target().clone(),
+                    call.associated_type().clone(),
                     call.is_macro(),
                 ))
             }

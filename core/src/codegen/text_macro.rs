@@ -523,7 +523,7 @@ impl TextMacroEvaluator {
                         types.clone(),
                         i,
                         generics,
-                        call.target().clone(),
+                        call.associated_type().clone(),
                     );
 
                     result.push((m.clone(), df));
@@ -534,9 +534,9 @@ impl TextMacroEvaluator {
                     ));
                 }
             } else {
-                let target_index = function_name.find(':');
+                let associated_type_index = function_name.find(':');
 
-                let target = if let Some(index) = target_index {
+                let associated_type = if let Some(index) = associated_type_index {
                     Some(function_name[0..index].to_string())
                 } else {
                     None
@@ -544,7 +544,7 @@ impl TextMacroEvaluator {
 
                 result.push((
                     m.clone(),
-                    DefaultFunctionCall::new(function_name, types, i, Vec::new(), target),
+                    DefaultFunctionCall::new(function_name, types, i, Vec::new(), associated_type),
                 ));
             }
         }
@@ -1765,7 +1765,7 @@ mod tests {
             modifiers: ASTModifiers::Private,
             namespace: EnhASTNameSpace::global(),
             rank: 0,
-            target: None,
+            associated_type: None,
         };
 
         let result = code_gen.get_text_macro_evaluator().get_macros(

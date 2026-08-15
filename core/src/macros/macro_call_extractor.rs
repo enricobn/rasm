@@ -647,7 +647,7 @@ fn get_macro_call(
         custom_parameters,
         call.position().copy(),
         call.generics().clone(),
-        call.target().clone(),
+        call.associated_type().clone(),
         false,
     );
 
@@ -1066,14 +1066,14 @@ fn simple_call(
     name: &str,
     parameters: Vec<ASTExpression>,
     position: ASTPosition,
-    target: Option<String>,
+    associated_type: Option<String>,
 ) -> ASTExpression {
     ASTExpression::ASTFunctionCallExpression(ASTFunctionCall::new(
         name.to_string(),
         parameters,
         position,
         Vec::new(),
-        target,
+        associated_type,
         false,
     ))
 }
