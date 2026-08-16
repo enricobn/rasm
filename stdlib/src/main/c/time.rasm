@@ -6,9 +6,7 @@ pub fn now() -> TimeVal /{
 
     gettimeofday(&tv, NULL);
 
-    return
-        $call(TimeVal, tv.tv_sec, tv.tv_usec)
-    ;
+    return $call(TimeVal, tv.tv_sec, tv.tv_usec);
 }/
 
 // from https://stackoverflow.com/questions/14818084/what-is-the-proper-include-for-the-function-sleep

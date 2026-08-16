@@ -1817,8 +1817,12 @@ impl<'a> EnhTypeCheck<'a> {
                             )
                         }
 
-                        let new_line =
-                            lines[f.i].replace(&new_function_name, &new_call.function_name);
+                        let new_line = self.evaluator.replace_function_call(
+                            &lines[f.i],
+                            &new_function_name,
+                            &new_call.function_name,
+                        );
+
                         debug_i!("new line {}", new_line);
                         lines[f.i] = new_line;
                     }

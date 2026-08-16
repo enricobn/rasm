@@ -46,9 +46,7 @@ pub fn toInt(s: str) -> Option<int> /{
     int result = (int) strtol(s_, &end, 10);
 
     if (errno == 0 && s_ && !*end) {
-        return
-        $call(Some, result)
-        ;
+        return $call(Some, result);
     } else {
         // a "typed" None based on the typed return value of the function
         return $enumSimple(None);

@@ -551,6 +551,10 @@ impl TextMacroEvaluator {
         Ok(result)
     }
 
+    pub fn replace_function_call(&self, source: &str, name: &str, new_name: &str) -> String {
+        source.replace(&format!("$call({}", name), &format!("$call({}", new_name))
+    }
+
     fn parse_params(
         &self,
         s: &str,

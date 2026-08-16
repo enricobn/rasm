@@ -5,12 +5,6 @@ Doing
 
 Bug
 ----
-- sometimes we need to do line breaks to let text macro to work, for example:
-  return
-    $call(println, "Hello world")
-  ;
-  but we have not yet found a way to reproduce this problem, probably it's not related only to macro 
-  transformation, because there's a test for it (translate_functions) that works
 - in stdlib, if.rasm, look at the TODO
 - consts are not reliable: if a const is defined with a function call, that uses a const that is defined after, 
   then it will compile, but it will crash at runtime!!! Add a verify or sort them by dependency
@@ -39,7 +33,7 @@ Road to language version 1.0.0 (not compiler)
 Major
 -----
 - more on associated type:
-  - should the associated type be mandatory when present? I think it is the best option, but it could be complicated to implement
+  - should the associated type be mandatory to call an associated function? I think it is the best option, but it could be complicated to implement
 
 - are default_function_calls in TextMacro needed?
 - command line tool:

@@ -62,9 +62,7 @@ pub fn first<T>(vec: Vec<T>) -> Option<T> /{
         $realTypeName(T) *array = ($realTypeName(T) *)values->address;
         $realTypeName(T) value = array[0];
         $addRef(value:T)
-        return
-        $call(Some, value:T)
-        ;
+        return $call(Some, value:T);
     }
 }/
 
@@ -78,9 +76,7 @@ pub fn last<T>(vec: Vec<T>) -> Option<T> /{
         $realTypeName(T) *array = ($realTypeName(T) *)values->address;
         $realTypeName(T) value = array[length - 1];
         $addRef(value:T)
-        return
-        $call(Some, value:T)
-        ;
+        return $call(Some, value:T);
     }
 }/
 
@@ -140,17 +136,13 @@ pub fn toVec<T>(iter: Iter<T>) -> Vec<T> /{
     // $addRef(iter_:Iter<T>)
     long i = 0;
     while (1) {
-        struct RasmPointer_ *optValue =
-            $call(callNext, iter_:Iter<T>)
-        ;
+        struct RasmPointer_ *optValue = $call(callNext, iter_:Iter<T>);
         $addRef(optValue:Option<IterValue<T>>)
         struct Enum *e = (struct Enum *) optValue->address;
         if (e->variant_num == 0) {
             $enumVariant(s,Some,optValue:Option<IterValue<T>>)
             struct RasmPointer_ *iterValue = s->value;
-            struct RasmPointer_ *tmp_iter = 
-                $call(next, iterValue:IterValue<T>)
-            ;
+            struct RasmPointer_ *tmp_iter = $call(next, iterValue:IterValue<T>);
             // $deref(iter_:Iter<T>)
             iter_ = tmp_iter;
             // $addRef(iter_:Iter<T>)
@@ -170,9 +162,7 @@ pub fn toVec<T>(iter: Iter<T>) -> Vec<T> /{
             }
             struct Vector *result_vec = (struct Vector*)result->address;
             $realTypeName(T) *result_array = ($realTypeName(T) *)result_vec->values->address;
-            $realTypeName(T) v = 
-                $call(value, iterValue:IterValue<T>)
-            ;
+            $realTypeName(T) v = $call(value, iterValue:IterValue<T>);
             result_array[i] = v;
             $addRef(v:T)
             i++;
@@ -593,8 +583,7 @@ pub fn foldLeft<T,T1>(vec: Vec<T>, zero: T1, accum: fn(T1,T) -> T1) -> T1 /{
 pub fn charsVec(s: str) -> Vec<char> /{
     $include(<stdlib.h>)
 
-    int length = 
-        $call(len, $s);
+    int length = $call(len, $s);
     size_t sz = sizeof(uint32_t);
     struct RasmPointer_ *result = $call(Vec,length,sz);
     struct Vector *result_vec = (struct Vector*)result->address;

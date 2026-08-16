@@ -28,9 +28,7 @@ pub fn chars(s: str) -> List<char> /{
            printf( "Unrecognized UTF-8 %d\n", byte);
            return result;
         }
-        void *tmp = 
-          $call(push, result: List<char>, c: char)
-        ;
+        void *tmp = $call(push, result: List<char>, c: char);
         $addRef(tmp:List<char>)
         $deref(result:List<char>)
 
@@ -60,9 +58,7 @@ pub fn lines(s: str) -> List<str> /{
            strncpy(line_, s_ + line_pos, i - line_pos);
            line_[i - line_pos] = 0;
            $addRef(line:str)
-           void *tmp = 
-              $call(push, result: List<str>, line: str)
-              ;
+           void *tmp = $call(push, result: List<str>, line: str);
 
            $addRef(tmp:List<str>)
            $deref(line:str)

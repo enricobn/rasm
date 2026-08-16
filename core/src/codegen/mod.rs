@@ -660,10 +660,10 @@ pub trait CodeGen<'a, FCP: FunctionCallParameters<CTX>, CTX, OPTIONS: CodeGenOpt
             let mut new_result = Vec::new();
 
             for (name, body) in result {
-                let new_nody = self
+                let new_body = self
                     .replace_optimized_functions_calls_in_native_body(body, &optimized_functions);
 
-                new_result.push((name, new_nody));
+                new_result.push((name, new_body));
             }
 
             result = new_result;
@@ -2394,12 +2394,18 @@ mod tests {
     use tempdir::TempDir;
 
     use crate::codegen::asm::code_gen_asm::CodeGenAsm;
+    use crate::codegen::c::code_gen_c::CodeGenCContext;
+    use crate::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace};
     use crate::codegen::enh_val_context::EnhValContext;
+    use crate::codegen::function_call_parameters::FunctionCallParameters;
     use crate::codegen::statics::Statics;
     use crate::codegen::typedef_provider::DummyTypeDefProvider;
     use crate::codegen::{AsmOptions, CodeGen};
     use crate::commandline::{CommandLineAction, CommandLineOptions, RasmProfile};
-    use crate::enh_type_check::typed_ast::ASTTypedModule;
+    use crate::enh_type_check::typed_ast::{
+        ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef,
+        ASTTypedType, BuiltinTypedTypeKind, ResolvedGenericTypedTypes,
+    };
     use crate::project::RasmProject;
     use crate::test_utils::project_to_ast_typed_module;
 
@@ -2486,6 +2492,55 @@ mod tests {
                 .unwrap(),
             "return None<int>();".to_string()
         );
+    }
+
+    #[test]
+    fn translate_functions_1() {
+        let sut = CodeGenC::new(COptions::default(), false, false);
+
+        let parameters = vec![ASTTypedParameterDef {
+            name: "s".to_string(),
+            ast_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::String),
+            ast_index: EnhASTIndex::none(),
+        }];
+
+        let context = CodeGenCContext {};
+
+        let tme = sut.get_text_macro_evaluator();
+
+        let body = "int length = $call(len, $s);\n return length;".to_owned();
+
+        let fcp = sut.function_call_parameters(&context, None, &parameters, false, false, 0);
+
+        let body = fcp.resolve_native_parameters(&context, &body, 0, false, None, false);
+
+        let mut statics = Statics::new();
+
+        let type_def_provider = DummyTypeDefProvider::empty();
+
+        let typed_function_def = ASTTypedFunctionDef {
+            name: "aFunction".to_string(),
+            index: EnhASTIndex::none(),
+            parameters,
+            return_type: ASTTypedType::Builtin(BuiltinTypedTypeKind::Integer),
+            body: ASTTypedFunctionBody::NativeBody(String::new()),
+            namespace: EnhASTNameSpace::global(),
+            original_name: "aFunction".to_string(),
+            resolved_generic_types: ResolvedGenericTypedTypes::new(),
+        };
+
+        let result = tme
+            .translate(
+                &mut statics,
+                Some(&typed_function_def),
+                None,
+                &body,
+                false,
+                &type_def_provider,
+            )
+            .unwrap();
+
+        assert_eq!(result, "int length = len(s);\n return length;".to_string());
     }
 
     #[test]
