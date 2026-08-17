@@ -32,6 +32,6 @@ fn sum() -> Assertions {
 
 fn splitToVec() -> Assertions {
     Assertions()
-    .assertEquals(vec!("1", "2", "3"), "1,2,3".splitToVec(','))
-    .assertEquals(vec!("3"), "3".splitToVec(','))
+    .assertEquals(vecOf("1", "2", "3"), "1,2,3".splitToVec(','))
+    .assertEquals(vecOf("3"), "3".splitToVec(','))
 }
