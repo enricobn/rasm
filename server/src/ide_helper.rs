@@ -13,6 +13,7 @@ use rasm_core::codegen::enh_ast::{EnhASTIndex, EnhASTNameSpace, EnhModuleId, Enh
 use rasm_core::codegen::statics::Statics;
 use rasm_core::codegen::val_context::{ValContext, ValKind};
 use rasm_core::commandline::RasmProfile;
+use rasm_core::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use rasm_core::errors::{CompilationError, CompilationErrorKind};
 use rasm_core::project::RasmProject;
 use rasm_core::project_catalog::RasmProjectCatalog;
@@ -865,20 +866,7 @@ impl IDEHelper {
             .type_check_errors
             .iter()
             .filter(|it| !matches!(it.kind(), ASTTypeCheckErroKind::Warning))
-            .map(|it| {
-                let path = self
-                    .catalog
-                    .catalog_info(it.index().info().id())
-                    .map(|info| info.0.clone())
-                    .unwrap_or_else(EnhModuleId::none);
-                CompilationError {
-                    index: EnhASTIndex::from_position(path, it.index().position()),
-                    error_kind: CompilationErrorKind::TypeCheck(
-                        it.message().to_owned(),
-                        Vec::new(),
-                    ),
-                }
-            })
+            .map(|it| self.ast_type_check_error_to_compilation(it))
             .collect::<Vec<_>>();
 
         compilation_errors.extend(type_check_errors);
@@ -906,6 +894,43 @@ impl IDEHelper {
         */
 
         compilation_errors
+    }
+
+    fn ast_type_check_error_to_compilation(&self, it: &ASTTypeCheckError) -> CompilationError {
+        let path = self
+            .catalog
+            .catalog_info(it.index().info().id())
+            .map(|info| info.0.clone())
+            .unwrap_or_else(EnhModuleId::none);
+        CompilationError {
+            index: EnhASTIndex::from_position(path.clone(), it.index().position()),
+            error_kind: CompilationErrorKind::TypeCheck(
+                it.message().to_owned(),
+                it.inner()
+                    .iter()
+                    .map(|it| self.ast_type_check_error_to_enh(it))
+                    .collect::<Vec<_>>(),
+            ),
+        }
+    }
+
+    fn ast_type_check_error_to_enh(&self, it: &ASTTypeCheckError) -> EnhTypeCheckError {
+        let path = self
+            .catalog
+            .catalog_info(it.index().info().id())
+            .map(|info| info.0.clone())
+            .unwrap_or_else(EnhModuleId::none);
+        let mut result = EnhTypeCheckError::new(
+            EnhASTIndex::from_position(path.clone(), it.index().position()),
+            it.message().to_owned(),
+            Vec::new(),
+        );
+
+        for error in it.inner() {
+            result = result.add_errors(vec![self.ast_type_check_error_to_enh(error)]);
+        }
+
+        result
     }
 
     pub fn container(&self) -> &ASTModulesContainer {
@@ -3034,9 +3059,11 @@ fn f1(s: str) {
     fn test_ide_helper_stdlib() {
         let (project, helper, errors) = get_helper_with_errors("../stdlib");
 
+        /*
         for error in errors.iter() {
             println!("{}", error);
         }
+        */
 
         let items = get_items_at(&project, &helper, "../stdlib/src/main/rasm/str.rasm", 15, 5);
 
@@ -3263,11 +3290,13 @@ fn f1(s: str) {
         };
         let helper = IDEHelper::from_project(&project, &CompileTarget::C(COptions::default()));
 
+        /*
         for error in helper.errors().iter() {
             if format!("{}", error.index).contains(file_name) {
                 println!("{}", error);
             }
         }
+        */
 
         let path = project
             .from_relative_to_root(PathBuf::from(file_name).as_path())

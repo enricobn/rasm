@@ -31,7 +31,9 @@ pub struct CompilationError {
 
 impl CompilationError {
     pub fn from_parser_error(error: ParserError, file_name: Option<PathBuf>) -> Self {
-        let module_id = file_name.map(EnhModuleId::Path).unwrap_or_else(EnhModuleId::none);
+        let module_id = file_name
+            .map(EnhModuleId::Path)
+            .unwrap_or_else(EnhModuleId::none);
         Self {
             index: EnhASTIndex::new(module_id, error.position().clone()),
             error_kind: CompilationErrorKind::Parser(error.message),
@@ -49,6 +51,16 @@ impl CompilationError {
         Self {
             index: EnhASTIndex::none(),
             error_kind: CompilationErrorKind::Generic(message),
+        }
+    }
+
+    pub fn message(&self) -> &str {
+        match &self.error_kind {
+            CompilationErrorKind::Generic(message) => message,
+            CompilationErrorKind::Lexer(message) => message,
+            CompilationErrorKind::Parser(message) => message,
+            CompilationErrorKind::TypeCheck(message, _) => message,
+            CompilationErrorKind::Verify(message) => message,
         }
     }
 }

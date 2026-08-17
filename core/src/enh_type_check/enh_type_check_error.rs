@@ -196,6 +196,13 @@ impl EnhTypeCheckError {
             self.children.iter().flat_map(|it| it.important()).collect()
         }
     }
+
+    pub fn recursive_children(&self) -> Vec<&EnhTypeCheckError> {
+        let mut result = Vec::new();
+        result.push(self);
+        result.extend(self.children.iter().flat_map(|it| it.recursive_children()));
+        result
+    }
 }
 
 impl Display for EnhTypeCheckError {

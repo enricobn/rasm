@@ -109,6 +109,10 @@ impl ASTTypeCheckError {
         }
         Result::Ok(())
     }
+
+    pub fn inner(&self) -> &Vec<ASTTypeCheckError> {
+        &self.inner
+    }
 }
 
 impl Display for ASTTypeCheckError {
