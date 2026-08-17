@@ -1,14 +1,76 @@
 pub fn jsonParserSuite() -> TestSuite {
     TestSuite("json parser")
     .add("testStringParser", testStringParser)
+    .add("testFullParser", testFullParser)
 }
 
 fn testStringParser() -> Assertions {
-    let parseResult = parseJson("\"Hello world\"")
+    let parseResult = jsonParse("\"Hello world\"")
     let assertions = Assertions()
 
     parseResult.match(
         fn(value) { assertions.assertEquals("", JsonString("Hello world"), value) }, 
         fn(error) { assertions.fail(error) })
     
+}
+
+fn testFullParser() -> Assertions {
+    let parseResult = jsonParse("[{\"x\" : 1, \"y\" : 20, \"v\" : 30}, {\"x\" : 2, \"y\" : 20, \"v\" : 30}]")
+    let assertions = Assertions()
+
+    parseResult.match(
+        fn(ok) { 
+            let a = AStruct::parseJson<int>(ok)
+            assertions
+         }, 
+        fn(e) { 
+            assertions.fail(e)
+         }
+    )
+}
+
+fn int::parseJson(jv: JsonValue) -> Result<int, str> {
+        jv.matchJsonNumber(fn(n) {
+        n.match(fn(i) {
+            Result::Ok(i)
+        }, fn(f) {
+            Result::Error("Expected int, found float")    
+        })
+    }, {
+        Result::Error("Expected int")
+    })
+}
+
+fn AStruct::parseJson<T>(jv: JsonValue) -> Result<AStruct<T>, str> {
+    jv.matchJsonObject(
+        fn(values) {
+            values.oneOrError("x").fmap(fn(jvx) {
+                values.oneOrError("y").fmap(fn(jvy) {
+                    values.oneOrError("v").fmap(fn(jvv) {
+                        int::parseJson(jvx).fmap(fn(pvx) {
+                            int::parseJson(jvy).fmap(fn(pvy) {
+                                T::parseJson(jvv).map(fn(pvv) {
+                                    AStruct(pvx, pvy, pvv)
+                                })
+                            }
+                        })
+                    }
+                })
+            })
+        }, 
+        fn() { Result::Error("expected object") }
+    )
+}
+
+fn oneOrError(values: Vec<Pair<str,JsonValue>>, key: str) -> Result<JsonValue, str> {
+    let found = values.filter(fn(it) {it.first.eq(key)})
+    if(found.len.eq(1), {
+        found.first.match(fn(it) {
+            Result::Ok(it.second)
+        }, {
+            Result::Error("It should not happen")
+        })
+    }, {
+        Result::Error("Cannot find property: ".add(key))
+    })
 }

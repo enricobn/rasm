@@ -6,7 +6,7 @@ pub fn jsonLexerSuite() -> TestSuite {
 }
 
 fn testStringLexer() -> Assertions {
-    let tokensResult = lexe("\"Hello world\"")
+    let tokensResult = jsonLexe("\"Hello world\"")
 
     createTokensResult(tokensResult, 
         fn(assertions, tokens) {  
@@ -16,7 +16,7 @@ fn testStringLexer() -> Assertions {
 }
 
 fn testNumberLexer() -> Assertions {
-    let tokensResult = lexe("1234.67")
+    let tokensResult = jsonLexe("1234.67")
     createTokensResult(tokensResult, 
         fn(assertions, tokens) {  
             assertions.assertEquals("[JsonToken(Number(1234.67))]", tokens.toString)
@@ -26,7 +26,7 @@ fn testNumberLexer() -> Assertions {
 
 fn testFileLexer() -> Assertions {
     let s = readFile(fromRasmSourceFolder("test/resources/small.json"))
-    let tokensResult = lexe(s)
+    let tokensResult = jsonLexe(s)
     createTokensResult(tokensResult, 
         fn(assertions, tokens) {
             assertions.assertEquals(47, tokens.len)

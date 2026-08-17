@@ -19,7 +19,7 @@ fn smallFile() -> Assertions {
 
 fn file(file: str, count: int) -> Assertions {
     let s = readFile(file)
-    let tokensResult = lexe(s)
+    let tokensResult = jsonLexe(s)
     tokensResult(tokensResult, 
         fn(assertions, tokens) {
             assertions.assertEquals(count, tokens.len)

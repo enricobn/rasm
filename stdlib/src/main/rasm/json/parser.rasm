@@ -5,7 +5,7 @@ pub enum JsonValue {
     JsonNumber(number: Number),
     JsonFloat(f: float),
     JsonNull,
-    JsonObject(values: Pair<str, JsonValue>),
+    JsonObject(values: Vec<Pair<str, JsonValue>>),
     JsonArray(a: Vec<JsonValue>)
 }
 
@@ -17,7 +17,7 @@ pub enum Number {
 }
 
 @toString()
-internal enum ParserStatus {
+enum ParserStatus {
     None,
     Array,
     String,
@@ -26,20 +26,20 @@ internal enum ParserStatus {
 }
 
 @toString()
-internal struct ParserState {
+struct ParserState {
     chars: Vec<char>,
     index: int,
     actualString: str,
     stack: Vec<Pair<ParserStatus,JsonValue>>
 }
 
-internal enum InternalResult {
+enum InternalResult {
     Ok(value: JsonValue),
     Error(e: str),
     Continue(state: ParserState)
 }
 
-pub fn parseJson(s: str) -> Result<JsonValue, str> {
+pub fn jsonParse(s: str) -> Result<JsonValue, str> {
     let initialState = ParserState(s.charsVec, 0, "", Vec())
     let initialResult = Continue(initialState)
 
