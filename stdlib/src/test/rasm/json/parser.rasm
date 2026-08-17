@@ -4,6 +4,8 @@ pub fn jsonParserSuite() -> TestSuite {
     .add("testFullParser", testObjectParser)
     .add("testCompleteObjectParser", testCompleteObjectParser)
     .add("testAStructParser", testAStructParser)
+    .add("testIntVecParser", testIntVecParser)
+    //.add("testAStructVecParser", testAStructVecParser)
 }
 
 fn testStringParser() -> Assertions {
@@ -75,23 +77,36 @@ fn testCompleteObjectParser() -> Assertions {
 }
 
 fn testAStructParser() -> Assertions {
-    //let parseResult = jsonParse("[{\"x\" : 1, \"y\" : 20, \"v\" : 30}, {\"x\" : 2, \"y\" : 20, \"v\" : 30}]")
-    let parseResult = jsonParse("{\"x\" : 1, \"y\" : 20, \"v\" : 30}")
     let assertions = Assertions()
 
-    parseResult.match(
-        fn(jv) {
-            let expected = AStruct(1, 20, 30)
-            AStruct::parseJson<int>(jv).match(fn(as) {
-                assertions.assertEquals("", expected, as)
-            }, fn(e) {
-                assertions.fail(e)
-            })
-        },
-        fn(e) { 
-            assertions.fail(e)
-        }
-    )
+    let expected = AStruct(1, 20, 30)
+    AStruct::parseJson<int>("{\"x\" : 1, \"y\" : 20, \"v\" : 30}").match(fn(as) {
+        assertions.assertEquals("", expected, as)
+    }, fn(e) {
+        assertions.fail(e)
+    })
+}
+
+fn testAStructVecParser() -> Assertions {
+    let assertions = Assertions()
+
+    let expected = vecOf(AStruct(1, 20, 30), AStruct(2, 20, 30))
+    Vec::parseJson<AStruct<int>>("[{\"x\" : 1, \"y\" : 20, \"v\" : 30}, {\"x\" : 2, \"y\" : 20, \"v\" : 30}]").match(fn(as) {
+        assertions.assertEquals("", expected, as)
+    }, fn(e) {
+        assertions.fail(e)
+    })
+}
+
+fn testIntVecParser() -> Assertions {
+    let assertions = Assertions()
+
+    let expected = vecOf(10, 20)
+    Vec::parseJson<int>("[10, 20]").match(fn(as) {
+        assertions.assertEquals("", expected, as)
+    }, fn(e) {
+        assertions.fail(e)
+    })
 }
 
 fn int::parseJson(jv: JsonValue) -> Result<int, str> {
@@ -103,6 +118,12 @@ fn int::parseJson(jv: JsonValue) -> Result<int, str> {
         })
     }, {
         Result::Error("Expected int")
+    })
+}
+
+fn AStruct::parseJson<T>(s: str) -> Result<AStruct<T>, str> {
+    s.jsonParse.fmap(fn(jsonValue) {
+        AStruct::parseJson<T>(jsonValue)
     })
 }
 
@@ -125,6 +146,26 @@ fn AStruct::parseJson<T>(jv: JsonValue) -> Result<AStruct<T>, str> {
         }, 
         fn() { Result::Error("expected object") }
     )
+}
+
+fn Vec::parseJson<T>(s: str) -> Result<Vec<T>, str> {
+    s.jsonParse.fmap(fn(jsonValue) {
+        Vec::parseJson<T>(jsonValue)
+    })
+}
+
+fn Vec::parseJson<T>(jv: JsonValue) -> Result<Vec<T>, str> {
+    jv.matchJsonArray(fn(a) {
+        a.foldLeft(Result::Ok(Vec<T>()), fn(result, actual) {
+            result.fmap(fn(vector) {
+                T::parseJson(actual).map(fn(parsedActual) {
+                    vector.push(parsedActual)
+                })
+            })
+        })
+    }, fn() {
+        Result::Error("Expected array")
+    })
 }
 
 fn oneOrError(values: Vec<Pair<str,JsonValue>>, key: str) -> Result<JsonValue, str> {
