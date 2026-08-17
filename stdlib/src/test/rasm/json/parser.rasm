@@ -1,7 +1,9 @@
 pub fn jsonParserSuite() -> TestSuite {
     TestSuite("json parser")
     .add("testStringParser", testStringParser)
-    .add("testFullParser", testFullParser)
+    .add("testFullParser", testObjectParser)
+    .add("testCompleteObjectParser", testCompleteObjectParser)
+    .add("testAStructParser", testAStructParser)
 }
 
 fn testStringParser() -> Assertions {
@@ -14,18 +16,81 @@ fn testStringParser() -> Assertions {
     
 }
 
-fn testFullParser() -> Assertions {
+fn testObjectParser() -> Assertions {
     let parseResult = jsonParse("[{\"x\" : 1, \"y\" : 20, \"v\" : 30}, {\"x\" : 2, \"y\" : 20, \"v\" : 30}]")
     let assertions = Assertions()
 
     parseResult.match(
-        fn(ok) { 
-            let a = AStruct::parseJson<int>(ok)
-            assertions
+        fn(ok) {
+            let expected = JsonValue::JsonArray(vec!(
+                JsonValue::JsonObject(vec!(
+                    Pair("x", JsonValue::JsonNumber(Number::Int(1))),
+                    Pair("y", JsonValue::JsonNumber(Number::Int(20))),
+                    Pair("v", JsonValue::JsonNumber(Number::Int(30)))
+                )),
+                JsonValue::JsonObject(vec!(
+                    Pair("x", JsonValue::JsonNumber(Number::Int(2))),
+                    Pair("y", JsonValue::JsonNumber(Number::Int(20))),
+                    Pair("v", JsonValue::JsonNumber(Number::Int(30)))
+                ))
+            ))
+            assertions.assertEquals("", expected, ok)
          }, 
         fn(e) { 
             assertions.fail(e)
          }
+    )
+}
+
+fn testCompleteObjectParser() -> Assertions {
+    let parseResult = jsonParse("{\"string\" : \"Hello, World!\", \"number\" : 42, \"float\" : 0.5, \"boolean\" : true, \"null\" : null, \"array\" : [1, \"two\", false], \"object\" : {\"key\" : \"value\", \"nested\" : {\"number\" : 123}}}")
+    let assertions = Assertions()
+
+    parseResult.match(
+        fn(ok) {
+            let expected = JsonValue::JsonObject(vec!(
+                Pair("string", JsonValue::JsonString("Hello, World!")),
+                Pair("number", JsonValue::JsonNumber(Number::Int(42))),
+                Pair("float", JsonValue::JsonFloat(0.5)),
+                Pair("boolean", JsonValue::JsonBoolean(true)),
+                Pair("null", JsonValue::JsonNull()),
+                Pair("array", JsonValue::JsonArray(vec!(
+                    JsonValue::JsonNumber(Number::Int(1)),
+                    JsonValue::JsonString("two"),
+                    JsonValue::JsonBoolean(false)
+                ))),
+                Pair("object", JsonValue::JsonObject(vec!(
+                    Pair("key", JsonValue::JsonString("value")),
+                    Pair("nested", JsonValue::JsonObject(vec!(
+                        Pair("number", JsonValue::JsonNumber(Number::Int(123)))
+                    )))
+                )))
+            ))
+            assertions.assertEquals("", expected, ok)
+        },
+        fn(e) {
+            assertions.fail(e)
+        }
+    )
+}
+
+fn testAStructParser() -> Assertions {
+    //let parseResult = jsonParse("[{\"x\" : 1, \"y\" : 20, \"v\" : 30}, {\"x\" : 2, \"y\" : 20, \"v\" : 30}]")
+    let parseResult = jsonParse("{\"x\" : 1, \"y\" : 20, \"v\" : 30}")
+    let assertions = Assertions()
+
+    parseResult.match(
+        fn(jv) {
+            let expected = AStruct(1, 20, 30)
+            AStruct::parseJson<int>(jv).match(fn(as) {
+                assertions.assertEquals("", expected, as)
+            }, fn(e) {
+                assertions.fail(e)
+            })
+        },
+        fn(e) { 
+            assertions.fail(e)
+        }
     )
 }
 

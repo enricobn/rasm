@@ -23,3 +23,7 @@ pub fn iif<T>(cond: bool, trueValue: T, elseIfCond: bool, valueElseIf: T, valueE
 pub fn neq<T>(a: T, b: T) -> bool {
     eq(a, b).not
 }
+
+pub fn eq(a: bool, b: bool) -> bool {
+    iif(a, b, iif(b, false, true))
+}

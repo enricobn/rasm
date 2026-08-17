@@ -1,5 +1,6 @@
 @json()
 @toString()
+@eq()
 pub struct AStruct<T> {
     x: int,
     y: int,

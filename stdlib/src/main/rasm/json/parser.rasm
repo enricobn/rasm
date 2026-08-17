@@ -4,6 +4,7 @@ pub enum JsonValue {
     JsonString(s: str),
     JsonNumber(number: Number),
     JsonFloat(f: float),
+    JsonBoolean(b: bool),
     JsonNull,
     JsonObject(values: Vec<Pair<str, JsonValue>>),
     JsonArray(a: Vec<JsonValue>)
@@ -16,133 +17,292 @@ pub enum Number {
     Float(value: float)
 }
 
-@toString()
-enum ParserStatus {
-    None,
-    Array,
-    String,
-    Number,
-    Null
-}
-
-@toString()
-struct ParserState {
-    chars: Vec<char>,
-    index: int,
-    actualString: str,
-    stack: Vec<Pair<ParserStatus,JsonValue>>
-}
-
 enum InternalResult {
-    Ok(value: JsonValue),
-    Error(e: str),
-    Continue(state: ParserState)
+    Ok(value: JsonValue, index: int),
+    Error(e: str)
 }
 
 pub fn jsonParse(s: str) -> Result<JsonValue, str> {
-    let initialState = ParserState(s.charsVec, 0, "", Vec())
-    let initialResult = Continue(initialState)
-
-    initialResult.loop.match(
-        fn(jsonValue) {  Ok(jsonValue) }, 
-        fn(e) { Error(e) }, 
-        fn(parserState) {
-            Error("Unknown error.")
-        })
-}
-
-fn loop(result: InternalResult) -> InternalResult {
-    result.match(
-        fn(value) {
-            result
+    let chars = s.charsVec
+    parseValue(chars, 0).match(
+        fn(value, index) {
+            let finalIndex = skipSpaces(chars, index)
+            if(finalIndex.eq(chars.len), {
+                Ok(value)
+            }, {
+                Error("Unexpected characters after JSON document")
+            })
         },
         fn(e) {
-            result
-        },
-        fn(state) {
-            loop(state.next)
+            Error(e)
         }
     )
 }
 
-fn next(state: ParserState) -> InternalResult {
-    state.chars.get(state.index).match(fn(c) {
-        state.stack.last.match(
-            fn(stackItem) {
-                let status = stackItem.first
-                let value = stackItem.second
-                
-                status.match(
-                    { Error("None") }, 
-                    { Error("Array") }, 
-                    { 
-                        if (c.eq('"'), {
-                            InternalResult::Ok(JsonString(state.actualString))
-                        }, {
-                            let newState = state.actualString(fn(s) { s.append(c) })
-                            InternalResult::Continue(newState.nextChar)
-                        })
-                        
-                    }, 
-                    { Error("Number") }, 
-                    { Error("Null") })
-            },
-            {
-                if(c.eq('"'), {
-                    let newState = state.stack(fn(it) {it.push(Pair(ParserStatus::String(), JsonValue::JsonString("")))})
-                    InternalResult::Continue(newState.nextChar)
-                }, {
-                    Error("TODO")
-                })
-            }
-        )
+fn isSpace(c: char) -> bool {
+    c.eq(' ').or(c.eq('\t')).or(c.eq('\n')).or(c.eq('\r'))
+}
+
+fn skipSpaces(chars: Vec<char>, index: int) -> int {
+    chars.get(index).match(fn(c) {
+        if(isSpace(c), {
+            skipSpaces(chars, index.add(1))
+        }, {
+            index
+        })
     }, {
-        Error("TODO")
+        index
     })
 }
 
-fn nextChar(state: ParserState) -> ParserState {
-    state.index(fn(i) { i.add(1) })
-}
-
-/*
-// TODO pub because of toString
-@toString()
-pub enum SimpleParseResult<VALUE,CONTINUE> {
-    Done(value: VALUE, consume: bool),
-    Continue(c: CONTINUE),
-    Error(e: str)
-}
-
-fn parseString(s: str, c: char) -> SimpleParseResult<JsonString, str> {
-    if(c.eq('"'), {
-        Done(JsonString(s), true);
+fn parseValue(chars: Vec<char>, index: int) -> InternalResult {
+    let i = skipSpaces(chars, index)
+    chars.get(i).match(fn(c) {
+        if(c.eq('"'), {
+            parseString(chars, i.add(1))
+        }).elseIf(c.eq('{'), {
+            parseObject(chars, i.add(1))
+        }).elseIf(c.eq('['), {
+            parseArray(chars, i.add(1))
+        }).elseIf(c.eq('-').or(c.isNumber), {
+            parseNumber(chars, i)
+        }).elseIf(c.eq('t').or(c.eq('f')), {
+            parseBoolean(chars, i)
+        }).elseIf(c.eq('n'), {
+            parseNull(chars, i)
+        }).else({
+            InternalResult::Error("Unexpected character while parsing JSON")
+        }).call
     }, {
-        Continue(s.append(c));
-    });
+        InternalResult::Error("Unexpected end of input")
+    })
 }
 
-fn parseNumber(s: str, c: char) -> SimpleParseResult<JsonNumber, str> {
-    if(c.eq('.').or(c.isNumber), {
-        Continue(s.append(c));
+fn parseString(chars: Vec<char>, index: int) -> InternalResult {
+    parseStringInner(chars, index, "")
+}
+
+fn parseStringInner(chars: Vec<char>, index: int, actual: str) -> InternalResult {
+    chars.get(index).match(fn(c) {
+        if(c.eq('"'), {
+            InternalResult::Ok(JsonString(actual), index.add(1))
+        }).elseIf(c.eq('\\'), {
+            parseEscape(chars, index, actual)
+        }).else({
+            parseStringInner(chars, index.add(1), actual.append(c))
+        }).call
     }, {
-        if(s.contains('.'), 
-            {
-                s.toFloat.match(fn(f) { 
-                    Done(JsonNumber(Float(f)), false);
+        InternalResult::Error("Unterminated string")
+    })
+}
+
+fn parseEscape(chars: Vec<char>, index: int, actual: str) -> InternalResult {
+    chars.get(index.add(1)).match(fn(c) {
+        if(c.eq('"'), {
+            parseStringInner(chars, index.add(2), actual.append('"'))
+        }).elseIf(c.eq('\\'), {
+            parseStringInner(chars, index.add(2), actual.append('\\'))
+        }).elseIf(c.eq('/'), {
+            parseStringInner(chars, index.add(2), actual.append('/'))
+        }).elseIf(c.eq('n'), {
+            parseStringInner(chars, index.add(2), actual.append('\n'))
+        }).elseIf(c.eq('r'), {
+            parseStringInner(chars, index.add(2), actual.append('\r'))
+        }).elseIf(c.eq('t'), {
+            parseStringInner(chars, index.add(2), actual.append('\t'))
+        }).else({
+            InternalResult::Error("Invalid escape sequence")
+        }).call
+    }, {
+        InternalResult::Error("Unterminated string")
+    })
+}
+
+fn parseNumber(chars: Vec<char>, index: int) -> InternalResult {
+    parseNumberRest(chars, index, "")
+}
+
+fn parseNumberRest(chars: Vec<char>, index: int, actual: str) -> InternalResult {
+    chars.get(index).match(fn(c) {
+        if(isNumber(c).or(c.eq('.')).or(c.eq('-')).or(c.eq('+')).or(c.eq('e')).or(c.eq('E')), {
+            parseNumberRest(chars, index.add(1), actual.append(c))
+        }, {
+            finishNumber(actual, index)
+        })
+    }, {
+        finishNumber(actual, index)
+    })
+}
+
+fn finishNumber(s: str, index: int) -> InternalResult {
+    if(s.contains('.').or(s.contains('e')).or(s.contains('E')), {
+        s.toFloat.match(
+            fn(f) { InternalResult::Ok(JsonFloat(f), index) },
+            { InternalResult::Error("Cannot parse float: ".add(s)) })
+    }, {
+        s.toInt.match(
+            fn(i) { InternalResult::Ok(JsonNumber(Number::Int(i)), index) },
+            { InternalResult::Error("Cannot parse int: ".add(s)) })
+    })
+}
+
+fn parseBoolean(chars: Vec<char>, index: int) -> InternalResult {
+    parseBooleanRest(chars, index, "")
+}
+
+fn parseBooleanRest(chars: Vec<char>, index: int, actual: str) -> InternalResult {
+    chars.get(index).match(fn(c) {
+        if(c.isAlpha, {
+            parseBooleanRest(chars, index.add(1), actual.append(c))
+        }, {
+            finishBoolean(actual, index)
+        })
+    }, {
+        finishBoolean(actual, index)
+    })
+}
+
+fn finishBoolean(actual: str, index: int) -> InternalResult {
+    if(actual.eq("true"), {
+        InternalResult::Ok(JsonBoolean(true), index)
+    }).elseIf(actual.eq("false"), {
+        InternalResult::Ok(JsonBoolean(false), index)
+    }).else({
+        InternalResult::Error("Invalid boolean: ".add(actual))
+    }).call
+}
+
+fn parseNull(chars: Vec<char>, index: int) -> InternalResult {
+    parseNullRest(chars, index, "")
+}
+
+fn parseNullRest(chars: Vec<char>, index: int, actual: str) -> InternalResult {
+    chars.get(index).match(fn(c) {
+        if(c.isAlpha, {
+            parseNullRest(chars, index.add(1), actual.append(c))
+        }, {
+            finishNull(actual, index)
+        })
+    }, {
+        finishNull(actual, index)
+    })
+}
+
+fn finishNull(actual: str, index: int) -> InternalResult {
+    if(actual.eq("null"), {
+        InternalResult::Ok(JsonNull(), index)
+    }, {
+        InternalResult::Error("Invalid null: ".add(actual))
+    })
+}
+
+fn parseObject(chars: Vec<char>, index: int) -> InternalResult {
+    let i = skipSpaces(chars, index)
+    chars.get(i).match(fn(c) {
+        if(c.eq('}'), {
+            InternalResult::Ok(JsonObject(Vec()), i.add(1))
+        }, {
+            parseObjectEntries(chars, i, Vec())
+        })
+    }, {
+        InternalResult::Error("Unterminated object")
+    })
+}
+
+fn parseObjectEntries(chars: Vec<char>, index: int, pairs: Vec<Pair<str,JsonValue>>) -> InternalResult {
+    let start = skipSpaces(chars, index)
+    parseKey(chars, start).match(
+        fn(key, keyIndex) {
+            let keyStr = key.matchJsonString(fn(s) { s }, { "" })
+            let i = skipSpaces(chars, keyIndex)
+            chars.get(i).match(fn(c) {
+                if(c.eq(':'), {
+                    parseValue(chars, i.add(1)).match(
+                        fn(value, valueIndex) {
+                            let newPairs = pairs.push(Pair(keyStr, value))
+                            let j = skipSpaces(chars, valueIndex)
+                            chars.get(j).match(fn(c2) {
+                                if(c2.eq(','), {
+                                    parseObjectEntries(chars, j.add(1), newPairs)
+                                }).elseIf(c2.eq('}'), {
+                                    InternalResult::Ok(JsonObject(newPairs), j.add(1))
+                                }).else({
+                                    InternalResult::Error("Expected ',' or '}' in object")
+                                }).call
+                            }, {
+                                InternalResult::Error("Unterminated object")
+                            })
+                        },
+                        fn(e) {
+                            InternalResult::Error(e)
+                        })
                 }, {
-                    Error("Cannot parse float.");
-                });
+                    InternalResult::Error("Expected ':' after object key")
+                })
             }, {
-                s.toInt.match(fn(i) {
-                    Done(JsonNumber(Number::Int(i)), false);
-                }, {
-                    Error("Cannot parse int");
-                });
-            });
-        });
+                InternalResult::Error("Unterminated object")
+            })
+        },
+        fn(e) {
+            InternalResult::Error(e)
+        })
 }
-*/
+
+fn parseKey(chars: Vec<char>, index: int) -> InternalResult {
+    chars.get(index).match(fn(c) {
+        if(c.eq('"'), {
+            parseString(chars, index.add(1))
+        }, {
+            InternalResult::Error("Expected object key")
+        })
+    }, {
+        InternalResult::Error("Unterminated object")
+    })
+}
+
+fn parseArray(chars: Vec<char>, index: int) -> InternalResult {
+    let i = skipSpaces(chars, index)
+    chars.get(i).match(fn(c) {
+        if(c.eq(']'), {
+            InternalResult::Ok(JsonArray(Vec()), i.add(1))
+        }, {
+            parseArrayValues(chars, i, Vec())
+        })
+    }, {
+        InternalResult::Error("Unterminated array")
+    })
+}
+
+fn parseArrayValues(chars: Vec<char>, index: int, values: Vec<JsonValue>) -> InternalResult {
+    parseValue(chars, index).match(
+        fn(value, valueIndex) {
+            let newValues = values.push(value)
+            let j = skipSpaces(chars, valueIndex)
+            chars.get(j).match(fn(c) {
+                if(c.eq(','), {
+                    let k = skipSpaces(chars, j.add(1))
+                    chars.get(k).match(fn(c2) {
+                        if(c2.eq(']'), {
+                            InternalResult::Error("Trailing comma in array")
+                        }, {
+                            parseArrayValues(chars, k, newValues)
+                        })
+                    }, {
+                        InternalResult::Error("Unterminated array")
+                    })
+                }).elseIf(c.eq(']'), {
+                    InternalResult::Ok(JsonArray(newValues), j.add(1))
+                }).else({
+                    InternalResult::Error("Expected ',' or ']' in array")
+                }).call
+            }, {
+                InternalResult::Error("Unterminated array")
+            })
+        },
+        fn(e) {
+            InternalResult::Error(e)
+        })
+}
 
 fn contains(s: str, c: char) -> bool {
     s.charsVec.anyMatch(eq.curry(c))
