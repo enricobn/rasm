@@ -1,0 +1,328 @@
+pub fn fromJson(s: ASTStructDef) -> MacroAttributeResult {
+    let parameters = s.properties.map(fn(p) { ASTParameterDef(p.name, p.astType) })
+
+    let stringFunction = createFromJsonStringFunction(s.name, s.typeParameters)
+    let jsonValueFunction = createStructFromJsonFunction(s.name, s.typeParameters, parameters)
+
+    MacroAttributeOk(vecOf(stringFunction, jsonValueFunction))
+}
+
+pub fn fromJson(e: ASTEnumDef) -> MacroAttributeResult {
+    let stringFunction = createFromJsonStringFunction(e.name, e.typeParameters)
+    let jsonValueFunction = createEnumFromJsonFunction(e)
+
+    MacroAttributeOk(vecOf(stringFunction, jsonValueFunction))
+}
+
+/**
+    Generates:
+    fn AStruct::fromJson<T>(s: str) -> Result<AStruct<T>, str> {
+        s.jsonParse.fmap(fn(jsonValue) {
+            AStruct::fromJson<T>(jsonValue)
+        })
+    }
+**/
+fn createFromJsonStringFunction(name: str, typeParameters: Vec<str>) -> ASTFunctionDef {
+    let jsonValueCall = ASTFunctionCallExpression(ASTFunctionCall(
+        "fromJson",
+        vecOf(ASTValueRefExpression("jsonValue")),
+        typeParameters.toGenericTypes,
+        Some(name),
+        false
+    ))
+
+    let fmapLambda = ASTLambdaExpression(ASTLambdaDef(
+        vecOf("jsonValue"),
+        vecOf(ASTExpressionStatement(jsonValueCall))
+    ))
+
+    let bodyExpression = simpleASTCall("fmap", vecOf(
+        simpleASTCall("jsonParse", vecOf(ASTValueRefExpression("s"))),
+        fmapLambda
+    ))
+
+    ASTFunctionDef(
+        "fromJson",
+        vecOf(ASTParameterDef("s", ASTBuiltinType(ASTStringType()))),
+        resultType(name, typeParameters),
+        RASMBody(vecOf(ASTExpressionStatement(bodyExpression))),
+        typeParameters,
+        ASTModifiers::Public(),
+        Some(name)
+    )
+}
+
+/**
+    Generates:
+    fn AStruct::fromJson<T>(jv: JsonValue) -> Result<AStruct<T>, str> {
+        jv.matchJsonObject(
+            fn(values) {
+                values.oneJsonValueOrError("x").fmap(fn(jv0) {
+                    int::fromJson(jv0).map(fn(p0) {
+                        values.oneJsonValueOrError("y").fmap(fn(jv1) {
+                            int::fromJson(jv1).fmap(fn(p1) {
+                                values.oneJsonValueOrError("v").fmap(fn(jv2) {
+                                    T::fromJson(jv2).fmap(fn(p2) {
+                                        AStruct(p0, p1, p2)
+                                    })
+                                })
+                            })
+                        })
+                    })
+                })
+            },
+            fn() { Result::Error("expected object") }
+        )
+    }
+**/
+fn createStructFromJsonFunction(name: str, typeParameters: Vec<str>, parameters: Vec<ASTParameterDef>) -> ASTFunctionDef {
+    let constructor = simpleASTCall(name, parameters.enumerate.map(fn(entry) {
+        ASTValueRefExpression("p".add(entry.index.toString()))
+    }))
+
+    let chain = buildPropertiesChain(parameters, "values", constructor)
+
+    let bodyExpression = simpleASTCall("matchJsonObject", vecOf(
+        ASTValueRefExpression("jv"),
+        ASTLambdaExpression(ASTLambdaDef(
+            vecOf("values"),
+            vecOf(ASTExpressionStatement(chain))
+        )),
+        ASTLambdaExpression(ASTLambdaDef(
+            Vec(),
+            vecOf(ASTExpressionStatement(resultError("expected object")))
+        ))
+    ))
+
+    ASTFunctionDef(
+        "fromJson",
+        vecOf(ASTParameterDef("jv", ASTCustomType("JsonValue", Vec()))),
+        resultType(name, typeParameters),
+        RASMBody(vecOf(ASTExpressionStatement(bodyExpression))),
+        typeParameters,
+        ASTModifiers::Public(),
+        Some(name)
+    )
+}
+
+/**
+    Generates:
+    fn Message::fromJson<T>(jv: JsonValue) -> Result<Message<T>, str> {
+        jv.matchJsonObject(
+            fn(values) {
+                values.oneJsonValueOrError("Ping").match(
+                    fn(v0) { v0.matchJsonNull(fn() { Ok(Ping()) }, fn() { Result::Error("Expected null for Ping") }) },
+                    fn(e0) {
+                        values.oneJsonValueOrError("Pong").match(
+                            fn(v1) { v1.matchJsonNull(fn() { Ok(Pong()) }, fn() { Result::Error("Expected null for Pong") }) },
+                            fn(e1) {
+                                values.oneJsonValueOrError("Request").match(
+                                    fn(v2) {
+                                        v2.matchJsonObject(fn(params) {
+                                            params.oneJsonValueOrError("body").fmap(fn(jv0) {
+                                                str::fromJson(jv0).map(fn(p0) { Request(p0) })
+                                            })
+                                        }, fn() { Result::Error("expected object") })
+                                    },
+                                    fn(e2) { Result::Error("Cannot find any variant") }
+                                )
+                            }
+                        )
+                    }
+                )
+            },
+            fn() { Result::Error("expected object") }
+        )
+    }
+**/
+fn createEnumFromJsonFunction(e: ASTEnumDef) -> ASTFunctionDef {
+    let variantChain = buildVariantChain(e, 0)
+
+    let bodyExpression = simpleASTCall("matchJsonObject", vecOf(
+        ASTValueRefExpression("jv"),
+        ASTLambdaExpression(ASTLambdaDef(
+            vecOf("values"),
+            vecOf(ASTExpressionStatement(variantChain))
+        )),
+        ASTLambdaExpression(ASTLambdaDef(
+            Vec(),
+            vecOf(ASTExpressionStatement(resultError("expected object")))
+        ))
+    ))
+
+    ASTFunctionDef(
+        "fromJson",
+        vecOf(ASTParameterDef("jv", ASTCustomType("JsonValue", Vec()))),
+        resultType(e.name, e.typeParameters),
+        RASMBody(vecOf(ASTExpressionStatement(bodyExpression))),
+        e.typeParameters,
+        ASTModifiers::Public(),
+        Some(e.name)
+    )
+}
+
+fn buildVariantChain(e: ASTEnumDef, index: int) -> ASTExpression {
+    e.variants.get(index).match(
+        fn(variant) {
+            let okExpr = parseVariantValue(variant, index)
+            let elseExpr = if(index.add(1).less(e.variants.len), {
+                buildVariantChain(e, index.add(1))
+            }, {
+                resultError("Cannot find any variant")
+            })
+
+            simpleASTCall("match", vecOf(
+                simpleASTCall("oneJsonValueOrError", vecOf(
+                    ASTValueRefExpression("values"),
+                    stringASTValue(variant.name)
+                )),
+                ASTLambdaExpression(ASTLambdaDef(
+                    vecOf("v".add(index.toString())),
+                    vecOf(ASTExpressionStatement(okExpr))
+                )),
+                ASTLambdaExpression(ASTLambdaDef(
+                    vecOf("e".add(index.toString())),
+                    vecOf(ASTExpressionStatement(elseExpr))
+                ))
+            ))
+        },
+        { resultError("Cannot find any variant") }
+    )
+}
+
+fn parseVariantValue(variant: ASTEnumVariantDef, index: int) -> ASTExpression {
+    if(variant.parameters.len.eq(0), {
+        simpleASTCall("matchJsonNull", vecOf(
+            ASTValueRefExpression("v".add(index.toString())),
+            ASTLambdaExpression(ASTLambdaDef(
+                Vec(),
+                vecOf(ASTExpressionStatement(resultOk(simpleASTCall(variant.name, Vec()))))
+            )),
+            ASTLambdaExpression(ASTLambdaDef(
+                Vec(),
+                vecOf(ASTExpressionStatement(resultError("Expected null for ".add(variant.name))))
+            ))
+        ))
+    }, {
+        let constructor = simpleASTCall(variant.name, variant.parameters.enumerate.map(fn(entry) {
+            ASTValueRefExpression("p".add(entry.index.toString()))
+        }))
+
+        let chain = buildPropertiesChain(variant.parameters, "params", constructor)
+
+        simpleASTCall("matchJsonObject", vecOf(
+            ASTValueRefExpression("v".add(index.toString())),
+            ASTLambdaExpression(ASTLambdaDef(
+                vecOf("params"),
+                vecOf(ASTExpressionStatement(chain))
+            )),
+            ASTLambdaExpression(ASTLambdaDef(
+                Vec(),
+                vecOf(ASTExpressionStatement(resultError("expected object")))
+            ))
+        ))
+    })
+}
+
+/**
+    Builds the nested fmap chain that reads each property from a JsonObject
+    and parses it. The first property (index 0) is the innermost one and
+    uses "map" because its lambda returns the struct constructor directly.
+**/
+fn buildPropertiesChain(parameters: Vec<ASTParameterDef>, valuesParamName: str, constructor: ASTExpression) -> ASTExpression {
+    let chain = parameters.enumerate.foldLeft(constructor, fn(acc, entry) {
+        let i = entry.index
+        let name = entry.value.name
+        let astType = entry.value.astType
+
+        let fromJsonCall = fromJsonCallForType(astType, ASTValueRefExpression("jv".add(i.toString())))
+
+        let parsedLambda = ASTLambdaExpression(ASTLambdaDef(
+            vecOf("p".add(i.toString())),
+            vecOf(ASTExpressionStatement(acc))
+        ))
+
+        let chained = iif(i.eq(0),
+            simpleASTCall("map", vecOf(fromJsonCall, parsedLambda)),
+            simpleASTCall("fmap", vecOf(fromJsonCall, parsedLambda)))
+
+        let jvLambda = ASTLambdaExpression(ASTLambdaDef(
+            vecOf("jv".add(i.toString())),
+            vecOf(ASTExpressionStatement(chained))
+        ))
+
+        simpleASTCall("fmap", vecOf(
+            simpleASTCall("oneJsonValueOrError", vecOf(
+                ASTValueRefExpression(valuesParamName),
+                stringASTValue(name)
+            )),
+            jvLambda
+        ))
+    })
+
+    iif(parameters.isEmpty(), resultOk(constructor), chain)
+}
+
+fn fromJsonCallForType(t: ASTType, jv: ASTExpression) -> ASTExpression {
+    let typeInfo = typeNameAndGenerics(t)
+    ASTFunctionCallExpression(ASTFunctionCall(
+        "fromJson",
+        vecOf(jv),
+        typeInfo.second,
+        Some(typeInfo.first),
+        false
+    ))
+}
+
+fn typeNameAndGenerics(t: ASTType) -> Pair<str, Vec<ASTType>> {
+    t.match(
+        fn(kind) {
+            Pair(builtinTypeName(kind), Vec())
+        },
+        fn(name, types) {
+            Pair(name, Vec())
+        },
+        fn(name, generics) {
+            Pair(name, generics)
+        },
+        { Pair("()", Vec()) }
+    )
+}
+
+fn builtinTypeName(kind: ASTBuiltinTypeKind) -> str {
+    kind.match(
+        { "bool" },
+        { "char" },
+        { "int" },
+        { "float" },
+        { "str" },
+        fn(parameters, returnType) { "lambda" }
+    )
+}
+
+fn resultType(name: str, typeParameters: Vec<str>) -> ASTType {
+    ASTCustomType("Result", vecOf(
+        ASTCustomType(name, typeParameters.toGenericTypes),
+        ASTBuiltinType(ASTStringType())
+    ))
+}
+
+fn resultOk(e: ASTExpression) -> ASTExpression {
+    ASTFunctionCallExpression(ASTFunctionCall(
+        "Ok",
+        vecOf(e),
+        Vec(),
+        Some("Result"),
+        false
+    ))
+}
+
+fn resultError(s: str) -> ASTExpression {
+    ASTFunctionCallExpression(ASTFunctionCall(
+        "Error",
+        vecOf(stringASTValue(s)),
+        Vec(),
+        Some("Result"),
+        false
+    ))
+}

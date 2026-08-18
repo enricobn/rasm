@@ -1,6 +1,7 @@
 @json()
 @toString()
 @eq()
+@fromJson()
 pub struct AStruct<T> {
     x: int,
     y: int,
@@ -9,6 +10,8 @@ pub struct AStruct<T> {
 
 @json()
 @toString()
+@eq()
+@fromJson()
 pub enum Message<T> {
     Ping,                               // Unit variant (no parameters)
     Pong,                               // Unit variant

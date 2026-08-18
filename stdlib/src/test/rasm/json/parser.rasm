@@ -6,6 +6,7 @@ pub fn jsonParserSuite() -> TestSuite {
     .add("testAStructParser", testAStructParser)
     .add("testIntVecParser", testIntVecParser)
     .add("testAStructVecParser", testAStructVecParser)
+    .add("testEnumParser", testEnumParser)
 }
 
 fn testStringParser() -> Assertions {
@@ -109,63 +110,18 @@ fn testIntVecParser() -> Assertions {
     })
 }
 
-
-fn AStruct::fromJson<T>(s: str) -> Result<AStruct<T>, str> {
-    s.jsonParse.fmap(fn(jsonValue) {
-        AStruct::fromJson<T>(jsonValue)
-    })
-}
-
-fn AStruct::fromJson<T>(jv: JsonValue) -> Result<AStruct<T>, str> {
-    jv.matchJsonObject(
-        fn(values) {
-            values.oneOrError("x").fmap(fn(jvx) {
-                values.oneOrError("y").fmap(fn(jvy) {
-                    values.oneOrError("v").fmap(fn(jvv) {
-                        int::fromJson(jvx).fmap(fn(pvx) {
-                            int::fromJson(jvy).fmap(fn(pvy) {
-                                T::fromJson(jvv).map(fn(pvv) {
-                                    AStruct(pvx, pvy, pvv)
-                                })
-                            }
-                        })
-                    }
-                })
-            })
-        }, 
-        fn() { Result::Error("expected object") }
+fn testEnumParser() -> Assertions {
+    let cases = vecOf(
+        Pair("{\"Ping\": null}", Ping()),
+        Pair("{\"Pong\": null}", Pong()),
+        Pair("{\"Request\": {\"body\": \"some body\"}}", Request("some body")),
+        Pair("{\"Response\": {\"status\": 10, \"data\": \"some data\"}}", Response(10, "some data"))
     )
-}
 
-fn Vec::fromJson<T>(s: str) -> Result<Vec<T>, str> {
-    s.jsonParse.fmap(fn(jsonValue) {
-        Vec::fromJson<T>(jsonValue)
-    })
-}
-
-fn Vec::fromJson<T>(jv: JsonValue) -> Result<Vec<T>, str> {
-    jv.matchJsonArray(fn(a) {
-        a.foldLeft(Result::Ok(Vec<T>()), fn(result, actual) {
-            result.fmap(fn(vector) {
-                T::fromJson(actual).map(fn(parsedActual) {
-                    vector.push(parsedActual)
-                })
-            })
-        })
-    }, fn() {
-        Result::Error("Expected array")
-    })
-}
-
-fn oneOrError(values: Vec<Pair<str,JsonValue>>, key: str) -> Result<JsonValue, str> {
-    let found = values.filter(fn(it) {it.first.eq(key)})
-    if(found.len.eq(1), {
-        found.first.match(fn(it) {
-            Result::Ok(it.second)
-        }, {
-            Result::Error("It should not happen")
-        })
-    }, {
-        Result::Error("Cannot find property: ".add(key))
+    cases.foldLeft(Assertions(), fn(assertions, testCase) {
+        Message::fromJson<str>(testCase.first).match(
+            fn(parsed) { assertions.assertEquals(testCase.first, testCase.second, parsed) },
+            fn(e) { assertions.fail(e) }
+        )
     })
 }

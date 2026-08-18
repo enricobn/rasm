@@ -81,7 +81,13 @@ pub fn toString(call: ASTFunctionCall) -> str {
         })
 
     let suffix = iif(call.macro, "!", "")
-    call.functionName.add(suffix).add(prefix).append("(")
+
+    let name = call.associatedType.match(
+        fn(associatedType) { associatedType.add("::").add(call.functionName) },
+        { call.functionName }
+    )
+
+    name.add(suffix).add(prefix).append("(")
     .append(call.parameters.join(", "))
     .append(")")
 }
@@ -192,9 +198,14 @@ pub fn toString(def: ASTFunctionDef) -> str {
     let parameters = def.parameters.join(", ")
     let genericTypes = def.genericTypes.join(", ")
 
+    let name = def.associatedType.match(
+        fn(associatedType) { associatedType.add("::").add(def.name) },
+        { def.name }
+    )
+
     def.modifiers.match({"pub "}, {""}, {"internal "})
     .add("fn ")
-    .add(def.name)
+    .add(name)
     .add(iif(genericTypes.len.greater(0), "<".add(genericTypes).add(">"), ""))
     .add("(")
     .add(parameters)

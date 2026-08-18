@@ -37,3 +37,37 @@ pub fn bool::fromJson(jv: JsonValue) -> Result<bool, str> {
         Result::Error("Expected boolean")
     })
 }
+
+pub fn oneJsonValueOrError(values: Vec<Pair<str,JsonValue>>, key: str) -> Result<JsonValue, str> {
+    let found = values.filter(fn(it) {it.first.eq(key)})
+    if(found.len.eq(1), {
+        found.first.match(fn(it) {
+            Result::Ok(it.second)
+        }, {
+            Result::Error("It should not happen")
+        })
+    }, {
+        Result::Error("Cannot find property: ".add(key))
+    })
+}
+
+
+pub fn Vec::fromJson<T>(s: str) -> Result<Vec<T>, str> {
+    s.jsonParse.fmap(fn(jsonValue) {
+        Vec::fromJson<T>(jsonValue)
+    })
+}
+
+pub fn Vec::fromJson<T>(jv: JsonValue) -> Result<Vec<T>, str> {
+    jv.matchJsonArray(fn(a) {
+        a.foldLeft(Result::Ok(Vec<T>()), fn(result, actual) {
+            result.fmap(fn(vector) {
+                T::fromJson(actual).map(fn(parsedActual) {
+                    vector.push(parsedActual)
+                })
+            })
+        })
+    }, fn() {
+        Result::Error("Expected array")
+    })
+}
