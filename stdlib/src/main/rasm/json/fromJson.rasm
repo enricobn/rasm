@@ -1,0 +1,39 @@
+pub fn int::fromJson(jv: JsonValue) -> Result<int, str> {
+        jv.matchJsonNumber(fn(n) {
+        n.match(fn(i) {
+            Result::Ok(i)
+        }, fn(f) {
+            Result::Error("Expected int, found float")
+        })
+    }, {
+        Result::Error("Expected int")
+    })
+}
+
+pub fn float::fromJson(jv: JsonValue) -> Result<float, str> {
+        jv.matchJsonNumber(fn(n) {
+        n.match(fn(i) {
+            Result::Error("Expected float, found int")
+        }, fn(f) {
+            Result::Ok(f)
+        })
+    }, {
+        Result::Error("Expected int")
+    })
+}
+
+pub fn str::fromJson(jv: JsonValue) -> Result<str, str> {
+    jv.matchJsonString(fn(s) {
+            Result::Ok(s)
+    }, {
+        Result::Error("Expected string")
+    })
+}
+
+pub fn bool::fromJson(jv: JsonValue) -> Result<bool, str> {
+    jv.matchJsonBoolean(fn(b) {
+            Result::Ok(b)
+    }, {
+        Result::Error("Expected boolean")
+    })
+}

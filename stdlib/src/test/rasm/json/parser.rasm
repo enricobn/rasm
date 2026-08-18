@@ -109,29 +109,6 @@ fn testIntVecParser() -> Assertions {
     })
 }
 
-fn int::fromJson(jv: JsonValue) -> Result<int, str> {
-        jv.matchJsonNumber(fn(n) {
-        n.match(fn(i) {
-            Result::Ok(i)
-        }, fn(f) {
-            Result::Error("Expected int, found float")
-        })
-    }, {
-        Result::Error("Expected int")
-    })
-}
-
-fn float::fromJson(jv: JsonValue) -> Result<float, str> {
-        jv.matchJsonNumber(fn(n) {
-        n.match(fn(i) {
-            Result::Error("Expected float, found int")
-        }, fn(f) {
-            Result::Ok(f)
-        })
-    }, {
-        Result::Error("Expected int")
-    })
-}
 
 fn AStruct::fromJson<T>(s: str) -> Result<AStruct<T>, str> {
     s.jsonParse.fmap(fn(jsonValue) {
