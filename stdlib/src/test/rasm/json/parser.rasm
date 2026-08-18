@@ -5,7 +5,7 @@ pub fn jsonParserSuite() -> TestSuite {
     .add("testCompleteObjectParser", testCompleteObjectParser)
     .add("testAStructParser", testAStructParser)
     .add("testIntVecParser", testIntVecParser)
-    //.add("testAStructVecParser", testAStructVecParser)
+    .add("testAStructVecParser", testAStructVecParser)
 }
 
 fn testStringParser() -> Assertions {
@@ -24,13 +24,13 @@ fn testObjectParser() -> Assertions {
 
     parseResult.match(
         fn(ok) {
-            let expected = JsonValue::JsonArray(vec!(
-                JsonValue::JsonObject(vec!(
+            let expected = JsonValue::JsonArray(vecOf(
+                JsonValue::JsonObject(vecOf(
                     Pair("x", JsonValue::JsonNumber(Number::Int(1))),
                     Pair("y", JsonValue::JsonNumber(Number::Int(20))),
                     Pair("v", JsonValue::JsonNumber(Number::Int(30)))
                 )),
-                JsonValue::JsonObject(vec!(
+                JsonValue::JsonObject(vecOf(
                     Pair("x", JsonValue::JsonNumber(Number::Int(2))),
                     Pair("y", JsonValue::JsonNumber(Number::Int(20))),
                     Pair("v", JsonValue::JsonNumber(Number::Int(30)))
@@ -50,20 +50,20 @@ fn testCompleteObjectParser() -> Assertions {
 
     parseResult.match(
         fn(ok) {
-            let expected = JsonValue::JsonObject(vec!(
+            let expected = JsonValue::JsonObject(vecOf(
                 Pair("string", JsonValue::JsonString("Hello, World!")),
                 Pair("number", JsonValue::JsonNumber(Number::Int(42))),
                 Pair("float", JsonValue::JsonFloat(0.5)),
                 Pair("boolean", JsonValue::JsonBoolean(true)),
                 Pair("null", JsonValue::JsonNull()),
-                Pair("array", JsonValue::JsonArray(vec!(
+                Pair("array", JsonValue::JsonArray(vecOf(
                     JsonValue::JsonNumber(Number::Int(1)),
                     JsonValue::JsonString("two"),
                     JsonValue::JsonBoolean(false)
                 ))),
-                Pair("object", JsonValue::JsonObject(vec!(
+                Pair("object", JsonValue::JsonObject(vecOf(
                     Pair("key", JsonValue::JsonString("value")),
-                    Pair("nested", JsonValue::JsonObject(vec!(
+                    Pair("nested", JsonValue::JsonObject(vecOf(
                         Pair("number", JsonValue::JsonNumber(Number::Int(123)))
                     )))
                 )))

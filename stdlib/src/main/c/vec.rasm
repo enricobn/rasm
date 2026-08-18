@@ -237,6 +237,41 @@ pub fn vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T) -> Vec<T> /{
     return result;
 }/
 
+pub fn vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T) -> Vec<T> /{
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec, 6,s:int);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
+
+    result_array[0] = o1;
+    result_array[1] = o2;
+    result_array[2] = o3;
+    result_array[3] = o4;
+    result_array[4] = o5;
+    result_array[5] = o6;
+
+    return result;
+}/
+
+pub fn vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T) -> Vec<T> /{
+    size_t s = sizeof($realTypeName(T));
+    struct RasmPointer_ *result = $call(Vec, 7,s:int);
+    struct Vector *result_vec = (struct Vector*)result->address;
+    struct RasmPointer_ *result_values = result_vec->values;
+    $realTypeName(T) *result_array = ($realTypeName(T) *)result_values->address;
+
+    result_array[0] = o1;
+    result_array[1] = o2;
+    result_array[2] = o3;
+    result_array[3] = o4;
+    result_array[4] = o5;
+    result_array[5] = o6;
+    result_array[6] = o7;
+
+    return result;
+}/
+
 pub fn vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T, o8: T) -> Vec<T> /{
     size_t s = sizeof($realTypeName(T));
     struct RasmPointer_ *result = $call(Vec,8,s:int);
