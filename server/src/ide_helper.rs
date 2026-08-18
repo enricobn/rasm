@@ -3057,7 +3057,7 @@ fn f1(s: str) {
 
     #[test]
     fn test_ide_helper_stdlib() {
-        let (project, helper, errors) = get_helper_with_errors("../stdlib");
+        let (project, helper, _) = get_helper_with_errors("../stdlib");
 
         /*
         for error in errors.iter() {

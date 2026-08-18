@@ -942,6 +942,52 @@ impl<'a> EnhTypeCheck<'a> {
         }
     }
 
+    /// if we have a call with a generic type parameter (e.g. `T::someFunction()` where `T` is a generic type of the current function),
+    /// the associated type must be resolved against the concrete generic types, and the call generics must be updated:
+    ///
+    /// if we have a call like T::someFunction(), and T resolves to AType<str>,
+    /// the call must be transformed to AType::someFunction<str>()
+    /// TODO I don't like the clone
+    fn transform_call_associated_type(
+        call: &EnhASTFunctionCall,
+        inside_function: Option<&EnhASTFunctionDef>,
+    ) -> EnhASTFunctionCall {
+        if let Some(call_associated_type) = &call.associated_type
+            && let Some(inside_function) = inside_function
+        {
+            if inside_function.resolved_generic_types.is_empty() {
+                return call.clone();
+            }
+            if let Some((_, resolved_type)) =
+                inside_function
+                    .resolved_generic_types
+                    .iter()
+                    .find(|((generic_name, _), _)| {
+                        remove_generic_prefix_from_str(generic_name) == call_associated_type
+                    })
+            {
+                if let EnhASTType::Custom {
+                    namespace: _,
+                    name,
+                    param_types,
+                    index: _,
+                } = resolved_type
+                {
+                    let mut new_call = call.clone();
+                    new_call.associated_type = Some(name.clone());
+                    new_call.generics = param_types.clone();
+                    new_call
+                } else {
+                    call.clone()
+                }
+            } else {
+                call.clone()
+            }
+        } else {
+            call.clone()
+        }
+    }
+
     pub fn get_valid_function(
         &mut self,
         module: &InputModule,
@@ -969,6 +1015,8 @@ impl<'a> EnhTypeCheck<'a> {
         );
         indent!();
 
+        let call = Self::transform_call_associated_type(call, inside_function);
+
         let mut valid_functions: Vec<(
             EnhASTFunctionDef,
             usize,
@@ -979,11 +1027,11 @@ impl<'a> EnhTypeCheck<'a> {
 
         let mut original_functions = Vec::new();
 
-        if let Some(f) = self.get_single_function(module, call) {
+        if let Some(f) = self.get_single_function(module, &call) {
             original_functions = vec![f];
         }
 
-        let first_type = self.get_first_type(module, call, val_context);
+        let first_type = self.get_first_type(module, &call, val_context);
 
         if original_functions.is_empty() {
             original_functions = module
@@ -1034,7 +1082,7 @@ impl<'a> EnhTypeCheck<'a> {
                 Self::invalid_function_message(
                     namespace,
                     first_type,
-                    call,
+                    &call,
                     expected_return_type,
                     original_call_namespace,
                     "",
@@ -1295,7 +1343,7 @@ impl<'a> EnhTypeCheck<'a> {
                 Self::invalid_function_message(
                     namespace,
                     first_type,
-                    call,
+                    &call,
                     expected_return_type,
                     original_call_namespace,
                     "",

@@ -307,6 +307,10 @@ impl EnhResolvedGenericTypes {
         self.map.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.map.is_empty()
+    }
+
     pub fn contains_key(&self, key: &str, var_types: &Vec<EnhASTType>) -> bool {
         self.map
             .get(key)
