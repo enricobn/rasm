@@ -912,8 +912,19 @@ impl<'a> ASTTypeChecker<'a> {
         if let Some(r) = self.get(expr.position().id) {
             // If the expression is already cached and it is not generic, we can use it. We can use it
             // even if it's generic, but we have not the expected type, since we don't know
-            // how to resolve it further
-            if r.is_exact_not_generic() || expected_expression_type.is_none() {
+            // how to resolve it further. When the expected type is known, reuse the cached
+            // result only if it is also compatible with it: a nested call may resolve to a
+            // different overload depending on the expected type.
+            let expected = expected_expression_type;
+            let reuse = match expected {
+                None => true,
+                Some(eet) => r
+                    .filter()
+                    .as_ref()
+                    .map(|f| f.is_compatible(eet, module_namespace, modules_container))
+                    .unwrap_or(false),
+            };
+            if reuse && (r.is_exact_not_generic() || expected.is_none()) {
                 let index = ASTIndex::new(
                     module_namespace.clone(),
                     module_id.clone(),
@@ -1412,19 +1423,30 @@ impl<'a> ASTTypeChecker<'a> {
             enable_log(true);
         }
 
+        let module_namespace = index.module_namespace();
+        let module_id = index.module_id();
+
         if let Some(r) = self.get(call.position().id) {
             // If the expression is already cached and it is not generic, we can use it. We can use it
             // even if it's generic, but we have not the expected type, since we don't know
-            // how to resolve it further
-            if r.is_exact_not_generic() || expected_expression_type.is_none() {
+            // how to resolve it further. When the expected type is known, reuse the cached
+            // result only if it is also compatible with it: a nested call may resolve to a
+            // different overload depending on the expected type.
+            let expected = expected_expression_type;
+            let reuse = match expected {
+                None => true,
+                Some(eet) => r
+                    .filter()
+                    .as_ref()
+                    .map(|f| f.is_compatible(eet, &module_namespace, modules_container))
+                    .unwrap_or(false),
+            };
+            if reuse && (r.is_exact_not_generic() || expected.is_none()) {
                 debug_i!("Cached {r} : {index}");
 
                 return Some(r.clone());
             }
         }
-
-        let module_namespace = index.module_namespace();
-        let module_id = index.module_id();
 
         debug_i!(
             "add_call {call} expected_expression_type {} : {index}",
@@ -1485,7 +1507,7 @@ impl<'a> ASTTypeChecker<'a> {
 
         let start = Instant::now();
 
-        let candidate_functions = modules_container
+        let mut candidate_functions = modules_container
             .get_signatures(&call.function_name())
             .map(|it| {
                 let functions_iter = it
@@ -1574,17 +1596,20 @@ impl<'a> ASTTypeChecker<'a> {
                 }
             } else {
                 /*
-                   Here we try to fill the cache with some simple expressions.
-                   But it seems that it's not faster
+                   Two-phase resolution.
+                   Phase 1: resolve each parameter expression once (in a child type checker)
+                   and warm the shared cache with the exact results, so that candidate
+                   signatures don't re-traverse nested call subtrees (e.g. a long chain of
+                   add(add(add(add("a", "b"), "c"), "d"), "e")).
+                   Phase 2: filter the candidate signatures using the resolved parameter
+                   types, so incompatible overloads are rejected without re-resolving the
+                   parameters against each candidate.
                 */
-
-                if false && compatible_functions.len() > 1 {
+                if candidate_functions.len() > 1 {
                     let mut internal_type_checker = ASTTypeChecker::with_parent(&self.result);
 
                     for (i, e) in call.parameters().iter().enumerate() {
-                        if matches!(e, ASTExpression::ASTLambdaExpression(_))
-                            || matches!(e, ASTExpression::ASTFunctionCallExpression(_))
-                        {
+                        if matches!(e, ASTExpression::ASTLambdaExpression(_)) {
                             continue;
                         }
 
@@ -1605,8 +1630,43 @@ impl<'a> ASTTypeChecker<'a> {
                         dedent!();
                     }
 
+                    let parameter_filters: Vec<Option<ASTTypeFilter>> = call
+                        .parameters()
+                        .iter()
+                        .map(|e| {
+                            internal_type_checker
+                                .get(e.position().id)
+                                .and_then(|it| it.filter().clone())
+                        })
+                        .collect();
+
                     for (id, entry) in internal_type_checker.get_exact() {
                         self.insert_arc_by_id(id, entry);
+                    }
+
+                    let c = candidate_functions.len();
+                    candidate_functions = candidate_functions
+                        .into_iter()
+                        .filter(|entry| {
+                            zip(&parameter_filters, &entry.signature.parameters_types).all(
+                                |(filter, parameter_type)| {
+                                    filter.as_ref().map_or(true, |f| {
+                                        f.is_compatible(
+                                            parameter_type,
+                                            &entry.namespace,
+                                            modules_container,
+                                        )
+                                    })
+                                },
+                            )
+                        })
+                        .collect_vec();
+                    if false && c != candidate_functions.len() {
+                        println!(
+                            "filtered {} candidates of {}",
+                            c - candidate_functions.len(),
+                            c
+                        );
                     }
                 }
 
@@ -3404,7 +3464,7 @@ mod tests {
                     add(append(add(add(add(add(append(add(add(add(add(append(add(add(add("{", "\""), "x"), "\" : "), json(x(s))), ", "), "\""), "y"), "\" : "), json(y(s))), ", "), "\""), "v"), "\" : "), json(v(s))), "}") 
                 }
             "#,
-            35,
+            37,
             true,
         );
     }

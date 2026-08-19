@@ -75,6 +75,7 @@ pub struct EnhTypeCheck<'a> {
     modules_container: &'a ASTModulesContainer,
     unique_function_names: HashMap<String, String>,
     evaluator: TextMacroEvaluator,
+    cache: HashMap<usize, EnhTypeFilter>,
 }
 
 type InputModule = EnhancedASTModule;
@@ -99,6 +100,7 @@ impl<'a> EnhTypeCheck<'a> {
             modules_container,
             unique_function_names: HashMap::new(),
             evaluator,
+            cache: HashMap::new(),
         }
     }
 
@@ -1598,6 +1600,7 @@ impl<'a> EnhTypeCheck<'a> {
             new_functions,
             strict,
             original_call_namespace,
+            inside_function,
         )?;
         if let EnhTypeFilter::Exact(et) = &t {
             if !et.is_generic() {
@@ -1683,6 +1686,7 @@ impl<'a> EnhTypeCheck<'a> {
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>, EnhASTNameSpace)>,
         original_call_namespace: &EnhASTNameSpace,
     ) -> Result<Option<EnhASTFunctionBody>, EnhTypeCheckError> {
+        self.cache.clear();
         debug_i!("transform_function {new_function_def}");
         debug_i!(
             "generic_types {}",
@@ -1934,6 +1938,7 @@ impl<'a> EnhTypeCheck<'a> {
                         new_functions,
                         strict,
                         original_call_namespace,
+                        inside_function,
                     )?;
 
                     if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
@@ -1967,6 +1972,7 @@ impl<'a> EnhTypeCheck<'a> {
                         new_functions,
                         strict,
                         original_call_namespace,
+                        inside_function,
                     )?;
 
                     if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
@@ -2148,6 +2154,7 @@ impl<'a> EnhTypeCheck<'a> {
         new_functions: &mut Vec<(EnhASTFunctionDef, Vec<EnhASTIndex>, EnhASTNameSpace)>,
         strict: bool,
         original_call_namespace: &EnhASTNameSpace,
+        inside_function: Option<&EnhASTFunctionDef>,
     ) -> Result<EnhTypeFilter, EnhTypeCheckError> {
         debug_i!(
             "type_of_expression {typed_expression} expected type {}",
@@ -2156,19 +2163,34 @@ impl<'a> EnhTypeCheck<'a> {
         indent!();
 
         if let Some(enh_index) = typed_expression.get_index() {
+            /*
+            if let Some(t) = self.cache.get(&enh_index.position().id) {
+                /*
+                println!(
+                    "cached {t} -> {enh_index} {}",
+                    OptionDisplay(&typed_expression.get_index())
+                );
+                */
+                return Ok(t.clone());
+            }
+            */
+
             if let Some(t) = self.get_type_check_entry(enh_index) {
-                if let Some(f) = t.as_ref().filter() {
-                    if !f.is_generic_or_any() {
-                        /*
-                        println!(
-                            "optimized {f} -> {enh_index} {}",
-                            OptionDisplay(&typed_expression.get_index())
-                        );
-                        */
-                        let filter = self.enh_filter_from_ast(f, namespace);
-                        dedent!();
-                        return Ok(filter);
-                    }
+                if let Some(f) = t.as_ref().exact_filter_not_generic() {
+                    //if !f.is_generic_or_any() {
+                    /*
+                    println!(
+                        "optimized {f} -> {enh_index} {}",
+                        OptionDisplay(&typed_expression.get_index())
+                    );
+                    */
+                    let filter = self.enh_filter_from_ast(f, namespace);
+
+                    self.cache.insert(enh_index.position().id, filter.clone());
+
+                    dedent!();
+                    return Ok(filter);
+                    //}
                 }
             }
         }
@@ -2340,6 +2362,7 @@ impl<'a> EnhTypeCheck<'a> {
                             new_functions,
                             strict,
                             namespace,
+                            inside_function,
                         )?;
 
                         if let EnhTypeFilter::Exact(ast_type) = type_of_expr {
@@ -2372,6 +2395,7 @@ impl<'a> EnhTypeCheck<'a> {
                                 new_functions,
                                 strict,
                                 namespace,
+                                inside_function,
                             )?));
                         }
                     }
@@ -2410,6 +2434,9 @@ impl<'a> EnhTypeCheck<'a> {
         }
         */
 
+        if let Some(enh_index) = typed_expression.get_index() {
+            self.cache.insert(enh_index.position().id, result.clone());
+        }
         Ok(result)
     }
 
