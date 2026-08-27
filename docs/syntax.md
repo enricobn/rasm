@@ -132,7 +132,7 @@ For every struct, a constructor function is automatically defined. It has the na
 pub Pair<A,B>(first: A, second: B) -> Pair<A,B>
 ```
 
-For every attribute in a struct, three functions are automatically defined:
+For every attribute in a struct, three or four functions are automatically defined:
 
 - a getter function with the name of the attribute and a parameter which has the type of the struct.
 
@@ -148,11 +148,26 @@ pub fn first<A,B>(s: Pair<A,B>, v: A) -> Pair<A,B>
 pub fn second<A,B>(s: Pair<A,B>, v: B) -> Pair<A,B>
 ```
 
-- a "setter" function with the name of the attribute, a parameter which has the type of the struct and another parameter which is a closure
+- a "setter" function with the name of the attribute, a parameter which has the type of the struct and another parameter which is a function
 
 ```rasm
 pub fn first<A,B>(s: Pair<A,B>, f: fn(oldValue: A) -> A) -> Pair<A,B>
 pub fn second<A,B>(s: Pair<A,B>, f: fn(oldValue: B) -> B) -> Pair<A,B>
+```
+
+Eventually, if the property is a function, a call function is generated
+
+```rasm
+pub struct Shape {
+    center: fn() -> Point,
+    move: fn(int,int) -> Shape,
+    toString: fn() -> str
+}
+
+pub fn callCenter(s: Shape) -> Point
+pub fn callMove(s: Shape, x: int, y: int) -> Shape
+pub fn callToString(s: Shape) -> str
+
 ```
 
 ## Enums
@@ -177,7 +192,7 @@ let planet = Earth() // or, for disambiguation... Planet::Earth()
 println(planet.matchEarth({"it's the Earth"}, { "it's not the Earth"}))
 ```
 
-For every enum, a function named "match" is automatically defined, taking a value of the enum type and one parameter for each variant (a closure with the variant's parameters in the order defined). For each variant, a function named "match" plus the variant name (capitalized) is automatically defined, taking a value of the enum type, a closure with the variant's parameters, and another parameterless closure.
+For every enum, a function named "match" is automatically defined, taking a value of the enum type and one parameter for each variant (a function with the variant's parameters in the order defined). For each variant, a function named "match" plus the variant name (capitalized) is automatically defined, taking a value of the enum type, a function with the variant's parameters, and another parameterless function.
 
 ```rasm
 pub fn matchEarth<R>(planet: Planet, earth: fn() -> R, notEarth: fn() -> R) -> R
