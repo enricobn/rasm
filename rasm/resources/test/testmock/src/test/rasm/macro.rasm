@@ -51,7 +51,7 @@ fn changeCall(originalCallName: str, newCallName: str, expr: ASTExpression) -> A
 }
 
 pub fn evaluate(expr: ASTExpression) -> MacroExpressionResult {
-    MacroExpression(expr)
+    MacroExpressionOk(expr, Vec())
 }
 
 pub fn findOne<T>(v: Vec<T>, condition: fn(T) -> bool) -> Option<T> {
