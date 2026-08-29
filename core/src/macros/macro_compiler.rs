@@ -56,6 +56,8 @@ pub fn resolve_macros(
     let mut macro_container = container.clone();
     let mut new_catalog = catalog.clone_catalog();
 
+    // TODO: I think it could be better to remove body, but not consts, but it for now creates a problem,
+    // but if the macro needs a const it will not work
     macro_container.remove_body();
 
     let count_macro_id = {
