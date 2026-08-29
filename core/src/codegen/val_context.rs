@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use linked_hash_map::LinkedHashMap;
 use rasm_utils::debug_i;
 
@@ -33,6 +35,16 @@ impl ValKind {
             ),
             ValKind::LetRef(_, _, astindex) => astindex.clone(),
             ValKind::ConstRef(_, _, astindex, _) => astindex.clone(),
+        }
+    }
+}
+
+impl Display for ValKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValKind::ParameterRef(_, par) => write!(f, "ParameterRef({par})"),
+            ValKind::LetRef(_, ast_type, _) => write!(f, "LetRef({ast_type})"),
+            ValKind::ConstRef(_, ast_type, _, _) => write!(f, "ConstRef({ast_type})"),
         }
     }
 }
