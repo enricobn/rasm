@@ -204,7 +204,7 @@ pub trait FunctionsCreator {
             return_type: _,
         }) = &property_def.ast_type
         {
-            let body = self.struct_lambda_property_rasm_body(&property_def, parameters);
+            let body = self.struct_lambda_property_rasm_body(struct_def, &property_def, parameters);
 
             let ((lambda_parameters_names, lambda_parameters_positions, lambda_signature), ft) =
                 signatures.remove(0);
@@ -298,6 +298,7 @@ pub trait FunctionsCreator {
 
     fn struct_lambda_property_rasm_body(
         &self,
+        struct_def: &ASTStructDef,
         property_def: &ASTStructPropertyDef,
         parameters: &[ASTType],
     ) -> Vec<ASTStatement> {
@@ -318,7 +319,7 @@ pub trait FunctionsCreator {
                         ASTBuiltinFunctionType::Other("_f let call".to_owned()),
                     ),
                     Vec::new(),
-                    None,
+                    Some(struct_def.name.clone()),
                     false,
                 )),
                 ASTPosition::builtin(
