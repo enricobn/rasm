@@ -40,7 +40,9 @@ impl EnhancedASTModule {
     ) -> (Self, Vec<CompilationError>) {
         let result = Self::new(
             modules
+                // HENRY
                 .into_par_iter()
+                //.into_iter()
                 .map(|(module, info)| EnhASTModule::from_ast(module, info, prefix_generics))
                 .collect(),
             statics,
