@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     path::PathBuf,
     process::Command,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{LazyLock, Mutex},
 };
 
 use log::info;
@@ -36,7 +36,9 @@ use crate::{
     type_check::ast_modules_container::ASTModulesContainer,
 };
 
-static COUNT_MACRO_ID: AtomicUsize = AtomicUsize::new(0);
+// It's by project for test purposes
+static COUNT_MACRO_ID: LazyLock<Mutex<HashMap<String, usize>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub fn resolve_macros(
     project: &RasmProject,
@@ -56,16 +58,20 @@ pub fn resolve_macros(
 
     macro_container.remove_body();
 
-    let macro_id = format!(
-        "{}_macro_{}",
-        project.name(),
-        COUNT_MACRO_ID.fetch_add(1, Ordering::SeqCst)
-    );
+    let count_macro_id = {
+        let mut map = COUNT_MACRO_ID.lock().unwrap();
+        let counter = map.entry(project.name().to_string()).or_insert(0);
+        let current = *counter;
+        *counter += 1;
+        current
+    };
 
-    if COUNT_MACRO_ID.load(Ordering::SeqCst) > 10 {
-        return Err(vec![CompilationError::generic_none(
-            "More than 10 macro loops, perhaps a recursion in macro evaluation?".to_owned(),
-        )]);
+    let macro_id = format!("{}_macro_{count_macro_id}", project.name(),);
+
+    if count_macro_id > 9 {
+        return Err(vec![CompilationError::generic_none(format!(
+            "More than 10 macro loops ({count_macro_id}), perhaps a recursion in macro evaluation?"
+        ))]);
     }
 
     let info = EnhModuleInfo::new(
@@ -219,6 +225,7 @@ fn compile_macros_internal<'a>(
     info!("evaluating macros");
 
     let evaluation_results = calls
+        //.iter() // HENRY
         .par_iter()
         .map(|it| {
             (
