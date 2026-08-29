@@ -10,8 +10,8 @@ use rasm_utils::{OptionDisplay, SliceDisplay, debug_i, find_one};
 use rasm_parser::{
     catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace},
     parser::ast::{
-        ASTBuiltinTypeKind, ASTEnumDef, ASTFunctionDef, ASTModule, ASTPosition, ASTStructDef,
-        ASTType, ASTTypeDef, CustomTypeDef,
+        ASTBuiltinTypeKind, ASTEnumDef, ASTFunctionDef, ASTModule, ASTPosition, ASTStatement,
+        ASTStructDef, ASTType, ASTTypeDef, CustomTypeDef,
     },
 };
 
@@ -212,11 +212,12 @@ impl ASTModulesContainer {
                         String::new()
                     };
 
-                    let other_prefix = if let Some(associated_type) = &same.signature.associated_type {
-                        format!("{associated_type}::")
-                    } else {
-                        String::new()
-                    };
+                    let other_prefix =
+                        if let Some(associated_type) = &same.signature.associated_type {
+                            format!("{associated_type}::")
+                        } else {
+                            String::new()
+                        };
 
                     println!(
                         "duplicate signature:\n  {prefix}{}\n  {other_prefix}{}",
@@ -687,6 +688,14 @@ impl ASTModulesContainer {
     pub fn remove_body(&mut self) {
         for (module, _) in self.modules.values_mut() {
             module.body.clear();
+        }
+    }
+
+    pub fn remove_body_except_const(&mut self) {
+        for (module, _) in self.modules.values_mut() {
+            module
+                .body
+                .retain(|s| matches!(s, ASTStatement::ASTConstStatement(_, _, _, _)));
         }
     }
 
