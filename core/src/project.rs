@@ -407,6 +407,7 @@ impl RasmProject {
             pairs.append(
                 &mut self
                     .dependencies_projects()
+                    //.into_iter() // HENRY
                     .into_par_iter()
                     .map(|dependency| {
                         enable_log(log_enabled);
@@ -662,6 +663,7 @@ impl RasmProject {
             WalkDir::new(source_folder)
                 .into_iter()
                 .collect::<Vec<_>>()
+                //.into_iter() // HENRY
                 .into_par_iter()
                 .filter_map(Result::ok)
                 .filter(|it| it.file_name().to_str().unwrap().ends_with(".rasm"))
