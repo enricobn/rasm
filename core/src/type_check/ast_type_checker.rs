@@ -2173,7 +2173,7 @@ impl<'a> ASTTypeChecker<'a> {
                     if inside_a_generic_function {
                         ASTTypeCheckErroKind::Warning
                     } else {
-                        ASTTypeCheckErroKind::Error
+                        ASTTypeCheckErroKind::Fatal
                     },
                     index.clone(),
                     format!("cannot find a valid function for {}", call.function_name()),
