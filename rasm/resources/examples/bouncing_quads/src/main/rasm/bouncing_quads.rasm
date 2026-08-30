@@ -16,6 +16,7 @@ C backend
 real    0m1,519s
 */
 
+@json()
 struct Model {
     quads: Vec<Quad>,
     fps: FPS,
@@ -23,6 +24,15 @@ struct Model {
     count: int
 }
 
+pub fn json(font: TTFFont) -> str {
+    "null"
+}
+
+pub fn json(color: SDLColor) -> str {
+    "null"
+}
+
+@json()
 struct Quad {
     x: int,
     y: int,

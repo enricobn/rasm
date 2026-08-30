@@ -17,6 +17,13 @@ fn singleRun<CTX,MODEL,MESSAGE>(ctx: CTX, model: MODEL, update: fn(MODEL, MESSAG
 
         let newModel = messages.foldLeft(model, update)
         render(ctx, newModel)
+
+        /*
+        let f = createFile("model.json")
+        f.println(newModel.json).forEach(fn(it) {})
+        close(f)
+        */
+
         newModel
     })
 

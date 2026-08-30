@@ -37,7 +37,7 @@ use crate::codegen::text_macro::TextMacroEvaluator;
 
 use crate::codegen::{AsmOptions, CodeGen, get_typed_module};
 use crate::commandline::{CommandLineAction, CommandLineOptions};
-use crate::errors::CompilationError;
+use crate::errors::{CompilationError, filter_compilation_errors};
 use crate::macros::macro_call_extractor::extract_macro_calls;
 use crate::macros::macro_compiler::resolve_macros;
 
@@ -65,11 +65,7 @@ pub const NASMI386: &'static str = "nasmi386";
 pub const C: &'static str = "c";
 
 impl CompileTarget {
-    pub fn from(
-        target: String,
-        project: &RasmProject,
-        _command_line_options: &CommandLineOptions,
-    ) -> Self {
+    pub fn from(target: String, project: &RasmProject) -> Self {
         match target.as_str() {
             NASMI386 => {
                 let mut all_projects = vec![project.clone()];
@@ -125,7 +121,7 @@ impl CompileTarget {
         }
     }
 
-    fn generate(
+    pub fn generate(
         &self,
         project: &RasmProject,
         statics: &mut Statics,
@@ -278,7 +274,7 @@ impl CompileTarget {
             out_folder,
             out_file.clone(),
         ) {
-            for error in errors {
+            for error in filter_compilation_errors(errors) {
                 eprintln!("{error}");
             }
             eprintln!("error: could not compile due to previous errors");
@@ -666,7 +662,7 @@ mod tests {
     use tempdir::TempDir;
 
     use crate::{
-        codegen::{c::options::COptions, compile_target::CompileTarget},
+        codegen::compile_target::CompileTarget,
         commandline::{CommandLineAction, CommandLineOptions},
         project::RasmProject,
     };
@@ -686,9 +682,12 @@ mod tests {
         compile_test("../rasm/resources/test/macro/print_macro.rasm");
     }
 
-    fn compile_test(source: &str) {
-        let sut = CompileTarget::C(COptions::default());
+    #[test]
+    fn compile_breakout() {
+        compile_test("../rasm/resources/examples/breakout");
+    }
 
+    fn compile_test(source: &str) {
         let project = RasmProject::new(std::path::PathBuf::from(source));
 
         let dir = TempDir::new("rasm_int_test").unwrap();
@@ -706,6 +705,7 @@ mod tests {
             debug: false,
             profile: crate::commandline::RasmProfile::Main,
         };
+        let sut = CompileTarget::from("c".to_owned(), &project);
         sut.run(project, command_line_options);
     }
 }

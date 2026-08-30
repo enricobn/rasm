@@ -5,6 +5,7 @@ pub struct Rect2D {
     h: int
 }
 
+@json()
 pub struct RGBAColor {
     r: int,
     g: int,

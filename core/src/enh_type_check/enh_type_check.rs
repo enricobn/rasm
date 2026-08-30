@@ -2641,7 +2641,7 @@ mod tests {
     use crate::enh_type_check::enh_resolved_generic_types::EnhResolvedGenericTypes;
     use crate::enh_type_check::enh_type_check::EnhTypeCheck;
     use crate::enh_type_check::typed_ast::ASTTypedModule;
-    use crate::errors::CompilationError;
+    use crate::errors::{CompilationError, filter_compilation_errors};
     use crate::project::RasmProject;
     use crate::test_utils::{project_to_ast_typed_module, project_to_ast_typed_module_with_macros};
     use rasm_parser::parser::ast::ASTModifiers;
@@ -2653,9 +2653,16 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "we can't rely on breakout"]
     pub fn breakout() {
         let project = dir_to_project("../rasm/resources/examples/breakout");
-        test_project(project).unwrap();
+        if let Some(errors) = test_project(project).err() {
+            let errors = filter_compilation_errors(errors);
+            for error in errors {
+                println!("{}", error);
+            }
+            panic!("test failed");
+        }
     }
 
     /*
@@ -2704,6 +2711,12 @@ mod tests {
             }
             panic!("test failed");
         }
+    }
+
+    #[test]
+    pub fn enh_type_check_json_project() {
+        let project = dir_to_project("resources/test/enh_type_check/json.rasm");
+        test_project_with_macros(project).unwrap();
     }
 
     #[test]

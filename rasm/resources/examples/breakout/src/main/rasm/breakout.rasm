@@ -3,17 +3,20 @@ pub enum GameResult {
     End(score: int)
 }
 
+@json()
 pub struct HighScore {
     score: int,
     time: TimeVal
 }
 
-struct State {
+@json()
+pub struct State {
     keys: Vec<int>,
     stage: Stage,
     highScores: Vec<HighScore>
 }
 
+@json()
 pub enum Stage {
     Menu(menuState: MenuState),
     Game(gameState: GameState)

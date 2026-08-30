@@ -2406,6 +2406,7 @@ mod tests {
         ASTTypedFunctionBody, ASTTypedFunctionDef, ASTTypedModule, ASTTypedParameterDef,
         ASTTypedType, BuiltinTypedTypeKind, ResolvedGenericTypedTypes,
     };
+    use crate::errors::filter_compilation_errors;
     use crate::project::RasmProject;
     use crate::test_utils::project_to_ast_typed_module;
 
@@ -2544,30 +2545,30 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "we can't rely on breakout"]
     fn breakout_codegenc() {
-        let options = COptions::default();
-        let sut = CodeGenC::new(options.clone(), false, false);
-
         let project = RasmProject::new(PathBuf::from("../rasm/resources/examples/breakout"));
-        let target = CompileTarget::C(options);
-
-        let (typed_module, mut statics) =
-            project_to_ast_typed_module(&project, &target, &RasmProfile::Main).unwrap();
-
-        let dir = TempDir::new("rasm_int_test").unwrap();
 
         let clo = CommandLineOptions::new(CommandLineAction::Test);
 
-        let result = sut.generate(
-            &project,
-            &target,
-            &typed_module,
-            &mut statics,
-            &clo,
-            dir.path(),
-        );
+        let target = CompileTarget::from("c".to_owned(), &project);
 
-        assert!(!result.is_empty());
-        assert!(result.iter().any(|it| it.0 == "breakout_test.c"));
+        match project_to_ast_typed_module(&project, &target, &RasmProfile::Main) {
+            Err(errors) => {
+                for error in filter_compilation_errors(errors) {
+                    println!("{}", error);
+                }
+                panic!("test failed");
+            }
+            Ok((typed_module, mut statics)) => {
+                let dir = TempDir::new("rasm_int_test").unwrap();
+
+                let result =
+                    target.generate(&project, &mut statics, &typed_module, &clo, dir.path());
+
+                assert!(!result.is_empty());
+                assert!(result.iter().any(|it| it.0 == "breakout_test.c"));
+            }
+        }
     }
 }

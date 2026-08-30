@@ -31,8 +31,8 @@ pub struct EnhTypeCheckError {
     pub kind: EnhTypeCheckErrorKind,
     pub main: (EnhASTIndex, String, Vec<EnhASTIndex>),
     pub messages: Vec<(EnhASTIndex, String, Vec<EnhASTIndex>)>,
-    children: Vec<EnhTypeCheckError>,
-    dummy: bool,
+    pub children: Vec<EnhTypeCheckError>,
+    pub dummy: bool,
 }
 
 impl EnhTypeCheckError {

@@ -1,0 +1,104 @@
+@json()
+pub struct HighScore {
+    score: int,
+    time: TimeVal
+}
+
+@json()
+pub struct RGBAColor {
+    r: int,
+    g: int,
+    b: int,
+    a: int
+}
+
+@json()
+pub enum XDirection {
+    Left,
+    Right
+}
+
+@json()
+pub enum YDirection {
+    Up,
+    Down
+}
+
+@json()
+pub struct Bar {
+    x: float,
+    velocity: float,
+    lastUpdate: TimeVal
+}
+
+@json()
+pub struct Ball {
+    x: float,
+    y: float,
+    xDir: XDirection,
+    yDir: YDirection,
+    lastUpdate: TimeVal
+}
+
+@json()
+pub struct Brick {
+    x: int,
+    y: int,
+    color: RGBAColor,
+    value: int
+}
+
+@json()
+pub struct GameState {
+    stage: GameStage,
+    world: World,
+    fps: FPS
+}
+
+//@json()
+pub struct World {
+    bricks: Vec<Brick>,
+    ball: Ball,
+    bar: Bar,
+    score: int,
+    lives: int,
+}
+
+@json()
+pub enum GameStage {
+    RunBall(time: TimeVal),
+    Run
+}
+
+@json()
+pub struct FPS {
+    frameCount: int,
+    lastFPSUpdate: TimeVal,
+    fps: int
+}
+
+@json()
+pub struct MenuState {
+    highScores: Vec<HighScore>
+}
+
+let world = World(
+    Vec(),
+    Ball(
+        0.0, 
+        0.0,
+        XDirection::Left(),
+        YDirection::Down(),
+        now()
+    ),
+    Bar(0.0, 0.0, now()),
+    0,
+    0
+)
+
+println(world.json)
+
+pub fn json(s : World)  -> str {
+    add(add(add(add(add(add(add(add(add(add(add(add(add(add(add(add(add(add(add(add(add(add(add(add(add("{", "\""), "bricks"), "\" : "), json(bricks(s))), ", "), "\""), "ball"), "\" : "), json(ball(s))), ", "), "\""), "bar"), "\" : "), json(bar(s))), ", "), "\""), "score"), "\" : "), json(score(s))), ", "), "\""), "lives"), "\" : "), json(lives(s))), "}") 
+    //add(add(add(add(add(add(add(add(add(add(add(add(add(add(add(add("{", "\""), "bricks"), "\" : "), json(bricks(s))), ", "), "\""), "ball"), "\" : "), json(ball(s))), ", "), "\""), "bar"), "\" : "), json(bar(s))), ", "), "\"") 
+}

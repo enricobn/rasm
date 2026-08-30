@@ -1,0 +1,9 @@
+run()
+
+fn run() {
+    let l = listOf(1.1, 2.1)
+    println(l.map(add.curry(100.1))) // println(map(l, curry(add, 100.1)))
+
+    let l1 = listOf(1, 2)
+    println(l1.map(add.curry(100)))
+}

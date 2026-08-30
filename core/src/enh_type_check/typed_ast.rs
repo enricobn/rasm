@@ -33,7 +33,7 @@ use crate::enh_type_check::enh_type_check_error::EnhTypeCheckError;
 use crate::enh_type_check::verify;
 use crate::errors::{CompilationError, CompilationErrorKind};
 use crate::type_check::ast_modules_container::ASTModulesContainer;
-use crate::type_check::ast_type_checker::{ASTTypeCheckErroKind, ASTTypeChecker};
+use crate::type_check::ast_type_checker::{ASTTypeCheckError, ASTTypeChecker};
 use crate::type_check::get_new_native_call;
 use rasm_parser::parser::ast::{ASTModifiers, ASTValue};
 use rasm_utils::{SliceDisplay, debug_i, dedent, indent};
@@ -752,6 +752,7 @@ pub fn convert_to_typed_module(
     debug: bool,
 ) -> Result<ASTTypedModule, CompilationError> {
     let start = Instant::now();
+    /*
     let mut errors = Vec::new();
 
     for error in ast_type_checker.errors().values() {
@@ -769,11 +770,7 @@ pub fn convert_to_typed_module(
                 continue;
             }
 
-            errors.push(EnhTypeCheckError::new(
-                index,
-                error.message().to_owned(),
-                Vec::new(),
-            ));
+            errors.push(ast_error_to_enh_error(error, modules_catalog));
         }
     }
 
@@ -784,6 +781,7 @@ pub fn convert_to_typed_module(
             errors,
         ));
     }
+    */
 
     let type_check = EnhTypeCheck::new(
         target.clone(),
@@ -901,6 +899,26 @@ pub fn convert_to_typed_module(
     info!("Verify ended in {} ms", start.elapsed().as_millis());
 
     Ok(result)
+}
+
+fn ast_error_to_enh_error(
+    error: &ASTTypeCheckError,
+    modules_catalog: &dyn ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
+) -> EnhTypeCheckError {
+    let path = if let Some((enh_id, _)) = modules_catalog.catalog_info(&error.index().module_id()) {
+        enh_id.clone()
+    } else {
+        EnhModuleId::none()
+    };
+    let index = EnhASTIndex::new(path, error.index().position().clone());
+
+    let mut result = EnhTypeCheckError::new(index, error.message().to_owned(), Vec::new());
+
+    for inner in error.inner().iter() {
+        result = result.add_errors(vec![ast_error_to_enh_error(inner, modules_catalog)]);
+    }
+
+    result
 }
 
 fn translate_function_body<'a>(

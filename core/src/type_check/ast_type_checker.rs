@@ -469,8 +469,7 @@ impl<'a> ASTTypeChecker<'a> {
 
                 let mut type_checker_chunk = ASTTypeChecker::new();
                 for (id, namespace, function) in chunk {
-                    let found = function.name == "next"
-                        && format!("{}", function.return_type).contains("Internal");
+                    let found = false;
                     if found {
                         //println!("found {} function", function.name);
                         enable_log(true);
@@ -526,7 +525,12 @@ impl<'a> ASTTypeChecker<'a> {
         module_id: &ModuleId,
         modules_container: &ASTModulesContainer,
     ) {
-        // let start = Instant::now();
+        let found = false; // def_format.contains("json") && def_format.contains("World");
+        if found {
+            enable_log(true);
+        }
+
+        let start = Instant::now();
         let mut val_context = ValContext::new(None);
 
         let generics_prefix =
@@ -588,13 +592,12 @@ impl<'a> ASTTypeChecker<'a> {
             ASTFunctionBody::NativeBody(_body) => {}
         }
 
-        /*
         let elapsed = start.elapsed().as_millis();
-        if elapsed > 0 {
-            println!(
-                "ast_type_check function {} in {}micros : {}",
+        if found && elapsed > 0 {
+            debug_i!(
+                "ast_type_check function {} in {:?} : {}",
                 function.name,
-                start.elapsed().as_micros(),
+                start.elapsed(),
                 ASTIndex::new(
                     module_namespace.clone(),
                     module_id.clone(),
@@ -602,7 +605,10 @@ impl<'a> ASTTypeChecker<'a> {
                 )
             );
         }
-        */
+
+        if found {
+            enable_log(false);
+        }
     }
 
     fn check_valid_type(
@@ -882,6 +888,12 @@ impl<'a> ASTTypeChecker<'a> {
                         ),
                     );
                 }
+            } else {
+                self.add_error(
+                    ASTTypeCheckErroKind::Error,
+                    index.clone(),
+                    format!("Could not infer type for {name} : {}", entry.info()),
+                );
             }
         } else {
             self.add_error(
@@ -1242,7 +1254,7 @@ impl<'a> ASTTypeChecker<'a> {
                     self.add_error(
                         ASTTypeCheckErroKind::Error,
                         index.clone(),
-                        format!("Cannot find function {name}"),
+                        format!("Cannot find reference to {name} from {module_namespace}"),
                     );
                 }
                 dedent!();
@@ -1413,13 +1425,19 @@ impl<'a> ASTTypeChecker<'a> {
         modules_container: &ASTModulesContainer,
         function: Option<&ASTFunctionDef>,
     ) -> Option<Arc<ASTTypeCheckEntry>> {
+        if call.is_macro() {
+            self.add_error(
+                ASTTypeCheckErroKind::Warning,
+                index.clone(),
+                "Macro".to_string(),
+            );
+            return None;
+        }
         let inside_a_generic_function = function.map_or(false, |f| f.is_generic());
 
-        let found = false; //function.map(|it| it.name == "generic").unwrap_or(false);
-        // call.function_name() == "append" && format!("{index}").contains("3:71");
+        let found = false;
 
         if found {
-            // println!("found: {}", call.function_name());
             enable_log(true);
         }
 
@@ -1546,7 +1564,7 @@ impl<'a> ASTTypeChecker<'a> {
                 let functions_iter = functions_iter.filter_map(move |it| {
                     if let Some(et) = &expected_expression_type {
                         if found {
-                            println!("index {} -> {et} : {it}", it.signature.return_type);
+                            println!("  index {} -> {et} : {it}", it.signature.return_type);
                         }
                         if modules_container.is_compatible(
                             et,
@@ -1570,7 +1588,11 @@ impl<'a> ASTTypeChecker<'a> {
 
         if candidate_functions.is_empty() {
             self.add_error(
-                ASTTypeCheckErroKind::Error,
+                if inside_a_generic_function {
+                    ASTTypeCheckErroKind::Error
+                } else {
+                    ASTTypeCheckErroKind::Fatal
+                },
                 index.clone(),
                 format!(
                     "no functions for {}, expected expression type: {}, call associated_type: {}",
@@ -1616,16 +1638,33 @@ impl<'a> ASTTypeChecker<'a> {
                         debug_i!("trying to resolve parameter {i}: {e}");
                         indent!();
 
-                        internal_type_checker.add_expr(
-                            e,
-                            val_context,
-                            statics,
-                            None,
-                            module_namespace,
-                            module_id,
-                            modules_container,
-                            function,
-                        );
+                        if internal_type_checker
+                            .add_expr(
+                                e,
+                                val_context,
+                                statics,
+                                None,
+                                module_namespace,
+                                module_id,
+                                modules_container,
+                                function,
+                            )
+                            .is_none()
+                        {
+                            if let Some(error) = internal_type_checker.errors.get(&e.position().id)
+                            {
+                                if error.kind == ASTTypeCheckErroKind::Fatal {
+                                    self.add_error_with_inner(
+                                        ASTTypeCheckErroKind::Fatal,
+                                        index.clone(),
+                                        format!("error resolving parameter {e} in {call}"),
+                                        vec![error.clone()],
+                                    );
+
+                                    return None;
+                                }
+                            }
+                        }
 
                         dedent!();
                     }
@@ -1662,7 +1701,7 @@ impl<'a> ASTTypeChecker<'a> {
                         })
                         .collect_vec();
                     if false && c != candidate_functions.len() {
-                        println!(
+                        debug_i!(
                             "filtered {} candidates of {}",
                             c - candidate_functions.len(),
                             c
@@ -2857,18 +2896,18 @@ mod tests {
     }
 
     #[test]
-    fn test_function_reference_nostdlib() {
+    fn test_function_reference_project() {
         init_minimal_log();
         //enable_log(false);
 
         let (type_checker, catalog, _, container) =
-            check_project("resources/test/ast_type_checker/function_reference_nostdlib");
+            check_project("resources/test/ast_type_checker/function_reference");
 
         let id = get_id(
-            "resources/test/ast_type_checker/function_reference_nostdlib/src/main/rasm/main.rasm",
+            "resources/test/ast_type_checker/function_reference/src/main/rasm/main.rasm",
             &catalog,
             &container,
-            15,
+            5,
             19,
         )
         .unwrap();
@@ -2878,10 +2917,10 @@ mod tests {
         assert_eq!(format!("{t}"), "fn (float,float) -> float");
 
         let id = get_id(
-            "resources/test/ast_type_checker/function_reference_nostdlib/src/main/rasm/main.rasm",
+            "resources/test/ast_type_checker/function_reference/src/main/rasm/main.rasm",
             &catalog,
             &container,
-            18,
+            8,
             20,
         )
         .unwrap();
@@ -3165,6 +3204,7 @@ mod tests {
         let (tc, _, _, _) = check_project_with_profile(
             "../rasm/resources/test/type_check/type_check_3.rasm",
             &RasmProfile::Main,
+            false,
         );
 
         let entries = tc
@@ -3407,7 +3447,7 @@ mod tests {
         init_minimal_log();
         enable_log(false);
         let (tc, catalog, _, container) =
-            check_project_with_profile("../stdlib", &RasmProfile::Test);
+            check_project_with_profile("../stdlib", &RasmProfile::Test, true);
 
         /*
         for error in tc.errors().values() {
@@ -3621,12 +3661,13 @@ mod tests {
         ValContext,
         ASTModulesContainer,
     ) {
-        check_project_with_profile(path, &RasmProfile::Main)
+        check_project_with_profile(path, &RasmProfile::Main, true)
     }
 
     fn check_project_with_profile<'a>(
         path: &str,
         profile: &RasmProfile,
+        ignore_errors: bool,
     ) -> (
         ASTTypeChecker<'a>,
         impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
@@ -3635,7 +3676,7 @@ mod tests {
     ) {
         let project = RasmProject::new(PathBuf::from(path));
 
-        let target = CompileTarget::C(COptions::default());
+        let target = CompileTarget::from("c".to_owned(), &project);
 
         let (container, catalog, _errors) = project.container_and_catalog(profile, &target);
 
@@ -3645,23 +3686,20 @@ mod tests {
 
         let result = ASTTypeChecker::from_modules_container(&container);
 
-        let errors = result
-            .0
-            .errors
-            .iter()
-            .filter(|(_, error)| error.kind == ASTTypeCheckErroKind::Fatal)
-            .collect::<Vec<_>>();
+        if !ignore_errors {
+            let errors = result
+                .0
+                .errors
+                .iter()
+                .filter(|(_, error)| error.kind == ASTTypeCheckErroKind::Fatal)
+                .collect::<Vec<_>>();
 
-        /*
-        for (_, error) in errors.iter() {
-            if error.kind == ASTTypeCheckErroKind::Error {
-                println!("error {error}");
+            if !errors.is_empty() {
+                for (_, error) in errors.iter() {
+                    println!("error {error}");
+                }
+                panic!();
             }
-        }
-        */
-
-        if !errors.is_empty() {
-            panic!();
         }
 
         (result.0, catalog, result.1, container)

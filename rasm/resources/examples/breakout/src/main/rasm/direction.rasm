@@ -1,3 +1,4 @@
+@json()
 pub enum XDirection {
     Left,
     Right
@@ -11,6 +12,7 @@ pub fn move<T>(x: T, xDir: XDirection, diff: T) -> T {
     match(xDir, { sub(x, diff)} , { add(x, diff)})
 }
 
+@json()
 pub enum YDirection {
     Up,
     Down

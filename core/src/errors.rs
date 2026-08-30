@@ -16,6 +16,7 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 
@@ -103,4 +104,80 @@ impl Display for CompilationError {
             }
         }
     }
+}
+
+pub fn filter_compilation_errors(errors: Vec<CompilationError>) -> Vec<CompilationError> {
+    let mut result = Vec::new();
+
+    let mut indexes = &mut HashSet::new();
+
+    for error in errors {
+        result.push(filter_compilation_error(error, &mut indexes));
+    }
+
+    result
+}
+
+fn filter_compilation_error(
+    error: CompilationError,
+    indexes: &mut HashSet<(EnhASTIndex, String)>,
+) -> CompilationError {
+    match error.error_kind {
+        CompilationErrorKind::Generic(_) => error,
+        CompilationErrorKind::Lexer(_) => error,
+        CompilationErrorKind::Parser(_) => error,
+        CompilationErrorKind::TypeCheck(message, enh_type_check_errors) => CompilationError {
+            index: error.index,
+            error_kind: CompilationErrorKind::TypeCheck(
+                message,
+                filter_enh_type_check_errors(enh_type_check_errors, indexes),
+            ),
+        },
+        CompilationErrorKind::Verify(_) => error,
+    }
+}
+
+fn filter_enh_type_check_errors(
+    errors: Vec<EnhTypeCheckError>,
+    indexes: &mut HashSet<(EnhASTIndex, String)>,
+) -> Vec<EnhTypeCheckError> {
+    let mut result = Vec::new();
+
+    for error in errors {
+        if !indexes.contains(&(error.main.0.clone(), error.main.1.clone())) {
+            indexes.insert((error.main.0.clone(), error.main.1.clone()));
+            if let Some(error) = filter_enh_type_check_error(error, indexes) {
+                result.push(error);
+            }
+        }
+    }
+
+    result
+}
+
+fn filter_enh_type_check_error(
+    error: EnhTypeCheckError,
+    indexes: &mut HashSet<(EnhASTIndex, String)>,
+) -> Option<EnhTypeCheckError> {
+    let (index, message, stack) = error.main;
+    let messages = error
+        .messages
+        .iter()
+        .map(|(i, m, s)| (i.clone(), m.clone(), s.clone()))
+        .collect();
+    let children: Vec<EnhTypeCheckError> = error
+        .children
+        .into_iter()
+        .filter(|e| !indexes.contains(&(e.main.0.clone(), e.main.1.clone())))
+        .collect();
+
+    let children = filter_enh_type_check_errors(children, indexes);
+
+    Some(EnhTypeCheckError {
+        kind: error.kind,
+        main: (index, message, stack),
+        messages,
+        children,
+        dummy: error.dummy,
+    })
 }

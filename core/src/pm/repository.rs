@@ -158,8 +158,7 @@ impl PackageRepository for LocalPackageRepository {
             test_command_line_options.profile = RasmProfile::Test;
             for native in project.all_targets() {
                 info!("running tests for native {}", native);
-                let native_target =
-                    CompileTarget::from(native.clone(), &project, &command_line_options);
+                let native_target = CompileTarget::from(native.clone(), &project);
                 native_target.run(project.clone(), test_command_line_options.clone());
             }
         }

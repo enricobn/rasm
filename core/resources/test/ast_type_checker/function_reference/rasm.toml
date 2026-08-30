@@ -1,0 +1,7 @@
+[package]
+name = "function-reference-nostdlib"
+version = "1.0.0"
+main = "main.rasm"
+
+[dependencies]
+stdlib = "0.1"

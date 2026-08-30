@@ -1,3 +1,4 @@
+@json()
 pub struct Ball {
     x: float,
     y: float,

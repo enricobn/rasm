@@ -1,9 +1,11 @@
+@json()
 pub struct GameState {
     stage: GameStage,
     world: World,
     fps: FPS
 }
 
+@json()
 pub struct World {
     bricks: Vec<Brick>,
     ball: Ball,
@@ -12,6 +14,7 @@ pub struct World {
     lives: int,
 }
 
+@json()
 pub enum GameStage {
     RunBall(time: TimeVal),
     Run

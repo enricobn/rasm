@@ -1,3 +1,4 @@
+@json()
 pub struct Brick {
     x: int,
     y: int,
