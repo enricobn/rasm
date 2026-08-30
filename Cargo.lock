@@ -3125,6 +3125,8 @@ dependencies = [
  "linked-hash-map",
  "log",
  "num_cpus",
+ "quick-xml",
+ "tempdir",
 ]
 
 [[package]]

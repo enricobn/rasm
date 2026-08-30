@@ -2,27 +2,69 @@ use std::cell::RefCell;
 use std::fs::File;
 use std::io::Write;
 
+use quick_xml::Writer;
+use quick_xml::events::{BytesEnd, BytesStart, Event};
+
 pub static mut ENABLE_INDENT: bool = true;
 pub static mut ENABLE_LOG_STDOUT: bool = false;
 
 thread_local! {
     pub static ENABLE_LOG: RefCell<bool> = RefCell::new(true);
     pub static INDENT : RefCell<usize> = RefCell::new(0);
-    pub static FILE : RefCell<LogFile> = RefCell::new(LogFile::new());
+    pub static FILE : RefCell<LogFile> = RefCell::new(LogFile::new(File::create("debug.log.xml").expect("Unable to create file")));
 }
 
 pub struct LogFile {
-    file: File,
+    writer: Writer<File>,
 }
 
 impl LogFile {
-    pub fn new() -> Self {
-        let mut file = File::create("debug.log.xml").expect("Unable to create file");
+    fn new(file: File) -> Self {
+        let mut writer = Writer::new(file);
 
-        file.write_all("<root>\n".as_bytes())
+        writer
+            .write_event(Event::Start(BytesStart::new("root")))
+            .expect("Unable to write to log file");
+        writer
+            .get_mut()
+            .write_all(b"\n")
             .expect("Unable to write to log file");
 
-        Self { file }
+        Self { writer }
+    }
+
+    pub fn indent(&mut self) {
+        self.writer
+            .write_event(Event::Start(BytesStart::new("children")))
+            .expect("Unable to write to file");
+        self.writer
+            .get_mut()
+            .write_all(b"\n")
+            .expect("Unable to write to file");
+    }
+
+    pub fn dedent(&mut self) {
+        self.writer
+            .write_event(Event::End(BytesEnd::new("children")))
+            .expect("Unable to write to file");
+        self.writer
+            .get_mut()
+            .write_all(b"\n")
+            .expect("Unable to write to file");
+    }
+
+    pub fn write(&mut self, message: &str) {
+        let sanitized = sanitize_for_xml(message);
+
+        let mut elem = BytesStart::new("log");
+        elem.push_attribute(("message", sanitized.as_str()));
+        self.writer
+            .write_event(Event::Empty(elem))
+            .expect("Unable to write to file");
+        self.writer
+            .get_mut()
+            .write_all(b"\n")
+            .expect("Unable to write to file");
     }
 }
 
@@ -31,46 +73,96 @@ impl Drop for LogFile {
         INDENT.with(|indent| {
             let size = *indent.borrow();
             for _ in 0..size {
-                self.file
-                    .write_all("</children>\n".as_bytes())
+                self.writer
+                    .write_event(Event::End(BytesEnd::new("children")))
+                    .expect("Unable to write to log file");
+                self.writer
+                    .get_mut()
+                    .write_all(b"\n")
                     .expect("Unable to write to log file");
             }
         });
 
-        self.file
-            .write_all("</root>\n".as_bytes())
+        self.writer
+            .write_event(Event::End(BytesEnd::new("root")))
             .expect("Unable to write to log file");
+        self.writer
+            .get_mut()
+            .write_all(b"\n")
+            .expect("Unable to write to log file");
+        // Ensure all data is flushed to disk.
+        self.writer.get_mut().flush().ok();
+        println!("Debug log written to debug.log.xml");
     }
 }
 
+fn is_valid_xml_char(c: char) -> bool {
+    matches!(c, '\u{09}' | '\u{0A}' | '\u{0D}')
+        || ('\u{20}'..='\u{D7FF}').contains(&c)
+        || ('\u{E000}'..='\u{FFFD}').contains(&c)
+        || ('\u{10000}'..='\u{10FFFF}').contains(&c)
+}
+
+fn sanitize_for_xml(s: &str) -> String {
+    if s.chars().all(is_valid_xml_char) {
+        return s.to_string();
+    }
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        // Strip ANSI CSI escape sequences (e.g. "\x1b[31m", "\x1b[0m") entirely
+        // instead of leaving "�[31m" behind. This keeps the log readable.
+        if c == '\x1b' {
+            if chars.peek() == Some(&'[') {
+                chars.next(); // consume '['
+                // consume until terminating 'm' or any final byte '@'..='~'
+                for next in chars.by_ref() {
+                    if next == 'm' {
+                        break;
+                    }
+                    if ('@'..='~').contains(&next) {
+                        break;
+                    }
+                }
+                continue;
+            } else {
+                out.push('\u{FFFD}');
+                continue;
+            }
+        }
+        if is_valid_xml_char(c) {
+            out.push(c);
+        } else {
+            // Use `�` (U+FFFD) to make the substitution visible.
+            out.push('\u{FFFD}');
+        }
+    }
+    out
+}
+
 pub fn write_to_log(message: &str) {
-    let message = message
-        .replace('&', "&amp;")
-        .replace('"', "&quot;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;");
     FILE.with(|file| {
-        file.borrow_mut()
-            .file
-            .write_all(format!("<log message=\"{message}\"/>\n").as_bytes())
-            .expect("Unable to write to file");
+        file.borrow_mut().write(message);
     });
 }
 
 pub fn indent_to_log() {
     FILE.with(|file| {
-        file.borrow_mut()
-            .file
-            .write_all("<children>\n".as_bytes())
-            .expect("Unable to write to file");
+        file.borrow_mut().indent();
     });
 }
 
 pub fn dedent_to_log() {
     FILE.with(|file| {
-        file.borrow_mut()
-            .file
-            .write_all("</children>\n".as_bytes())
+        let mut log_file = file.borrow_mut();
+        log_file
+            .writer
+            .write_event(Event::End(BytesEnd::new("children")))
+            .expect("Unable to write to file");
+        log_file
+            .writer
+            .get_mut()
+            .write_all(b"\n")
             .expect("Unable to write to file");
     });
 }
@@ -163,12 +255,72 @@ pub fn log_enabled() -> bool {
     ENABLE_LOG.with(|enable_log| *enable_log.borrow())
 }
 
+#[cfg(test)]
 mod tests {
+    use std::fs::File;
+
+    use tempdir::TempDir;
+
+    use crate::debug_indent::LogFile;
 
     #[test]
     pub fn test() {
         indent!();
         debug_i!("debug");
         dedent!();
+    }
+
+    #[test]
+    pub fn test_log_file_escape_colors() {
+        test_log(
+            |log_file| {
+                log_file.write("\x1b[31mtest\x1b[0m");
+            },
+            "<root>\n<log message=\"test\"/>\n</root>\n",
+        );
+    }
+
+    #[test]
+    pub fn test_log_file_indent() {
+        test_log(
+            |log_file| {
+                log_file.write("parent");
+                log_file.indent();
+                log_file.write("child");
+                log_file.dedent();
+            },
+            "<root>\n<log message=\"parent\"/>\n<children>\n<log message=\"child\"/>\n</children>\n</root>\n",
+        );
+    }
+
+    #[test]
+    pub fn test_log_file_emoj() {
+        test_log(
+            |log_file| {
+                log_file.write("🤣");
+            },
+            "<root>\n<log message=\"🤣\"/>\n</root>\n",
+        );
+    }
+
+    #[test]
+    pub fn test_log_file_escape_chars() {
+        test_log(
+            |log_file| {
+                log_file.write("<");
+            },
+            "<root>\n<log message=\"&lt;\"/>\n</root>\n",
+        );
+    }
+
+    fn test_log(f: impl Fn(&mut LogFile), expected: &str) {
+        let out_folder = TempDir::new("rasm_indent_test").unwrap().into_path();
+        let out_file = out_folder.as_path().join("out.xml");
+        let file = File::create(&out_file).unwrap();
+        let mut log_file = LogFile::new(file);
+        f(&mut log_file);
+        drop(log_file);
+        let file = std::fs::read_to_string(out_file).unwrap();
+        assert_eq!(file, expected);
     }
 }

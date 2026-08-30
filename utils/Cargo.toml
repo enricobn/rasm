@@ -10,3 +10,7 @@ env_logger.workspace = true
 linked-hash-map.workspace = true
 log.workspace = true
 num_cpus.workspace = true
+quick-xml.workspace = true
+
+[dev-dependencies]
+tempdir.workspace = true
