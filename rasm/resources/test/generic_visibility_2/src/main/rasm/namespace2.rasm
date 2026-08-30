@@ -1,7 +1,7 @@
-	pub fn p2<T>(o: T) {
-		someFunction(o)
-		p3()
-	}
+pub fn p2<T>(o: T) {
+	someFunction(o)
+	p3()
+}
 
-	fn p3() {
-	}
+fn p3() {
+}

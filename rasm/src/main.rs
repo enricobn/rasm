@@ -161,8 +161,9 @@ fn main() -> Result<(), String> {
     let target = CompileTarget::from(
         matches.get_one::<String>("target").cloned().unwrap(),
         &project,
-        &command_line_options,
     );
+
+    //enable_log(false);
 
     if command_line_options.action == CommandLineAction::Server {
         rasm_server(project);
