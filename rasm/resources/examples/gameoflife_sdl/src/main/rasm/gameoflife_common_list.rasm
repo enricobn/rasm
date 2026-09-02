@@ -4,9 +4,17 @@ pub struct FullCell {
 }
 
 pub fn readCellFile(file: str) -> List<Cell> {
-    let linesEnumerate = listEnumerate(filterLines(lines(readFile(file))))
-
-    fmap(linesEnumerate, fn(line) { lineCells(line) })
+    readFile(file)
+    .match(
+        fn(ok) { 
+            let linesEnumerate = listEnumerate(filterLines(ok.lines))
+            linesEnumerate.fmap(fn(line) { lineCells(line) })
+         }, 
+        fn(err) {
+            println("Error reading ".add(file).add(": ").append(err))
+            List::Empty()
+         }
+    )
 }
 
 pub fn allCells(width: int, height: int) -> List<FullCell> {

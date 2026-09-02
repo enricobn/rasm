@@ -343,3 +343,8 @@ fn someIOError(msg: str) -> Option<IOError> {
     let error = IOError(msg)
     Some(error)
 }
+
+// TODO we don't handle error
+internal fn optIOError() -> Option<IOError> {
+    None()
+}

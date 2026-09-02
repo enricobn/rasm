@@ -1,0 +1,11 @@
+pub fn createFile(path: str, f: fn(File) -> Option<IOError>) -> Option<IOError> {
+   let file = createFile(path)
+
+   optIOError().map(fn(e) {
+      e.message(fn(m) { "Error creating file ".add(path).add(": ").add(m) })
+   }).match(fn(e) { Some(e) }, {
+      let result = f(file)
+      file.close()
+      result
+   })
+}

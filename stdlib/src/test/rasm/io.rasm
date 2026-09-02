@@ -1,0 +1,22 @@
+pub fn ioSuite() -> TestSuite {
+    TestSuite("io")
+    .add("write and read", writeAndReadTest)
+}
+
+pub fn writeAndReadTest() -> Assertions {
+    createFile("/tmp/writeAndReadTest", fn(file) {
+        file.println("Hello world")
+    }).match(fn(e) {
+        Assertions().fail(e.message)
+    }, fn() {
+        Assertions()
+    })
+}
+
+fn flattenOptionError<E>(result: Result<Option<E>,E>) -> Option<E> {
+    result.match(fn(optError) {
+        optError
+    }, fn(e) {
+        Some(e)
+    })
+}

@@ -559,7 +559,7 @@ fn test_error_handling1_c() {
     run_test_with_target(
         "error_handling",
         vec!["unknown_folder/error_handling.txt"],
-        "IOError(Bad file descriptor)\n",
+        "IOError(Error creating file unknown_folder/error_handling.txt: No such file or directory)\n",
         CompileTarget::C(COptions::default()),
     );
 }

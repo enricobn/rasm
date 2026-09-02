@@ -26,5 +26,6 @@ let suite = TestSuite("All")
     .add(charsSuite())
     .add(strSuite())
     .add(floatSuite())
+    .add(ioSuite())
 
 suite.run(argv(1))

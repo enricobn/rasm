@@ -4,13 +4,17 @@ pub struct FullCell {
 }
 
 pub fn readCellFile(file: str) -> List<Cell> {
-    let content = readFile(file)
-    // println(content);
-    let linesEnumerate = listEnumerate(filterLines(lines(content)))
-
-    let result = linesEnumerate.fmap(fn(line) { lineCells(line) })
-    // println(result);
-    result
+    readFile(file)
+    .match(
+        fn(ok) { 
+            let linesEnumerate = listEnumerate(filterLines(ok.lines))
+            linesEnumerate.fmap(fn(line) { lineCells(line) })
+         }, 
+        fn(err) {
+            println("Error reading ".add(file).add(": ").append(err))
+            List::Empty()
+         }
+    )
 }
 
 pub fn allCells(width: int, height: int) -> Vec<FullCell> {

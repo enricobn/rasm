@@ -5,7 +5,7 @@ pub fn STDOut() -> File /{
     return stdout;
 }/
 
-fn optIOError() -> Option<IOError> /{
+internal fn optIOError() -> Option<IOError> /{
     $include(<errno.h>)
     $include(<string.h>)
 

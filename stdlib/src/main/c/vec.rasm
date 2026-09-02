@@ -291,17 +291,6 @@ pub fn vecOf<T>(o1: T, o2: T, o3: T, o4: T, o5: T, o6: T, o7: T, o8: T) -> Vec<T
     return result;
 }/
 
-fn optIOError() -> Option<IOError> /{
-    $include(<errno.h>)
-
-    if (errno == 0) {
-        return $enumSimple(None);
-    } else {
-        void *error = $call(IOError, "IO Error");
-        return $call(Some, error: IOError);
-    }
-}/
-
 /*
 TODO it does not addRef/deref in call print of single element, so for now, we use the non fn implementation
 pub fn print<T>(file: File, vec: Vec<T>) -> Option<IOError> /{

@@ -26,11 +26,16 @@ fn testNumberLexer() -> Assertions {
 
 fn testFileLexer() -> Assertions {
     let s = readFile(fromRasmSourceFolder("test/resources/small.json"))
-    let tokensResult = jsonLexe(s)
-    createTokensResult(tokensResult, 
-        fn(assertions, tokens) {
-            assertions.assertEquals(47, tokens.len)
-        }
+    s.match(
+        fn(value) {  
+            let tokensResult = jsonLexe(value)
+            createTokensResult(tokensResult, 
+                fn(assertions, tokens) {
+                    assertions.assertEquals(47, tokens.len)
+                }
+            )
+        }, 
+        fn(error) { Assertions().fail(error.message) }
     )
 }
 

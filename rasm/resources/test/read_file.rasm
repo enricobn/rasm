@@ -1,2 +1,5 @@
-
-println(argv(1).getOrElse("File non specified.").readFile())
+argv(1).forEach(fn (path) {
+    readFile(path).forEach(fn(s) {
+        println(s)
+    })
+})

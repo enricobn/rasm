@@ -1,17 +1,13 @@
 argv(1).match(fn (fileName) {
-    let file = createFile(fileName)
-    let p = println(file, 'c').or(println(file, "Hello"))
-
-    forEach(p, fn(v) {
-                close(file)
-                println(v)
-                exitMain(0)
-            }
-        )
-
-    close(file)
-
-    print(readFile(fileName))
+    createFile(fileName, fn(file) {
+        println(file, 'c').or(println(file, "Hello"))
+    }).match(fn(err) { Error(err) }, { 
+        readFile(fileName)        
+     }).match(fn (ok) {
+        print(ok)
+     }, fn (err) {
+        println(err)
+     })
 }, {
    panic("No file specified")
 })

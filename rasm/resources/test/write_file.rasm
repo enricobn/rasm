@@ -1,12 +1,10 @@
+createFile("/tmp/file_for_write.txt", fn(file) {
+    println(file, "Hello world")
+    .orElse({ println(file, 1000)})
+}).forEach(println)
 
-let file = createFile("file_for_write.txt")
-
-println(file, "Hello world")
-.orElse({ println(file, 1000)})
-.match(fn(error) { panic(error.message) }, { })
-
-close(file)
-
-print(readFile("file_for_write.txt"))
-
-delete("file_for_write.txt")
+readFile("/tmp/file_for_write.txt")
+.match(print, fn (err) {
+    panic(err.toString)
+})
+delete("/tmp/file_for_write.txt")
