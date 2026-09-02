@@ -1,0 +1,12 @@
+pub struct HighScore {
+    score: int,
+    time: TimeVal
+}
+
+fn printHighScores(highScores: Vec<HighScore>) {
+    forEach(highScores, fn(highScore) {
+        print("high score ", highScore.scorre)
+        print(", ")
+        println(highScore.time)
+    })
+}

@@ -749,12 +749,15 @@ impl<'a> ASTTypeChecker<'a> {
                             )
                         };
 
+                        /*
                         if let Some(rt) = entry {
                             // can I do something when is generic? Take in account that it can be generic on something different
                             //if !rt.is_generic_or_any() {
                             return_type = Some(rt.clone());
                             //}
                         }
+                        */
+                        return_type = entry;
                     } else {
                         self.add_expr(
                             e,
@@ -811,7 +814,19 @@ impl<'a> ASTTypeChecker<'a> {
             }
         }
 
-        return_type.ok_or(errors)
+        let errors = errors
+            .into_iter()
+            .filter(|error| error.kind == ASTTypeCheckErroKind::Fatal)
+            .collect_vec();
+
+        if errors.is_empty() {
+            if return_type.is_none() {
+                return Err(errors);
+            }
+            return Ok(return_type.unwrap());
+        } else {
+            return Err(errors);
+        }
     }
 
     fn add_binding(
@@ -1435,7 +1450,7 @@ impl<'a> ASTTypeChecker<'a> {
         }
         let inside_a_generic_function = function.map_or(false, |f| f.is_generic());
 
-        let found = false;
+        let found = false; // call.function_name() == "scorre";
 
         if found {
             enable_log(true);
@@ -2594,7 +2609,9 @@ mod tests {
         transformations::enrich_container,
         type_check::{
             ast_modules_container::ASTModulesContainer,
-            ast_type_checker::{ASTTypeCheckEntry, ASTTypeCheckErroKind, ASTTypeCheckInfo},
+            ast_type_checker::{
+                ASTTypeCheckEntry, ASTTypeCheckErroKind, ASTTypeCheckError, ASTTypeCheckInfo,
+            },
         },
     };
     use rasm_parser::{
@@ -3509,6 +3526,37 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_type_check_12() {
+        let (checker, _, _, _) = check_project_with_profile(
+            "resources/test/ast_type_checker/ast_type_checker12.rasm",
+            &RasmProfile::Main,
+            true,
+        );
+
+        let fatal_errors = checker
+            .errors()
+            .iter()
+            .filter(|(_, error)| error.kind == ASTTypeCheckErroKind::Fatal)
+            .collect_vec();
+
+        assert_eq!(fatal_errors.len(), 1);
+
+        assert!(
+            last_error(&fatal_errors.iter().last().unwrap().1)
+                .message
+                .starts_with("no functions for scorre,")
+        );
+    }
+
+    fn last_error(error: &ASTTypeCheckError) -> &ASTTypeCheckError {
+        if error.inner.is_empty() {
+            error
+        } else {
+            last_error(&error.inner[error.inner.len() - 1])
+        }
+    }
+
     fn type_check_functions<'a>(
         s: &'a str,
         expected_entries: usize,
@@ -3661,7 +3709,7 @@ mod tests {
         ValContext,
         ASTModulesContainer,
     ) {
-        check_project_with_profile(path, &RasmProfile::Main, true)
+        check_project_with_profile(path, &RasmProfile::Main, false)
     }
 
     fn check_project_with_profile<'a>(
@@ -3726,7 +3774,7 @@ mod tests {
             ) {
                 errors
                     .iter()
-                    .filter(|e| e.kind != ASTTypeCheckErroKind::Fatal)
+                    //.filter(|e| e.kind != ASTTypeCheckErroKind::Fatal)
                     .for_each(|e| {
                         println!("type checker error {e}");
                     });
