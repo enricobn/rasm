@@ -18,3 +18,7 @@ pub fn flatten<OK,ERROR>(r: Result<Result<OK,ERROR>,ERROR>) -> Result<OK,ERROR> 
 pub fn fmap<OK,ERROR,T>(l: Result<OK,ERROR>, f: fn(OK) -> Result<T,ERROR>) -> Result<T,ERROR> {
     l.match(f, Error)
 }
+
+pub fn forEach<OK,ERROR>(o: Result<OK,ERROR>, f: fn(OK) -> ()) {
+    o.match(f, fn(ERROR) {})
+}

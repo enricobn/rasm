@@ -111,8 +111,6 @@ pub fn readFile(file: File) -> str /{
 
     $call(sysRead, ebx: File, eax:str, edx:int)
 
-    $call(sysClose, ebx: File)
-
     pop     eax
     add     dword edx, [eax]
     mov     byte    [edx],0     ;
