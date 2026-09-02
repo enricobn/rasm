@@ -6,6 +6,7 @@ use std::{
         Arc,
         atomic::{AtomicUsize, Ordering},
     },
+    time::{Duration, Instant},
 };
 
 use itertools::Itertools;
@@ -202,8 +203,8 @@ impl<'a> EnhTypeCheck<'a> {
                     self.new_functions.get(&function_name).unwrap().clone();
 
                 let mut new_functions = Vec::new();
-                // let start = Instant::now();
-                // let elapsed_message = format!("{function} : {}", function.index);
+                let start = Instant::now();
+                let elapsed_message = format!("{function} : {}", function.index);
 
                 match self
                     .transform_function(
@@ -231,12 +232,10 @@ impl<'a> EnhTypeCheck<'a> {
                     None => {}
                 }
 
-                /*
                 let end = Instant::now();
-                if end - start > Duration::from_millis(100) {
+                if end - start > Duration::from_millis(1) {
                     info!("function took {:?} : {elapsed_message}", end - start,);
                 }
-                */
 
                 for (f, s, original_call_namespace) in new_functions {
                     let new_function_name = f.name.clone();
