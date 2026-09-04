@@ -1666,44 +1666,7 @@ impl DefaultFunction {
         let parameters = self
             .param_types
             .iter()
-            .map(|it| match it {
-                EnhASTType::Builtin(kind) => match kind {
-                    EnhBuiltinTypeKind::String => Ok(EnhASTExpression::Value(
-                        ASTValue::ASTStringValue(String::new()),
-                        EnhASTIndex::none(),
-                    )),
-                    EnhBuiltinTypeKind::Integer => Ok(EnhASTExpression::Value(
-                        ASTValue::ASTIntegerValue(0),
-                        EnhASTIndex::none(),
-                    )),
-                    EnhBuiltinTypeKind::Boolean => Ok(EnhASTExpression::Value(
-                        ASTValue::ASTBooleanValue(true),
-                        EnhASTIndex::none(),
-                    )),
-                    EnhBuiltinTypeKind::Char => Ok(EnhASTExpression::Value(
-                        ASTValue::ASTCharValue("a".to_string()),
-                        EnhASTIndex::none(),
-                    )),
-                    EnhBuiltinTypeKind::Float => Ok(EnhASTExpression::Value(
-                        ASTValue::ASTFloatValue(1.0),
-                        EnhASTIndex::none(),
-                    )),
-                    EnhBuiltinTypeKind::Lambda {
-                        parameters: _,
-                        return_type: _,
-                    } => Ok(EnhASTExpression::Any(it.clone())),
-                },
-                EnhASTType::Generic(_, name, _) => {
-                    Err(format!("Generics are not supported here: {name}"))
-                }
-                EnhASTType::Custom {
-                    namespace: _,
-                    name: _,
-                    param_types: _,
-                    index: _,
-                } => Ok(EnhASTExpression::Any(it.clone())),
-                EnhASTType::Unit => Err(format!("Parameters cannot have unit type")),
-            })
+            .map(|it| Self::fake_expression_from_type(it))
             .collect::<Result<Vec<_>, _>>()?;
         let call = EnhASTFunctionCall {
             namespace: namespace.clone(),
@@ -1717,5 +1680,46 @@ impl DefaultFunction {
         };
 
         Ok(call)
+    }
+
+    fn fake_expression_from_type(enh_type: &EnhASTType) -> Result<EnhASTExpression, String> {
+        match enh_type {
+            EnhASTType::Builtin(kind) => match kind {
+                EnhBuiltinTypeKind::String => Ok(EnhASTExpression::Value(
+                    ASTValue::ASTStringValue(String::new()),
+                    EnhASTIndex::none(),
+                )),
+                EnhBuiltinTypeKind::Integer => Ok(EnhASTExpression::Value(
+                    ASTValue::ASTIntegerValue(0),
+                    EnhASTIndex::none(),
+                )),
+                EnhBuiltinTypeKind::Boolean => Ok(EnhASTExpression::Value(
+                    ASTValue::ASTBooleanValue(true),
+                    EnhASTIndex::none(),
+                )),
+                EnhBuiltinTypeKind::Char => Ok(EnhASTExpression::Value(
+                    ASTValue::ASTCharValue("a".to_string()),
+                    EnhASTIndex::none(),
+                )),
+                EnhBuiltinTypeKind::Float => Ok(EnhASTExpression::Value(
+                    ASTValue::ASTFloatValue(1.0),
+                    EnhASTIndex::none(),
+                )),
+                EnhBuiltinTypeKind::Lambda {
+                    parameters: _,
+                    return_type: _,
+                } => Ok(EnhASTExpression::Any(enh_type.clone())),
+            },
+            EnhASTType::Generic(_, name, _) => {
+                Err(format!("Generics are not supported here: {name}"))
+            }
+            EnhASTType::Custom {
+                namespace: _,
+                name: _name,
+                param_types: _param_types,
+                index: _,
+            } => Ok(EnhASTExpression::Any(enh_type.clone())),
+            EnhASTType::Unit => Err(format!("Parameters cannot have unit type")),
+        }
     }
 }

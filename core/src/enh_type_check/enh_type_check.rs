@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     iter::zip,
     ops::Deref,
     sync::{
@@ -1026,11 +1026,14 @@ impl<'a> EnhTypeCheck<'a> {
         )> = Vec::new();
         let mut errors = Vec::new();
 
-        let mut original_functions = Vec::new();
+        let mut original_functions = self.get_functions(module, &call);
 
+        /*
+        let mut original_functions = Vec::new();
         if let Some(f) = self.get_single_function(module, &call) {
             original_functions = vec![f];
         }
+        */
 
         let first_type = self.get_first_type(module, &call, val_context);
 
@@ -1541,6 +1544,39 @@ impl<'a> EnhTypeCheck<'a> {
             }
         } else {
             None
+        }
+    }
+
+    fn get_functions<'b>(
+        &self,
+        module: &'b InputModule,
+        fc: &'b EnhASTFunctionCall,
+    ) -> Vec<&'b EnhASTFunctionDef> {
+        if let Some(e) = self.get_type_check_entry(&fc.index) {
+            if let ASTTypeCheckInfo::Call(_, vec, _) = e.info() {
+                let ids: HashSet<usize> =
+                    HashSet::from_iter(vec.iter().map(|(_, index)| index.position().id));
+                let functions_by_original_name: Vec<&'b EnhASTFunctionDef> = module
+                    .find_functions_by_original_name(&fc.original_function_name)
+                    .iter()
+                    .filter(|it| it.generic_types.is_empty())
+                    .collect();
+
+                let result = functions_by_original_name
+                    .into_iter()
+                    .filter(|it| ids.contains(&it.index.position().id))
+                    .collect_vec();
+
+                if result.len() == vec.len() {
+                    result
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
         }
     }
 
