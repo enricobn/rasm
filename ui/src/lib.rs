@@ -26,7 +26,7 @@ use rasm_core::{
     project::RasmProject,
     type_check::{
         ast_modules_container::ASTModulesContainer,
-        ast_type_checker::{ASTTypeChecker, ASTTypeCheckerResult},
+        ast_type_checker::{ASTTypeChecker, ASTTypeCheckerEvaluationKind, ASTTypeCheckerResult},
     },
 };
 use rasm_parser::{
@@ -94,7 +94,7 @@ impl UI {
             bodies.push((module.body.clone(), id.clone(), namespace.clone()));
         }
 
-        let mut ast_type_checker = ASTTypeChecker::new();
+        let mut ast_type_checker = ASTTypeChecker::new(ASTTypeCheckerEvaluationKind::Strict);
 
         for (body, id, namespace) in bodies {
             let mut val_context = ValContext::new(None);
@@ -246,55 +246,56 @@ impl UI {
         let (enh_id, enh_ns) = catalog.catalog_info(module_info.id()).unwrap();
         let info = EnhModuleInfo::new(enh_id.clone(), enh_ns.clone());
 
-        let (type_checker_result, info) =
-            if let Some(module) = modules_container.module(module_info.id()) {
-                let mut ast_type_checker = ASTTypeChecker::new();
-                let mut val_context = ValContext::new(None);
+        let (type_checker_result, info) = if let Some(module) =
+            modules_container.module(module_info.id())
+        {
+            let mut ast_type_checker = ASTTypeChecker::new(ASTTypeCheckerEvaluationKind::Strict);
+            let mut val_context = ValContext::new(None);
 
-                let start = Instant::now();
+            let start = Instant::now();
 
-                let mut tmp_static_val_context = ValContext::new(None);
+            let mut tmp_static_val_context = ValContext::new(None);
 
-                if let Err(_) = ast_type_checker.add_body(
-                    &mut val_context,
-                    &mut tmp_static_val_context,
-                    &module.body,
-                    None,
+            if let Err(_) = ast_type_checker.add_body(
+                &mut val_context,
+                &mut tmp_static_val_context,
+                &module.body,
+                None,
+                &info.module_namespace(),
+                &info.module_id(),
+                modules_container,
+                None,
+            ) {
+                println!("Errors in selected module body");
+            }
+
+            for function in module.functions.iter() {
+                ast_type_checker.add_function(
+                    function, //.fix_namespaces(&em).fix_generics(),
+                    static_val_context,
                     &info.module_namespace(),
                     &info.module_id(),
                     modules_container,
-                    None,
-                ) {
-                    println!("Errors in selected module body");
-                }
+                );
+            }
 
-                for function in module.functions.iter() {
-                    ast_type_checker.add_function(
-                        function, //.fix_namespaces(&em).fix_generics(),
-                        static_val_context,
-                        &info.module_namespace(),
-                        &info.module_id(),
-                        modules_container,
-                    );
-                }
+            if !ast_type_checker.errors().is_empty() {
+                println!("selected_module errors");
+                ast_type_checker
+                    .errors()
+                    .iter()
+                    .for_each(|(_, error)| println!("{error}"));
+            }
 
-                if !ast_type_checker.errors().is_empty() {
-                    println!("selected_module errors");
-                    ast_type_checker
-                        .errors()
-                        .iter()
-                        .for_each(|(_, error)| println!("{error}"));
-                }
+            println!("selected_module takes {:?}", start.elapsed());
 
-                println!("selected_module takes {:?}", start.elapsed());
-
-                (ast_type_checker.result().clone(), info)
-            } else {
-                (
-                    ASTTypeCheckerResult::new(),
-                    EnhModuleInfo::new(EnhModuleId::none(), EnhASTNameSpace::global()),
-                )
-            };
+            (ast_type_checker.result().clone(), info)
+        } else {
+            (
+                ASTTypeCheckerResult::new(),
+                EnhModuleInfo::new(EnhModuleId::none(), EnhASTNameSpace::global()),
+            )
+        };
 
         // enhanced_ast_module.print();
 

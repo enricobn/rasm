@@ -4,7 +4,7 @@ pub struct HighScore {
 }
 
 fn printHighScores(highScores: Vec<HighScore>) {
-    forEach(highScores, fn(highScore) {
+    highScores.forEach(fn(highScore) {
         print("high score ", highScore.scorre)
         print(", ")
         println(highScore.time)

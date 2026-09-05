@@ -717,7 +717,8 @@ mod tests {
         commandline::RasmProfile,
         test_utils::project_and_container,
         type_check::{
-            ast_type_checker::ASTTypeChecker, functions_dependencies::function_dependencies,
+            ast_type_checker::{ASTTypeChecker, ASTTypeCheckerEvaluationKind},
+            functions_dependencies::function_dependencies,
         },
     };
 
@@ -787,7 +788,10 @@ mod tests {
 
         let function = module.functions.first().unwrap();
 
-        let (type_checker, _) = ASTTypeChecker::from_modules_container(&container);
+        let (type_checker, _) = ASTTypeChecker::from_modules_container(
+            &container,
+            ASTTypeCheckerEvaluationKind::Strict,
+        );
 
         function_dependencies(
             function,

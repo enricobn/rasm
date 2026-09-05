@@ -298,23 +298,35 @@ impl ASTTypeCheckerResult {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ASTTypeCheckerEvaluationKind {
+    Strict,
+    Relaxed,
+}
+
 pub struct ASTTypeChecker<'a> {
+    evaluation_kind: ASTTypeCheckerEvaluationKind,
     parent: Option<&'a ASTTypeCheckerResult>,
     result: ASTTypeCheckerResult,
     errors: LinkedHashMap<usize, ASTTypeCheckError>,
 }
 
 impl<'a> ASTTypeChecker<'a> {
-    pub fn new() -> Self {
+    pub fn new(evaluation_kind: ASTTypeCheckerEvaluationKind) -> Self {
         Self {
+            evaluation_kind,
             parent: None,
             result: ASTTypeCheckerResult::new(),
             errors: LinkedHashMap::new(),
         }
     }
 
-    pub fn with_parent(parent: &'a ASTTypeCheckerResult) -> Self {
+    pub fn with_parent(
+        parent: &'a ASTTypeCheckerResult,
+        evaluation_kind: ASTTypeCheckerEvaluationKind,
+    ) -> Self {
         Self {
+            evaluation_kind,
             parent: Some(parent),
             result: ASTTypeCheckerResult::new(),
             errors: LinkedHashMap::new(),
@@ -400,8 +412,11 @@ impl<'a> ASTTypeChecker<'a> {
         );
     }
 
-    pub fn from_modules_container(modules_container: &ASTModulesContainer) -> (Self, ValContext) {
-        let mut type_checker = ASTTypeChecker::new();
+    pub fn from_modules_container(
+        modules_container: &ASTModulesContainer,
+        evaluation_kind: ASTTypeCheckerEvaluationKind,
+    ) -> (Self, ValContext) {
+        let mut type_checker = ASTTypeChecker::new(evaluation_kind);
         let mut static_val_context = ValContext::new(None);
 
         let modules = modules_container.modules();
@@ -467,9 +482,9 @@ impl<'a> ASTTypeChecker<'a> {
             .map(|chunk| {
                 enable_log(log_enabled);
 
-                let mut type_checker_chunk = ASTTypeChecker::new();
+                let mut type_checker_chunk = ASTTypeChecker::new(evaluation_kind);
                 for (id, namespace, function) in chunk {
-                    let found = false;
+                    let found = false; //function.name == "printHighScores";
                     if found {
                         //println!("found {} function", function.name);
                         enable_log(true);
@@ -1430,6 +1445,62 @@ impl<'a> ASTTypeChecker<'a> {
         }
     }
 
+    fn warm_up_call_parameters(
+        &'a self,
+        index: &ASTIndex,
+        call: &ASTFunctionCall,
+        val_context: &mut ValContext,
+        statics: &mut ValContext,
+        modules_container: &ASTModulesContainer,
+        function: Option<&ASTFunctionDef>,
+    ) -> (ASTTypeChecker<'a>, Option<ASTTypeCheckError>) {
+        let module_namespace = index.module_namespace();
+        let module_id = index.module_id();
+        let mut internal_type_checker =
+            ASTTypeChecker::with_parent(&self.result, self.evaluation_kind);
+        let mut error = None;
+
+        for (i, e) in call.parameters().iter().enumerate() {
+            if matches!(e, ASTExpression::ASTLambdaExpression(_)) {
+                continue;
+            }
+
+            debug_i!("trying to resolve parameter {i}: {e}");
+            indent!();
+
+            if internal_type_checker
+                .add_expr(
+                    e,
+                    val_context,
+                    statics,
+                    None,
+                    module_namespace,
+                    module_id,
+                    modules_container,
+                    function,
+                )
+                .is_none()
+            {
+                if let Some(ast_type_check_error) =
+                    internal_type_checker.errors.get(&e.position().id)
+                {
+                    if ast_type_check_error.kind == ASTTypeCheckErroKind::Fatal {
+                        error = Some(ASTTypeCheckError::new_with_inner(
+                            ASTTypeCheckErroKind::Fatal,
+                            index.clone(),
+                            format!("error resolving parameter {e} in {call}"),
+                            vec![ast_type_check_error.clone()],
+                        ));
+                    }
+                }
+            }
+
+            dedent!();
+        }
+
+        (internal_type_checker, error)
+    }
+
     fn add_call(
         &mut self,
         index: &ASTIndex,
@@ -1602,6 +1673,21 @@ impl<'a> ASTTypeChecker<'a> {
         let mut inner_errors = Vec::new();
 
         if candidate_functions.is_empty() {
+            let (internal_type_checker, _) = self.warm_up_call_parameters(
+                index,
+                call,
+                val_context,
+                statics,
+                modules_container,
+                function,
+            );
+
+            if self.evaluation_kind == ASTTypeCheckerEvaluationKind::Relaxed {
+                for (id, entry) in internal_type_checker.get_exact() {
+                    self.insert_arc_by_id(id, entry);
+                }
+            }
+
             self.add_error(
                 if inside_a_generic_function {
                     ASTTypeCheckErroKind::Error
@@ -1627,6 +1713,10 @@ impl<'a> ASTTypeChecker<'a> {
                 Vec<(usize, Arc<ASTTypeCheckEntry>)>,
                 ASTTypeCheckerResult,
             )> = Vec::new();
+            let mut incompatible_functions: Vec<(
+                &ASTFunctionSignatureEntry,
+                ASTTypeCheckerResult,
+            )> = Vec::new();
             if call.parameters().is_empty() {
                 for signature in candidate_functions.into_iter() {
                     compatible_functions.push((signature, Vec::new(), ASTTypeCheckerResult::new()));
@@ -1643,84 +1733,61 @@ impl<'a> ASTTypeChecker<'a> {
                    parameters against each candidate.
                 */
                 if candidate_functions.len() > 1 {
-                    let mut internal_type_checker = ASTTypeChecker::with_parent(&self.result);
-
-                    for (i, e) in call.parameters().iter().enumerate() {
-                        if matches!(e, ASTExpression::ASTLambdaExpression(_)) {
-                            continue;
+                    let (internal_type_checker, error) = self.warm_up_call_parameters(
+                        index,
+                        call,
+                        val_context,
+                        statics,
+                        modules_container,
+                        function,
+                    );
+                    if let Some(error) = error {
+                        for (id, entry) in internal_type_checker.get_exact() {
+                            self.insert_arc_by_id(id, entry);
                         }
-
-                        debug_i!("trying to resolve parameter {i}: {e}");
-                        indent!();
-
-                        if internal_type_checker
-                            .add_expr(
-                                e,
-                                val_context,
-                                statics,
-                                None,
-                                module_namespace,
-                                module_id,
-                                modules_container,
-                                function,
-                            )
-                            .is_none()
-                        {
-                            if let Some(error) = internal_type_checker.errors.get(&e.position().id)
-                            {
-                                if error.kind == ASTTypeCheckErroKind::Fatal {
-                                    self.add_error_with_inner(
-                                        ASTTypeCheckErroKind::Fatal,
-                                        index.clone(),
-                                        format!("error resolving parameter {e} in {call}"),
-                                        vec![error.clone()],
-                                    );
-
-                                    return None;
-                                }
-                            }
-                        }
-
+                        self.errors.insert(index.position().id, error);
                         dedent!();
-                    }
 
-                    let parameter_filters: Vec<Option<ASTTypeFilter>> = call
-                        .parameters()
-                        .iter()
-                        .map(|e| {
-                            internal_type_checker
-                                .get(e.position().id)
-                                .and_then(|it| it.filter().clone())
-                        })
-                        .collect();
+                        return None;
+                    } else {
+                        let parameter_filters: Vec<Option<ASTTypeFilter>> = call
+                            .parameters()
+                            .iter()
+                            .map(|e| {
+                                internal_type_checker
+                                    .get(e.position().id)
+                                    .and_then(|it| it.filter().clone())
+                            })
+                            .collect();
 
-                    for (id, entry) in internal_type_checker.get_exact() {
-                        self.insert_arc_by_id(id, entry);
-                    }
+                        for (id, entry) in internal_type_checker.get_exact() {
+                            self.insert_arc_by_id(id, entry);
+                        }
 
-                    let c = candidate_functions.len();
-                    candidate_functions = candidate_functions
-                        .into_iter()
-                        .filter(|entry| {
-                            zip(&parameter_filters, &entry.signature.parameters_types).all(
-                                |(filter, parameter_type)| {
-                                    filter.as_ref().map_or(true, |f| {
-                                        f.is_compatible(
-                                            parameter_type,
-                                            &entry.namespace,
-                                            modules_container,
-                                        )
-                                    })
-                                },
-                            )
-                        })
-                        .collect_vec();
-                    if false && c != candidate_functions.len() {
-                        debug_i!(
-                            "filtered {} candidates of {}",
-                            c - candidate_functions.len(),
-                            c
-                        );
+                        let c = candidate_functions.len();
+                        candidate_functions = candidate_functions
+                            .into_iter()
+                            .filter(|entry| {
+                                zip(&parameter_filters, &entry.signature.parameters_types).all(
+                                    |(filter, parameter_type)| {
+                                        filter.as_ref().map_or(true, |f| {
+                                            f.is_compatible(
+                                                parameter_type,
+                                                &entry.namespace,
+                                                modules_container,
+                                            )
+                                        })
+                                    },
+                                )
+                            })
+                            .collect_vec();
+                        if false && c != candidate_functions.len() {
+                            debug_i!(
+                                "filtered {} candidates of {}",
+                                c - candidate_functions.len(),
+                                c
+                            );
+                        }
                     }
                 }
 
@@ -1769,7 +1836,8 @@ impl<'a> ASTTypeChecker<'a> {
                     let mut resolved_signature_types: Vec<Option<ASTType>> =
                         vec![None; call.parameters().len()];
 
-                    let mut internal_type_checker = ASTTypeChecker::with_parent(&self.result);
+                    let mut internal_type_checker =
+                        ASTTypeChecker::with_parent(&self.result, self.evaluation_kind);
                     let mut invalid_function = false;
 
                     let mut function_errors = Vec::new();
@@ -2000,6 +2068,7 @@ impl<'a> ASTTypeChecker<'a> {
                         dedent!();
                         debug_i!("function is compatible");
                     } else {
+                        incompatible_functions.push((signature, internal_type_checker.result));
                         dedent!();
                         debug_i!(
                             "parameter_types_filters.iter().all(Option::is_some).len() != call.parameters().len(): {} != {}",
@@ -2107,99 +2176,114 @@ impl<'a> ASTTypeChecker<'a> {
                     enable_log(false);
                 }
                 process_result
-            } else if compatible_functions.len() > 1 {
-                for i in 0..call.parameters().len() {
-                    let mut entries = compatible_functions
-                        .iter()
-                        .map(|it| it.1[i].1.clone())
-                        .collect_vec();
-                    entries.dedup();
-
-                    if entries.len() == 1 {
-                        let entry = entries.pop().unwrap();
-                        self.insert_arc_by_id(call.parameters()[i].position().id, entry);
-                    }
-                }
-
-                self.add_error(
-                    ASTTypeCheckErroKind::Warning,
-                    index.clone(),
-                    format!(
-                        "found more than one valid function for {}\n{}",
-                        call.function_name(),
-                        compatible_functions
+            } else {
+                if compatible_functions.len() > 1 {
+                    for i in 0..call.parameters().len() {
+                        let mut entries = compatible_functions
                             .iter()
-                            .map(|it| format!(
-                                "$indent  {} ->\n{}",
-                                it.0.signature.clone().remove_generic_prefix(),
-                                it.1.iter()
-                                    .map(|it| format!("$indent    {}", it.1))
-                                    .collect::<Vec<String>>()
-                                    .join("\n")
-                            ))
-                            .join("\n")
-                    ),
-                );
+                            .map(|it| it.1[i].1.clone())
+                            .collect_vec();
+                        entries.dedup();
 
-                dedent!();
+                        if entries.len() == 1 {
+                            let entry = entries.pop().unwrap();
+                            self.insert_arc_by_id(call.parameters()[i].position().id, entry);
+                        }
+                    }
 
-                if found {
-                    enable_log(false);
-                }
-
-                let signatures = compatible_functions
-                    .iter()
-                    .map(|it| &it.0.signature)
-                    .collect_vec();
-
-                Some(
-                    self.insert(
+                    self.add_error(
+                        ASTTypeCheckErroKind::Warning,
                         index.clone(),
-                        ASTTypeCheckEntry::new(
+                        format!(
+                            "found more than one valid function for {}\n{}",
+                            call.function_name(),
+                            compatible_functions
+                                .iter()
+                                .map(|it| format!(
+                                    "$indent  {} ->\n{}",
+                                    it.0.signature.clone().remove_generic_prefix(),
+                                    it.1.iter()
+                                        .map(|it| format!("$indent    {}", it.1))
+                                        .collect::<Vec<String>>()
+                                        .join("\n")
+                                ))
+                                .join("\n")
+                        ),
+                    );
+
+                    dedent!();
+
+                    if found {
+                        enable_log(false);
+                    }
+
+                    let signatures = compatible_functions
+                        .iter()
+                        .map(|it| &it.0.signature)
+                        .collect_vec();
+
+                    let result = Some(
+                        self.insert(
                             index.clone(),
-                            Self::get_filter_from_signatures(
-                                module_namespace,
-                                module_id,
-                                &signatures,
-                                expected_expression_type,
-                            ),
-                            ASTTypeCheckInfo::Call(
-                                call.function_name().clone(),
-                                compatible_functions
-                                    .iter()
-                                    .map(|it| {
-                                        (
-                                            it.0.signature.clone(),
-                                            ASTIndex::new(
-                                                it.0.namespace.clone(),
-                                                it.0.module_id.clone(),
-                                                it.0.position.clone(),
-                                            ),
-                                        )
-                                    })
-                                    .collect(),
-                                call.is_macro(),
+                            ASTTypeCheckEntry::new(
+                                index.clone(),
+                                Self::get_filter_from_signatures(
+                                    module_namespace,
+                                    module_id,
+                                    &signatures,
+                                    expected_expression_type,
+                                ),
+                                ASTTypeCheckInfo::Call(
+                                    call.function_name().clone(),
+                                    compatible_functions
+                                        .iter()
+                                        .map(|it| {
+                                            (
+                                                it.0.signature.clone(),
+                                                ASTIndex::new(
+                                                    it.0.namespace.clone(),
+                                                    it.0.module_id.clone(),
+                                                    it.0.position.clone(),
+                                                ),
+                                            )
+                                        })
+                                        .collect(),
+                                    call.is_macro(),
+                                ),
                             ),
                         ),
-                    ),
-                )
-            } else {
-                self.add_error_with_inner(
-                    if inside_a_generic_function {
-                        ASTTypeCheckErroKind::Warning
-                    } else {
-                        ASTTypeCheckErroKind::Fatal
-                    },
-                    index.clone(),
-                    format!("cannot find a valid function for {}", call.function_name()),
-                    inner_errors,
-                );
-                dedent!();
-                if found {
-                    enable_log(false);
-                }
+                    );
 
-                None
+                    //let (_, _, ast_type_checker_result) = compatible_functions.pop().unwrap();
+
+                    //self.result.extend(ast_type_checker_result);
+
+                    result
+                } else {
+                    if incompatible_functions.len() > 0
+                        && self.evaluation_kind == ASTTypeCheckerEvaluationKind::Relaxed
+                    {
+                        let (_, result) = incompatible_functions.pop().unwrap();
+
+                        self.result.extend(result);
+                    }
+                    self.add_error_with_inner(
+                        if inside_a_generic_function {
+                            ASTTypeCheckErroKind::Warning
+                        } else {
+                            ASTTypeCheckErroKind::Fatal
+                        },
+                        index.clone(),
+                        format!("cannot find a valid function for {}", call.function_name()),
+                        inner_errors,
+                    );
+                    dedent!();
+                    if found {
+                        enable_log(false);
+                    }
+
+                    None
+                }
             };
 
             let elapsed = start.elapsed();
@@ -2611,6 +2695,7 @@ mod tests {
             ast_modules_container::ASTModulesContainer,
             ast_type_checker::{
                 ASTTypeCheckEntry, ASTTypeCheckErroKind, ASTTypeCheckError, ASTTypeCheckInfo,
+                ASTTypeCheckerEvaluationKind,
             },
         },
     };
@@ -2645,7 +2730,8 @@ mod tests {
             .get_module(path, &target, &profile.principal_sub_project(), true)
             .unwrap();
 
-        let mut function_type_checker = ASTTypeChecker::new();
+        let mut function_type_checker =
+            ASTTypeChecker::new(super::ASTTypeCheckerEvaluationKind::Strict);
 
         for function in module.functions.into_iter() {
             function_type_checker.add_function(
@@ -3001,7 +3087,7 @@ mod tests {
             false,
         );
 
-        let mut type_checker = ASTTypeChecker::new();
+        let mut type_checker = ASTTypeChecker::new(ASTTypeCheckerEvaluationKind::Strict);
         let mut val_context = ValContext::new(None);
         let mut statics = ValContext::new(None);
 
@@ -3093,7 +3179,7 @@ mod tests {
             false,
         );
 
-        let mut type_checker = ASTTypeChecker::new();
+        let mut type_checker = ASTTypeChecker::new(ASTTypeCheckerEvaluationKind::Strict);
         let mut val_context = ValContext::new(None);
         let mut statics = ValContext::new(None);
 
@@ -3222,6 +3308,7 @@ mod tests {
             "../rasm/resources/test/type_check/type_check_3.rasm",
             &RasmProfile::Main,
             false,
+            ASTTypeCheckerEvaluationKind::Strict,
         );
 
         let entries = tc
@@ -3463,8 +3550,12 @@ mod tests {
     fn test_type_check_stdlib_vec() {
         init_minimal_log();
         enable_log(false);
-        let (tc, catalog, _, container) =
-            check_project_with_profile("../stdlib", &RasmProfile::Test, true);
+        let (tc, catalog, _, container) = check_project_with_profile(
+            "../stdlib",
+            &RasmProfile::Test,
+            true,
+            ASTTypeCheckerEvaluationKind::Strict,
+        );
 
         /*
         for error in tc.errors().values() {
@@ -3532,6 +3623,7 @@ mod tests {
             "resources/test/ast_type_checker/ast_type_checker12.rasm",
             &RasmProfile::Main,
             true,
+            ASTTypeCheckerEvaluationKind::Strict,
         );
 
         let fatal_errors = checker
@@ -3547,6 +3639,35 @@ mod tests {
                 .message
                 .starts_with("no functions for scorre,")
         );
+    }
+
+    /// Checks that even if there are errors, the type checker still works for the rest of the file,
+    /// if there are valid expressions
+    #[test]
+    fn test_type_check_valid_expressions() {
+        init_minimal_log();
+
+        enable_log(false);
+
+        let (checker, catalog, _, container) = check_project_with_profile(
+            "resources/test/ast_type_checker/ast_type_checker12.rasm",
+            &RasmProfile::Main,
+            true,
+            ASTTypeCheckerEvaluationKind::Relaxed,
+        );
+
+        checker
+            .get(
+                get_id(
+                    "resources/test/ast_type_checker/ast_type_checker12.rasm",
+                    &catalog,
+                    &container,
+                    9,
+                    9,
+                )
+                .unwrap(),
+            )
+            .unwrap();
     }
 
     fn last_error(error: &ASTTypeCheckError) -> &ASTTypeCheckError {
@@ -3589,7 +3710,7 @@ mod tests {
 
         init_minimal_log();
 
-        let mut checker = ASTTypeChecker::new();
+        let mut checker = ASTTypeChecker::new(ASTTypeCheckerEvaluationKind::Strict);
         for function in module.functions {
             enable_log(true);
             checker.add_function(
@@ -3709,13 +3830,19 @@ mod tests {
         ValContext,
         ASTModulesContainer,
     ) {
-        check_project_with_profile(path, &RasmProfile::Main, false)
+        check_project_with_profile(
+            path,
+            &RasmProfile::Main,
+            false,
+            ASTTypeCheckerEvaluationKind::Strict,
+        )
     }
 
     fn check_project_with_profile<'a>(
         path: &str,
         profile: &RasmProfile,
         ignore_errors: bool,
+        kind: ASTTypeCheckerEvaluationKind,
     ) -> (
         ASTTypeChecker<'a>,
         impl ModulesCatalog<EnhModuleId, EnhASTNameSpace>,
@@ -3732,7 +3859,7 @@ mod tests {
 
         let container = enrich_container(&target, &mut statics, container, &catalog, false, false);
 
-        let result = ASTTypeChecker::from_modules_container(&container);
+        let result = ASTTypeChecker::from_modules_container(&container, kind);
 
         if !ignore_errors {
             let errors = result
@@ -3822,7 +3949,7 @@ mod tests {
     {
         let target = CompileTarget::C(COptions::default());
         let (project, modules_container) = project_and_container(&target, &project_path);
-        let function_type_checker = ASTTypeChecker::new();
+        let function_type_checker = ASTTypeChecker::new(ASTTypeCheckerEvaluationKind::Strict);
 
         let (module, _, info) = project
             .get_module(

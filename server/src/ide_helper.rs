@@ -21,6 +21,7 @@ use rasm_core::transformations::{enrich_container, enrich_module};
 use rasm_core::type_check::ast_modules_container::{ASTModulesContainer, ASTTypeFilter};
 use rasm_core::type_check::ast_type_checker::{
     ASTTypeCheckErroKind, ASTTypeCheckError, ASTTypeCheckInfo, ASTTypeChecker,
+    ASTTypeCheckerEvaluationKind,
 };
 use rasm_parser::catalog::modules_catalog::ModulesCatalog;
 use rasm_parser::catalog::{ASTIndex, ModuleId, ModuleInfo, ModuleNamespace};
@@ -389,7 +390,10 @@ impl IDEHelper {
     fn calculate_selectable_items_and_errors(
         modules_container: &ASTModulesContainer,
     ) -> (Vec<IDESelectableItem>, Vec<ASTTypeCheckError>) {
-        let (type_checker, _) = ASTTypeChecker::from_modules_container(modules_container);
+        let (type_checker, _) = ASTTypeChecker::from_modules_container(
+            modules_container,
+            ASTTypeCheckerEvaluationKind::Relaxed,
+        );
 
         let mut selectable_items = Vec::new();
 

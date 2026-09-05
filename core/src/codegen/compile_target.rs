@@ -48,7 +48,7 @@ use crate::transformations::typed_functions_creator::TypedFunctionsCreator;
 
 use crate::enh_type_check::typed_ast::{ASTTypedModule, DefaultFunction};
 use crate::type_check::ast_modules_container::ASTModulesContainer;
-use crate::type_check::ast_type_checker::ASTTypeChecker;
+use crate::type_check::ast_type_checker::{ASTTypeChecker, ASTTypeCheckerEvaluationKind};
 
 use super::asm::backend::BackendNasmi386;
 use super::asm::code_gen_asm::CodeGenAsm;
@@ -420,7 +420,10 @@ impl CompileTarget {
             })
             .collect::<Vec<_>>();
 
-        let (ast_type_check, _) = ASTTypeChecker::from_modules_container(&enriched_container);
+        let (ast_type_check, _) = ASTTypeChecker::from_modules_container(
+            &enriched_container,
+            ASTTypeCheckerEvaluationKind::Strict,
+        );
 
         info!("AST type check ended in {:?}", start.elapsed());
 

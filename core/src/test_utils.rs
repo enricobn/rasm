@@ -18,7 +18,10 @@ use crate::{
     macros::{macro_call_extractor::extract_macro_calls, macro_compiler::resolve_macros},
     project::RasmProject,
     transformations::enrich_container,
-    type_check::{ast_modules_container::ASTModulesContainer, ast_type_checker::ASTTypeChecker},
+    type_check::{
+        ast_modules_container::ASTModulesContainer,
+        ast_type_checker::{ASTTypeChecker, ASTTypeCheckerEvaluationKind},
+    },
 };
 
 pub fn project_and_container(
@@ -79,7 +82,7 @@ pub fn project_to_ast_typed_module(
         &mut statics,
         target,
         false,
-        ASTTypeChecker::from_modules_container(&container).0,
+        ASTTypeChecker::from_modules_container(&container, ASTTypeCheckerEvaluationKind::Strict).0,
         &catalog,
         &container,
         false,
@@ -147,7 +150,7 @@ pub fn project_to_ast_typed_module_with_macros(
         &mut statics,
         target,
         false,
-        ASTTypeChecker::from_modules_container(&container).0,
+        ASTTypeChecker::from_modules_container(&container, ASTTypeCheckerEvaluationKind::Strict).0,
         &catalog,
         &container,
         false,

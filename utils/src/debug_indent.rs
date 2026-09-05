@@ -11,7 +11,7 @@ pub static mut ENABLE_LOG_STDOUT: bool = false;
 thread_local! {
     pub static ENABLE_LOG: RefCell<bool> = RefCell::new(true);
     pub static INDENT : RefCell<usize> = RefCell::new(0);
-    pub static FILE : RefCell<LogFile> = RefCell::new(LogFile::new(File::create("debug.log.xml").expect("Unable to create file")));
+    pub static LOG_FILE : RefCell<LogFile> = RefCell::new(LogFile::new(File::create("debug.log.xml").expect("Unable to create file")));
 }
 
 pub struct LogFile {
@@ -66,10 +66,8 @@ impl LogFile {
             .write_all(b"\n")
             .expect("Unable to write to file");
     }
-}
 
-impl Drop for LogFile {
-    fn drop(&mut self) {
+    fn flush(&mut self) {
         INDENT.with(|indent| {
             let size = *indent.borrow();
             for _ in 0..size {
@@ -93,6 +91,12 @@ impl Drop for LogFile {
         // Ensure all data is flushed to disk.
         self.writer.get_mut().flush().ok();
         println!("Debug log written to debug.log.xml");
+    }
+}
+
+impl Drop for LogFile {
+    fn drop(&mut self) {
+        self.flush();
     }
 }
 
@@ -141,19 +145,19 @@ fn sanitize_for_xml(s: &str) -> String {
 }
 
 pub fn write_to_log(message: &str) {
-    FILE.with(|file| {
+    LOG_FILE.with(|file| {
         file.borrow_mut().write(message);
     });
 }
 
 pub fn indent_to_log() {
-    FILE.with(|file| {
+    LOG_FILE.with(|file| {
         file.borrow_mut().indent();
     });
 }
 
 pub fn dedent_to_log() {
-    FILE.with(|file| {
+    LOG_FILE.with(|file| {
         let mut log_file = file.borrow_mut();
         log_file
             .writer
