@@ -15,7 +15,8 @@ pub fn sdlPollEvent() -> Option<SDLEvent> /{
         je     .keyEvent
         cmp     eax, 769        ; keyUp
         je     .keyEvent
-        jmp    .noEvent
+        $call(sdlPollEvent)
+        jmp    .end
 .keyEvent:
             movzx ecx, word [ebx + 24]   ; zero-extend byte to EAX (32-bit)
             $call(SDLKeysym, [ebx + 16], [ebx + 20], ecx);

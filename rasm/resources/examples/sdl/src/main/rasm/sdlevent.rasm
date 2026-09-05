@@ -11,3 +11,15 @@ pub enum SDLEvent {
     SDLKeyboardEvent(timestamp: int, windowID: int, state: int, repeat: bool, keysym: SDLKeysym),
     SDLQuitEvent(timestamp: int)
 }
+
+pub fn sdlPollEvents() -> Vec<SDLEvent> {
+    sdlPollEvents(Vec())
+}
+
+fn sdlPollEvents(events: Vec<SDLEvent>) -> Vec<SDLEvent> {
+    sdlPollEvent()
+        .match(fn(event) {
+                sdlPollEvents(events.push(event))
+            }, { events }
+        )
+}

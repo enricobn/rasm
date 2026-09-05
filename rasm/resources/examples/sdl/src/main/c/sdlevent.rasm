@@ -14,7 +14,7 @@ pub fn sdlPollEvent() -> Option<SDLEvent> /{
             struct RasmPointer_ *quitEvent = $call(SDLQuitEvent, event.quit.timestamp);
             return $call(Some, quitEvent: SDLEvent);
         } else {
-            return $enumSimple(None);
+            return $call(sdlPollEvent);
         }
     } else {
         return $enumSimple(None);
