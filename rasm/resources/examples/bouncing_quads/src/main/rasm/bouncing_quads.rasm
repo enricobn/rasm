@@ -58,7 +58,7 @@ initRandom()
 if(sdlInit().eq(0).not, { panic("Error initializing SDL: ".add(sdlGetError())) }, { })
 if(ttfInit().eq(0).not, { panic("Error initializing SDL TTF: ".add(sdlGetError())) }, { })
 
-let font = ttfOpenFont(resource("DejaVuSerif.ttf"), 16)
+ttfOpenFont(resource("DejaVuSerif.ttf"), 16)
 .match(fn(font) {
     let quads = vecRange(0, QUADS)
         .map(fn(it) {
@@ -143,21 +143,13 @@ fn subscriptions() -> Vec<Message> {
 */
 
 fn subscriptions() -> Vec<Message> {
-    let sdlEvents = sdlPollEvents(Vec())
+    let sdlEvents = sdlPollEvents()
     if (sdlEvents.len.eq(0), 
         {
             vecOf(Tick())
         }, 
         {
-            // println(sdlEvents.len);
             sdlEvents.map(EventMessage)
         }
     )
-}
-
-fn sdlPollEvents(events: Vec<SDLEvent>) -> Vec<SDLEvent> {
-    let result = sdlPollEvent().match(fn(event) {
-        sdlPollEvents(events.push(event))
-    }, { events })
-    result
 }
