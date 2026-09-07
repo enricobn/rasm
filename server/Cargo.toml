@@ -20,4 +20,4 @@ walkdir.workspace = true
 
 # others
 axum = "0.6"
-tokio = { version = "1.37.0", features = ["full"] }
+tokio = { version = "1.53.1", features = ["full"] }
