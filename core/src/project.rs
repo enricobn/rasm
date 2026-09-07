@@ -378,6 +378,55 @@ impl RasmProject {
         let mut errors = Vec::new();
         let mut pairs = Vec::new();
 
+        let log_enabled = log_enabled();
+
+        if add_dependencies {
+            let dependencies = self.dependencies_projects();
+            let mut modules = dependencies
+                //.iter() // HENRY
+                .par_iter()
+                .map(|dependency| {
+                    enable_log(log_enabled);
+                    //info!("including dependency {}", dependency.config.package.name);
+                    //TODO include tests?
+
+                    let mut dep_modules = if let Some(source_folder) =
+                        dependency.rasm_source_folder(&RasmSubProject::main())
+                    {
+                        dependency.get_modules(
+                            source_folder,
+                            target,
+                            &RasmSubProject::main(),
+                            false,
+                        )
+                    } else {
+                        warn!("no source folder for {}", dependency.config.package.name);
+                        Vec::new()
+                    };
+
+                    if let Some(native_source_folder) =
+                        dependency.native_source_folder(&RasmSubProject::main(), target.folder())
+                    {
+                        if native_source_folder.exists() {
+                            dep_modules.extend(dependency.get_modules(
+                                native_source_folder,
+                                target,
+                                &RasmSubProject::main(),
+                                false,
+                            ));
+                        }
+                    }
+                    (dependency.config().package.name.clone(), dep_modules)
+                })
+                .collect::<HashMap<_, _>>();
+
+            for name in dependencies.iter().map(|it| it.config.package.name.clone()) {
+                info!("including dependency {name}");
+                let project_modules = modules.remove(&name).unwrap();
+                pairs.push(project_modules);
+            }
+        }
+
         if let Some(rasm_source_folder) = self.rasm_source_folder(sub_project) {
             pairs.push(self.get_modules(
                 rasm_source_folder,
@@ -389,61 +438,6 @@ impl RasmProject {
 
         if let Some(native_folder) = self.native_source_folder(sub_project, target.folder()) {
             pairs.push(self.get_modules(native_folder, target, sub_project, could_have_main_body));
-        }
-
-        /*
-        if profile != &RasmProfile::Main {
-            if let Some(native_folder) =
-                self.native_source_folder(&RasmProfile::Main, target.folder())
-            {
-                pairs.push(self.get_modules(native_folder, target, profile));
-            }
-        }
-        */
-
-        let log_enabled = log_enabled();
-
-        if add_dependencies {
-            pairs.append(
-                &mut self
-                    .dependencies_projects()
-                    //.into_iter() // HENRY
-                    .into_par_iter()
-                    .map(|dependency| {
-                        enable_log(log_enabled);
-                        info!("including dependency {}", dependency.config.package.name);
-                        //TODO include tests?
-
-                        let mut dep_modules = if let Some(source_folder) =
-                            dependency.rasm_source_folder(&RasmSubProject::main())
-                        {
-                            dependency.get_modules(
-                                source_folder,
-                                target,
-                                &RasmSubProject::main(),
-                                false,
-                            )
-                        } else {
-                            println!("no source folder for {}", dependency.config.package.name);
-                            Vec::new()
-                        };
-
-                        if let Some(native_source_folder) = dependency
-                            .native_source_folder(&RasmSubProject::main(), target.folder())
-                        {
-                            if native_source_folder.exists() {
-                                dep_modules.extend(dependency.get_modules(
-                                    native_source_folder,
-                                    target,
-                                    &RasmSubProject::main(),
-                                    false,
-                                ));
-                            }
-                        }
-                        dep_modules
-                    })
-                    .collect::<Vec<_>>(),
-            );
         }
 
         pairs
@@ -763,10 +757,12 @@ impl RasmProject {
                     format!("{}_{}", sub_project.safe_name(), relative_path)
                 },
             );
+            /*
             info!(
                 "including file {} namespace {namespace}",
                 path.to_str().unwrap()
             );
+            */
 
             let (entry_module, mut module_errors) =
                 self.module_from_file(&path.canonicalize().unwrap());
@@ -990,18 +986,123 @@ impl RasmProject {
 
         let rows = self.all_possible_dependencies(&package_manager).unwrap();
 
-        let mut result = Vec::new();
-
         if rows.is_empty() {
             warn!("No dependencies found");
-            return result;
+            return Vec::new();
         }
-        for (lib, version) in rows.last().unwrap() {
+
+        let last_row: &BTreeMap<String, Version> = rows.last().unwrap();
+
+        let sorted = self.sorted_dependencies_with_pm(last_row, &package_manager);
+
+        let mut result = Vec::new();
+        for (lib, version) in sorted {
             let project = package_manager.get_package(&lib, &version).unwrap();
             result.push(project);
         }
 
         result
+    }
+
+    /// Sort dependencies topologically so that dependencies come before dependents.
+    /// For example if c depends on b and b depends on a, with input c,b,a the result is a,b,c.
+    /// Uses DFS; panics on circular dependencies.
+    /// This is the primary API – it builds its own package manager.
+    /// It accepts `&BTreeMap` (a `&mut BTreeMap` will coerce to `&BTreeMap` automatically).
+    pub fn sorted_dependencies(
+        &self,
+        dependencies: &BTreeMap<String, Version>,
+    ) -> Vec<(String, Version)> {
+        let pm = self.package_manager();
+        self.sorted_dependencies_with_pm(dependencies, &pm)
+    }
+
+    /// Helper that sorts using an explicit package manager (useful for tests / internal callers).
+    /// Dependencies are sorted topologically, but **not** in insertion order.
+    fn sorted_dependencies_with_pm(
+        &self,
+        dependencies: &BTreeMap<String, Version>,
+        package_manager: &dyn PackageManager,
+    ) -> Vec<(String, Version)> {
+        use std::collections::HashSet;
+
+        let mut result = Vec::new();
+        let mut visited = HashSet::new();
+        let mut temp = HashSet::new();
+
+        fn visit(
+            name: &str,
+            version: &Version,
+            dependencies: &BTreeMap<String, Version>,
+            package_manager: &dyn PackageManager,
+            visited: &mut HashSet<String>,
+            temp: &mut HashSet<String>,
+            result: &mut Vec<(String, Version)>,
+        ) {
+            if visited.contains(name) {
+                return;
+            }
+            if !temp.insert(name.to_owned()) {
+                panic!("circular dependency detected involving {}", name);
+            }
+
+            if let Some(project) = package_manager.get_package(name, version) {
+                if let Ok(deps) = project.dependencies() {
+                    // Sort dep names to have deterministic order for independent branches
+                    let mut dep_names: Vec<_> = deps.keys().cloned().collect();
+                    dep_names.sort();
+                    for dep_name in dep_names {
+                        if let Some(dep_version) = dependencies.get(&dep_name) {
+                            visit(
+                                &dep_name,
+                                dep_version,
+                                dependencies,
+                                package_manager,
+                                visited,
+                                temp,
+                                result,
+                            );
+                        }
+                    }
+                }
+            }
+
+            temp.remove(name);
+            visited.insert(name.to_owned());
+            result.push((name.to_owned(), version.clone()));
+        }
+
+        // Iterate in BTreeMap order for determinism; independent nodes keep alphabetical order
+        for (name, version) in dependencies.iter() {
+            visit(
+                name,
+                version,
+                dependencies,
+                package_manager,
+                &mut visited,
+                &mut temp,
+                &mut result,
+            );
+        }
+
+        result
+    }
+
+    /// Compatibility shim for the original stub `fn sorted_dependencies(&self, dependencies: &mut BTreeMap<...>)`.
+    /// It sorts topologically and **mutates the map in place** by re-inserting in sorted order.
+    /// Note: `BTreeMap` iteration is always key-sorted, so the topological order is not visible
+    /// via `BTreeMap::iter()` – callers should use the returned `Vec` or `sorted_dependencies`.
+    /// This shim is kept so existing call sites with `&mut BTreeMap` continue to compile.
+    #[allow(dead_code)]
+    pub fn sorted_dependencies_mut(&self, dependencies: &mut BTreeMap<String, Version>) {
+        let sorted = self.sorted_dependencies(dependencies);
+        // Re-insert in sorted order to preserve insertion order for `LinkedHashMap`-like use,
+        // but for `BTreeMap` this has no effect on iteration order – the sorted Vec is the source of truth.
+        let sorted_clone = sorted.clone();
+        dependencies.clear();
+        for (k, v) in sorted_clone {
+            dependencies.insert(k, v);
+        }
     }
 
     pub fn content_from_file(&self, file: &PathBuf) -> std::io::Result<String> {
@@ -1411,5 +1512,88 @@ mod tests {
             from_file: false,
             in_memory_files: LinkedHashMap::new(),
         }
+    }
+
+    #[test]
+    fn test_sorted_dependencies_chain() {
+        // c depends on b, b depends on a => sorted should be a,b,c even if input is c,b,a
+        let mut projects = HashMap::new();
+        projects.insert("a".to_owned(), vec![test_project("a", "1.0.0", vec![])]);
+        projects.insert(
+            "b".to_owned(),
+            vec![test_project("b", "1.0.0", vec![("a", "1.0")])],
+        );
+        projects.insert(
+            "c".to_owned(),
+            vec![test_project("c", "1.0.0", vec![("b", "1.0")])],
+        );
+        let pm = PackageManagerMock { projects };
+
+        // Create a dummy project to call the helper that uses explicit PM
+        let dummy = test_project("dummy", "1.0.0", vec![]);
+        let mut deps = std::collections::BTreeMap::new();
+        deps.insert("c".to_owned(), Version::parse("1.0.0").unwrap());
+        deps.insert("b".to_owned(), Version::parse("1.0.0").unwrap());
+        deps.insert("a".to_owned(), Version::parse("1.0.0").unwrap());
+
+        let sorted = dummy.sorted_dependencies_with_pm(&deps, &pm);
+        let order: Vec<_> = sorted.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(order, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn test_sorted_dependencies_diamond() {
+        // d depends on b,c; b and c depend on a => a before b,c before d
+        let mut projects = HashMap::new();
+        projects.insert("a".to_owned(), vec![test_project("a", "1.0.0", vec![])]);
+        projects.insert(
+            "b".to_owned(),
+            vec![test_project("b", "1.0.0", vec![("a", "1.0")])],
+        );
+        projects.insert(
+            "c".to_owned(),
+            vec![test_project("c", "1.0.0", vec![("a", "1.0")])],
+        );
+        projects.insert(
+            "d".to_owned(),
+            vec![test_project("d", "1.0.0", vec![("b", "1.0"), ("c", "1.0")])],
+        );
+        let pm = PackageManagerMock { projects };
+        let dummy = test_project("dummy", "1.0.0", vec![]);
+        let mut deps = std::collections::BTreeMap::new();
+        deps.insert("d".to_owned(), Version::parse("1.0.0").unwrap());
+        deps.insert("c".to_owned(), Version::parse("1.0.0").unwrap());
+        deps.insert("b".to_owned(), Version::parse("1.0.0").unwrap());
+        deps.insert("a".to_owned(), Version::parse("1.0.0").unwrap());
+
+        let sorted = dummy.sorted_dependencies_with_pm(&deps, &pm);
+        let order: Vec<_> = sorted.iter().map(|(k, _)| k.as_str()).collect();
+        // a must be first, d last, b and c in middle (deterministic alphabetical b before c)
+        assert_eq!(order[0], "a");
+        assert_eq!(order[3], "d");
+        assert!(
+            order.iter().position(|x| *x == "b").unwrap()
+                < order.iter().position(|x| *x == "d").unwrap()
+        );
+        assert!(
+            order.iter().position(|x| *x == "c").unwrap()
+                < order.iter().position(|x| *x == "d").unwrap()
+        );
+        assert_eq!(order, vec!["a", "b", "c", "d"]);
+    }
+
+    #[test]
+    fn test_sorted_dependencies_independent() {
+        let projects = HashMap::new();
+        let pm = PackageManagerMock { projects };
+        let dummy = test_project("dummy", "1.0.0", vec![]);
+        let mut deps = std::collections::BTreeMap::new();
+        deps.insert("z".to_owned(), Version::parse("1.0.0").unwrap());
+        deps.insert("m".to_owned(), Version::parse("1.0.0").unwrap());
+        deps.insert("a".to_owned(), Version::parse("1.0.0").unwrap());
+        let sorted = dummy.sorted_dependencies_with_pm(&deps, &pm);
+        let order: Vec<_> = sorted.iter().map(|(k, _)| k.as_str()).collect();
+        // independent nodes keep BTreeMap (alphabetical) order
+        assert_eq!(order, vec!["a", "m", "z"]);
     }
 }

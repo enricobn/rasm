@@ -5,6 +5,7 @@ use std::{
 };
 
 use itertools::Itertools;
+use linked_hash_map::LinkedHashMap;
 use rasm_utils::{OptionDisplay, SliceDisplay, debug_i, find_one};
 
 use rasm_parser::{
@@ -131,7 +132,7 @@ pub struct ASTModulesContainer {
     type_defs: HashMap<String, Vec<(ModuleInfo, ASTTypeDef)>>,
     signatures: HashMap<String, Vec<ASTFunctionSignatureEntry>>,
     readonly_modules: HashSet<ModuleId>,
-    modules: HashMap<ModuleId, (ASTModule, ModuleNamespace)>,
+    modules: LinkedHashMap<ModuleId, (ASTModule, ModuleNamespace)>,
     trees: HashMap<ModuleId, ASTModuleTree>,
 }
 
@@ -143,7 +144,7 @@ impl ASTModulesContainer {
             type_defs: HashMap::new(),
             signatures: HashMap::new(),
             readonly_modules: HashSet::new(),
-            modules: HashMap::new(),
+            modules: LinkedHashMap::new(),
             trees: HashMap::new(),
         }
     }
@@ -686,13 +687,13 @@ impl ASTModulesContainer {
     }
 
     pub fn remove_body(&mut self) {
-        for (module, _) in self.modules.values_mut() {
+        for (_, (module, _)) in self.modules.iter_mut() {
             module.body.clear();
         }
     }
 
     pub fn remove_body_except_const(&mut self) {
-        for (module, _) in self.modules.values_mut() {
+        for (_, (module, _)) in self.modules.iter_mut() {
             module
                 .body
                 .retain(|s| matches!(s, ASTStatement::ASTConstStatement(_, _, _, _)));

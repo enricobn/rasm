@@ -2976,6 +2976,11 @@ mod tests {
     }
 
     #[test]
+    fn test_bouncing_quads() {
+        check_project("../rasm/resources/examples/bouncing_quads");
+    }
+
+    #[test]
     fn test_let1() {
         check_project("../rasm/resources/test/let1.rasm");
     }
