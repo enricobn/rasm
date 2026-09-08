@@ -4,17 +4,9 @@ Doing
 
 Bug
 ----
-- the IDEHelper (via ast_type_checker) does not detect an error in:
- ...
- notExistingSymbol
- ...
-
- but it detects the error in:
- ...
- notExistingSymbol()
- ...
 - in IDEHelper (via ast_type_checker), if there's an error inside a block of code, it is not able to detect
-  type types, the autocompletion and so on, even of parts of the block that are not affected by that error
+  type types, the autocompletion and so on, even about parts of the block that are not affected by that error
+  (partially done)
 - in stdlib, if.rasm, look at the TODO
 - consts are not reliable: if a const is defined with a function call, that uses a const that is defined after, 
   then it will compile, but it will crash at runtime!!! Add a verify or sort them by dependency

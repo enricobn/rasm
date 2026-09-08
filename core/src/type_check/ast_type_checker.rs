@@ -774,16 +774,47 @@ impl<'a> ASTTypeChecker<'a> {
                         */
                         return_type = entry;
                     } else {
-                        self.add_expr(
-                            e,
-                            inner_val_context,
-                            statics,
-                            None,
-                            module_namespace,
-                            module_id,
-                            modules_container,
-                            function,
-                        );
+                        let is_unit = if matches!(e, ASTExpression::ASTFunctionCallExpression(_)) {
+                            if let Some(entry) = self.add_expr(
+                                e,
+                                inner_val_context,
+                                statics,
+                                None,
+                                module_namespace,
+                                module_id,
+                                modules_container,
+                                function,
+                            ) {
+                                if let Some(t) = entry.exact_type() {
+                                    t.0.is_unit()
+                                } else {
+                                    true
+                                }
+                            } else {
+                                true
+                            }
+                        } else {
+                            false
+                        };
+
+                        if !is_unit {
+                            let index = ASTIndex::new(
+                                module_namespace.clone(),
+                                module_id.clone(),
+                                e.position().clone(),
+                            );
+                            self.add_error(
+                                ASTTypeCheckErroKind::Fatal,
+                                index.clone(),
+                                "Not unit expression".to_owned(),
+                            );
+                            errors.push(ASTTypeCheckError::new(
+                                ASTTypeCheckErroKind::Fatal,
+                                index,
+                                "Not unit expression".to_owned(),
+                            ));
+                            break;
+                        }
                     }
 
                     if let Some(error) = self.errors.get(&e.position().id) {
@@ -1075,6 +1106,10 @@ impl<'a> ASTTypeChecker<'a> {
             "add_value_ref_expr {name} expected {}",
             OptionDisplay(&expected_expression_type)
         );
+
+        if name == "unknownSymbol" {
+            println!("unknownSymbol");
+        }
         let module_namespace = index.module_namespace();
         let module_id = index.module_id();
         if let Some(kind) = val_context.get(name, module_namespace) {
@@ -3643,6 +3678,54 @@ mod tests {
             last_error(&fatal_errors.iter().last().unwrap().1)
                 .message
                 .starts_with("no functions for scorre,")
+        );
+    }
+
+    #[test]
+    fn test_type_check_13() {
+        let (checker, _, _, _) = check_project_with_profile(
+            "resources/test/ast_type_checker/ast_type_checker13.rasm",
+            &RasmProfile::Main,
+            true,
+            ASTTypeCheckerEvaluationKind::Strict,
+        );
+
+        let fatal_errors = checker
+            .errors()
+            .iter()
+            .filter(|(_, error)| error.kind == ASTTypeCheckErroKind::Fatal)
+            .collect_vec();
+
+        assert_eq!(fatal_errors.len(), 1);
+
+        assert!(
+            last_error(&fatal_errors.iter().last().unwrap().1)
+                .message
+                .starts_with("Not unit expression")
+        );
+    }
+
+    #[test]
+    fn test_type_check_14() {
+        let (checker, _, _, _) = check_project_with_profile(
+            "resources/test/ast_type_checker/ast_type_checker14.rasm",
+            &RasmProfile::Main,
+            true,
+            ASTTypeCheckerEvaluationKind::Strict,
+        );
+
+        let fatal_errors = checker
+            .errors()
+            .iter()
+            .filter(|(_, error)| error.kind == ASTTypeCheckErroKind::Fatal)
+            .collect_vec();
+
+        assert_eq!(fatal_errors.len(), 1);
+
+        assert!(
+            last_error(&fatal_errors.iter().last().unwrap().1)
+                .message
+                .starts_with("Not unit expression")
         );
     }
 
