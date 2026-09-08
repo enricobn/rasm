@@ -21,7 +21,7 @@ use crate::{
     type_check::ast_modules_container::ASTModulesContainer,
 };
 
-const ID: AtomicUsize = AtomicUsize::new(0);
+static ID: AtomicUsize = AtomicUsize::new(0);
 
 /// Creates a new module from a macro call extractor, with a function for each macro call and a body
 /// that gets a number as an argument, that is the macro id, then calls the related function and
