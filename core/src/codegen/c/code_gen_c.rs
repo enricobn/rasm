@@ -1317,6 +1317,7 @@ impl<'a> CodeGen<'a, Box<CFunctionCallParameters>, CodeGenCContext, COptions> fo
             &mut before,
             vec![
                 "    initRasmReferences();",
+                "    rasm_init_stack_overflow_handler();",
                 "    argc_ = argc;",
                 "    argv_ = argv;",
             ],
