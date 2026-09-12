@@ -1,7 +1,8 @@
 pub fn toString(c: char) -> str /{
-    void *buf = malloc(5);
+    struct RasmPointer_ *b = rasmMalloc(5);
+    void *buf = b->address;
     uint32_to_utf8_str(c, (char*)buf, 5);
-    return addStaticStringToHeap(buf);
+    return b;
 }/
 
 pub fn isAlpha(c: char) -> bool /{
