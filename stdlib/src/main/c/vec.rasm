@@ -168,6 +168,7 @@ pub fn toVec<T>(iter: Iter<T>) -> Vec<T> /{
 
                 memcpy(newResult_vec->values->address, result_vec->values->address, (size - chunkSize) * t_size);
 
+                result_vec->length = i;
                 $deref(result:Vec<T>);
 
                 result = newResult;
@@ -185,9 +186,8 @@ pub fn toVec<T>(iter: Iter<T>) -> Vec<T> /{
         }
     }
     $deref(iter_:Iter<T>)
+    ((struct Vector*)result->address)->length = i;
     $deref(result:Vec<T>);
-    struct Vector *result_vec = (struct Vector*)result->address;
-    result_vec->length = i;
     return result;
 }/
 
