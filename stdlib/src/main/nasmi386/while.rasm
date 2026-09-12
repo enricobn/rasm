@@ -1,0 +1,6 @@
+pub fn while<CTX>(ctx: CTX, f: fn(CTX) -> Option<CTX>) -> CTX {
+    f(ctx).match(
+        fn(newCtx) { while(newCtx, f) },
+        { ctx }
+    )
+}

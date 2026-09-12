@@ -1,0 +1,22 @@
+pub fn while<CTX>(ctx: CTX, f: fn(CTX) -> Option<CTX>) -> CTX /{
+    $realTypeName(CTX) current = $ctx;
+    while (1) {
+        struct RasmPointer_ *opt = $castAddress($f)->functionPtr(current, $f);
+        $addRef(opt:Option<CTX>)
+        struct Enum *e = (struct Enum *) opt->address;
+        if (e->variant_num == 0) {
+            $enumVariant(some, Some, opt:Option<CTX>)
+            $realTypeName(CTX) next = some->value;
+            $addRef(next:CTX)
+            $isRef(CTX, "", "/*")
+                $deref(current:CTX)
+            $isRef(CTX, "", "*/")
+            current = next;
+            $deref(opt:Option<CTX>)
+        } else {
+            $deref(opt:Option<CTX>)
+            break;
+        }
+    }
+    return current;
+}/
