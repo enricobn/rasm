@@ -102,7 +102,7 @@ pub fn vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T) -> Vec<T> /{
 
 
 pub fn vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T) -> Vec<T> /{
-    $call(rasmalloc, 24, " for vecOf 6")
+    $call(rasmalloc, 28, " for vecOf 6")
     push    eax
     mov     dword eax, [eax]
     mov     dword [eax], 6
@@ -133,7 +133,7 @@ pub fn vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T) -> Vec<T> /{
 
 
 pub fn vecOf<T>(v1: T, v2: T, v3: T, v4: T, v5: T, v6: T, v7: T) -> Vec<T> /{
-    $call(rasmalloc, 24, " for vecOf 7")
+    $call(rasmalloc, 32, " for vecOf 7")
     push    eax
     mov     dword eax, [eax]
     mov     dword [eax], 7
