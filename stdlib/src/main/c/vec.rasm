@@ -127,13 +127,16 @@ pub fn vecOf<T>(o: T) -> Vec<T> /{
 }/
 
 pub fn toVec<T>(iter: Iter<T>) -> Vec<T> /{
+    $include(<string.h>)
     long chunkSize = 50;
     size_t t_size = sizeof($realTypeName(T));
     struct RasmPointer_ *result = $call(Vec,chunkSize,t_size:int);
     long size = chunkSize;
     addRef(result);
+    struct Vector *init_vec = (struct Vector*)result->address;
+    addRef(init_vec->values);
     struct RasmPointer_ *iter_ = $iter;
-    // $addRef(iter_:Iter<T>)
+    $addRef(iter_:Iter<T>)
     long i = 0;
     while (1) {
         struct RasmPointer_ *optValue = $call(callNext, iter_:Iter<T>);
@@ -143,20 +146,29 @@ pub fn toVec<T>(iter: Iter<T>) -> Vec<T> /{
             $enumVariant(s,Some,optValue:Option<IterValue<T>>)
             struct RasmPointer_ *iterValue = s->value;
             struct RasmPointer_ *tmp_iter = $call(next, iterValue:IterValue<T>);
-            // $deref(iter_:Iter<T>)
+            $deref(iter_:Iter<T>)
             iter_ = tmp_iter;
-            // $addRef(iter_:Iter<T>)
+            $addRef(iter_:Iter<T>)
             if (i == size) {
                 size += chunkSize;
                 struct RasmPointer_ *newResult = $call(Vec,size,t_size:int);
                 addRef(newResult);
+                struct Vector *newResult_tmp = (struct Vector*)newResult->address;
+                addRef(newResult_tmp->values);
 
                 struct Vector *result_vec = (struct Vector*)result->address;
                 struct Vector *newResult_vec = (struct Vector*)newResult->address;
 
+                $isRef(T, "", "/*")
+                    $realTypeName(T) *old_array = ($realTypeName(T) *)result_vec->values->address;
+                    for (int j = 0; j < i; j++) {
+                        $addRef(old_array[j]: T)
+                    }
+                $isRef(T, "", "*/")
+
                 memcpy(newResult_vec->values->address, result_vec->values->address, (size - chunkSize) * t_size);
 
-                deref(result);
+                $deref(result:Vec<T>);
 
                 result = newResult;
             }
@@ -166,14 +178,14 @@ pub fn toVec<T>(iter: Iter<T>) -> Vec<T> /{
             result_array[i] = v;
             $addRef(v:T)
             i++;
+            $deref(optValue:Option<IterValue<T>>);
         } else {
+            $deref(optValue:Option<IterValue<T>>);
             break;
         }
-        $deref(optValue:Option<IterValue<T>>);
     }
-    // $deref(iter_:Iter<T>)
-    //$deref(result:Vec<T>);
-    deref(result);
+    $deref(iter_:Iter<T>)
+    $deref(result:Vec<T>);
     struct Vector *result_vec = (struct Vector*)result->address;
     result_vec->length = i;
     return result;
