@@ -75,3 +75,15 @@ pub fn splitToList(s: str, separator: char) -> List<str> {
         { listOf(s)}
     )
 }
+
+
+pub fn iter(s: str) -> Iter<char> {
+    s.iter(0)
+}
+
+fn iter(s: str, i: int) -> Iter<char> {
+    Iter({
+        s.getCharAt(i)
+            .map(fn(c) { IterValue(c, s.iter(s.nextChar(i))) })
+    })
+}

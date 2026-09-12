@@ -124,15 +124,13 @@ pub fn substr(s: str, pos: int, len: int) -> Option<str> /{
     pop ebx
 }/
 
-// TODO I don't like it as public, but it's used in print, probably we need a pub(lib) option
 /**
  *  returns the offset (in bytes, not chars) of the next char
  *  given an offset from the start of the string.
  *  Returns 0 if it's the end of the string.
  *  TODO handle beyond the end of the string.
- *  It is used to handle UTF-8 encoding
  **/
-pub fn nextChar(s: str, offset: int) -> int /{
+internal fn nextChar(s: str, offset: int) -> int /{
 
     push    ebx
     push    ecx
@@ -301,5 +299,92 @@ pub fn isNumber(c: char) -> bool /{
     jg      .end
     mov     dword eax,1
 .end:
+    pop     ebx
+}/
+
+/**
+ * string len in bytes
+ */
+internal fn byteLen(s: str) -> int /{
+    $call(slen, $s)
+}/
+
+/**
+ * get the char at precise byte position
+ */
+internal fn getCharAt(s: str, pos: int) -> Option<char> /{
+    push    ebx
+    push    ecx
+    push    edx
+    mov     dword ebx, $s
+    mov     dword ebx, [ebx]
+    add     ebx, $pos
+    cmp     byte [ebx], 0
+    je      .none
+    xor     eax, eax
+    xor     ecx, ecx
+    movzx   ecx, byte [ebx]
+    cmp     ecx, 0x80
+    jb      .ascii
+    movzx   eax, byte [ebx]
+    and     eax, 0xE0
+    cmp     eax, 0xC0
+    je      .two
+    movzx   eax, byte [ebx]
+    and     eax, 0xF0
+    cmp     eax, 0xE0
+    je      .three
+    movzx   eax, byte [ebx]
+    and     eax, 0xF8
+    cmp     eax, 0xF0
+    je      .four
+    jmp     .none
+.ascii:
+    movzx   eax, byte [ebx]
+    jmp     .some
+.two:
+    movzx   eax, byte [ebx]
+    and     eax, 0x1F
+    shl     eax, 6
+    movzx   ecx, byte [ebx+1]
+    and     ecx, 0x3F
+    or      eax, ecx
+    jmp     .some
+.three:
+    movzx   eax, byte [ebx]
+    and     eax, 0x0F
+    shl     eax, 12
+    movzx   ecx, byte [ebx+1]
+    and     ecx, 0x3F
+    shl     ecx, 6
+    or      eax, ecx
+    movzx   ecx, byte [ebx+2]
+    and     ecx, 0x3F
+    or      eax, ecx
+    jmp     .some
+.four:
+    movzx   eax, byte [ebx]
+    and     eax, 0x07
+    shl     eax, 18
+    movzx   ecx, byte [ebx+1]
+    and     ecx, 0x3F
+    shl     ecx, 12
+    or      eax, ecx
+    movzx   ecx, byte [ebx+2]
+    and     ecx, 0x3F
+    shl     ecx, 6
+    or      eax, ecx
+    movzx   ecx, byte [ebx+3]
+    and     ecx, 0x3F
+    or      eax, ecx
+    jmp     .some
+.none:
+    mov     dword eax, [_enum_stdlib_option_Option_None]
+    jmp     .end
+.some:
+    $call(Some, eax)
+.end:
+    pop     edx
+    pop     ecx
     pop     ebx
 }/

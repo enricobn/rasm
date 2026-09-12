@@ -1,5 +1,6 @@
 let suite = TestSuite("All")
     .add(vecSuite())
     .add(jsonSuite())
+    .add(strSuite())
 
 suite.run(argv(1))

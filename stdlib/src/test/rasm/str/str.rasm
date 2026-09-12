@@ -1,6 +1,7 @@
 pub fn strSuite() -> TestSuite {
     TestSuite("str")
     .add("substr", substr)
+    .add("iter", iter)
 }
 
 fn substr() -> Assertions {
@@ -8,4 +9,11 @@ fn substr() -> Assertions {
     .assertEquals(Some("12"), "012345".substr(1, 2))
     .assertEquals(Some("45"), "012345".substr(4, 2))
     .assertEquals(Some("123.456"), "-123.456".substr(1, 7))
+}
+
+fn iter() -> Assertions {
+    let i = "Hello".iter
+
+    Assertions()
+    .assertEquals(vecOf('H', 'e', 'l', 'l', 'o'), i.toVec)
 }

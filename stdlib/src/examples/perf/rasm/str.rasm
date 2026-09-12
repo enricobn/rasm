@@ -1,0 +1,16 @@
+pub fn strSuite() -> TestSuite {
+    TestSuite("str")
+    .add("iter", iter)
+}
+
+fn iter() -> Assertions {
+    let assertions = Assertions()    
+
+    readFile(fromRasmSourceFolder("examples/perf/resources/big.json"))
+    .match(
+        fn(ok) { 
+            let i = ok.iter
+            assertions.assertEquals(17552, i.toVec.len)
+         }, 
+        fn(err) { assertions.fail(err.toString) })
+}

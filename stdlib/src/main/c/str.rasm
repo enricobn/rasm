@@ -108,11 +108,74 @@ pub fn len(s: str) -> int /{
           i += 4;
           count += 1;
         } else {
+            // TODO handle error?
            printf( "Unrecognized lead byte (%02x)\n", lb );
            return -1;
        }
     }
     return count;
+}/
+
+/**
+ * string len in bytes
+ */
+internal fn byteLen(s: str) -> int /{
+    $include(<string.h>)
+    char* s_ = (char *)$s->address;
+    return strlen(s_);
+}/
+
+/**
+ *  returns the offset (in bytes, not chars) of the next char
+ *  given an offset from the start of the string.
+ *  Returns 0 if it's the end of the string.
+ *  TODO handle beyond the end of the string.
+ **/
+internal fn nextChar(s: str, offset: int) -> int /{
+    $include(<string.h>)
+    char* s_ = (char *)$s->address;
+    unsigned char c = (unsigned char)s_[offset];
+    if (c == 0) return 0;
+    if ((c & 0x80) == 0) return offset + 1;
+    if ((c & 0xE0) == 0xC0) return offset + 2;
+    if ((c & 0xF0) == 0xE0) return offset + 3;
+    if ((c & 0xF8) == 0xF0) return offset + 4;
+    return offset + 1;
+}/
+
+/**
+ * get the char at precise byte position
+ */
+internal fn getCharAt(s: str, pos: int) -> Option<char> /{
+    $include(<string.h>)
+    char* s_ = (char *)$s->address;
+    int len = strlen(s_);
+    if (pos < 0 || pos >= len) {
+        return $enumSimple(None);
+    }
+    unsigned char b = (unsigned char)s_[pos];
+    uint32_t c;
+    if (b < 0x80) {
+        c = b;
+    } else if ((b & 0xE0) == 0xC0) {
+        if (pos+1 >= len) return $enumSimple(None);
+        c = (b & 0x1F) << 6;
+        c |= ((unsigned char)s_[pos+1] & 0x3F);
+    } else if ((b & 0xF0) == 0xE0) {
+        if (pos+2 >= len) return $enumSimple(None);
+        c = (b & 0x0F) << 12;
+        c |= (((unsigned char)s_[pos+1] & 0x3F) << 6);
+        c |= ((unsigned char)s_[pos+2] & 0x3F);
+    } else if ((b & 0xF8) == 0xF0) {
+        if (pos+3 >= len) return $enumSimple(None);
+        c = (b & 0x07) << 18;
+        c |= (((unsigned char)s_[pos+1] & 0x3F) << 12);
+        c |= (((unsigned char)s_[pos+2] & 0x3F) << 6);
+        c |= ((unsigned char)s_[pos+3] & 0x3F);
+    } else {
+        return $enumSimple(None);
+    }
+    return $call(Some, c);
 }/
 
 // from https://stackoverflow.com/questions/2114377/copying-a-part-of-a-string-substring-in-c
