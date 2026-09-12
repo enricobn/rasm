@@ -1,0 +1,25 @@
+@json()
+@toString()
+@eq()
+@fromJson()
+pub struct AStruct<T> {
+    x: int,
+    y: int,
+    v: T
+}
+
+pub fn serdeserSuite() -> TestSuite {
+    TestSuite("serialization and deserialization")
+    .add("serdeser", serdeser)
+}
+
+fn serdeser() -> Assertions {
+    let sVec = vecRange(0, 10000).map(fn(it) { AStruct(it.add(1), 20, 30) } )
+
+    let j = sVec.json
+
+    Vec::fromJson<AStruct<int>>(j)
+    .match(fn(ok) {
+        Assertions().assertEquals(sVec, ok)
+    }, fn(e) { Assertions().fail(e)})
+}

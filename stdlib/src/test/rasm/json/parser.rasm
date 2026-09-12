@@ -7,6 +7,7 @@ pub fn jsonParserSuite() -> TestSuite {
     .add("testIntVecParser", testIntVecParser)
     .add("testAStructVecParser", testAStructVecParser)
     .add("testEnumParser", testEnumParser)
+    .add("testSerdeser", testSerdeser)
 }
 
 fn testStringParser() -> Assertions {
@@ -124,4 +125,17 @@ fn testEnumParser() -> Assertions {
             fn(e) { assertions.fail(e) }
         )
     })
+}
+
+fn testSerdeser() -> Assertions {
+    let assertions = Assertions()
+
+    let sVec = vecRange(0, 10).map(fn(it) { AStruct(it.add(1), 20, 30) } )
+
+    let j = sVec.json
+
+    Vec::fromJson<AStruct<int>>(j)
+    .match(fn(ok) {
+        assertions.assertEquals(sVec, ok)
+    }, fn(e) { assertions.fail(e)})
 }

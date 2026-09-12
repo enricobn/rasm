@@ -44,14 +44,12 @@ fn isSpace(c: char) -> bool {
 }
 
 fn skipSpaces(chars: Vec<char>, index: int) -> int {
-    chars.get(index).match(fn(c) {
-        if(isSpace(c), {
-            skipSpaces(chars, index.add(1))
+    while(index, fn(i) {
+        chars.get(i).match(fn(c) {
+            if(isSpace(c), { Some(i.add(1)) }, { None() })
         }, {
-            index
+            None()
         })
-    }, {
-        index
     })
 }
 
@@ -266,42 +264,52 @@ fn parseArray(chars: Vec<char>, index: int) -> InternalResult {
         if(c.eq(']'), {
             InternalResult::Ok(JsonArray(Vec()), i.add(1))
         }, {
-            parseArrayValues(chars, i, Vec())
+            parseArrayValues(chars, i)
         })
     }, {
         InternalResult::Error("Unterminated array")
     })
 }
 
-fn parseArrayValues(chars: Vec<char>, index: int, values: Vec<JsonValue>) -> InternalResult {
-    parseValue(chars, index).match(
-        fn(value, valueIndex) {
-            let newValues = values.push(value)
-            let j = skipSpaces(chars, valueIndex)
-            chars.get(j).match(fn(c) {
-                if(c.eq(','), {
-                    let k = skipSpaces(chars, j.add(1))
-                    chars.get(k).match(fn(c2) {
-                        if(c2.eq(']'), {
-                            InternalResult::Error("Trailing comma in array")
+
+fn parseArrayValues(chars: Vec<char>, index: int) -> InternalResult {
+    let initial = Pair(None<InternalResult>(), Pair(index, Vec<JsonValue>()))
+    let finalCtx = while(initial, fn(ctx) {
+        ctx.first.match(fn(done) {
+            None()
+        }, {
+            let cur = ctx.second
+            let curIndex = cur.first
+            let curValues = cur.second
+            parseValue(chars, curIndex).match(fn(value, valueIndex) {
+                let newValues = curValues.push(value)
+                let j = skipSpaces(chars, valueIndex)
+                chars.get(j).match(fn(c) {
+                    if(c.eq(','), {
+                        let k = skipSpaces(chars, j.add(1))
+                        chars.get(k).match(fn(c2) {
+                            if(c2.eq(']'), {
+                                Some(Pair(Some(InternalResult::Error("Trailing comma in array")), Pair(k, newValues)))
+                            }, {
+                                Some(Pair(None<InternalResult>(), Pair(k, newValues)))
+                            })
                         }, {
-                            parseArrayValues(chars, k, newValues)
+                            Some(Pair(Some(InternalResult::Error("Unterminated array")), Pair(k, newValues)))
                         })
-                    }, {
-                        InternalResult::Error("Unterminated array")
-                    })
-                }).elseIf(c.eq(']'), {
-                    InternalResult::Ok(JsonArray(newValues), j.add(1))
-                }).else({
-                    InternalResult::Error("Expected ',' or ']' in array")
-                }).call
-            }, {
-                InternalResult::Error("Unterminated array")
+                    }).elseIf(c.eq(']'), {
+                        Some(Pair(Some(InternalResult::Ok(JsonArray(newValues), j.add(1))), Pair(j.add(1), newValues)))
+                    }).else({
+                        Some(Pair(Some(InternalResult::Error("Expected ',' or ']' in array")), Pair(j, newValues)))
+                    }).call
+                }, {
+                    Some(Pair(Some(InternalResult::Error("Unterminated array")), Pair(j, newValues)))
+                })
+            }, fn(e) {
+                Some(Pair(Some(InternalResult::Error(e)), Pair(curIndex, curValues)))
             })
-        },
-        fn(e) {
-            InternalResult::Error(e)
         })
+    })
+    finalCtx.first.match(fn(r) { r }, { InternalResult::Error("Unterminated array") })
 }
 
 fn contains(s: str, c: char) -> bool {
